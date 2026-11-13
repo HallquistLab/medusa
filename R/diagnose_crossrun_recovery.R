@@ -1,9 +1,10 @@
 #' Diagnose amplitude attenuation and event leakage for a frozen inverse
 #'
 #' @param deconvolution Result of deconvolve_crossrun_hrf().
-#' @param events Optional run-named event tables with onset and optional condition
-#'   and duration. Defaults to the HRF training event records. Every record is a
-#'   separate unit-amplitude source, regardless of its condition label.
+#' @param events Optional run-named event tables (or a combined multi-run
+#'   \code{data.frame} with a \code{run_col} column) with onset and optional
+#'   condition and duration. Defaults to the HRF training event records. Every
+#'   record is a separate unit-amplitude source, regardless of its condition label.
 #' @param lags Readout times relative to each event onset, in seconds. Default 0.
 #' @param weights Linear readout weights, default one per lag. For example,
 #'   lags = -1:3 produces a five-sample window sum at TR = 1.
@@ -16,6 +17,8 @@
 #'   resolution matrices, default FALSE.
 #' @param max_events Explicit limit per run on the quadratic diagnostic matrix,
 #'   default 2000. Use a smaller prespecified subset or explicitly raise the limit.
+#' @param run_col Column name in \code{events} identifying runs when \code{events}
+#'   is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.
 #' @return A list with per-event diagnostics, stratum summaries, voxel-to-stratum
 #'   mappings, optional resolution matrices, and the conditional assumptions.
 #' @details For source events B, convolution H, frozen inverse D, and readout S,
@@ -37,7 +40,8 @@
 #'   attenuation and cross-talk. Wiener diagnostics are not supported here.
 #' @export
 diagnose_crossrun_recovery <- function(deconvolution, events = NULL, lags = 0,
-    weights = NULL, source_kernel_grid = NULL, return_matrices = FALSE, max_events = 2000L) {
+    weights = NULL, source_kernel_grid = NULL, return_matrices = FALSE, max_events = 2000L,
+    run_col = "run") {
   fit <- deconvolution$hrf_fit; settings <- deconvolution$settings
   if (!inherits(fit, "crossrun_hrf") || is.null(deconvolution$scaling) ||
       is.null(settings$nuisance_mode)) stop("Use a current deconvolve_crossrun_hrf result")
@@ -48,6 +52,14 @@ diagnose_crossrun_recovery <- function(deconvolution, events = NULL, lags = 0,
   checkmate::assert_flag(return_matrices)
   checkmate::assert_integerish(max_events, lower = 1L, len = 1L)
   if (is.null(events)) events <- fit$specification$events
+  if (is.data.frame(events)) {
+    events <- hrf_resolve_events_input(
+      events,
+      stats::setNames(vector("list", length(fit$run_ids)), fit$run_ids),
+      run_col = run_col,
+      allow_empty_runs = FALSE
+    )
+  }
   if (!is.list(events) || !identical(names(events), fit$run_ids))
     stop("events must be a list in fitted run order")
   sources <- if (is.null(source_kernel_grid)) {
@@ -510,9 +522,14 @@ compute_zca_whitening_matrix <- function(Sigma_tot, eig_floor = 0.08, offdiag_sc
 #' per-trial operator precision weights and within-run error covariance.
 #'
 #' @param deconvolution Result of \code{deconvolve_crossrun_hrf()}.
-#' @param covariates Optional numeric vector, matrix, or data.frame of
-#'   trial-level predictors for target trials (concatenated across runs or
-#'   supplied as a run-named list matching \code{deconvolution$hrf_fit$run_ids}).
+#' @param covariates Optional trial-level predictors for target trials, supplied
+#'   as: (a) a character vector of numeric/logical column names present in
+#'   \code{events} (e.g., \code{c("rpe", "abs_rpe")}), extracted automatically at
+#'   the target event rows in guaranteed lockstep with \code{event_index}; (b) a
+#'   one-sided formula evaluated on target event rows (e.g.,
+#'   \code{~ rpe + abs_rpe}); (c) a numeric vector, matrix, or \code{data.frame}
+#'   concatenated across target trials in fitted run order; or (d) a run-named
+#'   list matching \code{deconvolution$hrf_fit$run_ids}.
 #'   When \code{NULL} (default), performs covariate-agnostic epoch readout,
 #'   de-mixing, biological variance estimation (\code{tau2_mode = "marginal"}),
 #'   Empirical-Bayes precision weighting, and optional within-run ZCA whitening
@@ -520,9 +537,10 @@ compute_zca_whitening_matrix <- function(Sigma_tot, eig_floor = 0.08, offdiag_sc
 #'   defaults to \code{TRUE} when \code{covariates = NULL}) for downstream
 #'   two-stage \code{\link{mixed_by}} behavioral modeling or inter-region
 #'   connectivity (\code{R2 ~ R1_seed * x}).
-#' @param events Optional run-named list of event data.frames with \code{onset}
-#'   and optional \code{condition} and \code{duration}. Defaults to the HRF fit's
-#'   event tables.
+#' @param events Optional combined multi-run \code{data.frame} (split by
+#'   \code{run_col}) or run-named list of event \code{data.frame}s with
+#'   \code{onset} and optional \code{condition}, \code{duration}, and behavioral
+#'   covariate columns. Defaults to the HRF fit's event tables.
 #' @param target_condition Optional character scalar naming the target event
 #'   condition in \code{events[[r]]$condition} (e.g., \code{"feedback"}). When
 #'   supplied, non-target events in \code{events[[r]]} are treated as interfering
@@ -576,11 +594,12 @@ compute_zca_whitening_matrix <- function(Sigma_tot, eig_floor = 0.08, offdiag_sc
 #'   target trial's duration \code{d_i} from \code{trial_durations} or
 #'   \code{events[[r]]$duration}, with duration-matched readout and unpenalized
 #'   baseline-rate de-confounding).
-#' @param trial_durations Optional numeric vector (concatenated across runs) or
-#'   run-named list of non-negative target trial durations (in seconds), such as
-#'   per-trial reaction times. Overrides \code{events[[r]]$duration} for target
-#'   trials and defaults \code{source_model} to \code{"duration"} when
-#'   \code{source_model} is not explicitly specified.
+#' @param trial_durations Optional single column name in \code{events} (e.g.,
+#'   \code{"rt"}), numeric vector (concatenated across runs), or run-named list
+#'   of non-negative target trial durations (in seconds), such as per-trial
+#'   reaction times. Overrides \code{events[[r]]$duration} for target trials and
+#'   defaults \code{source_model} to \code{"duration"} when \code{source_model}
+#'   is not explicitly specified.
 #' @param duration_scale Scaling convention for positive-duration target trials
 #'   when \code{source_model = "duration"}: \code{"rate"} (default; trial
 #'   amplitude represents neural firing rate / boxcar height per TR bin, so
@@ -633,13 +652,16 @@ compute_zca_whitening_matrix <- function(Sigma_tot, eig_floor = 0.08, offdiag_sc
 #'   (or trial-by-parcel) epoch matrices per lag. Default: \code{FALSE}.
 #' @param return_panel Logical; whether to return a tidy MEDUSA-compatible
 #'   \code{data.table} (\code{panel}) with columns \code{run}, \code{trial},
-#'   \code{event_index}, \code{onset}, \code{evt_time}, \code{voxel} (and
-#'   \code{parcel} when \code{aggregate_by_parcel = TRUE}),
+#'   \code{event_index}, \code{onset}, \code{evt_time}, \code{voxel} (plus
+#'   \code{id}/\code{session} when present on \code{events}, and \code{parcel}
+#'   when \code{aggregate_by_parcel = TRUE}),
 #'   \code{decon_raw}, \code{decon_demixed}, \code{se_raw}, \code{se_demixed},
 #'   \code{precision_weight}, \code{precision_weight_op},
 #'   \code{precision_weight_raw}, \code{error_ac1}, \code{tau2_bio}, and the
 #'   covariate columns for downstream \code{mixed_by()} modeling. Defaults to
 #'   \code{TRUE} when \code{covariates = NULL} and \code{return_epochs = FALSE}.
+#' @param run_col Column name in \code{events} identifying runs when \code{events}
+#'   is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.
 #' @return A list with \code{coefficients} (per voxel/parcel, lag, and predictor
 #'   term), \code{summary} (averaged across usable units per lag and term),
 #'   optional \code{epochs}, optional \code{panel}, and \code{settings}.
@@ -741,7 +763,8 @@ decon_epoch_regression <- function(
   parcel_groups = NULL,
   whiten_panel = FALSE,
   return_epochs = FALSE,
-  return_panel = FALSE
+  return_panel = FALSE,
+  run_col = "run"
 ) {
   fit <- deconvolution$hrf_fit
   settings <- deconvolution$settings
@@ -784,6 +807,14 @@ decon_epoch_regression <- function(
   }
 
   if (is.null(events)) events <- fit$specification$events
+  if (is.data.frame(events)) {
+    events <- hrf_resolve_events_input(
+      events,
+      stats::setNames(vector("list", length(fit$run_ids)), fit$run_ids),
+      run_col = run_col,
+      allow_empty_runs = FALSE
+    )
+  }
   if (!is.list(events) || !identical(names(events), fit$run_ids)) {
     stop("events must be a list in fitted run order")
   }
@@ -812,6 +843,16 @@ decon_epoch_regression <- function(
   }
 
   target_counts <- vapply(target_idx_list, length, integer(1L))
+  ends <- cumsum(target_counts)
+  starts <- ends - target_counts + 1L
+  reserved_panel_cols <- c(
+    "run", "trial", "event_index", "onset", "evt_time", "voxel", "parcel",
+    "decon_raw", "decon_demixed", "decon_eb", "se_raw", "se_demixed",
+    "reliability_trial", "precision_weight", "precision_weight_cohort",
+    "precision_weight_op", "precision_weight_raw", "error_ac1", "tau2_bio",
+    "shared_noise_loading", "decon_demixed_whitened", "se_whitened",
+    "decon_eb_whitened"
+  )
   cov_list <- vector("list", n_runs)
   if (is.null(covariates)) {
     for (r in seq_len(n_runs)) {
@@ -820,12 +861,103 @@ decon_epoch_regression <- function(
     term_names <- character(0L)
     n_terms <- 0L
     eff_tau2_mode <- "marginal"
+  } else if (is.character(covariates) && is.null(dim(covariates))) {
+    checkmate::assert_character(covariates, min.len = 1L, any.missing = FALSE, min.chars = 1L, unique = TRUE)
+    bad_res <- intersect(covariates, reserved_panel_cols)
+    if (length(bad_res)) {
+      stop("Covariate column name(s) collide with reserved panel output columns: ",
+           paste(bad_res, collapse = ", "), call. = FALSE)
+    }
+    for (r in seq_len(n_runs)) {
+      ev_r <- events[[r]]
+      miss_c <- setdiff(covariates, names(ev_r))
+      if (length(miss_c)) {
+        stop(
+          "Covariate column(s) not found in events[['", fit$run_ids[r], "']]: ",
+          paste(miss_c, collapse = ", "),
+          call. = FALSE
+        )
+      }
+      sub_df <- ev_r[target_idx_list[[r]], covariates, drop = FALSE]
+      num_cols <- vector("list", length(covariates))
+      for (ci in seq_along(covariates)) {
+        col_v <- sub_df[[ci]]
+        if (!is.numeric(col_v) && !is.logical(col_v)) {
+          stop(
+            "Covariate column '", covariates[ci], "' in events[['", fit$run_ids[r],
+            "']] must be numeric or logical (got ", class(col_v)[1L], ").",
+            call. = FALSE
+          )
+        }
+        num_cols[[ci]] <- as.double(col_v)
+      }
+      x_r <- do.call(cbind, num_cols)
+      colnames(x_r) <- covariates
+      cov_list[[r]] <- x_r
+    }
+    term_names <- covariates
+    n_terms <- length(term_names)
+    eff_tau2_mode <- tau2_mode
+  } else if (inherits(covariates, "formula")) {
+    if (length(covariates) != 2L) {
+      stop("When covariates is a formula, it must be one-sided (e.g., ~ rpe + abs_rpe).", call. = FALSE)
+    }
+    f_vars <- all.vars(covariates)
+    for (r in seq_len(n_runs)) {
+      miss_v <- setdiff(f_vars, names(events[[r]]))
+      if (length(miss_v)) {
+        stop(
+          "Formula variable(s) not found in events[['", fit$run_ids[r], "']]: ",
+          paste(miss_v, collapse = ", "),
+          call. = FALSE
+        )
+      }
+    }
+    target_ev_all <- do.call(
+      rbind,
+      lapply(seq_len(n_runs), function(r) events[[r]][target_idx_list[[r]], f_vars, drop = FALSE])
+    )
+    mf_all <- stats::model.frame(covariates, data = target_ev_all, na.action = stats::na.pass)
+    mm_all <- stats::model.matrix(covariates, data = mf_all)
+    int_col <- match("(Intercept)", colnames(mm_all), nomatch = 0L)
+    if (int_col > 0L) mm_all <- mm_all[, -int_col, drop = FALSE]
+    if (ncol(mm_all) == 0L) {
+      stop("Formula 'covariates' produced zero predictor columns after removing intercept.", call. = FALSE)
+    }
+    bad_res <- intersect(colnames(mm_all), reserved_panel_cols)
+    if (length(bad_res)) {
+      stop("Formula term name(s) collide with reserved panel output columns: ",
+           paste(bad_res, collapse = ", "), call. = FALSE)
+    }
+    for (r in seq_len(n_runs)) {
+      cov_list[[r]] <- mm_all[starts[r]:ends[r], , drop = FALSE]
+    }
+    term_names <- colnames(mm_all)
+    n_terms <- length(term_names)
+    eff_tau2_mode <- tau2_mode
   } else if (is.list(covariates) && !is.data.frame(covariates)) {
     if (length(covariates) != n_runs) {
       stop("When covariates is a list, it must have one element per run")
     }
+    if (!is.null(names(covariates)) && any(nzchar(names(covariates)))) {
+      if (!setequal(names(covariates), fit$run_ids)) {
+        stop("Named covariates list must match fitted run IDs: ",
+             paste(fit$run_ids, collapse = ", "), call. = FALSE)
+      }
+      covariates <- covariates[fit$run_ids]
+    }
     for (r in seq_len(n_runs)) {
+      if (is.data.frame(covariates[[r]])) {
+        bad_cols <- names(covariates[[r]])[
+          !vapply(covariates[[r]], function(col) is.numeric(col) || is.logical(col), logical(1L))
+        ]
+        if (length(bad_cols)) {
+          stop("Non-numeric column(s) in covariates[[", r, "]]: ",
+               paste(bad_cols, collapse = ", "), call. = FALSE)
+        }
+      }
       x_r <- as.matrix(covariates[[r]])
+      storage.mode(x_r) <- "double"
       if (nrow(x_r) != target_counts[r]) {
         stop("covariates[[", r, "]] row count (", nrow(x_r),
           ") does not match target event count (", target_counts[r], ")")
@@ -837,20 +969,35 @@ decon_epoch_regression <- function(
     n_terms <- length(term_names)
     eff_tau2_mode <- tau2_mode
   } else {
+    if (is.data.frame(covariates)) {
+      bad_cols <- names(covariates)[
+        !vapply(covariates, function(col) is.numeric(col) || is.logical(col), logical(1L))
+      ]
+      if (length(bad_cols)) {
+        stop(
+          "Non-numeric column(s) in covariates data.frame (",
+          paste(bad_cols, collapse = ", "),
+          "); select numeric predictor columns or pass covariates = c(...) column names from events.",
+          call. = FALSE
+        )
+      }
+    }
     x_all <- as.matrix(covariates)
+    storage.mode(x_all) <- "double"
     if (nrow(x_all) != sum(target_counts)) {
       stop("Total rows in covariates (", nrow(x_all),
         ") must equal total target events across runs (", sum(target_counts), ")")
     }
     if (is.null(colnames(x_all))) colnames(x_all) <- paste0("x", seq_len(ncol(x_all)))
-    ends <- cumsum(target_counts)
-    starts <- ends - target_counts + 1L
     for (r in seq_len(n_runs)) {
       cov_list[[r]] <- x_all[starts[r]:ends[r], , drop = FALSE]
     }
     term_names <- colnames(cov_list[[1L]])
     n_terms <- length(term_names)
     eff_tau2_mode <- tau2_mode
+  }
+  for (r in seq_len(n_runs)) {
+    rownames(cov_list[[r]]) <- NULL
   }
 
   n_voxels <- length(fit$voxel_ids)
@@ -945,13 +1092,29 @@ decon_epoch_regression <- function(
     n_units <- n_voxels
   }
 
-  ends <- cumsum(target_counts)
-  starts <- ends - target_counts + 1L
   dur_target_list <- vector("list", n_runs)
   if (!is.null(trial_durations)) {
-    if (is.list(trial_durations) && !is.data.frame(trial_durations)) {
+    if (is.character(trial_durations) && is.null(dim(trial_durations))) {
+      checkmate::assert_string(trial_durations, min.chars = 1L)
+      for (r in seq_len(n_runs)) {
+        if (!(trial_durations %in% names(events[[r]]))) {
+          stop("trial_durations column '", trial_durations, "' not found in events[['",
+               fit$run_ids[r], "']].", call. = FALSE)
+        }
+        d_r <- as.numeric(events[[r]][[trial_durations]][target_idx_list[[r]]])
+        checkmate::assert_numeric(d_r, lower = 0, any.missing = FALSE, finite = TRUE)
+        dur_target_list[[r]] <- d_r
+      }
+    } else if (is.list(trial_durations) && !is.data.frame(trial_durations)) {
       if (length(trial_durations) != n_runs) {
         stop("When trial_durations is a list, it must have one element per run")
+      }
+      if (!is.null(names(trial_durations)) && any(nzchar(names(trial_durations)))) {
+        if (!setequal(names(trial_durations), fit$run_ids)) {
+          stop("Named trial_durations list must match fitted run IDs: ",
+               paste(fit$run_ids, collapse = ", "), call. = FALSE)
+        }
+        trial_durations <- trial_durations[fit$run_ids]
       }
       for (r in seq_len(n_runs)) {
         d_r <- as.numeric(trial_durations[[r]])
@@ -2467,6 +2630,14 @@ decon_epoch_regression <- function(
     trial_vec <- unlist(lapply(target_counts, seq_len), use.names = FALSE)
     evt_idx_vec <- unlist(target_idx_list, use.names = FALSE)
     onset_vec <- unlist(lapply(seq_len(n_runs), function(r) events[[r]]$onset[target_idx_list[[r]]]), use.names = FALSE)
+    has_id_col <- all(vapply(events, function(ev) "id" %in% names(ev), logical(1L)))
+    id_vec <- if (has_id_col) {
+      unlist(lapply(seq_len(n_runs), function(r) as.character(events[[r]]$id[target_idx_list[[r]]])), use.names = FALSE)
+    } else NULL
+    has_ses_col <- all(vapply(events, function(ev) "session" %in% names(ev), logical(1L)))
+    ses_vec <- if (has_ses_col) {
+      unlist(lapply(seq_len(n_runs), function(r) as.character(events[[r]]$session[target_idx_list[[r]]])), use.names = FALSE)
+    } else NULL
     cov_full <- if (n_terms > 0L) as.data.frame(do.call(rbind, cov_list)) else NULL
     shared_load_rep <- rep(as.numeric(shared_loading_vec), each = total_trials)
 
@@ -2493,6 +2664,12 @@ decon_epoch_regression <- function(
         tau2_bio = as.numeric(tau2_bio_epochs[[li]]),
         shared_noise_loading = shared_load_rep
       )
+      if (!is.null(id_vec) && (is.null(cov_full) || !("id" %in% colnames(cov_full)))) {
+        base_meta[["id"]] <- rep(id_vec, times = n_units)
+      }
+      if (!is.null(ses_vec) && (is.null(cov_full) || !("session" %in% colnames(cov_full)))) {
+        base_meta[["session"]] <- rep(ses_vec, times = n_units)
+      }
       if (isTRUE(aggregate_by_parcel)) {
         base_meta[["parcel"]] <- base_meta[["voxel"]]
       }

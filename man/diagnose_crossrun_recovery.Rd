@@ -11,15 +11,17 @@ diagnose_crossrun_recovery(
   weights = NULL,
   source_kernel_grid = NULL,
   return_matrices = FALSE,
-  max_events = 2000L
+  max_events = 2000L,
+  run_col = "run"
 )
 }
 \arguments{
 \item{deconvolution}{Result of deconvolve_crossrun_hrf().}
 
-\item{events}{Optional run-named event tables with onset and optional condition
-and duration. Defaults to the HRF training event records. Every record is a
-separate unit-amplitude source, regardless of its condition label.}
+\item{events}{Optional run-named event tables (or a combined multi-run
+\code{data.frame} with a \code{run_col} column) with onset and optional
+condition and duration. Defaults to the HRF training event records. Every
+record is a separate unit-amplitude source, regardless of its condition label.}
 
 \item{lags}{Readout times relative to each event onset, in seconds. Default 0.}
 
@@ -37,6 +39,9 @@ resolution matrices, default FALSE.}
 
 \item{max_events}{Explicit limit per run on the quadratic diagnostic matrix,
 default 2000. Use a smaller prespecified subset or explicitly raise the limit.}
+
+\item{run_col}{Column name in \code{events} identifying runs when \code{events}
+is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.}
 }
 \value{
 A list with per-event diagnostics, stratum summaries, voxel-to-stratum

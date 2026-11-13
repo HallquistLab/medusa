@@ -23,8 +23,10 @@ deconvolve_crossrun_hrf(
 )
 }
 \arguments{
-\item{bold}{Named time-by-voxel run matrices with IDs/order/dimensions matching
-the HRF fit. These should be the same preprocessed BOLD used for estimation.}
+\item{bold}{Either a \code{"medusa_nifti_ts"} object from
+\code{\link{read_nifti_ts}} or named time-by-voxel run matrices with
+IDs/order/dimensions matching the HRF fit. These should be the same
+preprocessed BOLD used for estimation.}
 
 \item{hrf_fit}{Object returned by estimate_crossrun_hrf().}
 
@@ -75,10 +77,14 @@ Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 \code{"innovation"} (Diedrichsen-style innovation-space downweighting).}
 }
 \value{
-A list with activity matrices, per-run scaling/status tables, the HRF
-  fit, frozen inverse settings, standardized noise innovations, and per-run
-  observation \code{frame_weights}. Activity matrices retain voxel IDs and carry
-  tr and time_offset attributes for subsequent event alignment.
+An S3 list of class \code{"crossrun_decon"} with \code{activity}
+  matrices, per-run \code{scaling}/status tables, the \code{hrf_fit}, frozen
+  inverse \code{settings}, standardized \code{noise_innovations}, per-run
+  observation \code{frame_weights}, and optional NIfTI \code{voxel_map} and
+  \code{geometry} metadata (enabling direct \code{\link{write_nifti_ts}}
+  export without an external reference file). Activity matrices retain voxel
+  IDs and carry \code{tr}, \code{time_offset}, and \code{observation_mask}
+  attributes for subsequent event alignment.
 }
 \description{
 Deconvolve runs using frozen HRFs learned from other runs

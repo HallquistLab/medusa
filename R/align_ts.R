@@ -441,7 +441,19 @@ extract_fmri_ts_matrix_view <- function(fmri_obj, valid_col = NULL, group_by = N
   )
 }
 
-split_multirun_events <- function(events, run_names, run_col = "run") {
+canonical_run_key <- function(x) {
+  s <- tolower(trimws(as.character(x)))
+  is_simple <- !is.na(s) & grepl("^(run[-_]?)?[0-9]+[[:alpha:]]*$", s, perl = TRUE)
+  out <- rep(NA_character_, length(s))
+  if (any(is_simple)) {
+    stripped <- sub("^run[-_]?", "", s[is_simple], perl = TRUE)
+    stripped <- sub("^0+(?=[0-9])", "", stripped, perl = TRUE)
+    out[is_simple] <- stripped
+  }
+  out
+}
+
+split_multirun_events <- function(events, run_names, run_col = "run", allow_empty_runs = FALSE) {
   n_runs <- length(run_names)
   if (is.data.frame(events)) {
     if (n_runs == 1L && !(run_col %in% names(events))) {
@@ -451,20 +463,27 @@ split_multirun_events <- function(events, run_names, run_col = "run") {
       stop("Multi-run event alignment requires either a list of per-run event tables or a '",
            run_col, "' column in 'events'.", call. = FALSE)
     }
-    ev_runs <- as.character(events[[run_col]])
+    ev_col <- events[[run_col]]
+    ev_runs <- as.character(ev_col)
+    canon_runs <- canonical_run_key(run_names)
+    canon_ev <- canonical_run_key(ev_runs)
+    ev_levels <- if (is.factor(ev_col)) levels(ev_col) else character(0L)
+    canon_levels <- canonical_run_key(ev_levels)
     out <- stats::setNames(vector("list", n_runs), run_names)
     for (r in seq_len(n_runs)) {
       rname <- run_names[r]
       hit <- !is.na(ev_runs) & (ev_runs == rname)
-      if (!any(hit) && grepl("^run[0-9]+$", rname)) {
-        rnum <- sub("^run", "", rname)
-        hit <- !is.na(ev_runs) & (ev_runs == rnum | sub("^0+(?=[0-9])", "", ev_runs, perl = TRUE) == rnum)
-      }
-      if (!any(hit) && grepl("^[0-9]+$", rname)) {
-        rnum <- sub("^0+(?=[0-9])", "", rname, perl = TRUE)
-        hit <- !is.na(ev_runs) & (sub("^0+(?=[0-9])", "", ev_runs, perl = TRUE) == rnum)
+      can_use_canon <- !is.na(canon_runs[r]) && sum(canon_runs == canon_runs[r], na.rm = TRUE) == 1L
+      if (!any(hit) && can_use_canon) {
+        hit <- !is.na(canon_ev) & (canon_ev == canon_runs[r])
       }
       if (!any(hit)) {
+        in_factor_levels <- (rname %in% ev_levels) ||
+          (can_use_canon && any(!is.na(canon_levels) & canon_levels == canon_runs[r]))
+        if (isTRUE(allow_empty_runs) && in_factor_levels) {
+          out[[r]] <- events[0L, , drop = FALSE]
+          next
+        }
         stop("No rows in 'events' matched run '", rname, "' in column '", run_col, "'.", call. = FALSE)
       }
       out[[r]] <- events[which(hit), , drop = FALSE]
@@ -724,13 +743,18 @@ align_medusa_ts <- function(
     if (is.null(orientation) && !is.null(ts$orientation)) orientation <- ts$orientation
     ts <- ts$bold
     is_multi_run_container <- TRUE
-  } else if (is.list(ts) && !is.data.frame(ts) && all(c("activity", "hrf_fit") %in% names(ts))) {
+  } else if (inherits(ts, "crossrun_decon") ||
+             (is.list(ts) && !is.data.frame(ts) && all(c("activity", "hrf_fit") %in% names(ts)))) {
     if (is.null(tr) && !is.null(ts$hrf_fit$settings$tr)) tr <- ts$hrf_fit$settings$tr
     if (is.null(events) && !is.null(ts$hrf_fit$specification$events)) {
       events <- ts$hrf_fit$specification$events
     }
     if (is.null(parcel_ids) && !is.null(ts$hrf_fit$specification$spatial_groups)) {
       parcel_ids <- ts$hrf_fit$specification$spatial_groups
+    }
+    if (is.null(unit_data)) {
+      vm_dec <- if (!is.null(ts$voxel_map)) ts$voxel_map else ts$hrf_fit$voxel_map
+      if (!is.null(vm_dec)) unit_data <- vm_dec
     }
     ts <- ts$activity
     is_multi_run_container <- TRUE

@@ -427,18 +427,33 @@ ts <- read_nifti_ts(
   ncpus = 3L
 )
 
-bold <- ts$bold             # named list of T x V matrices
-voxel_map <- ts$voxel_map   # voxel IDs, linear_index, (i,j,k), world (x,y,z), atlas_value
-parcel_ids <- ts$parcel_ids # named parcel vector ready for spatial_groups / parcel_groups
+# Pass `ts` and a single participant's combined multi-run `trial_df` directly:
+# `tr`, `spatial_groups = ts$parcel_ids`, and `hrf_library(tr, preset = "medusa")`
+# are populated automatically, and `trial_df` is split by `run` in BOLD run order.
+hrf_fit <- estimate_crossrun_hrf(ts, events = trial_df, pooling = "parcel")
+decon <- deconvolve_crossrun_hrf(ts, hrf_fit, scaling = "noise_sd", penalty = "sobolev")
 
+# Reference behavioral predictor columns directly by name (or formula `~ rpe + abs_rpe`):
+# target rows are sliced in lockstep with `event_index` without manual per-run subsetting.
+feedback_fit <- decon_epoch_regression(
+  decon,
+  covariates = c("rpe", "abs_rpe"),
+  target_condition = "feedback",
+  lags = seq(-2, 4, by = 1),
+  restore_scale = TRUE,
+  aggregate_by_parcel = TRUE,
+  whiten_panel = TRUE,
+  return_panel = TRUE
+)
+
+# Geometry and voxel maps propagate onto `hrf_fit` and `decon`:
+# export 4D deconvolved activity or backproject parcel statistics with no extra reference file
+write_nifti_ts(decon, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"))
 # Optional: direct C++ matrix-native event alignment (no CSV or fmri_ts intermediates)
-# aligned <- align_medusa_ts(ts, events = trial_df, event = "feedback_onset", time_before = -2, time_after = 4)
-
-# Optional: write 4D deconvolved activity or a 3D voxel summary map back to NIfTI in C++
-# write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)
+# aligned <- align_medusa_ts(decon, events = trial_df, event = "onset", time_before = -2, time_after = 4)
 ```
 
-Build `events`, covariate lists, nuisance matrices, and logical masks from your study using exactly `names(bold)` and matching order. Check the acquisition TR (`ts$tr` or sequence metadata) and all event clocks, then pass `bold` and `parcel_ids` directly to `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, `align_medusa_ts()` (for direct matrix-native event-locked interpolation without intermediate CSVs or `fmri_ts` long tables), and `decon_epoch_regression()` (for operator-based epoch de-mixing). Keep `ts$voxel_map` and `ts$geometry` in your saved fit archive. Chunking the voxel dimension may still be needed for very large whole-brain runs, though changes to noise pooling or parcel support must be accounted for; splitting voxels arbitrarily need not reproduce a whole-mask fit.
+`estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, `diagnose_crossrun_recovery()`, `decon_epoch_regression()`, and `align_medusa_ts()` all accept either the unified `"medusa_nifti_ts"` / `"crossrun_decon"` objects and combined single-participant `events` tables (matching BIDS/MEDuSA run labels such as `1`, `"01"`, `"run1"`, or `"run-01"`) or explicit run-named lists (`ts$bold`, `nuisance`, `valid_rows`). Check the acquisition TR (`ts$tr` or sequence metadata) and all event clocks before fitting. When `spatial_fwhm` is requested in `estimate_crossrun_hrf(ts, ...)`, world coordinates `ts$voxel_map[, c("x", "y", "z")]` are supplied automatically. Chunking the voxel dimension may still be needed for very large whole-brain runs, though changes to noise pooling or parcel support must be accounted for; splitting voxels arbitrarily need not reproduce a whole-mask fit.
 
 # Keep or update the established file workflow
 

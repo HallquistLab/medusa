@@ -31,6 +31,18 @@
   `mixed_by()` now reads `.parquet` files and Hive-partitioned Parquet
   directories (via optional `arrow`) as well as `.rds` and delimited `external_df`
   tables, with automatic column projection and optional `split_filter` pushdown.
+* Unified in-memory NIfTI, cross-run HRF, deconvolution, and epoch-regression
+  ergonomics: `estimate_crossrun_hrf()` and `deconvolve_crossrun_hrf()` now
+  accept `"medusa_nifti_ts"` objects directly (auto-populating `tr`,
+  `spatial_groups = ts$parcel_ids`, `kernel_grid = hrf_library(tr, preset = "medusa")`,
+  and `spatial_coords` when `spatial_fwhm` is requested), split combined
+  single-participant multi-run `events` `data.frame`s automatically across BIDS/MEDuSA
+  run labels, and propagate `voxel_map` and `geometry` onto `"crossrun_hrf"` and
+  `"crossrun_decon"` so `write_nifti_ts(decon, ...)` and
+  `backproject_medusa(..., brain_mask = decon)` need no extra reference file;
+  `decon_epoch_regression()` now accepts column-name `covariates` (e.g.,
+  `c("rpe", "abs_rpe")`), one-sided formulas (`~ rpe + abs_rpe`), column-name
+  `trial_durations` (`"rt"`), and combined multi-run `events` tables.
 
 ## Standalone package extraction
 

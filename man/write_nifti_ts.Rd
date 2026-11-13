@@ -21,16 +21,19 @@ write_nifti_ts(
 }
 \arguments{
 \item{x}{Numeric matrix (`T x V` by default), numeric vector of length `V`
-(written as a single 3D volume), list of numeric matrices/vectors, or a
+(written as a single 3D volume), list of numeric matrices/vectors, a
+`"crossrun_decon"` result from [deconvolve_crossrun_hrf()], or a
 `"medusa_nifti_ts"` object.}
 
 \item{file}{Output `.nii` or `.nii.gz` path, or a character vector of paths
-matching `length(x)` when `x` is a list or multi-run `"medusa_nifti_ts"`.}
+matching the number of runs/matrices in `x`.}
 
 \item{reference}{Path to a reference 3D/4D NIfTI file, an in-memory `RNifti`
-image/header, or a `"medusa_nifti_ts"` object (which also supplies defaults
-for `voxel_map` and `tr`). Optional when `x` itself is a `"medusa_nifti_ts"`
-object or a matrix created by `read_nifti_ts(..., drop = TRUE)`.}
+image/header, or a `"medusa_nifti_ts"`, `"crossrun_decon"`, or
+`"crossrun_hrf"` object (which also supplies defaults for `voxel_map` and
+`tr`). Optional when `x` itself carries spatial geometry (`"medusa_nifti_ts"`,
+`"crossrun_decon"` fit from a `"medusa_nifti_ts"` input, or a matrix from
+`read_nifti_ts(..., drop = TRUE)`).}
 
 \item{voxel_indices}{Optional numeric/integer vector of unique 1-based spatial
 linear indices.}

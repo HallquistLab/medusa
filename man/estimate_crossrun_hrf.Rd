@@ -7,8 +7,8 @@
 estimate_crossrun_hrf(
   bold,
   events,
-  tr,
-  kernel_grid,
+  tr = NULL,
+  kernel_grid = NULL,
   nuisance = NULL,
   valid_rows = NULL,
   time_offset = 0,
@@ -31,36 +31,51 @@ estimate_crossrun_hrf(
   spatial_coords = NULL,
   spatial_fwhm = NULL,
   selection_mode = c("hard", "soft_average"),
-  noise_groups = NULL
+  noise_groups = NULL,
+  run_col = "run"
 )
 }
 \arguments{
-\item{bold}{Named list of time-by-voxel numeric matrices for one participant.
-Voxel column IDs must be unique and identical in all runs, in the same order.}
+\item{bold}{Either a \code{"medusa_nifti_ts"} object from
+\code{\link{read_nifti_ts}} (automatically supplying \code{$bold}, \code{$tr},
+\code{$parcel_ids}, and spatial \code{$geometry}/\code{$voxel_map}) or a named
+list of time-by-voxel numeric matrices for one participant (with identical
+unique voxel column IDs across runs).}
 
-\item{events}{Named list of data.frames with onset (seconds), condition, and
-optional duration (seconds, default zero). Names/order must match bold.}
+\item{events}{Either a combined multi-run \code{data.frame} containing \code{onset},
+\code{condition}, optional \code{duration}, and a run column (\code{run_col},
+omitted only for single-run inputs), or a run-named list of per-run
+\code{data.frame}s in \code{bold} order.}
 
-\item{tr}{Common acquisition interval in seconds. All runs use the same grid.}
+\item{tr}{Common acquisition interval in seconds. Optional when \code{bold} is
+a \code{"medusa_nifti_ts"} object (or carries \code{tr} attributes) with a
+positive finite repetition time.}
 
 \item{kernel_grid}{Matrix or list of equal-length candidate causal HRFs, sampled
-at tr starting at lag zero. Use \code{hrf_library()} or supply explicit
-candidates; honors \code{attr(kernel_grid, "normalize")} (\code{"signed_sum"},
+at \code{tr} starting at lag zero. Defaults to
+\code{hrf_library(tr, preset = "medusa")} when \code{NULL}. Honors
+\code{attr(kernel_grid, "normalize")} (\code{"signed_sum"},
 \code{"positive_lobe"}, or \code{"peak"}), automatically switching to
 \code{"positive_lobe"} when unattributed candidates span heterogeneous
 undershoot ratios (and defaulting to \code{"signed_sum"} otherwise).}
 
-\item{nuisance}{Optional matching list of time-by-regressor matrices. An
-intercept and linear trend are always included separately for each run.}
+\item{nuisance}{Optional matching list of time-by-regressor matrices (or
+numeric \code{data.frame}s; a single matrix/\code{data.frame} is also accepted
+for single-run inputs). An intercept and linear trend are always included
+separately for each run.}
 
-\item{valid_rows}{Optional matching list of logical observation masks; FALSE
-and NA omit rows from training fits without deleting their acquisition times.}
+\item{valid_rows}{Optional matching list of logical observation masks (or a
+single logical vector for single-run inputs); FALSE and NA omit rows from
+training fits without deleting their acquisition times.}
 
 \item{time_offset}{First acquisition time, scalar or named numeric run vector.}
 
-\item{spatial_groups}{Optional voxel parcel labels, named in voxel column order.
-Labels must be nonmissing and nonempty. Parcels must be defined independently
-of target-run responses; no implicit whole-brain parcel is constructed.}
+\item{spatial_groups}{Optional voxel parcel labels in voxel column order
+(named by voxel IDs or unnamed of length equal to voxel count). Defaults to
+\code{bold$parcel_ids} when \code{bold} is a \code{"medusa_nifti_ts"} object
+read with an \code{atlas}. Labels must be nonmissing and nonempty. Parcels
+must be defined independently of target-run responses; no implicit whole-brain
+parcel is constructed.}
 
 \item{pooling}{Select HRFs per voxel or share one HRF per supplied parcel.}
 
@@ -109,7 +124,9 @@ multiple testing across the brain. Not a posterior probability.}
 in calibrated mode, default 0.01. Zero removes this additional shrinkage.}
 
 \item{spatial_coords}{Optional numeric matrix of 3D voxel coordinates (N x 3)
-used for local Gaussian-weighted anchor pooling.}
+used for local Gaussian-weighted anchor pooling. Automatically populated from
+\code{bold$voxel_map[, c("x", "y", "z")]} when \code{bold} is a
+\code{"medusa_nifti_ts"} object and \code{spatial_fwhm} is specified.}
 
 \item{spatial_fwhm}{Optional numeric spatial Gaussian FWHM (in coordinate
 units) for local anchor pooling.}
@@ -124,6 +141,9 @@ the prespecified fallback kernel.}
 neighborhoods, in voxel column order. Defaults to \code{spatial_groups} when
 omitted. Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
 groups) to differ from HRF selection parcels.}
+
+\item{run_col}{Column name in \code{events} identifying runs when \code{events}
+is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.}
 }
 \value{
 An object of class crossrun_hrf with normalized kernels, per-target-run
