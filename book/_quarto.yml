@@ -1,0 +1,61 @@
+project:
+  type: book
+  output-dir: _book
+  resources:
+    - library/**
+    - assets/**
+    - worked/**
+    - "medusa_*/**/*.csv"
+    - "medusa_*/**/*.R"
+    - "medusa_*/**/*.txt"
+    - "medusa_*/**/*.log"
+    - "medusa_*/**/*.md"
+    - "medusa_*/**/*.json"
+    - "medusa_*/**/*.rds"
+
+book:
+  title: "MEDuSA"
+  subtitle: "From BOLD time series to trial-level inference"
+  date: 2026-11-13
+  site-url: https://hallquistlab.github.io/medusa/book/
+  repo-url: https://github.com/HallquistLab/medusa
+  search: true
+  chapters:
+    - index.qmd
+    - foundations.qmd
+    - worked-example.qmd
+    - part: "The six steps"
+      chapters:
+        - medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd
+        - medusa_step2_deconvolution/medusa_step2_deconvolution.qmd
+        - medusa_step3_epochs/medusa_step3_epochs.qmd
+        - medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd
+        - medusa_step5_group_models/medusa_step5_group_models.qmd
+        - medusa_step6_connectivity/medusa_step6_connectivity.qmd
+    - part: "Measurement models and evidence"
+      chapters:
+        - medusa_standard_errors_mmom.qmd
+        - medusa_connectivity_inference/medusa_connectivity_inference.qmd
+        - evidence.qmd
+        - medusa_pr62_calibration/medusa_pr62_calibration.qmd
+        - medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd
+  appendices:
+    - reference.qmd
+
+format:
+  html:
+    theme: cosmo
+    css: book.css
+    toc: true
+    toc-depth: 3
+    number-sections: false
+    code-fold: true
+    code-summary: "Show supporting code"
+    code-overflow: wrap
+    fig-align: center
+
+engine: knitr
+
+execute:
+  warning: false
+  message: false

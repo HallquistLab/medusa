@@ -1,0 +1,93 @@
+Using model_formulae to setup model_set
+Starting processing of data splits
+Loading required package: Matrix
+
+Attaching package: ‘lmerTest’
+
+The following object is masked from ‘package:lme4’:
+
+    lmer
+
+The following object is masked from ‘package:stats’:
+
+    step
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+Returned model entries: reml, ml 
+Within/between comparison
+      pooled  (Intercept)     x_within       x_mean 
+-0.432414047  0.001923243  0.520949299 -0.731357772 
+Null-simulation rejection and Monte Carlo SE
+   n_trial             method  rejection    mean_se empirical_sd replications
+     <int>             <char>      <num>      <num>        <num>        <int>
+1:      12      Trial-row OLS 0.35333333 0.06848321    0.1441797         3000
+2:      12 Participant slopes 0.04600000 0.13976032    0.1441797         3000
+3:      48      Trial-row OLS 0.62200000 0.03419326    0.1365287         3000
+4:      48 Participant slopes 0.06000000 0.12996712    0.1365287         3000
+5:     192      Trial-row OLS 0.79766667 0.01711210    0.1313995         3000
+6:     192 Participant slopes 0.05166667 0.12818374    0.1313995         3000
+          mcse
+         <num>
+1: 0.008727139
+2: 0.003824657
+3: 0.008852796
+4: 0.004335897
+5: 0.007334725
+6: 0.004041337
+Parcel/lag fits: 24 Singular: 0 Fixed tests: 48 Pointwise: 9 BY: 7 
+        model    run  sd_model   sd_true
+       <char> <fctr>     <num>     <num>
+1:   Weighted   run1 0.1908805 0.1941649
+2:   Weighted   run2 0.3962941 0.4031129
+3: Unweighted   run1 0.3133703 0.1941649
+4: Unweighted   run2 0.3133703 0.4031129
+        model  estimate         se       df            p
+       <char>     <num>      <num>    <num>        <num>
+1:   Weighted 0.2572790 0.02107768 23.10789 1.474858e-11
+2: Unweighted 0.2473156 0.02278645 23.07819 1.532884e-10
+Matched direct and mixed_by fixed effects and observation weights.
+Error: max(abs(list_check$coefficients$estimate - observed$estimate)) <  .... is not TRUE
+Execution halted
+Verified panel, named subject-result list, and coefficient-table routes, Marra-Wood smoothing covariance,
+ unsmoothed default contrasts, per-trajectory BY, and simultaneous bands.
+      parcel           term peak_lag peak_lag_grid    omnibus_p   min_p_maxT
+      <char>         <char>    <num>         <num>        <num>        <num>
+1:    Phasic   value_within     1.02             1 0.0004997501 0.0002499375
+2:    Phasic entropy_within    -1.29            -1 0.2223888056 0.0727318170
+3: Sustained   value_within     5.00             5 0.7101449275 0.4326418395
+4: Sustained entropy_within     1.92             2 0.0004997501 0.0002499375
+5:      Null   value_within     0.80             1 0.9745127436 0.7635591102
+6:      Null entropy_within     1.71             2 0.2688655672 0.4228942764
+     min_p_tfce
+          <num>
+1: 0.0002499375
+2: 0.0694826293
+3: 0.4138965259
+4: 0.0002499375
+5: 0.7193201700
+6: 0.4383904024
+      parcel           term     estimate  std.error      p.value
+      <char>         <char>        <num>      <num>        <num>
+1:    Phasic   value_within -0.177415089 0.02368717 1.303165e-07
+2:    Phasic entropy_within -0.010091001 0.01756609 5.712337e-01
+3: Sustained   value_within -0.004052461 0.01963576 8.383089e-01
+4: Sustained entropy_within  0.081782713 0.01921217 2.968763e-04
+5:      Null   value_within -0.012809023 0.01742514 4.697153e-01
+6:      Null entropy_within -0.016341328 0.02176571 4.603961e-01

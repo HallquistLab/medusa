@@ -1,0 +1,6 @@
+Construct known-HRF/noise Step 1 handoff
+Tune each penalty
+Scaling, mask, nuisance, boundary, and HRF sensitivity
+Compute frozen inverse and exact dense verification
+Event-informed continuous GLS vs blind deconvolution comparison
+Saved Step 2 examples

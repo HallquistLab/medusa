@@ -21,10 +21,11 @@ remotes::install_github("HallquistLab/medusa")
 
 ## Documentation
 
-MEDuSA documentation follows a three-part learning sequence:
+MEDuSA documentation includes a comprehensive Quarto book alongside package vignettes:
 
-1. [Conceptual foundations](vignettes/medusa-concepts.Rmd): convolution, regularization, HRF learning, event mixing, units, duration, and precision-weight propagation, with an annotated reading guide.
-2. [Worked workflows](vignettes/medusa-workflows.Rmd): executable simulation and recipes for NIfTI inputs, file alignment, and downstream precision-weighted / ZCA-whitened multilevel models (`mixed_by`).
-3. [Technical companion](medusa_deconvolution_review_prs_42_53.qmd): derivations, simulation demonstrations, implementation details, and validation limits.
+1. **[MEDuSA Quarto Book](https://hallquistlab.github.io/medusa/book/)** (`book/`): End-to-end methodological guide covering conceptual foundations, a reproducible worked example, dedicated chapters for all six pipeline steps (goals, input/output architecture, recommended settings, event-informed continuous deconvolution vs. blind deconvolution, epoch de-mixing, parcel panels, group multilevel & multi-lag trajectory inference, and disattenuated connectivity), measurement-error theory, and calibration diagnostics. Render locally from `book/` with `quarto render`.
+2. **[Conceptual foundations](vignettes/medusa-concepts.Rmd)**: Package vignette introducing convolution, regularization, HRF learning, event mixing, units, duration, and precision-weight propagation.
+3. **[Worked workflows](vignettes/medusa-workflows.Rmd)**: Executable simulation and recipes for NIfTI inputs, file alignment, and downstream precision-weighted / ZCA-whitened multilevel models (`mixed_by`).
+4. **[Technical companion](medusa_deconvolution_review_prs_42_53.qmd)**: Historical technical derivations and early validation notes.
 
-See [rendering instructions](vignettes/medusa-docs.md) for producing all three HTML documents from a checkout.
+See [rendering instructions](vignettes/medusa-docs.md) for producing the HTML vignettes and Quarto book from a checkout.

@@ -1,0 +1,191 @@
+# Measurement-error models and REPAIR
+
+::: {.callout-note title="How this chapter relates to Step 6 in `medusa`"}
+In `medusa`, `decon_connectivity_repair(..., shared_error = "auto")` implements per-trial M-MOMS predictor disattenuation, task-free cross-parcel `shared_noise_loading` / `unit_error_cor` error-moment subtraction (`err_xy`), and HKSJ participant-level random-effects pooling ([Step 6](../medusa_step6_connectivity/medusa_step6_connectivity.qmd)). This research chapter investigates what lies **beyond** diagonal per-trial M-MOMS: unequal regional source resolution ($K_s \neq K_t$), full cross-trial error covariance blocks ($\Omega_{ss}, \Omega_{st}$), likelihood-only finite-basis source reconstruction, and participant-cluster estimating equations.
+:::
+
+```{r setup, include=FALSE}
+library(knitr)
+s <- read.csv("simulation_summary.csv", check.names = FALSE)
+get_result <- function(scenario, method, term = "Connectivity", column = "mean") {
+  x <- s[s$scenario == scenario & s$method == method & s$term == term, column]
+  stopifnot(length(x) == 1)
+  x
+}
+f <- function(x, d = 3) formatC(x, format = "f", digits = d)
+pct <- function(x) paste0(f(100 * x, 1), "%")
+bridge <- read.csv("likelihood_bridge_checks.csv")
+joint <- read.csv("joint_gaussian_example.csv")
+stopifnot(all(s$attempts == 400), all(s$failures == 0))
+```
+
+### Summary of Findings
+
+**Attaching diagonal trial SEs to ordinary M-MOMS disattenuates independent white measurement noise, but full latent connectivity inference faces three deeper structural requirements:** unbiased source resolution, cross-parcel/cross-trial shared-error moments, and participant-cluster uncertainty calibration.
+
+- **Recover an unbiased source mean (or model resolution explicitly):** Regularized continuous deconvolution yields $\mathbb{E}[\widehat a_r \mid a_r] = K_r a_r$ with $K_r \neq I$. In our controlled unequal-resolution experiment ($K_s \neq K_t$), full noise-moment subtraction alone estimated connectivity as **`r f(get_result("Different resolution","Full moments, cluster SE"))`** when truth was `0.550`. Inverting known, well-conditioned resolution operators restored recovery to **`r f(get_result("Different resolution","Resolution inverse + full moments"))`**.
+- **Propagate shared errors and cluster at the participant level:** Under unbiased source measurements with strong serial ($0.55$) and shared cross-parcel ($0.45$) Gaussian noise, the full cross-trial corrected-score estimator recovered **`r f(get_result("Serial + shared Gaussian","Full moments, cluster SE"))`**. Participant-cluster intervals covered truth in **`r pct(get_result("Serial + shared Gaussian","Full moments, cluster SE",column="coverage"))`** of repetitions, whereas row-based intervals covered only **`r pct(get_result("Serial + shared Gaussian","Full moments, row SE",column="coverage"))`**.
+- **Respect finite-participant limits:** With only 12 participants, asymptotic cluster sandwich intervals undercovered (`r pct(get_result("Few participants","Full moments, cluster SE",column="coverage"))` connectivity coverage)—motivating the HKSJ $t$-distribution small-sample pooling used in `medusa::decon_connectivity_repair()`.
+
+### 1. Define the neural relationship and the measurement relationship
+
+For participant $g$ and trial $i$, define a centered task variable $z_{gi}$ and latent source amplitudes:
+
+$$
+a_{t,gi}=\alpha_g+\beta a_{s,gi}+\gamma z_{gi}
+               +\delta z_{gi}a_{s,gi}+\eta_{gi}.
+$$
+
+$\beta$ is the seed–target association at $z=0$; $\delta$ is its task modulation (PPI). A general linear measurement interface across all trials of participant $g$ is:
+
+$$
+\begin{bmatrix}\widehat a_{s,g}\\\widehat a_{t,g}\end{bmatrix}
+=
+\begin{bmatrix}K_{s,g}&0\\0&K_{t,g}\end{bmatrix}
+\begin{bmatrix}a_{s,g}\\a_{t,g}\end{bmatrix}
++\begin{bmatrix}u_g\\v_g\end{bmatrix},
+\qquad
+\operatorname{Cov}\!\begin{pmatrix}u_g\\v_g\end{pmatrix}
+=
+\begin{bmatrix}\Omega_{ss,g}&\Omega_{st,g}\\
+\Omega_{st,g}^{\top}&\Omega_{tt,g}\end{bmatrix}.
+$$
+
+Classical additive measurement-error correction assumes $K_s = K_t = I$. In addition, **PPI products and trial smoothing do not commute**:
+
+$$
+K\,\operatorname{diag}(z)a_s \ne \operatorname{diag}(z)K a_s.
+$$
+
+Multiplying a smoothed or ZCA-whitened seed by the task modulator $z$ afterward does not match smoothing the latent interaction—which is why `decon_connectivity_repair()` defaults to `use_whitened = FALSE`.
+
+### 2. Three workable measurement models
+
+#### A. Likelihood-only coefficients in a modest source basis
+
+Represent each region's BOLD series using a prespecified, low-dimensional neural source basis passed through its learned HRF:
+
+$$
+y_r=G_r a_r+Z_r\xi_r+\varepsilon_r,
+\qquad \operatorname{Cov}(\varepsilon_r)=\Sigma_r.
+$$
+
+When $G_r$ has full column rank (e.g., well-spaced trial impulses or low-dimensional epoch bases) and is fit via unpenalized GLS in whitened coordinates,
+
+$$
+\widehat a_r=A_r y_r,\qquad A_rG_r=I,
+\qquad E(\widehat a_r\mid a_r)=a_r,
+\qquad \Omega_{rr}=A_r\Sigma_r A_r^{\top},
+\qquad \Omega_{st}=A_s\Sigma_{\varepsilon_s,\varepsilon_t}A_t^{\top}.
+$$
+
+This provides an exact unbiased additive measurement-error model ($K_r = I$), closely paralleling likelihood-only coefficient reconstruction in REPAIR ([Abdulrahman & Henson, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/)). In `likelihood_only_bridge.R` (16 source amplitudes, 180 BOLD volumes, distinct regional HRFs, shared/serial AR noise), source operators satisfy $AG = I$ to **`r format(max(bridge$value[1:2]),scientific=TRUE,digits=3)`**, and a 10,000-draw Monte Carlo check matches analytical source SDs within **`r pct(bridge$value[7])`**. Its trade-off is design conditioning: rapid jittered event schedules or omitted sustained activity can make unpenalized $G_r$ collinear or misspecified.
+
+#### B. De-penalize only identifiable contrasts
+
+For a linear Gaussian posterior with precision $C_{\rm post}^{-1} = J + P_{\rm prior}$, likelihood information $J$ is recoverable only on subspaces where $J$ is well-conditioned. In `likelihood_only_bridge.R`, the full 180-column continuous convolution matrix has numerical rank **`r f(bridge$value[5],0)`**, confirming why continuous TR-grid deconvolution cannot simply drop its penalty globally without projecting onto identifiable trial/window contrasts first.
+
+#### C. Retain resolution $K_s, K_t$ inside a joint latent Gaussian model
+
+When unshrinking is ill-conditioned, $K_s$ and $K_t$ can be retained explicitly inside a joint Gaussian marginal likelihood over $(\widehat a_{s,g}, \widehat a_{t,g}) \mid z_g$. In `joint_gaussian_demo.R` (known unequal $K_s \neq K_t$ and known $\Omega$), maximum likelihood recovered connectivity **`r f(joint$estimate[1])`** (truth `0.550`) and PPI **`r f(joint$estimate[3])`** (truth `0.350`) with a positive-definite Hessian, trading stronger distributional assumptions and computation for exact handling of non-identity resolution.
+
+<details>
+<summary>Gaussian conditional-mean calibration variant</summary>
+
+Let $m_s = E(a_s \mid \widehat a_s, z)$ under a Gaussian seed prior. With independent regional errors,
+$$
+E(\widehat a_t \mid \widehat a_s, z) = K_t\{Z\gamma + \beta m_s + \delta\operatorname{diag}(z)m_s\},
+$$
+requiring design columns $K_t m_s$ and $K_t \operatorname{diag}(z) m_s$ rather than multiplying $m_s$ by $z$ after applying $K_t$, plus an explicit shared-noise regression term $\Omega_{ts}(K_s V_s K_s^\top + \Omega_{ss})^{-1}(\widehat a_s - K_s \mu_s)$ whenever $\Omega_{ts} \neq 0$.
+
+</details>
+
+### 3. Full cross-trial corrected-score estimating equations
+
+For unbiased source measurements ($K_s = K_t = I$), form participant $g$'s centered trial design $\widehat D_g = D_g + U_g$ for columns $[a_s,\, z,\, a_s z]$ and define full cross-trial error moments $C_g = E(U_g^\top U_g)$ and $c_g = E(U_g^\top v_g)$ (including run-centering projections applied consistently to both data and $\Omega_{ss}, \Omega_{st}$). Solving the summed participant corrected score ([Nakamura, 1990](https://academic.oup.com/biomet/article-abstract/77/1/127/271070); [Buonaccorsi, 1996](https://academic.oup.com/biomet/article-abstract/83/2/433/289324)):
+
+$$
+q_g(\theta)=\widehat D_g^{\top}\widehat y_g-c_g
+       -(\widehat D_g^{\top}\widehat D_g-C_g)\theta,
+\qquad \sum_{g=1}^G q_g(\widehat\theta)=0,
+$$
+
+yields an unbiased estimating equation $E[q_g(\theta_0)] = 0$ with participant-cluster sandwich variance:
+
+$$
+\widehat V=H^{-1}\left[\frac{G}{G-1}\sum_{g=1}^G
+q_g(\widehat\theta)q_g(\widehat\theta)^{\top}\right]H^{-\top},
+\quad
+H=\sum_{g=1}^G(\widehat D_g^{\top}\widehat D_g-C_g).
+$$
+
+<details>
+<summary>Prototype interface (`measurement_error_models.R`)</summary>
+
+```r
+source("measurement_error_models.R")
+fit <- fit_corrected(blocks, mode = "full")
+stopifnot(fit$ok)
+fit$estimate  # neural association, task main effect, PPI
+fit$se        # participant-cluster score SEs
+```
+
+The prototype refuses indefinite corrected information matrices rather than silently regularizing unidentified designs.
+
+</details>
+
+### 4. Conditional simulation benchmarks (400 repetitions per scenario)
+
+Each scenario simulates 400 repetitions of $G = 60$ participants (`Few participants` uses $G = 12$) with 24 trials per participant, true connectivity $\beta = 0.55$, task main effect $\gamma = 0.25$, and PPI $\delta = 0.35$ (`Null` sets $\beta = \delta = 0$), under serial trial error correlation $0.55$ and shared cross-region error correlation $0.45$.
+
+![Mean coefficient bias across three stress scenarios. Bars show plus/minus 1.96 Monte Carlo SE; horizontal scales differ across columns. The oracle uses true neural amplitudes. Empty Undo K rows mean that method was only evaluated in the unequal-resolution scenario.](bias.png){#fig-bias fig-alt="Noise correction recovers slopes under unbiased measurements, but remains biased with unequal resolution; the stable resolution inverse restores recovery in the controlled example."}
+
+![Coverage of nominal 95% normal intervals. Bars are exact binomial 95% intervals for the Monte Carlo coverage probability, not individual-model confidence intervals. The dashed reference is 95%; all horizontal axes span 0–100%. Full + row SE and Full + cluster SE have the same point estimate.](coverage.png){#fig-coverage fig-alt="Participant-cluster inference improves connectivity coverage with serial errors; neither interval method fixes unequal-resolution bias. Undoing known stable resolution restores coverage in this controlled case."}
+
+```{r key-results}
+show <- s[s$method %in% c("Full moments, cluster SE", "Resolution inverse + full moments") &
+  s$scenario %in% c("Serial + shared Gaussian", "Serial + shared t5", "Different resolution", "Few participants"), ]
+show <- show[order(show$scenario, show$method, show$term), ]
+kable(
+  data.frame(
+    Scenario = show$scenario,
+    Method = show$method,
+    Effect = show$term,
+    Mean = round(show$mean, 3),
+    Bias = round(show$bias, 3),
+    Coverage = pct(show$coverage),
+    `Coverage MCSE` = pct(show$coverage_mcse),
+    check.names = FALSE
+  ),
+  caption = "Selected conditional simulation benchmarks (400 repetitions per row)."
+)
+```
+
+Three practical lessons bridge these benchmarks back to empirical `medusa` analyses:
+
+1. **Omitting shared cross-parcel error creates severe false connectivity:** Under `Null serial + shared`, ignoring $\Omega_{st}$ (`Zero shared covariance`) falsely rejects in **`r pct(get_result("Null serial + shared","Zero shared covariance",column="rejection"))`** of repetitions, whereas subtracting $\Omega_{st}$ drops connectivity false positives to **`r pct(get_result("Null serial + shared","Full moments, cluster SE",column="rejection"))`**—directly motivating `shared_error = "auto"` in Step 6.
+2. **Unequal source resolution requires matched HRF/inverse scales:** When two parcels have markedly different effective smoothing ($K_s \neq K_t$), naive attenuation and resolution distortion can partially cancel (`r f(get_result("Different resolution","Naive"))`) while variance-only disattenuation overshoots (`r f(get_result("Different resolution","Full moments, cluster SE"))`). Keep regularization policies matched across seed and target parcels and control shared task main effects carefully ([Cole et al., 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/)).
+3. **Small-$G$ cohorts require finite-sample $t$/HKSJ adjustments:** Normal asymptotic cluster SEs undercover at $G = 12$ ([MacKinnon, Nielsen & Webb, 2022](https://arxiv.org/html/2205.03285v1)), which is why `decon_connectivity_repair()` uses HKSJ $t$-intervals over participant slopes rather than normal row or unadjusted cluster $z$-intervals.
+
+<details>
+<summary>Reproducibility and complete 74-row simulation table</summary>
+
+Run from `medusa_connectivity_inference/`:
+
+```bash
+Rscript likelihood_only_bridge.R .
+Rscript joint_gaussian_demo.R .
+MEDUSA_REPS=400 Rscript connectivity_prototype.R .
+Rscript prepare_figures.R .
+quarto render medusa_connectivity_inference.qmd
+```
+
+```{r all-results}
+kable(
+  s[, c("scenario", "G", "method", "term", "attempts", "usable", "failures", "mean", "bias", "mean_se", "coverage", "rejection")],
+  digits = 3,
+  caption = "Complete conditional simulation results across all 74 scenario/method/term combinations."
+)
+```
+
+</details>

@@ -1,0 +1,36 @@
+                            scenario            metric     n       rate
+                              <char>            <fctr> <int>      <num>
+ 1:    Complete / independent trials         null_maxT   180 0.03888889
+ 2: Gaps / serially dependent trials         null_maxT   180 0.07222222
+ 3:    Complete / independent trials         null_tfce   180 0.05000000
+ 4: Gaps / serially dependent trials         null_tfce   180 0.06111111
+ 5:    Complete / independent trials      null_omnibus   180 0.02777778
+ 6: Gaps / serially dependent trials      null_omnibus   180 0.02777778
+ 7:    Complete / independent trials         null_band   180 0.96111111
+ 8: Gaps / serially dependent trials         null_band   180 0.92777778
+ 9:    Complete / independent trials       active_band   180 0.95000000
+10: Gaps / serially dependent trials       active_band   180 0.96666667
+11:    Complete / independent trials  raw_epoch_family   180 0.04444444
+12: Gaps / serially dependent trials  raw_epoch_family   180 0.03888889
+13:    Complete / independent trials holm_epoch_family   180 0.01666667
+14: Gaps / serially dependent trials holm_epoch_family   180 0.01666667
+15:    Complete / independent trials   window_coverage   180 0.95555556
+16: Gaps / serially dependent trials   window_coverage   180 0.97777778
+            low       high
+          <num>      <num>
+ 1: 0.015775964 0.07848185
+ 2: 0.039013666 0.12033578
+ 3: 0.023115013 0.09279117
+ 4: 0.030898117 0.10671230
+ 5: 0.009079605 0.06363058
+ 6: 0.009079605 0.06363058
+ 7: 0.921518155 0.98422404
+ 8: 0.879664217 0.96098633
+ 9: 0.907208829 0.97688499
+10: 0.928862331 0.98767084
+11: 0.019380473 0.08569258
+12: 0.015775964 0.07848185
+13: 0.003450344 0.04793220
+14: 0.003450344 0.04793220
+15: 0.914307422 0.98061953
+16: 0.944082303 0.99391277

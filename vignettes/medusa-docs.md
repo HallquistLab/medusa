@@ -1,14 +1,22 @@
 # Building the MEDuSA documentation
 
-The teaching sequence comprises two standard package vignettes and a Quarto technical companion:
+The teaching sequence comprises the full **MEDuSA Quarto Book**, two standard package vignettes, and a historical technical companion:
 
 | Source | HTML output | Role |
 |---|---|---|
-| `vignettes/medusa-concepts.Rmd` | `medusa-concepts.html` | Conceptual foundations and literature (updated through PR #66) |
-| `vignettes/medusa-workflows.Rmd` | `medusa-workflows.html` | Executable example and study recipes (updated through PR #66) |
+| `book/` (`book/_quarto.yml`) | `book/_book/index.html` | Comprehensive MEDuSA Quarto Book covering foundations, worked example, all six pipeline steps, measurement-error theory, and live simulations |
+| `vignettes/medusa-concepts.Rmd` | `medusa-concepts.html` | Conceptual foundations and literature vignette |
+| `vignettes/medusa-workflows.Rmd` | `medusa-workflows.html` | Executable example and study recipes vignette |
 | `medusa_deconvolution_review_prs_42_53.qmd` | `medusa_deconvolution_review_prs_42_53.html` | Historical technical review for PRs #42–#55+ |
 
-Run the commands below from the repository root. Install the package dependencies first. Rendering requires R, knitr/rmarkdown, Pandoc (also bundled with Quarto), and the Quarto CLI for the technical companion. The current source must be installed for a Quarto render, which executes R in its own process. Merely loading a development checkout in another R process does not update that installation.
+To render the **MEDuSA Quarto Book** once `medusa` is installed:
+
+```sh
+cd book
+quarto render
+```
+
+Run the commands below from the repository root to render the vignettes and historical companion into `local/medusa-docs/`. Install the package dependencies first. Rendering requires R, knitr/rmarkdown, Pandoc (also bundled with Quarto), and the Quarto CLI for the technical companion. The current source must be installed for a Quarto render, which executes R in its own process. Merely loading a development checkout in another R process does not update that installation.
 
 A temporary package library avoids changing a regular installation. It should contain no older build of `medusa`; dependencies can remain in the normal R libraries. On systems with a different temporary directory, choose equivalent paths.
 

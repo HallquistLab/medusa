@@ -1,0 +1,22 @@
+{
+  "README.md": "ddbe21df1705cc6c8124b70ac937fb0b4e50040b46d767c4d435f0534c9a1e62",
+  "medusa_connectivity_inference.qmd": "a00412b642d3d08064ad4b1a506b6f6c568ce80f0228aba78c6b19e32cafcfd0",
+  "medusa_connectivity_inference.html": "78c52890c237b61a874c1b354c967db17d2e5f597a97258d50109aaf0a37261b",
+  "measurement_error_models.R": "58c11a305876e6d87af1976ea3b1ff1d8e564b3e53399ede3d9ba8e84f0139af",
+  "connectivity_prototype.R": "375315415c504756615bebd00edff0e4928b2f657cc1139b6fd9502691096f1c",
+  "likelihood_only_bridge.R": "75111d95f19be41e6d7971b12213a87c1a98f5c396ee2b1409f47fc772e98a5c",
+  "joint_gaussian_demo.R": "adcc87ad6dea1d78b37387f55ba1af51f014157d7afd57423cd587f46f22738c",
+  "extra_checks.R": "16e566f2f08ea3f4d9209c33484524db7e0384fbdb3a6e855f3666fd3c572593",
+  "prepare_figures.R": "53d7ddb16ee8076aeaeed299beb9de3ab82d60e6e5dc324c46e7100dac6f9336",
+  "simulation_draws.csv": "60ddc6d28457a6dddde254cf60a9d5e1a371a8b3019447b21c002abd34c95616",
+  "simulation_summary.csv": "73ced17f52be7c5d96a582381e447e50a07d88730f965b03154ab7378c0b30c6",
+  "figure_data.csv": "40f80d57552dacbad420c0679beafdcc571892bdc1a2fd7bbcfbef374afc6bcc",
+  "simulation_settings.rds": "f3df7481bfc95d951dc21ff07491df18a5da5da55557903f5eda27896df20e8d",
+  "source_manifest.json": "c03cf6bd3b32ce61dda5d4e709876ad038f2d45e7bb66dd0a987dba1a2a7aa24",
+  "prototype_checks.txt": "6d07fb771382b0a2363a91149d3ac92213c47cb20a2bd4ba20c893e52696766a",
+  "likelihood_bridge_checks.csv": "7421fd95f1366aa87f41828565966c5db0b4171fcf6acb836d04cbb5701b9540",
+  "joint_gaussian_example.csv": "0db86c237f6156e369890ea0414d3deed0403288d8ae2a76fd42de52f400c58d",
+  "joint_gaussian_checks.txt": "3c8d960e59e04ad62bc6a8a6701bcacb5b40035d952ed0c1e4d9c3bfc797d4f6",
+  "bias.png": "d0d1f2a6bab995b672763296534ace7f6edfd5567f497f0d56df657d111c2536",
+  "coverage.png": "9e045e1d2dae2169ff568bcbc0b7437ef68b055d3e01661167fae721afcd4267"
+}

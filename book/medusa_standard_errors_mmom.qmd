@@ -1,0 +1,149 @@
+# From BOLD noise to M-MOM error variances
+
+```{r setup, include=FALSE}
+covariance_check <- readRDS("worked/mmom-check.rds")$covariance_check
+```
+
+MEDuSA estimates how much observation noise enters **each recovered trial activity estimate**. When deconvolved neural activity becomes a predictor in Step 6 (`Target ~ Seed * Task` or `Behavior ~ Neural`), Method-of-Moments measurement-error correction (`medusa_fit_mmom()` / `decon_connectivity_repair()`) needs its **measurement-error variance**, typically `se_demixed^2`, expressed in the exact same units as the predictor. This trial-level measurement variance is distinct from the standard error of a fitted group regression coefficient.
+
+$$
+\underbrace{\widehat{\operatorname{Cov}}(\varepsilon)}_{\text{BOLD noise (Step 1)}}
+\ \longrightarrow\ 
+\underbrace{\widehat\Omega_\tau}_{\text{trial error covariance (Steps 3–4)}}
+\ \longrightarrow\ 
+\underbrace{s_i=\sqrt{\widehat\Omega_{\tau,ii}}}_{\text{trial SE (`se_demixed`)}}
+\ \longrightarrow\ 
+\underbrace{\Psi_i}_{\text{M-MOM error block (Step 6)}}.
+$$
+
+### 1. Estimate the BOLD noise
+
+For one run and voxel, write $y = Hs + Z\gamma + \varepsilon$, with
+
+$$
+\operatorname{Cov}(\varepsilon) = \sigma_{\rm obs}^2 \Sigma_{\rm cor}.
+$$
+
+Here $H$ applies the selected HRF and $Z$ contains nuisance terms. Step 1's pooled AR(1) profile REML and shrunk residual AR($q$) correction define a cascaded AR($p$) temporal correlation model $\Sigma_{\rm cor}$ (evaluated at the exact retained acquisition indices $\Gamma_N[\text{rows}, \text{rows}]$ when frames are censored). The amplitude $\sigma_{\rm obs}$ is the **marginal observation-noise SD**, not the white-noise innovation SD.
+
+In `fit_crossrun_decon()`, `hrf_estimate_gls_noise_sd()` estimates $\sigma_{\rm obs}$ primarily from leverage-standardized, Winsorized GLS residuals after conditioning on the selected HRF and post-selection AR($p$) correlation model (converting innovation scale to stationary marginal scale via `hrf_ar_cascade_info()`). As a standalone estimator for single-run `deconvolve_reglin()`, omitted-event safeguard, and low-degrees-of-freedom fallback, `estimate_decon_noise_sd()` estimates marginal noise amplitude from second differences $d_t = y_t - 2y_{t-1} + y_{t-2}$, which suppress smooth BOLD signal:
+
+$$
+\widehat\sigma_{\rm obs}
+=\frac{0.5\,\operatorname{SD}(d)+0.5\,\operatorname{MAD}_0(d)}
+       {\sqrt{6-8\widehat r_1+2\widehat r_2}}.
+$$
+
+The normal-consistent MAD is centered at zero, and the denominator adjusts analytically for lag-1 and lag-2 autocorrelation. Crucially, BOLD noise is estimated prior to downstream behavioral or connectivity regressions.
+
+### 2. Propagate noise through the linear inverse and epoch operators
+
+With HRF, regularization penalty, frame weights, nuisance projection, and noise parameters held fixed, deconvolution is a linear map $\widehat s = My$. Event interpolation, gain restoration, and Step 3's cross-event and within-trial demixing combine with $M$ into a linear trial-readout operator $B_\tau$. Therefore, conditional on the learned operators,
+
+$$
+\Omega_{\tau,\rm raw}
+=\sigma_{\rm eff}^2\,\widetilde B_\tau\Sigma_{\rm cor}\widetilde B_\tau^\top,
+$$
+
+where $\widetilde B_\tau$ incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (`worked/mmom-check.R`), MEDuSA's operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to **`r format(covariance_check, scientific = TRUE, digits = 3)`**.
+
+**Run-centered finite-sample calibration.** Because downstream within-run regressions center trial series within each run, `decon_epoch_regression()` centers the propagated $m \times m$ trial error covariance ($m > 1$ valid trials) and applies a Bessel-like finite-sample calibration:
+
+$$
+Q_m = I_m - \frac{\mathbf1\mathbf1^\top}{m},\qquad
+\widehat\Omega_\tau = \frac{Q_m\Omega_{\tau,\rm raw}Q_m}{1-1/m},
+$$
+$$
+\boxed{\texttt{se\_demixed}_i = \sqrt{\max(0, \widehat\Omega_{\tau,ii})}}.
+$$
+
+Thus `se_demixed` represents a **run-centered, finite-sample-calibrated trial measurement SE**. The full off-diagonal $\widehat\Omega_\tau$ is used internally for biological variance estimation (`tau2_bio`) and optional ZCA panel whitening, while the panel exports diagonal `se_demixed` and adjacent-trial error autocorrelation `error_ac1`.
+
+#### Keep units and spatial aggregation consistent
+
+If $d$ is the Step 2 scaling divisor, `restore_scale = FALSE` uses $\sigma_{\rm eff} = \widehat\sigma_{\rm obs} / d$, whereas `restore_scale = TRUE` restores $\sigma_{\rm eff} = \widehat\sigma_{\rm obs}$ so activity and `se_demixed` scale together. Rescaling a predictor by $c$ requires rescaling its SE by $|c|$ and its error variance by $c^2$.
+
+In Step 4, parcel aggregation forms precision-weighted parcel series using task-free Step 1 whitened `noise_innovations` to estimate both within-parcel spatial noise covariance (propagated through exact operator strata) and low-rank cross-parcel `shared_noise_loading` vectors that survive `rbindlist()` stacking.
+
+### 3. Supply measurement-error moments to M-MOM
+
+For an observed predictor $\widehat a_i = a_i + u_i$, set $\psi_i = \operatorname{Var}(u_i) = \texttt{se\_demixed}_i^2$. A single noisy neural predictor uses $\Psi_i = [\psi_i]$. For a PPI design $(\widehat a_i,\, x_i,\, \widehat a_i x_i)$ with error-free modulator $x_i$,
+
+$$
+\Psi_i = \psi_i
+\begin{bmatrix}
+1 & 0 & x_i\\
+0 & 0 & 0\\
+x_i & 0 & x_i^2
+\end{bmatrix}.
+$$
+
+| Exported quantity | Role in downstream modeling |
+|:---|:---|
+| `se_demixed^2` | Predictor measurement-error variance ($\psi_i$) for `decon_demixed` in M-MOM / M-MOMS |
+| `se_whitened^2` | Transformed trial error variance for `decon_demixed_whitened` |
+| `shared_noise_loading` / `unit_error_cor` | Task-free cross-parcel noise innovation basis used by `shared_error = "auto"` to estimate $\operatorname{Cov}(u_i, v_i)$ (`err_xy`) |
+| `tau2_bio` | Estimated latent biological trial-to-trial variance (not measurement error) |
+| `precision_weight` / `precision_weight_cohort` | Inverse total trial variance $(\widehat\tau_{\rm eff}^2 + s_i^2)^{-1}$ for Step 5 outcome weighting (never substitute for $\Psi_i$) |
+| `fit$coefficients$se` | Standard error of an estimated M-MOM regression slope |
+
+#### Minimal applied interface (`medusa_fit_mmom()`)
+
+When `decon_connectivity_repair()` handles parcel-to-parcel connectivity and PPI automatically, it calls `medusa_fit_mmom()` under the hood. You can also call `medusa_fit_mmom()` directly when predicting a behavioral outcome (`rt`, choice log-odds score, pupillometry) from one or more deconvolved parcel readouts within a participant:
+
+```{r synthetic-interface-data}
+library(medusa)
+set.seed(20261110)
+n <- 300L
+latent <- rnorm(n)
+task <- rnorm(n)
+se <- runif(n, 0.3, 0.7)
+d <- data.frame(
+  decon_demixed = latent + rnorm(n, sd = se),
+  se_demixed = se,
+  task = task,
+  outcome = 0.6 * latent + 0.25 * task + rnorm(n, sd = 0.8)
+)
+```
+
+```{r applied-mmoms}
+#| code-fold: false
+stopifnot(all(is.finite(as.matrix(d))), all(d$se_demixed >= 0))
+X <- cbind(neural = d$decon_demixed, task = d$task) # intercept handled internally
+Psi <- array(0, dim = c(ncol(X), ncol(X), nrow(X)))
+Psi[1, 1, ] <- d$se_demixed^2
+
+fit <- medusa_fit_mmom(
+  outcome = d$outcome,
+  predictors = X,
+  err_x = Psi,                 # q x q x N predictor error covariance blocks
+  err_y = rep(0, nrow(d)),     # outcome measurement error variance (0 for error-free behavior)
+  regularization = "step_up"   # M-MOMS positive-definiteness safeguard
+)
+fit$coefficients
+```
+
+If the outcome is another deconvolved brain parcel, pass its squared `se_demixed` in `err_y` and supply per-trial predictor–outcome error covariances in `err_xy` (automated by `decon_connectivity_repair(..., shared_error = "auto")`).
+
+### 4. Distributional assumptions and scope conditions
+
+1. **Operator covariance propagation is distribution-free up to second moments:** $\operatorname{Cov}(B\varepsilon) = B\operatorname{Cov}(\varepsilon)B^\top$ requires finite second moments and an accurate temporal/spatial noise correlation model, not Gaussianity—though Winsorized/MAD scale factors calibrate to Gaussian efficiency.
+2. **Single-subject M-MOM SEs are conditional model-based estimates:** Within-subject SEs from `repair::fit_mmom()` / `medusa_fit_mmom()` use a normal-error variance formula conditional on first-stage error moments. Across multiple participants, `decon_connectivity_repair()` pools participant slopes via HKSJ random-effects inference so group $p$-values rely on between-participant replication rather than single-subject row independence.
+3. **Zero-mean measurement error vs. regularization bias:** Propagating `se_demixed^2` quantifies observation-noise variance $B\Sigma_\varepsilon B^\top$, **not** source resolution bias $(R - I)s$ from ridge/difference regularization or HRF mismatch. When seed and target parcels experience substantially different temporal smoothing ($R_S \neq R_T$), disattenuating variance alone does not undo unequal resolution; see [Measurement-error models and REPAIR](medusa_connectivity_inference/medusa_connectivity_inference.qmd) for resolution-aware extensions.
+
+<details>
+<summary>Implementation locations and reproduction</summary>
+
+Core implementation files in `medusa`:
+- `R/crossrun_hrf.R` (`hrf_estimate_gls_noise_sd`, `hrf_ar_cascade_info`, `fit_crossrun_decon`)
+- `R/deconvolve_reglin.R` (`estimate_decon_noise_sd`, `deconvolve_reglin`)
+- `R/hrf_noise_evidence.R` (`hrf_inverse_operator`)
+- `R/diagnose_crossrun_recovery.R` (`compute_ar1_operator_cov`, `decon_epoch_regression`)
+- `R/medusa_connectivity.R` / `R/diagnose_crossrun_recovery.R` (`medusa_fit_mmom`, `decon_connectivity_repair`, `medusa_between_subject_repair`)
+
+To regenerate the numerical cascade covariance check (`worked/mmom-check.rds`):
+```bash
+cd worked && Rscript mmom-check.R
+```
+
+</details>

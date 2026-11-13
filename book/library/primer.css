@@ -1,0 +1,18 @@
+/* Readable methods report; figures retain their full plot margins. */
+:root { --bs-body-font-size: 1.03rem; }
+#quarto-content { max-width: 1540px; margin: auto; }
+#quarto-document-content { max-width: 1080px; }
+p, li { line-height: 1.65; }
+h1 { margin-top: 2.7rem; } h2 { margin-top: 1.8rem; }
+.quarto-figure { margin: 2rem 0; }
+.figure-caption { font-size: .94rem; line-height: 1.55; color: #45515e; }
+details > summary { color: #285c82; padding: .45rem 0; }
+pre.sourceCode { font-size: .86rem; }
+.cell-output-display { overflow-x: auto; }
+.cell-output-display img { display: block; max-width: 100%; height: auto; }
+table { font-size: .9rem; } th, td { padding: .6rem !important; vertical-align: top; }
+@media (max-width: 760px) { table { font-size: .82rem; } .cell-output-display { max-width: 100%; } }
+
+.math.display { display: block; overflow-x: auto; padding: .4rem 0; }
+
+main table th, main table td { overflow-wrap: anywhere; }

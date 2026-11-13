@@ -1,0 +1,27 @@
+# Validation and the limits of the evidence {#sec-evidence}
+
+The standalone `medusa` package is evaluated through two complementary layers of evidence:
+
+1. **Controlled mechanism demonstrations across Chapters 3–12 of this book**, which isolate individual pipeline operators—cross-run HRF and 2-pass REML AR($p$) learning, event-informed vs. blind deconvolution, adaptive `rwls = "auto"` spike downweighting, epoch target/collateral demixing, innovation-based spatial parcel pooling, mixed-effects vs. multi-lag trajectory calibration, and M-MOMS connectivity/PPI sensitivity—under known mathematical ground truth.
+2. **The 14-study end-to-end [MEDuSA Validation Suite](library/medusa_validation_suite.html)**, which benchmarks full pipeline configurations across realistic event schedules, neurovascular heterogeneity, heavy-tailed artifact bursts, censoring masks, and sample sizes.
+
+Keeping the scope of each test distinct is essential: an algebraic check verifies that operator covariance propagation is exact conditional on a fitted noise model, whereas a Monte Carlo study measures bias and interval coverage under its specific data-generating process.
+
+| Evidence layer | What it evaluates | How to use it in practice |
+|:---|:---|:---|
+| **Studies 1–4** ([Validation suite](library/medusa_validation_suite.html)) | Trial-slope recovery, precision weighting, sub-TR timing sensitivity, connectivity artifacts, and participant vs. trial sample-size scaling | Compare estimator bias, RMSE, power, and false-positive calibration under realistic trial counts and ISI distributions. |
+| **Studies 5–9** ([Validation suite](library/medusa_validation_suite.html)) | Realistic multi-run BOLD generation, HRF basis/regularization ablations, parcel spatial weighting, and full-pipeline configuration stress tests | Guide sensitivity analyses when adapting `medusa` to a study's specific TR, event density, and tSNR. |
+| **Study 10, [Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd), and [Measurement-error models](medusa_connectivity_inference/medusa_connectivity_inference.qmd)** | Predictor disattenuation (`M-MOMS`), `shared_error = "auto"` cross-parcel innovation subtraction, HKSJ participant pooling, and task-modulated shared-error PPI stress tests | Verify disattenuation against naive slopes and run shared-error sensitivity curves before claiming latent PPI modulation. |
+| **Study 11 and [Multi-lag trajectory calibration](medusa_pr62_calibration/medusa_pr62_calibration.qmd)** | `medusa_multilag_infer()` available-case lag pooling, studentized Wishart `Max-|T|`, 1D TFCE, omnibus Mahalanobis tests, simultaneous bands, and `"unsmoothed"` window contrasts | Distinguish single-trajectory familywise error (`p_maxT`, `p_tfce`) from study-wide multiplicity across parcels and covariates (`"holm"` / `"BY"`). |
+| **Study 12 and [Woolrich noise review](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd)** | 2-pass post-selection REML AR($p$) noise refitting, Winsorized GLS marginal `noise_sd`, gapped Toeplitz covariance, and comparison against tapered residual estimators | Audit empirical residual ACFs and spatial homogeneity when choosing `spatial_groups` and nuisance bases. |
+| **Studies 13–14 and [Step 1](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd) / [Step 2](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)** | 3D physiological HRF manifold (`preset = "medusa"`) with positive-lobe `normalize = "area"` gain consistency, event-informed vs. blind deconvolution, and adaptive heavy-tail `rwls = "auto"` frame weighting | Retain `preset = "medusa"` and `rwls = "auto"` as defaults so neurovascular dispersion, negative undershoot variations, and isolated motion spikes do not distort trial amplitudes. |
+
+## Designing a Study-Specific Calibration Check
+
+Before making high-stakes inferential claims on a novel task schedule—especially rapid event-related designs with variable-duration phases or trial-level PPI—run a compact synthetic calibration tailored to your exact study geometry:
+
+1. **Lock the estimand and multiplicity family upfront:** Prespecify the target parcels, peri-event lag grid, behavioral covariates, planned time windows, and study-wide adjustment rule (`"holm"` or `"BY"`) before inspecting empirical $p$-values.
+2. **Use your actual empirical event schedule and censor masks:** Simulate BOLD on the exact empirical onset times, reaction-time durations, run lengths, and framewise-displacement censor masks (`valid_rows`) from your cohort so collinearity and edge truncation match your real data.
+3. **Simulate both active signals and realistic structured nulls:** Include voxelwise HRF variation across the physiological manifold, AR($p$) temporal noise, spatially correlated parcel innovations, and—for Step 6 PPI—a stress null where shared physiological/motion noise varies across task conditions while true neural modulation is zero.
+4. **Refit the complete pipeline inside every Monte Carlo replicate:** Keep Step 1 HRF/noise learning, Step 2 `lambda` and `rwls = "auto"` estimation, Step 3/4 epoch demixing and parcel weighting, and Step 5/6 inference inside the loop rather than freezing oracle operators.
+5. **Report bias, 95% CI coverage, null rejection, and convergence health together:** Track missing edge-lag participants, `isSingular()` rates in `mixed_by()`, step-up regularization triggers in `decon_connectivity_repair()`, and binomial Monte Carlo intervals around empirical rejection and coverage rates.

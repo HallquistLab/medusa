@@ -1,0 +1,3 @@
+"run","stratum","fitted_kernel","source_kernel","noise_rho","n_voxels","n_events","n_valid_gains","mean_gain","mean_abs_gain_error","mean_abs_excess_leakage"
+"run1","1:0.5","hrf_1","fitted",0.5,8,15,15,0.548662482956334,0.451337517043666,0.0205542524520019
+"run2","1:0.5","hrf_1","fitted",0.5,8,15,15,0.63710926459459,0.36289073540541,0.0244393203607335

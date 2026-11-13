@@ -6,6 +6,7 @@
 ^\.github$
 ^_pkgdown\.yml$
 ^docs$
+^book$
 ^pkgdown$
 ^COEFFICIENT_RECOVERY_VALIDATION\.md$
 ^CROSSRUN_HRF_GUIDE\.md$

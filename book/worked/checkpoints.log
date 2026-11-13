@@ -1,0 +1,91 @@
+Using model_formulae to setup model_set
+Starting processing of data splits
+Loading required package: Matrix
+
+Attaching package: ‘lmerTest’
+
+The following object is masked from ‘package:lme4’:
+
+    lmer
+
+The following object is masked from ‘package:stats’:
+
+    step
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+boundary (singular) fit: see help('isSingular')
+
+
+| lag| estimate| conf.low.sim| conf.high.sim| p_maxT|
+|---:|--------:|------------:|-------------:|------:|
+|  -2|    0.333|        0.263|         0.402|    0.0|
+|  -1|    0.508|        0.412|         0.604|    0.0|
+|   0|    0.584|        0.470|         0.698|    0.0|
+|   1|    0.528|        0.420|         0.636|    0.0|
+|   2|    0.371|        0.290|         0.452|    0.0|
+|   3|    0.181|        0.128|         0.233|    0.0|
+|   4|    0.025|       -0.011|         0.061|    0.2|
+$edge
+Index: <lag>
+     lag   estimate
+   <int>      <num>
+1:    -2 -0.1804847
+2:    -1  0.5239934
+3:     0  0.8334588
+4:     1         NA
+5:     2         NA
+6:     3         NA
+7:     4         NA
+
+$support
+Index: <lag>
+     lag n_subjects group_total
+   <num>      <int>       <int>
+1:    -2         12          12
+2:    -1         12          12
+3:     0         12          12
+4:     1         12          12
+5:     2         12          12
+6:     3         12          12
+7:     4         11          12
+
+$contrasts
+Index: <source>
+       source   estimate  std.error   conf.low  conf.high
+       <char>      <num>      <num>      <num>      <num>
+1:        raw -0.3637334 0.02381755 -0.4161555 -0.3113113
+2: unsmoothed -0.2461759 0.03162241 -0.3157764 -0.1765754
+3:   multilag -0.2462342 0.03062666 -0.3136431 -0.1788254
+
+$handoff
+Index: <input>
+                  input           covariance    median_r     estimate
+                 <char>               <char>       <num>        <num>
+1:     Participant fits Participant matrices 0.001716802 -0.001457334
+2:        Stacked panel     Loading products 0.001716802 -0.001457334
+3:             Full CSV     Loading products 0.001716802 -0.001457334
+4: CSV without loadings        Zero fallback 0.000000000 -0.001495398
+         lower      upper n_subjects
+         <num>      <num>      <int>
+1: -0.02350728 0.02059261         12
+2: -0.02350728 0.02059261         12
+3: -0.02350728 0.02059261         12
+4: -0.02354865 0.02055786         12
+

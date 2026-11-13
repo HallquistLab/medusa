@@ -1,0 +1,17 @@
+:root { --medusa-ink: #173145; --medusa-accent: #236b70; }
+main { min-width: 0; }
+main p, main li { line-height: 1.62; }
+main h1, main h2, main h3 { color: var(--medusa-ink); }
+main h2 { margin-top: 2.1rem; }
+main figure img { max-width: 100%; height: auto; }
+main figcaption { line-height: 1.48; color: #495e6e; }
+main .table, main table { font-size: .93rem; }
+main th, main td { vertical-align: top; overflow-wrap: anywhere; }
+main td code, main p code, main li code { white-space: normal; overflow-wrap: anywhere; }
+main pre { font-size: .86rem; }
+main .math.display, main mjx-container[display="true"] { display: block; max-width: 100%; overflow: auto hidden; }
+main .cell-output-display { max-width: 100%; overflow-x: auto; }
+.medusa-intro { border-top: 4px solid var(--medusa-accent); background: #eff6f5; padding: 1.05rem 1.25rem; margin: 1.5rem 0; color: #173145; }
+.medusa-intro p:last-child { margin-bottom: 0; }
+main .math.inline { display: inline-block; max-width: 100%; vertical-align: middle; overflow-x: auto; overflow-y: hidden; }
+main pre, main pre code { white-space: pre-wrap; overflow-wrap: anywhere; }

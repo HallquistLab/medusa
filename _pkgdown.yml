@@ -2,3 +2,11 @@ url: https://hallquistlab.github.io/medusa/
 template:
   bootstrap: 5
   bootswatch: spacelab
+navbar:
+  structure:
+    left:  [intro, book, reference, articles, tutorials, news]
+    right: [search, github, lightswitch]
+  components:
+    book:
+      text: MEDuSA Book
+      href: book/index.html

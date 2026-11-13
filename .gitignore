@@ -16,6 +16,8 @@ medusa_deconvolution_review_prs_42_53.html
 *.knit.md
 .Renviron
 docs/
+book/_book/
+book/.quarto/
 slurm-*.out
 /local/
 *.Rout

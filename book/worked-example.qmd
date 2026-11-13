@@ -1,0 +1,196 @@
+# A worked analysis from BOLD to a group claim {#sec-worked}
+
+```{r setup, include=FALSE}
+num <- function(x) sprintf("%.3f", x)
+check <- readRDS("worked/checkpoints.rds")
+library(ggplot2)
+library(data.table)
+blue <- "#245D80"
+teal <- "#176E66"
+orange <- "#A74D2B"
+theme_book <- theme_minimal(base_size=13) +
+  theme(panel.grid.minor=element_blank(),legend.position="bottom",
+        strip.text=element_text(face="bold"),plot.margin=margin(8,12,8,9))
+```
+
+Suppose the primary question is whether signed reward prediction error predicts activity at feedback onset in a prespecified parcel. The teaching dataset has 12 independently simulated participants, three runs each, and 20 trials per run. Each trial contains a cue, a decision interval of variable duration, and brief feedback. Two parcels contain different synthetic voxels. RPE affects feedback activity in both parcels, so the example also shows why a shared task effect must be accounted for in a connectivity analysis.
+
+The simulation source is the package workflow vignette ([`worked/workflow-source.Rmd`](worked/workflow-source.Rmd)), executed directly against `library(medusa)`. The commands below trace the main pipeline handoffs across Steps 1–6; see [Reproduction and references](reference.qmd) to regenerate the checkpoint outputs from scratch.
+
+## Fit the participant and keep the operators
+
+```{r participant-example}
+#| eval: false
+#| code-fold: false
+library(medusa)
+
+hrf_fit <- estimate_crossrun_hrf(
+  bold, events, tr, candidates, amplitude_model = "trial",
+  noise_model = "ar1", evidence = "calibrated"
+)
+dec <- deconvolve_crossrun_hrf(
+  bold, hrf_fit, lambda = .1, scaling = "noise_sd", penalty = "sobolev",
+  nuisance_mode = "ignore", observation_mask = "fit"
+)
+epochs <- decon_epoch_regression(
+  dec, covariates, target_condition = "feedback", lags = -2:4,
+  parcel_groups = parcel_ids, restore_scale = TRUE,
+  demix_within_trial = FALSE, tau2_mode = "marginal", return_panel = TRUE
+)
+```
+
+The fixed penalty is a teaching choice. For a study, check the tuning rule and resolution under the actual timing. Inspect target-excluded training runs and HRF fallbacks. Keep acquisition rows with their original times and explicit validity masks. Verify that every feedback `event_index` maps to the same row in the behavioral data. Save the named list of participant epoch results so the trajectory and connectivity paths can retrieve their operator metadata.
+
+## Follow one trial through Steps 1–4 {#sec-worked-checkpoints}
+
+Follow participant **sim01**, **run1**, feedback trial **8**, and **Parcel A**. In the original event table it is row `r check$event_row`, with feedback at `r num(check$onset)` seconds. The parcel combines three voxel reconstructions. The diagnostic figure averages them in their original input units using the same weights as the parcel analysis.
+
+```{r, echo=FALSE, fig.width=8.2, fig.height=5.3}
+#| label: fig-checkpoint-traces
+#| fig-cap: "Top: the generating and selected HRF for the focal parcel, using the realized voxel weights. Middle: observed parcel BOLD after demeaning. Bottom: the same parcel’s restored activity after inversion. The vertical reference on the bottom two panels is the focal feedback event."
+h <- rbind(data.frame(time=check$hrf$time, amplitude=check$hrf$generating, curve="Generating HRF"),
+           data.frame(time=check$hrf$time, amplitude=check$hrf$fitted, curve="Selected HRF"))
+h <- transform(h, view="Step 1 · HRF (seconds after a unit impulse)")
+z <- subset(check$stage12, time >= -9 & time <= 14)
+b <- data.frame(time=z$time,amplitude=z$bold,curve="Observed",
+                view="Step 2 · Centered BOLD (seconds from feedback)")
+a <- data.frame(time=z$time,amplitude=z$recovered,curve="Recovered",
+                view="Step 2 · Restored activity (seconds from feedback)")
+series <- rbind(h,b,a)
+series$view <- factor(series$view, unique(series$view))
+reference <- data.frame(time=0,view=levels(series$view)[2:3])
+ggplot(series,aes(time,amplitude,color=curve,linetype=curve)) +
+  geom_vline(data=reference,aes(xintercept=time),inherit.aes=FALSE,color="#71818D",linetype=3) +
+  geom_line(linewidth=.9) + facet_wrap(~view,ncol=1,scales="free") +
+  scale_color_manual(values=c("Generating HRF"=orange,"Selected HRF"=blue,Observed="#59636C",Recovered=teal)) +
+  scale_linetype_manual(values=c("Generating HRF"="dashed","Selected HRF"="solid",Observed="solid",Recovered="solid")) +
+  labs(x="Seconds",y="Amplitude",color=NULL,linetype=NULL) + theme_book
+```
+
+1. **Learn.** For run1 the HRF training runs are `r paste(check$hrf_training, collapse = ", ")`. Check that run1 is absent from HRF selection. If shape estimates vary across training folds or fall back, compare the fallback and selected estimates under the same inverse settings. The target-run noise refit can still use run1.
+2. **Invert.** Inspect the observation mask, the scaling divisor, and the reconstruction around the event. The BOLD and activity panels use separate vertical scales. The inverse redistributes the signal over time and changes the noise. If a striking peak changes with the penalty, probe the resolution under that penalty before interpreting the peak.
+3. **Align and correct.** The table below shows what the readout returned at each lag for this trial. Compare `decon_raw` and `decon_demixed` to see the net correction. If the correction is large, inspect event overlap, support, and gain before carrying the estimate forward.
+4. **Assemble the panel.** The realized parcel weights are `r paste(num(check$parcel_weights), collapse = ", ")`. Verify that the same parcel still represents a comparable spatial unit when a voxel is unavailable in a later run. The SE in the table measures propagated error. The weight also includes a working component for latent trial variation. Keep the participant fit and event keys along with the panel.
+
+```{r checkpoint-table, echo=FALSE}
+knitr::kable(check$trial,digits=3,row.names=FALSE,
+  col.names=c("Lag (s)","Raw readout","Corrected","Measurement SE","Cohort weight"))
+```
+
+### Two ways to lose support
+
+First, keep sim01’s acquisition grid and mask observations more than `r check$edge_cut` seconds after its final run1 feedback. The last trial still has a lag-zero estimate, while later lags can lose enough observable HRF energy to be missing. This is a separate mask exercise on the last trial. Trial 8 above comes from the original fit.
+
+Second, remove all of sim01’s +4 s activity readouts in a copy of the original participant panel. The group trajectory can still use sim01 at earlier lags. Count finite **raw** participant slopes from `subjects` to audit that support. In this implementation the group coefficient table’s `n_subjects` describes the retained trajectory cohort. It can stay at 12 when a particular lag has fewer contributing slopes.
+
+```{r support-table, echo=FALSE}
+knitr::kable(data.frame(
+  `Lag (s)`=check$edge$lag,
+  `Final trial after mask`=ifelse(is.finite(check$edge$estimate),num(check$edge$estimate),"Missing"),
+  `Finite participant slopes after +4 s removal`=check$support$n_subjects,
+  check.names=FALSE),row.names=FALSE)
+```
+
+A missing trial is a support problem. Leave it missing, inspect whether support varies by condition or person, and report the lag-specific contributing sample before testing a window.
+
+## Fit the planned association
+
+Use a trial-level mixed model with a participant random slope for the within-run predictor and a run intercept nested within participant. Select one parcel and lag before looking at the coefficient.
+
+```{r planned-example}
+#| eval: false
+#| code-fold: false
+one <- group_panel[parcel == "Parcel_A" & evt_time == 0]
+fit <- mixed_by(
+  one, model_formulae = list(
+    feedback = decon_demixed ~ rpe_within + (1 + rpe_within || id) + (1 | id:run)
+  ),
+  weights = "precision_weight_cohort",
+  calculate = "parameter_estimates_reml", padjust_by = NULL,
+  return_models = TRUE
+)
+```
+
+This run retained `r check$n_trials` trial rows and `r check$subjects` participants in the planned split. The estimated feedback slope was `r num(check$focal$estimate)` in restored input units per RPE unit. The planned mixed model is `r if (check$singular) "singular" else "nonsingular"`. Inspect the random-effect variance components and report the boundary fit before making a population claim. The checkpoint simulation does not estimate error-rate calibration.
+
+## Interpret the lag profile
+
+```{r trajectory-example}
+#| eval: false
+#| code-fold: false
+profile <- medusa_multilag_infer(
+  subject_epochs, covariates = "rpe", use_whitened = FALSE,
+  trajectory_mode = "none", contrast_source = "unsmoothed",
+  tr = tr, n_perm = 1999L, n_boot_latency = 0L, seed = 5420L
+)
+```
+
+```{r, echo=FALSE, fig.width=8.2, fig.height=4.4}
+#| label: fig-worked-lags
+#| fig-cap: "The generator places the RPE effect at feedback (orange diamond; the generating effect is zero at every other lag). The green dashed curve projects the generating RPE signal through the fitted inverse and epoch correction. The blue curve is recovered from the noisy BOLD. Its ribbon is the raw within-trajectory simultaneous band."
+ggplot(check$group_curve, aes(lag, estimate)) +
+  geom_ribbon(aes(ymin=conf.low.sim,ymax=conf.high.sim), fill="#BBD5DF", alpha=.75) +
+  geom_hline(yintercept=0,linetype="dotted",color="#526876") +
+  geom_vline(xintercept=0,linetype="dotted",color="#526876") +
+  geom_line(aes(color="Recovered"),linewidth=1) +
+  geom_point(aes(color="Recovered"),size=2) +
+  geom_line(data=check$projected,aes(color="Projected through fitted operators"),
+            linetype="dashed",linewidth=1) +
+  geom_point(data=data.frame(lag=0,estimate=check$truth),aes(color="Generating effect at feedback"),
+             shape=18,size=3.8) +
+  scale_color_manual(values=c(Recovered=blue,"Projected through fitted operators"=teal,
+                              "Generating effect at feedback"=orange)) +
+  scale_x_continuous(breaks=-2:4) +
+  labs(x="Seconds from feedback",y="Population RPE slope",color=NULL) +
+  guides(color=guide_legend(nrow=2,byrow=TRUE)) + theme_book
+```
+
+To make the dashed curve, generate only the BOLD contribution from the known feedback RPE effect. Apply each participant’s frozen inverse and the same epoch procedure, keeping the original scaling, observation mask, parcel weights, and trial weights. Then run the same group trajectory estimator on those projected readouts. Its group precision estimates can change because the response changed. This is a signal-only projection using the full event schedule and fitted operators. It shows what the fitted analysis can spread across lags even when the underlying source is brief. The difference between the two curves can also reflect other sources, estimation noise, and the fitted group weights. The blue simultaneous band applies to the estimated parcel–term lag family.
+
+## Compare one planned window on three curves {#sec-worked-contrasts}
+
+Compare mean activity slopes at +2 through +4 s with the mean at 0 and +1 s. Hold the participant data and the contrast weights fixed. Use `trajectory_mode = "deblur_pspline"` to expose the difference between deblurring and smoothing. The three curve options would coincide under `trajectory_mode = "none"`.
+
+```{r worked-contrasts, echo=FALSE, fig.width=8.2, fig.height=4.3}
+#| fig-cap: "The same early and late windows applied to raw, deblurred-only, and fully processed trajectories. The plot uses the supported lag grid."
+cv <- melt(copy(check$curve_versions),id.vars="lag",variable.name="curve")
+windows <- data.frame(left=c(0,2),right=c(1,4))
+ggplot(cv,aes(lag,value,color=curve,linetype=curve)) +
+  geom_rect(data=windows,aes(xmin=left,xmax=right,ymin=-Inf,ymax=Inf),
+            inherit.aes=FALSE,fill="#DCEBE6",alpha=.6) +
+  geom_hline(yintercept=0,linetype=3,color="#708592") +
+  geom_line(linewidth=1) + geom_point(size=2) +
+  scale_color_manual(values=c(raw=blue,unsmoothed=teal,multilag=orange)) +
+  scale_linetype_manual(values=c(raw="solid",unsmoothed="dashed",multilag="dotdash")) +
+  scale_x_continuous(breaks=-2:4) +
+  labs(x="Seconds from feedback",y="Population RPE slope",color=NULL,linetype=NULL) +
+  theme_book
+```
+
+```{r worked-contrast-table, echo=FALSE}
+knitr::kable(check$contrasts,digits=5,row.names=FALSE,
+  col.names=c("Contrast source","Late minus early","SE","95% lower","95% upper"))
+```
+
+Choose `raw` for a contrast of the original lag estimates. Choose `unsmoothed` for the curve after any deblurring and before spline smoothing. Choose `multilag` for the fully processed curve. Deblurring changes the contrast more than spline smoothing in this example. The interval propagates the selected curve’s working covariance. Use the choice that matches the planned estimand and report it alongside the lag windows.
+
+## When a neural readout becomes a predictor
+
+The two parcels respond to the same task variable. Keep the RPE main effect and use the full centered seed when estimating the interaction in this example. The generator lacks a designed PPI manipulation. It provides a check of how the analysis carries measurement error across the final handoff.
+
+### What survives stacking and CSV export? {#sec-worked-handoff}
+
+The following fits use the same paired trials, full centered seed, and `shared_error = "auto"`. The subject fit list preserves the participant cross-unit matrices. The stacked panel may keep scalar loadings even when it loses the matrix attributes. A full CSV round-trip can retain those scalar loadings. A compact export that omits the loadings has neither source of shared-error information, so the automatic correction uses zero.
+
+```{r ppi-handoff-table, echo=FALSE}
+h <- as.data.frame(check$handoff)
+h$interval <- sprintf("[%.4f, %.4f]",h$lower,h$upper)
+h$median_r <- sprintf("%.4f",h$median_r)
+h$estimate <- sprintf("%.5f",h$estimate)
+knitr::kable(h[c("input","covariance","median_r","estimate","interval")],
+  row.names=FALSE,col.names=c("Input","Covariance used","Median error r","PPI slope","95% interval"))
+```
+
+The median correlation summarizes the participant values actually used by the wrapper. The PPI slopes here may differ little because the generator uses independent voxel noise. The metadata comparison still identifies which error assumption each fit used. A zero fallback means the fit had no usable cross-error estimate. The [connectivity chapter](medusa_step6_connectivity/medusa_step6_connectivity.qmd) shows why that matters when shared errors are large or task-dependent.
+
+[Checkpoint code](worked/checkpoints.R) · [Checkpoint results](worked/checkpoints.rds) · [Execution log](worked/checkpoints.log) · [Worked-example execution log](worked/run.log) · [Base worked-example script](worked/run.R)
