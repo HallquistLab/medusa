@@ -41,7 +41,7 @@ Every input to `estimate_crossrun_hrf()` is structured to preserve exact acquisi
 
 | Input | Structure | Why It Is Set Up That Way |
 |---|---|---|
-| `bold` | Named list of numeric matrices (`time × voxel`), one per run | Keeping runs separate (rather than concatenating them) defines the cross-fitting folds ($s \neq r$), accommodates unequal run lengths, and prevents AR filters or HRF tails from bleeding across run boundaries. Voxel columns must appear in identical order with matching column names across runs so evidence can be pooled per spatial unit. |
+| `bold` | Named list of numeric matrices (`time × voxel`), one per run (e.g., `read_nifti_ts()$bold`) | Keeping runs separate (rather than concatenating them) defines the cross-fitting folds ($s \neq r$), accommodates unequal run lengths, and prevents AR filters or HRF tails from bleeding across run boundaries. `read_nifti_ts()` validates shared 3D dimensions, voxel spacing, and `sform`/`qform` affines across runs, masks, and atlases before streaming in-mask voxels directly in C++ into matching `T × V` matrices without materializing 4D R arrays. |
 | `events` | Named list of `data.frame`s (`onset`, optional `duration`, `condition`) matching `names(bold)` | HRF shape cannot be identified blindly without anchor timestamps (shifting $h$ forward and neural timing backward yields identical BOLD). Supplying *all* modeled task events—without behavioral covariates—anchors vascular lag while keeping behavioral hypotheses blind. Zero-row `events[[r]]` (e.g., resting-state runs) are permitted and receive canonical fallback HRFs plus pure-nuisance noise fits. |
 | `tr` & `time_offset` | Positive scalar TR (s); scalar or per-run start time (s) | Maps continuous event times (in seconds) onto discrete acquisition bins via fractional bracket interpolation or sub-bin boxcar occupancy, ensuring off-TR jitter is represented accurately. |
 | `kernel_grid` | Numeric matrix (`L_hrf × K`) from `hrf_library()`, with column 1 as canonical fallback | Pre-discretizing normalized candidate waveforms onto the `tr` grid lets C++ evaluate all $K$ candidates in batched BLAS sweeps and guarantees a known reference shape (`fallback_kernel = 1L`) when task SNR is absent. |
@@ -72,6 +72,16 @@ Every input to `estimate_crossrun_hrf()` is structured to preserve exact acquisi
 #| eval: false
 #| code-fold: false
 library(medusa)
+
+# 0. Stream preprocessed 4D NIfTI runs + mask + atlas into T x V matrices in C++
+ts <- read_nifti_ts(
+  niftis = c(run1 = "sub01_run1.nii.gz", run2 = "sub01_run2.nii.gz", run3 = "sub01_run3.nii.gz"),
+  mask   = "sub01_mask.nii.gz",
+  atlas  = "schaefer200.nii.gz",
+  tr     = tr
+)
+bold <- ts$bold
+parcel_ids <- ts$parcel_ids
 
 # 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)
 candidates <- hrf_library(tr = tr, preset = "medusa")

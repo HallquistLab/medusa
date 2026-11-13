@@ -18,7 +18,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8,
                       fig.height = 4.5, fig.align = "center")
 library(medusa)
 library(ggplot2)
-needed <- c("estimate_crossrun_hrf", "deconvolve_crossrun_hrf", "decon_epoch_regression",
+needed <- c("read_nifti_ts", "write_nifti_ts", "align_medusa_ts",
+            "estimate_crossrun_hrf", "deconvolve_crossrun_hrf", "decon_epoch_regression",
             "mixed_by", "medusa_multilag_infer", "decon_connectivity_repair")
 stopifnot(all(vapply(needed, exists, logical(1),
                     envir = asNamespace("medusa"), inherits = FALSE)))
@@ -30,11 +31,12 @@ Read the [conceptual primer](medusa-concepts.html) first if HRF selection, regul
 
 | Goal | Route | Important boundary |
 |---|---|---|
-| Deconvolve NIfTI runs and align/aggregate them using existing file workflows | `voxelwise_deconvolution()` → `evt_align_decon_files()` (or `run_decon_alignment()`) | Can use new scaling/penalties/readouts; does not automatically learn cross-run HRFs or de-mix epochs |
-| Learn HRFs from other runs and quantify operator-based epoch effects | `estimate_crossrun_hrf()` → `deconvolve_crossrun_hrf()` → `decon_epoch_regression()` | Requires named time-by-voxel matrices and explicit event/covariate matching |
+| Event-lock and interpolate in-memory matrices, NIfTI bundles, or deconvolved runs onto a lag grid | `read_nifti_ts()` / `deconvolve_crossrun_hrf()` → `align_medusa_ts()` | Fast C++ segment quadrature and overlap/censoring auditing without CSVs or `fmri_ts`; descriptive alignment only (does not de-mix neighboring events) |
+| Deconvolve NIfTI runs and align/aggregate them using existing file workflows | `voxelwise_deconvolution()` → `evt_align_decon_files()` (or `run_decon_alignment()`) | Uses C++ fast pivoting on `.csv.gz` / `.rds` files; does not automatically learn cross-run HRFs or de-mix epochs |
+| Learn HRFs from other runs and quantify operator-based epoch effects | `read_nifti_ts()` → `estimate_crossrun_hrf()` → `deconvolve_crossrun_hrf()` → `decon_epoch_regression()` | Uses named time-by-voxel matrices, exact inverse operators, and explicit event/covariate matching |
 | Compare a fixed canonical HRF with a learned HRF under the same downstream model | Use a one-column canonical library and a multi-candidate library in the matrix route | Keep lambda, penalty, noise, scale, and readout comparable |
 
-The second route goes beyond the old pair of functions: epoch regression uses the **fitted inverse operator**, not only a saved activity CSV. Do not pass a legacy deconvolution file to `decon_epoch_regression()` or run `evt_align_decon_files()` on its panel. The panel is already event aligned.
+The third route goes beyond descriptive alignment: epoch regression uses the **fitted inverse operator**, not only an activity matrix or saved CSV. Do not pass a legacy deconvolution file to `decon_epoch_regression()`, and do not run `align_medusa_ts()` or `evt_align_decon_files()` on `decon_epoch_regression()$panel`—that panel is already event aligned.
 
 Use a package build containing these PRs. For a development checkout, run `pkgload::load_all(".")` from the repository root before rendering. Loading an older installed `fmri.pipeline` can silently omit newer APIs in an interactive session; the check above fails early if they are absent.
 
@@ -429,11 +431,14 @@ bold <- ts$bold             # named list of T x V matrices
 voxel_map <- ts$voxel_map   # voxel IDs, linear_index, (i,j,k), world (x,y,z), atlas_value
 parcel_ids <- ts$parcel_ids # named parcel vector ready for spatial_groups / parcel_groups
 
+# Optional: direct C++ matrix-native event alignment (no CSV or fmri_ts intermediates)
+# aligned <- align_medusa_ts(ts, events = trial_df, event = "feedback_onset", time_before = -2, time_after = 4)
+
 # Optional: write 4D deconvolved activity or a 3D voxel summary map back to NIfTI in C++
 # write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)
 ```
 
-Build `events`, covariate lists, nuisance matrices, and logical masks from your study using exactly `names(bold)` and matching order. Check the acquisition TR (`ts$tr` or sequence metadata) and all event clocks, then pass `bold` and `parcel_ids` directly to `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, and `decon_epoch_regression()`. Keep `ts$voxel_map` and `ts$geometry` in your saved fit archive. Chunking the voxel dimension may still be needed for very large whole-brain runs, though changes to noise pooling or parcel support must be accounted for; splitting voxels arbitrarily need not reproduce a whole-mask fit.
+Build `events`, covariate lists, nuisance matrices, and logical masks from your study using exactly `names(bold)` and matching order. Check the acquisition TR (`ts$tr` or sequence metadata) and all event clocks, then pass `bold` and `parcel_ids` directly to `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, `align_medusa_ts()` (for direct matrix-native event-locked interpolation without intermediate CSVs or `fmri_ts` long tables), and `decon_epoch_regression()` (for operator-based epoch de-mixing). Keep `ts$voxel_map` and `ts$geometry` in your saved fit archive. Chunking the voxel dimension may still be needed for very large whole-brain runs, though changes to noise pooling or parcel support must be accounted for; splitting voxels arbitrarily need not reproduce a whole-mask fit.
 
 # Keep or update the established file workflow
 

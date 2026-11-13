@@ -177,6 +177,9 @@ medusa_parallel_lapply <- function(X, FUN, ..., ncpus = 1L) {
 #'       `header_tr`.
 #'   }
 #'
+#' @seealso [write_nifti_ts()], [align_medusa_ts()], [estimate_crossrun_hrf()],
+#'   [deconvolve_crossrun_hrf()], [decon_epoch_regression()]
+#'
 #' @examples
 #' img <- array(rnorm(4 * 4 * 2 * 10), dim = c(4, 4, 2, 10))
 #' mask <- array(0L, dim = c(4, 4, 2))
@@ -519,6 +522,8 @@ resolve_write_voxel_indices <- function(mat, time_first, voxel_indices, voxel_ma
 #'   Default `1L`.
 #'
 #' @return Invisibly returns a character vector of written NIfTI file paths.
+#'
+#' @seealso [read_nifti_ts()], [backproject_medusa()], [deconvolve_crossrun_hrf()]
 #'
 #' @examples
 #' ref_arr <- array(0L, dim = c(4, 4, 2))

@@ -128,32 +128,57 @@ interpolate_epoch_unit <- function(time, value, source_id, censored, tout, max_g
 # are closed intervals, so touching endpoints count as overlap.
 epoch_event_annotations <- function(events, event, trial, neighbor_events, before, after,
     run_start, run_end, policy) {
-  onsets <- events[[event]]
-  neighbors <- data.table::rbindlist(lapply(neighbor_events, function(column) {
-    data.table::data.table(.row = seq_len(nrow(events)), .column = column,
-      .onset = events[[column]])
-  }))
-  neighbors <- neighbors[is.finite(.onset)]
-  data.table::rbindlist(lapply(seq_along(onsets), function(i) {
-    onset <- onsets[i]
-    other <- neighbors[!(.row == i & .column == event)]$.onset
-    if (!is.finite(onset)) {
-      return(data.table::data.table(align_onset = NA_real_, align_previous_event = NA_real_,
-        align_next_event = NA_real_, align_simultaneous_n = NA_integer_,
-        align_window_overlap_n = NA_integer_, align_run_start_distance = NA_real_,
-        align_run_end_distance = NA_real_, align_overlap_policy = policy))
+  onsets <- as.numeric(events[[event]])
+  n <- length(onsets)
+  fin <- is.finite(onsets)
+  fin_idx <- which(fin)
+
+  all_nbr <- unlist(lapply(neighbor_events, function(column) as.numeric(events[[column]])), use.names = FALSE)
+  all_nbr <- all_nbr[is.finite(all_nbr)]
+  event_in_nbr <- event %in% neighbor_events
+
+  prev_evt <- rep(NA_real_, n)
+  next_evt <- rep(NA_real_, n)
+  simul_n <- rep(NA_integer_, n)
+  overlap_n <- rep(NA_integer_, n)
+
+  if (length(fin_idx) > 0L) {
+    f_onsets <- onsets[fin_idx]
+    if (length(all_nbr) > 0L) {
+      sorted_nbr <- sort(all_nbr)
+      uniq_nbr <- unique(sorted_nbr)
+
+      idx_prev <- findInterval(f_onsets, uniq_nbr, left.open = TRUE)
+      has_prev <- idx_prev > 0L
+      prev_evt[fin_idx[has_prev]] <- uniq_nbr[idx_prev[has_prev]]
+
+      idx_le <- findInterval(f_onsets, uniq_nbr)
+      has_next <- idx_le < length(uniq_nbr)
+      next_evt[fin_idx[has_next]] <- uniq_nbr[idx_le[has_next] + 1L]
+
+      total_eq <- findInterval(f_onsets, sorted_nbr) -
+        findInterval(f_onsets, sorted_nbr, left.open = TRUE)
+      simul_n[fin_idx] <- as.integer(total_eq - if (event_in_nbr) 1L else 0L)
+    } else {
+      simul_n[fin_idx] <- 0L
     }
-    past <- other[other < onset]
-    future <- other[other > onset]
-    overlap <- is.finite(onsets) & seq_along(onsets) != i &
-      onsets + before <= onset + after & onsets + after >= onset + before
-    data.table::data.table(align_onset = onset,
-      align_previous_event = if (length(past)) max(past) else NA_real_,
-      align_next_event = if (length(future)) min(future) else NA_real_,
-      align_simultaneous_n = sum(other == onset), align_window_overlap_n = sum(overlap),
-      align_run_start_distance = onset - run_start,
-      align_run_end_distance = run_end - onset, align_overlap_policy = policy)
-  }))
+
+    overlap_n[fin_idx] <- vapply(seq_along(f_onsets), function(k) {
+      x <- f_onsets[k]
+      sum((f_onsets + before <= x + after) & (f_onsets + after >= x + before)) - 1L
+    }, integer(1L))
+  }
+
+  data.table::data.table(
+    align_onset = ifelse(fin, onsets, NA_real_),
+    align_previous_event = prev_evt,
+    align_next_event = next_evt,
+    align_simultaneous_n = simul_n,
+    align_window_overlap_n = overlap_n,
+    align_run_start_distance = ifelse(fin, onsets - run_start, NA_real_),
+    align_run_end_distance = ifelse(fin, run_end - onsets, NA_real_),
+    align_overlap_policy = rep(as.character(policy), n)
+  )
 }
 
 # Return one row of statistics and exact epoch/acquisition memberships. Source

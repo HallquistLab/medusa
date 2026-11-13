@@ -1,5 +1,27 @@
 # medusa 0.1.0
 
+## Fast C++ NIfTI matrix I/O and matrix-native event alignment
+
+* Added `read_nifti_ts()` and `write_nifti_ts()` for streaming C++ conversion
+  between 3D/4D `.nii`/`.nii.gz` images and `time x voxels` (`T x V`) numeric
+  matrices (`"medusa_nifti_ts"` bundles carrying `voxel_map`, `parcel_ids`,
+  `tr`, and validated `sform`/`qform` `geometry` without allocating full 4D R
+  arrays). Updated `voxelwise_deconvolution()` and `backproject_medusa()` to
+  use the streaming C++ NIfTI path.
+* Added `align_medusa_ts()` (`src/epoch_align.cpp`) for C++ matrix-native
+  event-locked alignment and multi-kernel readout quadrature (`"linear"`,
+  `"boxcar"`, `"triangle"`, `"gaussian"`) across `T x V` matrices,
+  `"medusa_nifti_ts"` bundles, `deconvolve_crossrun_hrf()` outputs, multi-run
+  lists, and multivariate signal lists while preserving all `overlap_policy`,
+  censoring, `max_gap`, `epoch_status`, `align_*`, `time_audit`, and
+  `source_clock` invariants (`~80x–130x` faster and `~10x–135x` lower peak R
+  heap memory than legacy long-table workflows).
+* Accelerated `get_medusa_interpolated_ts()` and `get_medusa_compression_score()`
+  on shared-clock `fmri_ts` objects via a zero-copy C++ matrix view (with
+  automatic fallback for ragged per-unit clocks), added `fmri_ts$to_matrix()`,
+  and upgraded `evt_align_decon_files()` with `fast_pivot_decon_cpp()`, `.rds`
+  matrix-bundle support, and fork parallelism on Unix CLI/HPC.
+
 ## Standalone package extraction
 
 * Extracted all MEDuSA deconvolution, cross-run HRF estimation, event-locked

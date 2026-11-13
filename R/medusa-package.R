@@ -19,10 +19,10 @@ if (getRversion() >= "2.15.1") {
   utils::globalVariables(c(
     ":=", ".", "..split_on", "..time_column",
     ".align_censored", ".align_epoch_id", ".align_source_id",
-    ".column", ".epoch", ".epochs", ".estimate", ".filename",
+    ".column", ".epoch", ".epochs", ".estimate", ".filename", ".gid",
     ".GRP", ".I", ".left", ".member", ".N", ".onset",
     ".result_id", ".right", ".SD", ".source", ".support", ".support_status",
-    ".unit", ".usage",
+    ".u_ord", ".unit", ".usage",
     "atlas", "boundary", "coef_df_ml", "coef_df_reml", "dispersion",
     "dt", "dt_split", "effect", "emm", "emp", "emt", "epoch_status",
     "estimate", "etp", "evt_onset", "evt_time",

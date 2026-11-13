@@ -75,6 +75,18 @@ dsigmoid <- function(x, beta = 1) {
     .Call(`_medusa_dsigmoid`, x, beta)
 }
 
+check_shared_clock_cpp <- function(time_vec, n_time, n_units) {
+    .Call(`_medusa_check_shared_clock_cpp`, time_vec, n_time, n_units)
+}
+
+fast_pivot_decon_cpp <- function(time_vec, vnum_vec, group_idx, value_vec, valid_vec) {
+    .Call(`_medusa_fast_pivot_decon_cpp`, time_vec, vnum_vec, group_idx, value_vec, valid_vec)
+}
+
+align_interpolate_matrix_cpp <- function(signals, clock, censored, cens_is_matrix, unit_group, n_groups, onsets, evt_before, evt_after, overlap_n, overlap_policy, time_before, time_after, pad_before, pad_after, tout, max_gap, readout_kernel, quad_offsets, quad_weights, trial_grouped, spatial_first) {
+    .Call(`_medusa_align_interpolate_matrix_cpp`, signals, clock, censored, cens_is_matrix, unit_group, n_groups, onsets, evt_before, evt_after, overlap_n, overlap_policy, time_before, time_after, pad_before, pad_after, tout, max_gap, readout_kernel, quad_offsets, quad_weights, trial_grouped, spatial_first)
+}
+
 #' Extract selected voxel time series in a specified order
 #'
 #' @param infile Path to a scalar NIfTI image, optionally gzipped.

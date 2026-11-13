@@ -86,3 +86,6 @@ rt <- read_nifti_ts(f_out, mask = f_ref)
 unlink(c(f_ref, f_out))
 
 }
+\seealso{
+[read_nifti_ts()], [backproject_medusa()], [deconvolve_crossrun_hrf()]
+}

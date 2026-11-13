@@ -4,7 +4,15 @@
 \alias{fmri_ts}
 \title{R6 class representing a multivariate time series object for fMRI analysis}
 \description{
-R6 class representing a multivariate time series object for fMRI analysis
+Stores long-format time series (\code{ts_data}), run-length encoded unit keys
+(\code{ts_keys}), and trial-level event metadata (\code{event_data}) for a
+single subject/run, including ragged per-unit clocks. For regular shared-clock
+fMRI runs, see \code{\link{read_nifti_ts}} and \code{\link{align_medusa_ts}}
+for direct \code{time x voxels} matrix workflows without long-table expansion.
+}
+\seealso{
+\code{\link{align_medusa_ts}}, \code{\link{get_medusa_interpolated_ts}},
+  \code{\link{read_nifti_ts}}
 }
 \section{Public fields}{
   \if{html}{\out{<div class="r6-fields">}}
@@ -31,6 +39,7 @@ R6 class representing a multivariate time series object for fMRI analysis
     \item \href{#method-fmri_ts-replace_vm}{\code{fmri_ts$replace_vm()}}
     \item \href{#method-fmri_ts-get_kvars}{\code{fmri_ts$get_kvars()}}
     \item \href{#method-fmri_ts-get_vmvec}{\code{fmri_ts$get_vmvec()}}
+    \item \href{#method-fmri_ts-to_matrix}{\code{fmri_ts$to_matrix()}}
     \item \href{#method-fmri_ts-export}{\code{fmri_ts$export()}}
     \item \href{#method-fmri_ts-clone}{\code{fmri_ts$clone()}}
   }
@@ -154,6 +163,18 @@ the variable mapping with a new specification}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{fmri_ts$get_vmvec()}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-fmri_ts-to_matrix"></a>}}
+\if{latex}{\out{\hypertarget{method-fmri_ts-to_matrix}{}}}
+\subsection{\code{fmri_ts$to_matrix()}}{
+  Extract time-by-unit numeric matrices and marginal metadata when units share an acquisition clock
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{fmri_ts$to_matrix()}
     \if{html}{\out{</div>}}
   }
 }

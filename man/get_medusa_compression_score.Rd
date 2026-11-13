@@ -2,8 +2,7 @@
 % Please edit documentation in R/event_lock_timeseries.R
 \name{get_medusa_compression_score}
 \alias{get_medusa_compression_score}
-\title{front-end function for taking a list of windowed time series by mask value, interpolating them onto a time grid,
-and (optionally) averaging across voxels/units within a value to derive the mean interpolated time series}
+\title{Compute event-locked multivariate PCA compression scores across spatial units}
 \usage{
 get_medusa_compression_score(
   fmri_obj,
@@ -12,13 +11,24 @@ get_medusa_compression_score(
   time_after = 3,
   collide_before = NULL,
   collide_after = NULL,
-  group_by = NULL
+  group_by = NULL,
+  events = NULL,
+  tr = NULL,
+  time = NULL,
+  time_offset = NULL,
+  parcel_ids = NULL,
+  unit_data = NULL,
+  value_name = "value",
+  trial_col = "trial",
+  pexp_target = 0.9,
+  scale_columns = TRUE,
+  use_legacy = FALSE
 )
 }
 \arguments{
-\item{fmri_obj}{an fmri_ts object containing a single run of data with corresponding events}
+\item{fmri_obj}{an fmri_ts object, numeric \code{T x V} matrix, or single-run \code{"medusa_nifti_ts"} object}
 
-\item{event}{the event to which the fmri time series should be aligned (column in \code{fmri_obj$event_data})}
+\item{event}{the event to which the fmri time series should be aligned (column in \code{fmri_obj$event_data} or \code{events})}
 
 \item{time_before}{How many seconds before the \code{event} do we want data. Default: -3}
 
@@ -32,12 +42,32 @@ than specified by \code{time_before}.}
 time point used in interpolation. This effectively truncates the time series for interpolation to a smaller window
 than specified by \code{time_after}.}
 
-\item{group_by}{return interpolated time series for each combination of group_by variables. Default is
-to provide one interpolated time series per trial.}
+\item{group_by}{return compression scores for each combination of group_by variables.}
+
+\item{events}{Optional trial-level \code{data.frame} for matrix inputs.}
+
+\item{tr}{Optional repetition time in seconds for matrix inputs.}
+
+\item{time}{Optional numeric vector of acquisition timestamps for matrix inputs.}
+
+\item{time_offset}{Optional scalar start-time offset in seconds for matrix inputs.}
+
+\item{parcel_ids}{Optional vector assigning matrix columns to parcels/ROIs.}
+
+\item{unit_data}{Optional \code{data.frame} of unit metadata for matrix inputs.}
+
+\item{value_name}{Signal name prefix for single-signal matrix inputs. Default \code{"value"}.}
+
+\item{trial_col}{Trial identifier column name for matrix inputs. Default \code{"trial"}.}
+
+\item{pexp_target}{Target cumulative variance proportion(s) passed to \code{compress_mts_pca()}. Default \code{0.9}.}
+
+\item{scale_columns}{Logical; standardize columns prior to SVD. Default \code{TRUE}.}
+
+\item{use_legacy}{Logical; force legacy \code{fmri_ts} path when \code{TRUE}.}
 }
 \description{
-front-end function for taking a list of windowed time series by mask value, interpolating them onto a time grid,
-and (optionally) averaging across voxels/units within a value to derive the mean interpolated time series
+Compute event-locked multivariate PCA compression scores across spatial units
 }
 \author{
 Michael Hallquist

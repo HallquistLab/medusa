@@ -64,5 +64,11 @@ function to get interpolated event locked data
 Nonfinite target onsets and unsupported windows retain placeholder
   rows with missing time and values and an \code{epoch_status} column.
   Nonfinite collision candidates are ignored. Nearest-event boundaries remain
-  strict and do not guarantee disjoint trial windows.
+  strict and do not guarantee disjoint trial windows. For regular shared-clock
+  \code{time x voxels} matrices or \code{"medusa_nifti_ts"} inputs, prefer
+  \code{\link{align_medusa_ts}} to align and interpolate directly in C++
+  without expanding trial-by-voxel \code{fmri_ts} tables.
+}
+\seealso{
+\code{\link{align_medusa_ts}}, \code{\link{get_medusa_interpolated_ts}}
 }
