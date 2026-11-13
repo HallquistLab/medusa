@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -397,13 +397,6 @@ window.Quarto = {
 </ol></li>
 </ul>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 20%">
-<col style="width: 20%">
-<col style="width: 20%">
-<col style="width: 20%">
-<col style="width: 20%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Method Family</th>
@@ -463,13 +456,6 @@ Table&nbsp;4.1: Reference scale divisors across high-gain, moderate-gain, and nu
 <div aria-describedby="tbl-step2-blind-scale-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
 <table class="cell caption-top table table-sm table-striped small">
-<colgroup>
-<col style="width: 5%">
-<col style="width: 24%">
-<col style="width: 13%">
-<col style="width: 27%">
-<col style="width: 27%">
-</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;">Voxel</th>
@@ -572,13 +558,6 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <div aria-describedby="tbl-step2-blind-metrics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
 <table class="cell caption-top table table-sm table-striped small">
-<colgroup>
-<col style="width: 29%">
-<col style="width: 17%">
-<col style="width: 11%">
-<col style="width: 19%">
-<col style="width: 22%">
-</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;">Deconvolution Method</th>
@@ -630,11 +609,6 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <section id="inputs-what-step-2-receives-and-why" class="level2" data-number="4.4">
 <h2 data-number="4.4" class="anchored" data-anchor-id="inputs-what-step-2-receives-and-why"><span class="header-section-number">4.4</span> Inputs: What Step 2 Receives and Why</h2>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Input</th>
@@ -686,11 +660,6 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <h2 data-number="4.5" class="anchored" data-anchor-id="outputs-what-step-2-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">4.5</span> Outputs: What Step 2 Produces and Why It Is Set Up That Way</h2>
 <p><code>deconvolve_crossrun_hrf()</code> returns an S3 list of class <code>"crossrun_decon"</code>. Crucially, <strong>pass this entire object—not just <code>decon$activity</code>—into Step 3 (<code>decon_epoch_regression()</code>)</strong>:</p>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Output Component</th>
@@ -748,12 +717,6 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">lags =</span> <span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Argument</th>
@@ -853,13 +816,6 @@ Table&nbsp;4.3: Continuous waveform recovery on Run 1 Voxel 1 across the five pe
 <div aria-describedby="tbl-step2-penalties-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
 <table class="cell caption-top table table-sm table-striped small">
-<colgroup>
-<col style="width: 10%">
-<col style="width: 20%">
-<col style="width: 27%">
-<col style="width: 15%">
-<col style="width: 25%">
-</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;">Penalty</th>

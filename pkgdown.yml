@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   medusa-concepts: medusa-concepts.html
   medusa-workflows: medusa-workflows.html
-last_built: 2026-11-13T15:01Z
+last_built: 2026-11-13T16:41Z
 urls:
   reference: https://hallquistlab.github.io/medusa/reference
   article: https://hallquistlab.github.io/medusa/articles

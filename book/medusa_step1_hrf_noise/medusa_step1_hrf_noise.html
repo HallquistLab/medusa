@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -366,11 +366,6 @@ window.Quarto = {
 <h2 data-number="3.3" class="anchored" data-anchor-id="inputs-what-step-1-receives-and-why"><span class="header-section-number">3.3</span> Inputs: What Step 1 Receives and Why</h2>
 <p>Every input to <code>estimate_crossrun_hrf()</code> is structured to preserve exact acquisition timing across runs and censoring gaps:</p>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Input</th>
@@ -422,11 +417,6 @@ window.Quarto = {
 <h2 data-number="3.4" class="anchored" data-anchor-id="outputs-what-step-1-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">3.4</span> Outputs: What Step 1 Produces and Why It Is Set Up That Way</h2>
 <p><code>estimate_crossrun_hrf()</code> returns an S3 object of class <code>"crossrun_hrf"</code>. Rather than collapsing everything into a single HRF vector per voxel, its components are separated according to their statistical roles in Steps 2–4:</p>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Output Component</th>
@@ -495,12 +485,6 @@ window.Quarto = {
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Argument</th>
@@ -650,10 +634,17 @@ Figure&nbsp;3.8: Generating HRFs, hard-selected library nodes, and <code>soft_av
 <details class="code-fold">
 <summary>Show supporting code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>sub_sel <span class="ot">&lt;-</span> <span class="fu">subset</span>(sel, run <span class="sc">==</span> <span class="st">"run1"</span> <span class="sc">&amp;</span> voxel <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"v01"</span>, <span class="st">"v09"</span>, <span class="st">"v17"</span>))</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  sub_sel[, <span class="fu">c</span>(<span class="st">"voxel"</span>, <span class="st">"parcel"</span>, <span class="st">"kernel"</span>, <span class="st">"status"</span>, <span class="st">"best_adjusted_partial_r2"</span>, <span class="st">"selected_task_p"</span>, <span class="st">"n_compatible_shapes"</span>, <span class="st">"stability"</span>)],</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>sub_sel<span class="sc">$</span>task_p_fmt <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  sub_sel<span class="sc">$</span>selected_task_p <span class="sc">&lt;</span> <span class="fl">1e-99</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"&lt; 1e-99"</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sprintf</span>(<span class="st">"%.3g"</span>, sub_sel<span class="sc">$</span>selected_task_p)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  sub_sel[, <span class="fu">c</span>(<span class="st">"voxel"</span>, <span class="st">"parcel"</span>, <span class="st">"kernel"</span>, <span class="st">"status"</span>, <span class="st">"best_adjusted_partial_r2"</span>, <span class="st">"task_p_fmt"</span>, <span class="st">"n_compatible_shapes"</span>, <span class="st">"stability"</span>)],</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Voxel"</span>, <span class="st">"Parcel"</span>, <span class="st">"Top Node"</span>, <span class="st">"Status"</span>, <span class="st">"Best Adj. R2"</span>, <span class="st">"Task p"</span>, <span class="st">"Compat. Shapes"</span>, <span class="st">"Stability"</span>),</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">align =</span> <span class="fu">c</span>(<span class="st">"l"</span>, <span class="st">"l"</span>, <span class="st">"l"</span>, <span class="st">"l"</span>, <span class="st">"r"</span>, <span class="st">"r"</span>, <span class="st">"r"</span>, <span class="st">"l"</span>),</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-step1-selections" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -663,26 +654,16 @@ Table&nbsp;3.1: Realized Run 1 selection summary for one representative voxel pe
 <div aria-describedby="tbl-step1-selections-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
 <table class="cell caption-top table table-sm table-striped small">
-<colgroup>
-<col style="width: 4%">
-<col style="width: 5%">
-<col style="width: 5%">
-<col style="width: 17%">
-<col style="width: 19%">
-<col style="width: 12%">
-<col style="width: 15%">
-<col style="width: 19%">
-</colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: left;">voxel</th>
-<th style="text-align: left;">parcel</th>
-<th style="text-align: left;">kernel</th>
-<th style="text-align: left;">status</th>
-<th style="text-align: right;">best_adjusted_partial_r2</th>
-<th style="text-align: right;">selected_task_p</th>
-<th style="text-align: right;">n_compatible_shapes</th>
-<th style="text-align: left;">stability</th>
+<th style="text-align: left;">Voxel</th>
+<th style="text-align: left;">Parcel</th>
+<th style="text-align: left;">Top Node</th>
+<th style="text-align: left;">Status</th>
+<th style="text-align: right;">Best Adj. R2</th>
+<th style="text-align: right;">Task p</th>
+<th style="text-align: right;">Compat. Shapes</th>
+<th style="text-align: left;">Stability</th>
 </tr>
 </thead>
 <tbody>
@@ -692,7 +673,7 @@ Table&nbsp;3.1: Realized Run 1 selection summary for one representative voxel pe
 <td style="text-align: left;">hrf_3</td>
 <td style="text-align: left;">pooled_parcel</td>
 <td style="text-align: right;">0.905</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">&lt; 1e-99</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: left;">compatible_training_runs</td>
 </tr>
@@ -702,7 +683,7 @@ Table&nbsp;3.1: Realized Run 1 selection summary for one representative voxel pe
 <td style="text-align: left;">hrf_26</td>
 <td style="text-align: left;">pooled_parcel</td>
 <td style="text-align: right;">0.758</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">&lt; 1e-99</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: left;">compatible_training_runs</td>
 </tr>
@@ -750,16 +731,6 @@ Table&nbsp;3.2: Realized Run 1 AR(p) cascade estimates (<code>noise.csv</code>) 
 <div aria-describedby="tbl-step1-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
 <table class="cell caption-top table table-sm table-striped small">
-<colgroup>
-<col style="width: 9%">
-<col style="width: 9%">
-<col style="width: 10%">
-<col style="width: 10%">
-<col style="width: 12%">
-<col style="width: 14%">
-<col style="width: 18%">
-<col style="width: 14%">
-</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;">voxel</th>
