@@ -1,0 +1,70 @@
+Package: medusa
+Type: Package
+Title: Multilevel Event-Related Deconvolved Signal Analysis for fMRI
+Version: 0.1.0
+Date: 2026-11-12
+Authors@R: c(person("Michael", "Hallquist", role = c("aut", "cre"),
+    email = "michael.hallquist@gmail.com"))
+Maintainer: Michael Hallquist <michael.hallquist@gmail.com>
+Description: Cross-run hemodynamic response estimation, regularized linear and
+  nonlinear BOLD deconvolution, auditable event-locked interpolation,
+  operator-based epoch de-mixing with observation-noise propagation,
+  Empirical-Bayes precision weighting, within-run ZCA whitening,
+  connectivity disattenuation, and split-wise multilevel modeling
+  ('mixed_by', 'jlmer', 'meta_mixed_by') for event-related fMRI analyses.
+License: GPL-3
+BugReports: https://github.com/HallquistLab/medusa/issues
+Encoding: UTF-8
+LazyLoad: yes
+Depends: R (>= 4.1.0)
+Imports:
+    Rcpp,
+    RNifti,
+    R6,
+    broom.mixed,
+    checkmate,
+    data.table,
+    doParallel,
+    dplyr (>= 1.1.1),
+    emmeans,
+    foreach,
+    formula.tools,
+    glue,
+    iterators,
+    lme4,
+    lmerTest,
+    MASS,
+    parallel,
+    readr,
+    rlang,
+    stats,
+    tibble,
+    tidyselect,
+    utils
+Suggests:
+    bayestestR,
+    brms,
+    geigen,
+    ggplot2,
+    JuliaCall,
+    knitr,
+    pkgload,
+    repair,
+    rmarkdown,
+    rstanarm,
+    testthat (>= 3.0.0),
+    tidyr,
+    withr
+Enhances:
+    fmri.pipeline
+Remotes:
+    HallquistLab/repair
+LinkingTo:
+    Rcpp,
+    RcppArmadillo,
+    RNifti
+Config/testthat/edition: 3
+URL: https://github.com/HallquistLab/medusa,
+    https://hallquistlab.github.io/medusa/
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

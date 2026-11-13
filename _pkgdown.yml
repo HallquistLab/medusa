@@ -1,0 +1,4 @@
+url: https://hallquistlab.github.io/medusa/
+template:
+  bootstrap: 5
+  bootswatch: spacelab
