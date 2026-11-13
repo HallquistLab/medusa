@@ -159,8 +159,15 @@ Under `selection_mode = "soft_average"`, compatible library candidates are combi
 #| label: tbl-step1-selections
 #| tbl-cap: "Realized Run 1 selection summary for one representative voxel per parcel (`selections.csv`)."
 sub_sel <- subset(sel, run == "run1" & voxel %in% c("v01", "v09", "v17"))
+sub_sel$task_p_fmt <- ifelse(
+  sub_sel$selected_task_p < 1e-99,
+  "< 1e-99",
+  sprintf("%.3g", sub_sel$selected_task_p)
+)
 knitr::kable(
-  sub_sel[, c("voxel", "parcel", "kernel", "status", "best_adjusted_partial_r2", "selected_task_p", "n_compatible_shapes", "stability")],
+  sub_sel[, c("voxel", "parcel", "kernel", "status", "best_adjusted_partial_r2", "task_p_fmt", "n_compatible_shapes", "stability")],
+  col.names = c("Voxel", "Parcel", "Top Node", "Status", "Best Adj. R2", "Task p", "Compat. Shapes", "Stability"),
+  align = c("l", "l", "l", "l", "r", "r", "r", "l"),
   digits = 3, row.names = FALSE
 )
 ```

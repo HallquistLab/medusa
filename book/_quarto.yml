@@ -45,6 +45,12 @@ book:
 format:
   html:
     theme: cosmo
+    grid:
+      sidebar-width: 250px
+      body-width: 1120px
+      margin-width: 210px
+      gutter-width: 1.25rem
+    tbl-colwidths: false
     css: book.css
     toc: true
     toc-depth: 3
