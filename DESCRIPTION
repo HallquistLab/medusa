@@ -43,6 +43,7 @@ Imports:
     tidyselect,
     utils
 Suggests:
+    arrow,
     bayestestR,
     brms,
     geigen,

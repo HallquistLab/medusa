@@ -21,6 +21,16 @@
   automatic fallback for ragged per-unit clocks), added `fmri_ts$to_matrix()`,
   and upgraded `evt_align_decon_files()` with `fast_pivot_decon_cpp()`, `.rds`
   matrix-bundle support, and fork parallelism on Unix CLI/HPC.
+* Modernized file and tabular serialization across the pipeline:
+  `voxelwise_deconvolution()` now supports `output_format = c("csv.gz", "rds", "nifti", "parquet")`
+  (eliminating intermediate `mat2df()` + `dplyr::left_join()` expansions and
+  writing delimited outputs via multi-threaded `data.table::fwrite()`);
+  `run_decon_alignment()` and `evt_align_decon_files()` discover and align all
+  four deconvolution formats, skip unused coordinate/status columns when reading
+  long tables, and write aligned panels to `.csv.gz`, `.parquet`, or `.rds`; and
+  `mixed_by()` now reads `.parquet` files and Hive-partitioned Parquet
+  directories (via optional `arrow`) as well as `.rds` and delimited `external_df`
+  tables, with automatic column projection and optional `split_filter` pushdown.
 
 ## Standalone package extraction
 

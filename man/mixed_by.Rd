@@ -32,14 +32,16 @@ mixed_by(
   emtrends_spec = NULL,
   emtrends_pairs = FALSE,
   emtrends_pairs_args = list(),
-  weights = NULL
+  weights = NULL,
+  split_filter = NULL
 )
 }
 \arguments{
 \item{data}{A data.frame or data.table object containing stacked data for each combination of the \code{split_on}
 variables. The function will run separate mixed-effect models for each combination. Alternatively, a vector of
-filenames can be passed, which will be read in sequentially and fit (.rds, .csv, .dat, and .txt
-supported at present).}
+file or dataset paths can be passed, which will be read in sequentially and fit (\code{.rds}, \code{.parquet}
+files or Hive-partitioned Parquet directories via \code{arrow}, and \code{.csv}/\code{.csv.gz}/\code{.tsv}/\code{.dat}/\code{.txt}
+supported, projecting only columns required by the requested models and splits).}
 
 \item{outcomes}{A character vector of outcome variables to be analyzed}
 
@@ -53,8 +55,8 @@ model to the next, but you don't want the Cartesian product (combinations) of ou
 
 \item{external_df}{An optional data.frame/data.table containing external data that should be joined with \code{data}
 prior to model fitting. Useful if \code{data} contains external time series data and \code{external_df} is a
-dataset of behavioral variables that do not vary by neural sensor/region. Optionally, this can be a single
-filename to a .rds file if you want to pass in the filename, not the data itself.}
+dataset of behavioral variables that do not vary by neural sensor/region. Optionally, this can be a path to a
+\code{.rds}, \code{.parquet}, or delimited (\code{.csv}/\code{.csv.gz}/\code{.tsv}/\code{.txt}) file.}
 
 \item{external_merge_by}{A character vector specifying which columns of \code{external_df} and \code{data} should
 be used for creating a combined dataset.}
@@ -121,6 +123,12 @@ Any arguments that are valid for emtrends can be passed through the list structu
 (or \code{external_df}) containing positive observation/trial precision
 weights (e.g., \code{"precision_weight"} from \code{decon_epoch_regression()})
 to be normalized within each split and passed to the mixed-model engine.}
+
+\item{split_filter}{Optional named list of atomic vectors specifying allowed
+values for one or more split or grouping columns (e.g.,
+\code{list(atlas_value = 1:4, evt_time = c(0, 1))}). When reading Parquet
+files or partitioned Parquet directories, predicates on columns present in
+the dataset are pushed down to Arrow prior to materialization in R.}
 }
 \value{
 A list containing coefficient tables, fit statistics, optional post-hoc outputs

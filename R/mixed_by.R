@@ -134,8 +134,9 @@
 #'
 #' @param data A data.frame or data.table object containing stacked data for each combination of the \code{split_on}
 #'   variables. The function will run separate mixed-effect models for each combination. Alternatively, a vector of
-#'   filenames can be passed, which will be read in sequentially and fit (.rds, .csv, .dat, and .txt
-#'   supported at present).
+#'   file or dataset paths can be passed, which will be read in sequentially and fit (\code{.rds}, \code{.parquet}
+#'   files or Hive-partitioned Parquet directories via \code{arrow}, and \code{.csv}/\code{.csv.gz}/\code{.tsv}/\code{.dat}/\code{.txt}
+#'   supported, projecting only columns required by the requested models and splits).
 #' @param outcomes A character vector of outcome variables to be analyzed
 #' @param rhs_model_formulae A named list of lme4-format formula specifying the exact model to be run for each data split.
 #' @param model_formulae Alternative to the outcome + rhs_model_formulae approach. This is a list of lme4-format
@@ -144,8 +145,8 @@
 #' @param split_on A character vector of columns in \code{data} used to split the analyses into separate models.
 #' @param external_df An optional data.frame/data.table containing external data that should be joined with \code{data}
 #'   prior to model fitting. Useful if \code{data} contains external time series data and \code{external_df} is a
-#'   dataset of behavioral variables that do not vary by neural sensor/region. Optionally, this can be a single
-#'   filename to a .rds file if you want to pass in the filename, not the data itself.
+#'   dataset of behavioral variables that do not vary by neural sensor/region. Optionally, this can be a path to a
+#'   \code{.rds}, \code{.parquet}, or delimited (\code{.csv}/\code{.csv.gz}/\code{.tsv}/\code{.txt}) file.
 #' @param external_merge_by A character vector specifying which columns of \code{external_df} and \code{data} should
 #'   be used for creating a combined dataset.
 #' @param padjust_by A character vector or list consisting of one or more variables over which an adjusted p-value
@@ -191,6 +192,11 @@
 #'   (or \code{external_df}) containing positive observation/trial precision
 #'   weights (e.g., \code{"precision_weight"} from \code{decon_epoch_regression()})
 #'   to be normalized within each split and passed to the mixed-model engine.
+#' @param split_filter Optional named list of atomic vectors specifying allowed
+#'   values for one or more split or grouping columns (e.g.,
+#'   \code{list(atlas_value = 1:4, evt_time = c(0, 1))}). When reading Parquet
+#'   files or partitioned Parquet directories, predicates on columns present in
+#'   the dataset are pushed down to Arrow prior to materialization in R.
 #'   
 #' @details In general, restricted maximum likelihood (REML) should be used for making inferences about parameter
 #'   estimates, whereas ML should be used for model comparisons based on log-likelihood (e.g., AIC). 
@@ -237,7 +243,7 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
                      calculate=c("parameter_estimates_reml", "parameter_estimates_ml", "fit_statistics"),
                      return_models = FALSE, emmeans_spec = NULL, emmeans_pairs = FALSE,
                      emmeans_pairs_args = list(), emtrends_spec=NULL, emtrends_pairs = FALSE,
-                     emtrends_pairs_args = list(), weights = NULL) {
+                     emtrends_pairs_args = list(), weights = NULL, split_filter = NULL) {
 
   engine <- match.arg(engine)
   checkmate::assert_list(engine_args, names = "unique")
@@ -261,6 +267,7 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
   }
 
   ## VALIDATE INPUTS
+  split_filter <- validate_split_filter(split_filter)
   # support data.frame input for single dataset execution or a vector of files that are imported and fit sequentially
   if (checkmate::test_data_frame(data)) {
     single_df <- TRUE
@@ -268,7 +275,18 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
     if (!checkmate::test_character(data)) {
       stop("If data is not a data.frame, it should be a set of file names.")
     }
-    checkmate::assert_file_exists(data)
+    for (dp in data) {
+      if (dir.exists(dp)) {
+        if (!is_parquet_path(dp)) {
+          stop("Directory does not contain Parquet files: ", dp, call. = FALSE)
+        }
+      } else {
+        checkmate::assert_file_exists(dp)
+      }
+    }
+    if (any(vapply(data, is_parquet_path, logical(1L)))) {
+      require_arrow_pkg("mixed_by() with Parquet inputs")
+    }
     single_df <- FALSE
   }
 
@@ -338,8 +356,17 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
   # handle external_df
   if (!is.null(external_df)) {
     if (checkmate::test_string(external_df)) {
-      checkmate::assert_file_exists(external_df)
-      external_df <- readRDS(external_df) # only supports .rds at the moment
+      if (dir.exists(external_df)) {
+        if (!is_parquet_path(external_df)) {
+          stop("Directory does not contain Parquet files: ", external_df, call. = FALSE)
+        }
+      } else {
+        checkmate::assert_file_exists(external_df)
+      }
+      if (is_parquet_path(external_df)) {
+        require_arrow_pkg("mixed_by(external_df = '*.parquet')")
+      }
+      external_df <- medusa_read_table(external_df, as_data_table = TRUE)
     } else {
       checkmate::assert_data_frame(external_df)
       external_df <- if (data.table::is.data.table(external_df)) {
@@ -347,9 +374,9 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
       } else {
         data.table::as.data.table(external_df)
       }
-      checkmate::assert_subset(external_merge_by, names(external_df))
-      data.table::setkeyv(external_df, external_merge_by) # key local external data by merge columns
     }
+    checkmate::assert_subset(external_merge_by, names(external_df))
+    data.table::setkeyv(external_df, external_merge_by) # key local external data by merge columns
   }
 
   # worker subfunction to fit a given model to a data split
@@ -566,6 +593,19 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
   environment(.mixed_by_get_pairs_args) <- environment()
   environment(.mixed_by_run_posthoc_spec) <- environment()
 
+  has_split <- !is.null(split_on)
+  needed_cols <- .mixed_by_required_columns(
+    model_set = model_set,
+    split_on = split_on,
+    split_filter = split_filter,
+    external_merge_by = external_merge_by,
+    weights = weights,
+    scale_predictors = scale_predictors,
+    engine_args = engine_args,
+    emmeans_spec = emmeans_spec,
+    emtrends_spec = emtrends_spec
+  )
+
   # loop over each dataset to be fit
   for (i in seq_along(df_set)) {
     df_i <- df_set[i]
@@ -573,17 +613,15 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
     # read each dataset if operating in multiple data scenario
     if (isFALSE(single_df)) {
       message("Reading file: ", df_i)
-      if (grepl(".rds$", df_i, ignore.case = TRUE)) {
-        data <- readRDS(df_i)
-        if (!is.data.table(data)) {
-          data.table::setDT(data)
-        }
-      } else if (grepl("(.csv|.csv.gz|.csv.bz2|.dat|.txt|.txt.gz|.txt.bz2)", df_i, ignore.case = TRUE, perl = TRUE)) {
-        data <- data.table::fread(df_i, data.table = TRUE)
-      } else {
-        stop("Unable to sort out this data input: ", df_i)
-      }
+      data <- medusa_read_table(
+        df_i,
+        col_select = needed_cols,
+        split_filter = split_filter,
+        as_data_table = TRUE
+      )
       data[, .filename := basename(df_i)] # add filename
+    } else if (!is.null(split_filter)) {
+      data <- apply_split_filter_dt(data, split_filter)
     }
 
     # validate structure of data against models to be fit
@@ -601,12 +639,23 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
       data <- merge(data, external_df, by = external_merge_by)
     }
 
+    if (!is.null(split_filter)) {
+      checkmate::assert_subset(names(split_filter), names(data))
+      data <- apply_split_filter_dt(data, split_filter)
+    }
+
     # verify that outcomes and split variables are present in data
     checkmate::assert_subset(model_set$outcome, names(data))
     checkmate::assert_subset(split_on, names(data))
     if (!is.null(weights)) {
       checkmate::assert_subset(weights, names(data))
       checkmate::assert_numeric(data[[weights]])
+    }
+
+    if (nrow(data) == 0L) {
+      warning("No rows remain after filtering in dataset: ", df_i, call. = FALSE)
+      rm(data)
+      next
     }
 
     # nest data.tables for each combination of split factors
@@ -1017,10 +1066,10 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
 
   # drop off dummy split if irrelevant
   if (isFALSE(has_split)) {
-    if (!is.null(coef_results_reml)) { coef_results_reml[, split := NULL] }
-    if (!is.null(coef_results_ml)) { coef_results_ml[, split := NULL] }
-    if (!is.null(fit_results)) { fit_results[, split := NULL] }
-    if (!is.null(model_data)) { model_data[, split := NULL] }
+    if (!is.null(coef_results_reml) && "split" %in% names(coef_results_reml)) { coef_results_reml[, split := NULL] }
+    if (!is.null(coef_results_ml) && "split" %in% names(coef_results_ml)) { coef_results_ml[, split := NULL] }
+    if (!is.null(fit_results) && "split" %in% names(fit_results)) { fit_results[, split := NULL] }
+    if (!is.null(model_data) && "split" %in% names(model_data)) { model_data[, split := NULL] }
   }
 
   return(list(coef_df_reml=coef_results_reml, coef_df_ml=coef_results_ml, fit_df=fit_results, 
@@ -1028,4 +1077,63 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
               emtrends_list=emtrends_list, emtrends_pairs_list=emtrends_pairs_list,
               residuals = residual_data,
               fitted = fitted_data, models = model_data))
+}
+
+.mixed_by_posthoc_vars <- function(spec_list) {
+  if (is.null(spec_list)) {
+    return(character(0))
+  }
+  vars <- character(0)
+  meta_keys <- c(
+    "outcome", "model_name", "adjust", "weights", "mode", "df",
+    "type", "nesting", "tran", "emmeans_pairs", "emtrends_pairs",
+    "pairs", "pairs_args"
+  )
+  for (sp in spec_list) {
+    if (!is.list(sp)) next
+    for (nm in setdiff(names(sp), meta_keys)) {
+      el <- sp[[nm]]
+      if (inherits(el, "formula") || is.language(el)) {
+        vars <- c(vars, all.vars(el))
+      } else if (is.character(el) && nm %in% c("specs", "var", "by", "nuisance", "cov.keep")) {
+        toks <- unlist(strsplit(el, "[^[:alnum:]_.]+"), use.names = FALSE)
+        vars <- c(vars, el, toks)
+      }
+    }
+    if (is.list(sp$at)) {
+      vars <- c(vars, names(sp$at))
+    }
+  }
+  unique(vars[nzchar(vars)])
+}
+
+.mixed_by_required_columns <- function(
+  model_set,
+  split_on,
+  split_filter,
+  external_merge_by,
+  weights,
+  scale_predictors,
+  engine_args,
+  emmeans_spec,
+  emtrends_spec
+) {
+  form_vars <- unlist(lapply(model_set$form, all.vars), use.names = FALSE)
+  eng_vars <- unlist(
+    lapply(engine_args, function(x) if (is.language(x)) all.vars(x) else character(0)),
+    use.names = FALSE
+  )
+  cols <- unique(c(
+    setdiff(split_on, c(".filename", "split")),
+    names(split_filter),
+    external_merge_by,
+    weights,
+    scale_predictors,
+    model_set$outcome,
+    form_vars,
+    eng_vars,
+    .mixed_by_posthoc_vars(emmeans_spec),
+    .mixed_by_posthoc_vars(emtrends_spec)
+  ))
+  cols[!is.na(cols) & nzchar(cols)]
 }

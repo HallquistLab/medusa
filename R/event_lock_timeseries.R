@@ -672,6 +672,16 @@ compress_mts_pca <- function(mts, pexp_target=0.9, scale_columns=TRUE) {
 #'   deconvolution files. Overrides per-file metadata and legacy filename parsing.
 #' @param fail_on_error Stop if any file fails alignment (default TRUE). Set FALSE
 #'   explicitly to allow partial output with a warning and a file status manifest.
+#' @param input_format Format of deconvolution files to discover inside each atlas's
+#'   \code{deconvolved/} directory: \code{"auto"} (default, discovers
+#'   \code{_deconvolved.csv.gz}, \code{_deconvolved.rds}, \code{_deconvolved.nii.gz},
+#'   and \code{_deconvolved.parquet}, deduplicating stems if multiple formats coexist),
+#'   or an explicit format (\code{"csv.gz"}, \code{"rds"}, \code{"nifti"}, \code{"parquet"}).
+#' @param out_format Output serialization format for each aligned panel:
+#'   \code{"csv.gz"} (default, written via \code{data.table::fwrite}),
+#'   \code{"parquet"} (columnar Parquet via \code{arrow::write_parquet}, directly
+#'   consumable by \code{\link{mixed_by}} with column projection and filter pushdown),
+#'   or \code{"rds"}.
 #'
 #' @details
 #'   This function will create a separate R batch job on the scheduler for each combination of atlas files and alignments. Each of these
@@ -738,7 +748,9 @@ compress_mts_pca <- function(mts, pexp_target=0.9, scale_columns=TRUE) {
 #' @export
 run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = list(), nbins = 12, aggregate_by = "atlas_value", 
     atlas_subset=NULL, overwrite = FALSE, tr = NULL, ncpus = 8, mem_per_cpu = "4g", walltime = "1:00:00", scheduler = "slurm", time_audit=FALSE,
-    file_manifest = NULL, fail_on_error = TRUE) {
+    file_manifest = NULL, fail_on_error = TRUE,
+    input_format = c("auto", "csv.gz", "rds", "nifti", "parquet"),
+    out_format = c("csv.gz", "parquet", "rds")) {
   checkmate::assert_file_exists(atlas_files)
   checkmate::assert_directory_exists(decon_dir)
   checkmate::assert_data_frame(trial_df)
@@ -753,6 +765,17 @@ run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = l
   checkmate::assert_string(scheduler)
   checkmate::assert_subset(scheduler, c("local", "slurm", "torque"))
   checkmate::assert_flag(fail_on_error)
+  input_format <- match.arg(input_format)
+  out_format <- match.arg(out_format)
+  if (identical(input_format, "parquet") || identical(out_format, "parquet")) {
+    require_arrow_pkg("run_decon_alignment() with Parquet files")
+  }
+  out_ext <- switch(
+    out_format,
+    "csv.gz" = ".csv.gz",
+    "parquet" = ".parquet",
+    "rds" = ".rds"
+  )
 
   alignments <- validate_alignments(alignments, tr, trial_df)
 
@@ -785,7 +808,7 @@ run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = l
       next
     }
 
-    d_files <- list.files(path = adir, pattern = "_deconvolved\\.csv\\.gz$", full.names = TRUE, all.files = TRUE)
+    d_files <- discover_decon_files(adir, input_format = input_format)
     if (length(d_files) == 0L) {
       message(glue("No deconvolved files found in directory: {adir}"))
       next
@@ -795,7 +818,7 @@ run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = l
 
     # loop over event alignments within this atlas
     for (ee in names(alignments)) {
-      out_file <- file.path(decon_dir, aname, glue("{aname}_{ee}_decon_aligned.csv.gz"))
+      out_file <- file.path(decon_dir, aname, glue("{aname}_{ee}_decon_aligned{out_ext}"))
       this_alignment <- alignments[[ee]]
       this_alignment$aname <- aname # populate atlas name so that it can be added in downstream alignment function
 
@@ -825,12 +848,13 @@ run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = l
 #' Align a set of deconvolved time series files to an event of interest function.
 #' @details
 #'   This is intended to be used internally by \code{run_decon_alignment}, which accepts a set of mask/atlas files
-#'   and alignments, then processes these in parallel. Long \code{.csv}/\code{.csv.gz} tables sharing a run clock
-#'   are pivoted directly into \code{time x voxels} matrices in C++ without intermediate \code{fmri_ts}
-#'   allocation (automatically falling back to \code{fmri_ts} for ragged per-unit clocks); compact \code{.rds}
-#'   matrix bundles (\code{list(decon = Y, coords = ..., time = ...)}) are also supported directly.
-#' @param d_files A vector of deconvolved \code{.csv}/\code{.csv.gz} files (created by \code{voxelwise_deconvolution})
-#'   or \code{.rds} matrix-bundle files.
+#'   and alignments, then processes these in parallel. Long \code{.csv}/\code{.csv.gz} and \code{.parquet} tables
+#'   sharing a run clock are pivoted directly into \code{time x voxels} matrices in C++ without intermediate
+#'   \code{fmri_ts} allocation (automatically falling back to \code{fmri_ts} for ragged per-unit clocks); compact
+#'   \code{.rds} matrix bundles (\code{list(decon = Y, coords = ..., time = ...)}) and 4D \code{.nii}/\code{.nii.gz}
+#'   deconvolved images (paired with \code{.coords.rds} sidecars) are also supported directly.
+#' @param d_files A vector of deconvolved \code{.csv}/\code{.csv.gz}, \code{.rds}, \code{.nii}/\code{.nii.gz}, or
+#'   \code{.parquet} files (created by \code{voxelwise_deconvolution}).
 #' @param trial_df The trial-level data.frame containing id and run for each subject represented in \code{d_files}.
 #' @param alignment A list containing alignment details passed to \code{\link{align_medusa_ts}} /
 #'   \code{\link{get_medusa_interpolated_ts}}, including \code{evt_col}, \code{time_before}, \code{time_after},
@@ -843,8 +867,8 @@ run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = l
 #' @param atlas_cuts For a continuous-valued atlas (e.g., containing a gradient of interest), a vector of cut points for binning values.
 #'   These cuts are applied to the \code{aggregate_by} column, commonly "atlas_value"
 #' @param atlas_subset An optional numeric vector containing values of \code{aggregate_by} 
-#' @param out_file The output file name (can include path) for the event-aligned csv file. If NULL, nothing is output 
-#'   (but the event-aligned data are always returned as a data.frame)
+#' @param out_file Optional output file path for the event-aligned panel (\code{.csv}, \code{.csv.gz}, \code{.parquet},
+#'   or \code{.rds}). If NULL, nothing is written to disk (the event-aligned data are always returned).
 #' @param ncpus Number of local worker processes to use.
 #' @param time_audit If TRUE, additional columns will be added to the output showing how alignment is calculated vis-a-vis event timing
 #' @param file_manifest Optional data.frame with \code{file}, \code{id},
@@ -870,13 +894,24 @@ run_decon_alignment <- function(atlas_files, decon_dir, trial_df, alignments = l
 evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggregate_by="atlas_value", 
     tr = NULL, atlas_cuts = NULL, atlas_subset = NULL, out_file = NULL, ncpus = 8, time_audit=FALSE, file_manifest = NULL, fail_on_error = TRUE) {
   checkmate::assert_character(d_files, min.len = 1L, unique = TRUE)
-  checkmate::assert_file_exists(d_files)
+  for (df_path in d_files) {
+    if (dir.exists(df_path)) {
+      if (!is_parquet_path(df_path)) {
+        stop("Directory does not contain Parquet files: ", df_path, call. = FALSE)
+      }
+    } else {
+      checkmate::assert_file_exists(df_path)
+    }
+  }
   checkmate::assert_data_frame(trial_df)
   checkmate::assert_list(alignment)
   checkmate::assert_number(tr, lower = 0.01, upper = 1000)
   checkmate::assert_numeric(atlas_cuts, null.ok = TRUE)
   checkmate::assert_numeric(atlas_subset, null.ok = TRUE)
   checkmate::assert_string(out_file, null.ok = TRUE)
+  if (!is.null(out_file) && grepl("\\.(parquet|pq)$", out_file, ignore.case = TRUE)) {
+    require_arrow_pkg("evt_align_decon_files(out_file = '*.parquet')")
+  }
   checkmate::assert_integerish(ncpus, lower=1L, len=1L)
 
   checkmate::assert_flag(fail_on_error)
@@ -887,14 +922,17 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
     identity <- NULL
     tryCatch({
       is_rds <- grepl("\\.rds$", fname, ignore.case = TRUE)
+      is_nifti <- !is_rds && grepl("\\.nii(\\.gz)?$", fname, ignore.case = TRUE)
+      is_pq <- !is_rds && !is_nifti && is_parquet_path(fname)
       rds_bundle <- NULL
       if (is_rds) {
         obj_in <- readRDS(fname)
         if (is.data.frame(obj_in)) {
           d <- as.data.frame(obj_in)
         } else if (is.matrix(obj_in)) {
-          rds_bundle <- list(decon = obj_in, coords = attr(obj_in, "voxel_map"),
-                             time = attr(obj_in, "time"), valid = attr(obj_in, "observation_mask"),
+          rds_bundle <- list(decon = obj_in, coords = attr(obj_in, "voxel_map", exact = TRUE),
+                             time = attr(obj_in, "time", exact = TRUE),
+                             valid = attr(obj_in, "observation_mask", exact = TRUE),
                              meta = data.frame())
         } else if (is.list(obj_in) && "decon" %in% names(obj_in) && is.matrix(obj_in$decon)) {
           rds_bundle <- list(decon = obj_in$decon, coords = obj_in$coords,
@@ -903,11 +941,49 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
         } else {
           stop("Unsupported RDS object in ", fname)
         }
+      } else if (is_nifti) {
+        coords_path <- paste0(fname, ".coords.rds")
+        if (!file.exists(coords_path)) {
+          stop("Missing coordinate sidecar required to align deconvolved NIfTI: ", coords_path)
+        }
+        cmeta <- readRDS(coords_path)
+        if (!is.list(cmeta) || is.null(cmeta$voxel_indices) || is.null(cmeta$coords)) {
+          stop("Invalid coordinate sidecar in ", coords_path)
+        }
+        mat_nii <- extract_nifti_voxel_ts(fname, cmeta$voxel_indices, TRUE)
+        if (any(!is.finite(mat_nii))) {
+          mat_nii[!is.finite(mat_nii)] <- NA_real_
+        }
+        rds_bundle <- list(
+          decon = mat_nii,
+          coords = cmeta$coords,
+          time = cmeta$time,
+          valid = cmeta$valid,
+          meta = if (is.data.frame(cmeta$metadata)) cmeta$metadata else data.frame()
+        )
+      } else if (is_pq) {
+        avail_cols <- arrow_dataset_names(fname)
+        drop_cand <- setdiff(
+          c("volume", "x", "y", "z", "atlas_name", "decon_status"),
+          c(aggregate_by, alignment$valid_col)
+        )
+        cols_read <- setdiff(avail_cols, drop_cand)
+        d <- medusa_read_table(fname, col_select = cols_read, as_data_table = FALSE)
       } else {
         if (grepl("\\.gz$", fname, ignore.case = TRUE) && requireNamespace("R.utils", quietly = TRUE)) {
           loadNamespace("R.utils")
         }
-        d <- data.table::fread(fname, data.table = FALSE)
+        avail_cols <- peek_delim_header(fname)
+        drop_cand <- setdiff(
+          c("volume", "x", "y", "z", "atlas_name", "decon_status"),
+          c(aggregate_by, alignment$valid_col)
+        )
+        cols_read <- setdiff(avail_cols, drop_cand)
+        if (length(cols_read) > 0L && length(cols_read) < length(avail_cols)) {
+          d <- data.table::fread(fname, select = cols_read, data.table = FALSE)
+        } else {
+          d <- data.table::fread(fname, data.table = FALSE)
+        }
       }
 
       rk_eff <- if (is.null(alignment$readout_kernel)) "linear" else alignment$readout_kernel
@@ -958,7 +1034,8 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
           neighbor_events = alignment$neighbor_events,
           max_gap = alignment$max_gap,
           readout_kernel = rk_eff,
-          readout_width = alignment$readout_width
+          readout_width = alignment$readout_width,
+          coerce_factor_trial = TRUE
         )
       } else {
         required <- unique(c("decon", "time", "vnum", aggregate_by))
@@ -1104,7 +1181,7 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
       status = entry$status, message = entry$message,
       n_rows = if (is.null(entry$ts)) 0L else nrow(entry$ts))
   }))
-  if (!is.null(out_file)) readr::write_csv(file_status, paste0(out_file, ".files.csv"))
+  if (!is.null(out_file)) medusa_write_table(file_status, paste0(out_file, ".files.csv"))
   failed <- file_status$status != "ok"
   if (any(failed)) {
     message <- paste0(sum(failed), " deconvolution file(s) failed alignment: ",
@@ -1123,11 +1200,59 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
   attr(all_e, "source_clock") <- source_clock
   if (!is.null(out_file)) {
     message("Writing output: ", out_file)
-    readr::write_csv(all_e, file = out_file)
-    readr::write_csv(source_clock, paste0(out_file, ".sources.csv"))
+    medusa_write_table(all_e, out_file)
+    medusa_write_table(source_clock, paste0(out_file, ".sources.csv"))
   }
 
   return(all_e)
+}
+
+discover_decon_files <- function(
+  adir,
+  input_format = c("auto", "csv.gz", "rds", "nifti", "parquet")
+) {
+  input_format <- match.arg(input_format)
+  pat <- switch(
+    input_format,
+    "auto" = "_deconvolved\\.(rds|parquet|pq|csv\\.gz|nii\\.gz|nii)$",
+    "csv.gz" = "_deconvolved\\.csv\\.gz$",
+    "rds" = "_deconvolved\\.rds$",
+    "nifti" = "_deconvolved\\.nii(\\.gz)?$",
+    "parquet" = "_deconvolved\\.(parquet|pq)$"
+  )
+  files <- list.files(
+    path = adir,
+    pattern = pat,
+    full.names = TRUE,
+    all.files = TRUE,
+    ignore.case = TRUE
+  )
+  if (length(files) <= 1L || !identical(input_format, "auto")) {
+    return(files)
+  }
+  bnames <- basename(files)
+  stems <- sub(
+    "_deconvolved\\.(rds|parquet|pq|csv\\.gz|nii\\.gz|nii)$",
+    "",
+    bnames,
+    ignore.case = TRUE
+  )
+  if (!anyDuplicated(stems)) {
+    return(files)
+  }
+  ext_rank <- rep(5L, length(files))
+  ext_rank[grepl("_deconvolved\\.rds$", bnames, ignore.case = TRUE)] <- 1L
+  ext_rank[grepl("_deconvolved\\.(parquet|pq)$", bnames, ignore.case = TRUE)] <- 2L
+  ext_rank[grepl("_deconvolved\\.csv\\.gz$", bnames, ignore.case = TRUE)] <- 3L
+  ext_rank[grepl("_deconvolved\\.nii(\\.gz)?$", bnames, ignore.case = TRUE)] <- 4L
+  ord <- order(stems, ext_rank)
+  keep <- ord[!duplicated(stems[ord])]
+  keep <- sort(keep)
+  message(
+    "Multiple deconvolution file formats found for the same run stem in ", adir,
+    "; selecting one file per stem (priority: rds > parquet > csv.gz > nifti)."
+  )
+  files[keep]
 }
 
 

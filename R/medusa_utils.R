@@ -28,9 +28,10 @@ validate_roi_geometry <- function(mask, image, mask_file, image_file, tolerance 
 }
 
 file_sans_ext <- function(file, withdot = TRUE) {
-  matches <- grepl("^.*\\.(csv|dat|hdr|img|brik|head|nii|txt|tsv|yaml|json|1d)(\\.gz|\\.bz2|\\.zip|\\.xz)*$", file, ignore.case = TRUE)
+  ext_pat <- "^(.*)\\.(csv|dat|hdr|img|brik|head|nii|txt|tsv|yaml|json|1d|rds|parquet|pq)(\\.gz|\\.bz2|\\.zip|\\.xz)*$"
+  matches <- grepl(ext_pat, file, ignore.case = TRUE)
   fout <- rep(NA_character_, length = length(file))
-  fout[matches] <- sub("^(.*)\\.(csv|dat|hdr|img|brik|head|nii|txt|tsv|yaml|json|1d)(\\.gz|\\.bz2|\\.zip|\\.xz)*$", "\\1", file[matches], ignore.case = TRUE)
+  fout[matches] <- sub(ext_pat, "\\1", file[matches], ignore.case = TRUE)
   fout
 }
 

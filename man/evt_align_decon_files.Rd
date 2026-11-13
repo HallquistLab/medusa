@@ -20,8 +20,8 @@ evt_align_decon_files(
 )
 }
 \arguments{
-\item{d_files}{A vector of deconvolved \code{.csv}/\code{.csv.gz} files (created by \code{voxelwise_deconvolution})
-or \code{.rds} matrix-bundle files.}
+\item{d_files}{A vector of deconvolved \code{.csv}/\code{.csv.gz}, \code{.rds}, \code{.nii}/\code{.nii.gz}, or
+\code{.parquet} files (created by \code{voxelwise_deconvolution}).}
 
 \item{trial_df}{The trial-level data.frame containing id and run for each subject represented in \code{d_files}.}
 
@@ -41,8 +41,8 @@ These cuts are applied to the \code{aggregate_by} column, commonly "atlas_value"
 
 \item{atlas_subset}{An optional numeric vector containing values of \code{aggregate_by}}
 
-\item{out_file}{The output file name (can include path) for the event-aligned csv file. If NULL, nothing is output 
-(but the event-aligned data are always returned as a data.frame)}
+\item{out_file}{Optional output file path for the event-aligned panel (\code{.csv}, \code{.csv.gz}, \code{.parquet},
+or \code{.rds}). If NULL, nothing is written to disk (the event-aligned data are always returned).}
 
 \item{ncpus}{Number of local worker processes to use.}
 
@@ -70,8 +70,9 @@ Align a set of deconvolved time series files to an event of interest function.
 }
 \details{
 This is intended to be used internally by \code{run_decon_alignment}, which accepts a set of mask/atlas files
-  and alignments, then processes these in parallel. Long \code{.csv}/\code{.csv.gz} tables sharing a run clock
-  are pivoted directly into \code{time x voxels} matrices in C++ without intermediate \code{fmri_ts}
-  allocation (automatically falling back to \code{fmri_ts} for ragged per-unit clocks); compact \code{.rds}
-  matrix bundles (\code{list(decon = Y, coords = ..., time = ...)}) are also supported directly.
+  and alignments, then processes these in parallel. Long \code{.csv}/\code{.csv.gz} and \code{.parquet} tables
+  sharing a run clock are pivoted directly into \code{time x voxels} matrices in C++ without intermediate
+  \code{fmri_ts} allocation (automatically falling back to \code{fmri_ts} for ragged per-unit clocks); compact
+  \code{.rds} matrix bundles (\code{list(decon = Y, coords = ..., time = ...)}) and 4D \code{.nii}/\code{.nii.gz}
+  deconvolved images (paired with \code{.coords.rds} sidecars) are also supported directly.
 }
