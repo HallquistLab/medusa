@@ -1,0 +1,34 @@
+$soft
+[1] "Nonnegative unit-sum weights; selected kernels match library-weight products."
+
+$hard
+[1] "Nonnegative unit-sum weights; selected kernels match library-weight products."
+
+$voxel
+[1] "Nonnegative unit-sum weights; selected kernels match library-weight products."
+
+$perturbed
+[1] "Nonnegative unit-sum weights; selected kernels match library-weight products."
+
+$signed_condition
+[1] "Nonnegative unit-sum weights; selected kernels match library-weight products."
+
+$signed_trial
+[1] "Nonnegative unit-sum weights; selected kernels match library-weight products."
+
+$target_exclusion
+[1] "Exact equality after perturbing only target run 1."
+
+$noise_change
+[1] 0.9673
+
+$null_status
+
+fallback_prespecified 
+                    8 
+
+$noise_boundary
+
+              pooled_reml pooled_reml_grid_boundary 
+                        8                        16 
+

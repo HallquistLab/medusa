@@ -1,0 +1,3 @@
+optim convergence = 0
+negative log likelihood = 424.709140
+Conditional Gaussian Hessian SEs; this single dataset does not establish coverage.

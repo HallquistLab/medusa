@@ -1,0 +1,4 @@
+max interaction moment MC discrepancy = 0.02859
+max shared-error moment MC discrepancy = 0.02299
+PPI commutator Frobenius norm = 0.65785
+zero-error OLS identity: PASS

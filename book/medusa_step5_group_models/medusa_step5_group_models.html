@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Step 5 · Group and trajectory inference – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../medusa_step6_connectivity/medusa_step6_connectivity.html" rel="next">
+<link href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#goals-of-step-5" id="toc-goals-of-step-5" class="nav-link" data-scroll-target="#goals-of-step-5">Goals of Step 5</a></li>
+  <li><a href="#inputs-what-step-5-receives-and-why" id="toc-inputs-what-step-5-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-5-receives-and-why">Inputs: What Step 5 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-5-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-5-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-5-produces-and-why-it-is-set-up-that-way">Outputs: What Step 5 Produces and Why It Is Set Up That Way</a>
+  <ul class="collapse">
+  <li><a href="#from-mixed_by" id="toc-from-mixed_by" class="nav-link" data-scroll-target="#from-mixed_by">From <code>mixed_by()</code></a></li>
+  <li><a href="#from-medusa_multilag_infer" id="toc-from-medusa_multilag_infer" class="nav-link" data-scroll-target="#from-medusa_multilag_infer">From <code>medusa_multilag_infer()</code></a></li>
+  </ul></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a>
+  <ul class="collapse">
+  <li><a href="#pathway-a-split-wise-mixed-models-mixed_by" id="toc-pathway-a-split-wise-mixed-models-mixed_by" class="nav-link" data-scroll-target="#pathway-a-split-wise-mixed-models-mixed_by">Pathway A: Split-wise mixed models (<code>mixed_by()</code>)</a></li>
+  <li><a href="#pathway-b-joint-multi-lag-trajectory-inference-medusa_multilag_infer" id="toc-pathway-b-joint-multi-lag-trajectory-inference-medusa_multilag_infer" class="nav-link" data-scroll-target="#pathway-b-joint-multi-lag-trajectory-inference-medusa_multilag_infer">Pathway B: Joint multi-lag trajectory inference (<code>medusa_multilag_infer()</code>)</a></li>
+  </ul></li>
+  <li><a href="#core-mechanisms-in-detail" id="toc-core-mechanisms-in-detail" class="nav-link" data-scroll-target="#core-mechanisms-in-detail">Core Mechanisms in Detail</a>
+  <ul class="collapse">
+  <li><a href="#separating-within-person-state-slopes-from-between-person-trait-slopes" id="toc-separating-within-person-state-slopes-from-between-person-trait-slopes" class="nav-link" data-scroll-target="#separating-within-person-state-slopes-from-between-person-trait-slopes">1. Separating within-person state slopes from between-person trait slopes</a></li>
+  <li><a href="#why-participantsnot-trialsare-the-unit-of-population-inference" id="toc-why-participantsnot-trialsare-the-unit-of-population-inference" class="nav-link" data-scroll-target="#why-participantsnot-trialsare-the-unit-of-population-inference">2. Why participants—not trials—are the unit of population inference</a></li>
+  <li><a href="#propagating-trial-precision-and-matched-trial-space-whitening" id="toc-propagating-trial-precision-and-matched-trial-space-whitening" class="nav-link" data-scroll-target="#propagating-trial-precision-and-matched-trial-space-whitening">3. Propagating trial precision and matched trial-space whitening</a></li>
+  <li><a href="#split-wise-profiles-and-defining-the-multiplicity-family" id="toc-split-wise-profiles-and-defining-the-multiplicity-family" class="nav-link" data-scroll-target="#split-wise-profiles-and-defining-the-multiplicity-family">4. Split-wise profiles and defining the multiplicity family</a></li>
+  </ul></li>
+  <li><a href="#sec-pr62" id="toc-sec-pr62" class="nav-link" data-scroll-target="#sec-pr62">Joint Trajectory Inference (<code>medusa_multilag_infer()</code>)</a>
+  <ul class="collapse">
+  <li><a href="#within-subject-joint-regression-available-case-pooling-and-spectral-deblurring" id="toc-within-subject-joint-regression-available-case-pooling-and-spectral-deblurring" class="nav-link" data-scroll-target="#within-subject-joint-regression-available-case-pooling-and-spectral-deblurring">1. Within-subject joint regression, available-case pooling, and spectral deblurring</a></li>
+  <li><a href="#studentized-wishart-calibration-max-t-1d-tfce-and-omnibus-tests" id="toc-studentized-wishart-calibration-max-t-1d-tfce-and-omnibus-tests" class="nav-link" data-scroll-target="#studentized-wishart-calibration-max-t-1d-tfce-and-omnibus-tests">2. Studentized Wishart calibration: <code>Max-|T|</code>, 1D TFCE, and Omnibus tests</a></li>
+  <li><a href="#planned-window-contrasts-and-continuous-timing-summaries" id="toc-planned-window-contrasts-and-continuous-timing-summaries" class="nav-link" data-scroll-target="#planned-window-contrasts-and-continuous-timing-summaries">3. Planned window contrasts and continuous timing summaries</a></li>
+  </ul></li>
+  <li><a href="#reproduce-the-step-5-demonstrations" id="toc-reproduce-the-step-5-demonstrations" class="nav-link" data-scroll-target="#reproduce-the-step-5-demonstrations">Reproduce the Step 5 Demonstrations</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-step5" class="quarto-section-identifier"><span class="chapter-title">Step 5 · Group and trajectory inference</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>Step 4 produces a participant-level trial panel in which each parcel, trial, and peri-event lag carries a deconvolved neural readout alongside propagated measurement-error and precision metadata. <strong>Step 5 tests whether trial-level behavioral associations generalize across the participant population—and characterizes how those effects unfold over peri-event time.</strong></p>
+<p>MEDuSA provides two complementary group-inference pathways in Step 5, matched to two distinct scientific targets:</p>
+<ol type="1">
+<li><strong>Split-wise linear mixed-effects models via <code>mixed_by()</code>:</strong> Fits a prespecified multilevel regression formula independently at each <code>(parcel, evt_time)</code> readout. This pathway is designed for rich within-trial factorial designs, cross-level interactions, random participant slopes, nested run intercepts, and precision-weighted single-readout inference, followed by explicit multiplicity correction across the planned <code>(parcel, lag, term)</code> family.</li>
+<li><strong>Joint multi-lag trajectory inference via <code>medusa_multilag_infer()</code>:</strong> Models all peri-event lags of a <code>(parcel, term)</code> profile <em>jointly</em>, combining participant-level within-run multiple regressions with available-case cross-lag covariance pooling, optional spectral resolution deblurring and P-spline smoothing, studentized Wishart null calibration (<code>Max-|T|</code>, 1D TFCE, omnibus Mahalanobis), simultaneous confidence bands, planned time-window contrasts, and peak/latency summaries.</li>
+</ol>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scientific question</th>
+<th style="text-align: left;">Recommended Step 5 pathway</th>
+<th style="text-align: left;">Primary inferential output</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">What is the conditional trial association in a multilevel model with explicit random slopes, nested runs, or cross-level interactions?</td>
+<td style="text-align: left;"><code>mixed_by()</code> (wrapping <code>lmerTest::lmer()</code>)</td>
+<td style="text-align: left;"><code>coef_df_reml</code> + explicit familywise (<code>"holm"</code>) or arbitrary-dependence FDR (<code>"BY"</code>) adjustment</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Which individual peri-event lags show an effect while controlling familywise error across the epoch?</td>
+<td style="text-align: left;"><code>medusa_multilag_infer()</code></td>
+<td style="text-align: left;">Raw <code>estimate</code>, <code>p_maxT</code>, and simultaneous band <code>conf.low.sim</code> / <code>conf.high.sim</code></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Is there a temporally extended, same-sign deflection across neighboring lags?</td>
+<td style="text-align: left;"><code>medusa_multilag_infer()</code></td>
+<td style="text-align: left;"><code>p_tfce</code> (1D threshold-free cluster enhancement across lag)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Is there any evidence against a flat zero trajectory across the entire epoch?</td>
+<td style="text-align: left;"><code>medusa_multilag_infer()</code></td>
+<td style="text-align: left;"><code>omnibus_p</code> (regularized Mahalanobis epoch test)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">How much stronger is activity in a late window vs.&nbsp;an early window, or when does the curve peak?</td>
+<td style="text-align: left;"><code>medusa_multilag_infer()</code></td>
+<td style="text-align: left;"><code>contrasts</code> (on <code>contrast_source = "unsmoothed"</code>) and <code>latency</code> (<code>peak_lag</code>, <code>com_lag</code>, <code>fwhm</code>)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="goals-of-step-5" class="level2">
+<h2 class="anchored" data-anchor-id="goals-of-step-5">Goals of Step 5</h2>
+<p>Step 5 is designed to accomplish five methodological goals:</p>
+<ol type="1">
+<li><strong>Separate within-person state fluctuations from between-person trait differences:</strong> Decompose trial predictors into within-participant (or within-run) deviations and participant means so cross-sectional baseline differences cannot confound or reverse phasic trial slopes.</li>
+<li><strong>Treat participants—not trials—as the unit of population replication:</strong> Account for inter-individual slope heterogeneity via participant random slopes in <code>mixed_by()</code> or precision-weighted random-effects slope pooling in <code>medusa_multilag_infer()</code>, preventing the severe Type I error inflation of naive trial-row regressions.</li>
+<li><strong>Propagate trial- and cohort-level reliability without discarding biological variance:</strong> Weight observations using total inverse variance <span class="math inline">\((\widehat\tau_{\mathrm{eff}}^2 + s_i^2)^{-1}\)</span> (<code>precision_weight_cohort</code>) rather than raw measurement inverse variance <span class="math inline">\(1/s_i^2\)</span>, and preserve exact linear design correspondence when analyzing ZCA-whitened panels (<code>*_whitened</code>).</li>
+<li><strong>Exploit cross-lag covariance for trajectory estimation and inference:</strong> Use the Step 3/4 lag resolution (<span class="math inline">\(R_{\mathrm{lag}}\)</span>) and lag error correlation (<span class="math inline">\(C_{\mathrm{lag}}\)</span>) operators alongside empirical cross-lag slope covariance to construct calibrated simultaneous bands, 1D TFCE statistics, omnibus epoch tests, and covariance-aware window contrasts.</li>
+<li><strong>Enforce transparent multiplicity control:</strong> Distinguish clearly between pointwise uncertainty at a single prespecified readout, trajectory-level familywise error across lags of one <code>(parcel, term)</code> curve, and study-wide multiplicity across multiple parcels, covariates, and contrasts.</li>
+</ol>
+<p><strong>What Step 5 leaves outside scope:</strong> Step 5 treats neural activity as the <strong>dependent outcome</strong> predicted by behavioral or experimental variables treated as known without measurement error. When deconvolved neural activity is moved to the <strong>right-hand side</strong> to predict another brain region (<code>Target ~ Seed * Task</code>) or behavioral response, ordinary mixed models and <code>medusa_multilag_infer()</code> do not correct predictor attenuation bias or shared seed–target measurement noise; those questions belong to <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>. In addition, Step 5 conditions on the HRF, inverse, and parcel operators learned in Steps 1–4.</p>
+<hr>
+</section>
+<section id="inputs-what-step-5-receives-and-why" class="level2">
+<h2 class="anchored" data-anchor-id="inputs-what-step-5-receives-and-why">Inputs: What Step 5 Receives and Why</h2>
+<p>Step 5 accepts three structured input representations depending on which modeling pathway you choose and how upstream participant results were stored:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Input</th>
+<th style="text-align: left;">Structure</th>
+<th style="text-align: left;">Why Step 5 needs it and why it is shaped that way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>subject_epochs</code> (recommended for <code>medusa_multilag_infer()</code>)</strong></td>
+<td style="text-align: left;">Named <code>list</code> of per-participant <code>decon_epoch_regression()</code> S3 objects</td>
+<td style="text-align: left;">Preserves <strong>both</strong> each participant’s <code>$panel</code> and their exact parcel-level <code>$lag_resolution</code>, <code>$lag_error_cor</code>, and <code>$demix_within_trial</code> metadata. Passing the full list avoids losing operator matrices when panels are stacked or saved to CSV, and allows <code>medusa_multilag_infer()</code> to pool participant-specific lag operators automatically.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>group_panel</code> (required for <code>mixed_by()</code>, also accepted by <code>medusa_multilag_infer()</code>)</strong></td>
+<td style="text-align: left;">Stacked long <code>data.table</code> keyed uniquely by <code>(id, run, event_index, evt_time, parcel)</code></td>
+<td style="text-align: left;">Gives <code>mixed_by()</code> a single rectangular table that can be split cleanly by <code>(parcel, evt_time)</code> while retaining behavioral covariates, run identifiers, <code>precision_weight_cohort</code>, and paired <code>*_whitened</code> columns. Keying behavioral merges on <code>(id, run, event_index)</code>—never <code>trial</code> alone—guarantees exact alignment when trials are dropped or runs are numbered per person.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>subject_slopes</code> (optional route for <code>medusa_multilag_infer()</code>)</strong></td>
+<td style="text-align: left;">Long <code>data.frame</code> / <code>data.table</code> with <code>(id, parcel, term, lag, estimate, std.error, df)</code></td>
+<td style="text-align: left;">Allows users who fit custom within-participant first-stage models (e.g., generalized linear models, nonlinear computational fits, or custom nuisance designs) to bring per-participant lag slopes and SEs into <code>medusa_multilag_infer()</code> alongside explicit <code>lag_resolution</code> and <code>lag_error_cor</code> matrices.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Centered behavioral predictors</strong></td>
+<td style="text-align: left;">Within-person / within-run deviations (<code>x_within</code>) + person means (<code>x_mean</code>)</td>
+<td style="text-align: left;">Computed on the behavioral trial table <strong>before</strong> merging with parcel activity so censored or missing fMRI frames in one parcel cannot shift the definition of a participant’s behavioral mean in another parcel.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>contrasts</code> &amp; <code>tr</code></strong></td>
+<td style="text-align: left;">Named list of early/late lag windows + acquisition TR (seconds)</td>
+<td style="text-align: left;">Defines planned scientific window comparisons before inspecting trajectories and supplies reference operator timing if standalone tables lack operator attributes.</td>
+</tr>
+</tbody>
+</table>
+<p>Before fitting any group model, verify that <code>(id, run, event_index)</code> is unique in the behavioral table and <code>(id, run, event_index, evt_time, parcel)</code> is unique in the merged panel:</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show trial-key verification and behavioral centering</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>key <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"id"</span>, <span class="st">"run"</span>, <span class="st">"event_index"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">anyDuplicated</span>(trial_behavior[, ..key]))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>trial_behavior[, <span class="st">`</span><span class="at">:=</span><span class="st">`</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">value_mean =</span> <span class="fu">mean</span>(value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">value_within =</span> value <span class="sc">-</span> <span class="fu">mean</span>(value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">entropy_within =</span> entropy <span class="sc">-</span> <span class="fu">mean</span>(entropy, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>), by <span class="ot">=</span> id]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>group_panel <span class="ot">&lt;-</span> <span class="fu">merge</span>(</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  activity_panel,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  trial_behavior[, .(id, run, event_index, value_mean, value_within, entropy_within)],</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">by =</span> key, <span class="at">all.x =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">anyDuplicated</span>(group_panel[, .(id, run, event_index, evt_time, parcel)]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<hr>
+</section>
+<section id="outputs-what-step-5-produces-and-why-it-is-set-up-that-way" class="level2">
+<h2 class="anchored" data-anchor-id="outputs-what-step-5-produces-and-why-it-is-set-up-that-way">Outputs: What Step 5 Produces and Why It Is Set Up That Way</h2>
+<section id="from-mixed_by" class="level3">
+<h3 class="anchored" data-anchor-id="from-mixed_by">From <code>mixed_by()</code></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Output component</th>
+<th style="text-align: left;">Structure &amp; key columns</th>
+<th style="text-align: left;">Why it is set up that way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$coef_df_reml</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> of fixed-effect estimates (<code>parcel</code>, <code>evt_time</code>, <code>term</code>, <code>estimate</code>, <code>std.error</code>, <code>df</code>, <code>statistic</code>, <code>p.value</code>)</td>
+<td style="text-align: left;">Collects Satterthwaite REML parameter estimates across every <code>(parcel, evt_time)</code> split into one tidy table so planned terms can be filtered and adjusted across the exact scientific family without counting nuisance intercepts.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>$models</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> storing fitted <code>lmerModLmerTest</code> objects (when <code>return_models = TRUE</code>)</td>
+<td style="text-align: left;">Preserves per-split participant counts, observation counts, <code>isSingular()</code> boundary flags, random-effects variance components, and conditional residuals so model health can be audited systematically across lags.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="from-medusa_multilag_infer" class="level3">
+<h3 class="anchored" data-anchor-id="from-medusa_multilag_infer">From <code>medusa_multilag_infer()</code></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Output component</th>
+<th style="text-align: left;">Structure &amp; key columns</th>
+<th style="text-align: left;">Why it is set up that way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$coefficients</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> per <code>(unit, term, lag)</code> with <code>estimate</code>, <code>std.error</code>, <code>conf.low.sim</code> / <code>conf.high.sim</code>, <code>p_maxT</code>, <code>p_tfce</code>, <code>omnibus_p</code>, and <code>estimate_multilag</code> / <code>conf.low.multilag.sim</code></td>
+<td style="text-align: left;">Keeps the <strong>raw unsmoothed group trajectory</strong> (<code>estimate</code>, <code>p_maxT</code>, <code>conf.low.sim</code>) side-by-side with the <strong>deblurred/P-spline processed trajectory</strong> (<code>estimate_multilag</code>, <code>std.error_multilag</code>, <code>conf.low.multilag.sim</code>). Raw columns answer lag-localization hypothesis tests without smoothing leakage; processed columns summarize smooth waveform shape with Marra–Wood posterior smoothing covariance included.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>$contrasts</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> per <code>(unit, term, contrast)</code> with <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code></td>
+<td style="text-align: left;">Evaluates linear window contrasts <span class="math inline">\(c^\top \widehat b_*\)</span> with full cross-lag covariance <span class="math inline">\(\sqrt{c^\top \Sigma_* c}\)</span> on the selected <code>contrast_source</code> curve, giving a single well-powered, interpretable test for early-vs.-late dynamics.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$latency</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> per <code>(unit, term)</code> with <code>peak_lag</code>, <code>peak_lag_grid</code>, <code>peak_lag_se</code>, <code>peak_lag_conf.low</code> / <code>high</code>, <code>com_lag</code>, <code>fwhm</code>, <code>omnibus_p</code>, <code>min_p_maxT</code>, <code>min_p_tfce</code></td>
+<td style="text-align: left;">Summarizes continuous spline-interpolated timing (<code>peak_lag</code>, center of mass <code>com_lag</code>, full width at half maximum <code>fwhm</code>) alongside parametric covariance-draw SEs and epoch-level significance summaries—one row per trajectory for study-wide Holm/BY adjustment.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>$subjects</code></strong></td>
+<td style="text-align: left;">Participant-by-lag <code>data.table</code> containing raw slopes, processed curves, and multivariate empirical-Bayes (<code>estimate_eb</code>) trajectories</td>
+<td style="text-align: left;">Retains finite per-participant support counts at every lag (for auditing available-case edge censoring) and provides cross-lag-shrunken individual curves for visualization without conflating EB shrinkage with independent group observations.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$covariance</code></strong></td>
+<td style="text-align: left;">Nested list of raw (<code>Sigma_raw</code>), deblurred (<code>Sigma_deblur</code>), and final (<code>Sigma_multilag</code>) cross-lag covariance matrices</td>
+<td style="text-align: left;">Exposes the exact covariance operators used by every band, contrast, and latency draw so custom linear combinations or between-window comparisons can be verified algebraically.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="recommended-settings" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
+<section id="pathway-a-split-wise-mixed-models-mixed_by" class="level3">
+<h3 class="anchored" data-anchor-id="pathway-a-split-wise-mixed-models-mixed_by">Pathway A: Split-wise mixed models (<code>mixed_by()</code>)</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>group_formula <span class="ot">&lt;-</span> decon_demixed <span class="sc">~</span> value_within <span class="sc">+</span> value_mean <span class="sc">+</span> entropy_within <span class="sc">+</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  (<span class="dv">1</span> <span class="sc">+</span> value_within <span class="sc">+</span> entropy_within <span class="sc">||</span> id) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> id<span class="sc">:</span>run)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>group_models <span class="ot">&lt;-</span> <span class="fu">mixed_by</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  group_panel,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">model_formulae =</span> <span class="fu">list</span>(<span class="at">trial_effects =</span> group_formula),</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">split_on =</span> <span class="fu">c</span>(<span class="st">"parcel"</span>, <span class="st">"evt_time"</span>),</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights =</span> <span class="st">"precision_weight_cohort"</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">calculate =</span> <span class="st">"parameter_estimates_reml"</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">padjust_by =</span> <span class="cn">NULL</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">tidy_args =</span> <span class="fu">list</span>(<span class="at">effects =</span> <span class="st">"fixed"</span>, <span class="at">conf.int =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_models =</span> <span class="cn">TRUE</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply multiplicity correction across the exact planned family of focal terms</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>focal_tests <span class="ot">&lt;-</span> <span class="fu">subset</span>(</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  group_models<span class="sc">$</span>coef_df_reml,</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  term <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"value_within"</span>, <span class="st">"entropy_within"</span>)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>focal_tests<span class="sc">$</span>p_by <span class="ot">&lt;-</span> <span class="fu">p.adjust</span>(focal_tests<span class="sc">$</span>p.value, <span class="at">method =</span> <span class="st">"BY"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="pathway-b-joint-multi-lag-trajectory-inference-medusa_multilag_infer" class="level3">
+<h3 class="anchored" data-anchor-id="pathway-b-joint-multi-lag-trajectory-inference-medusa_multilag_infer">Pathway B: Joint multi-lag trajectory inference (<code>medusa_multilag_infer()</code>)</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Upstream in Step 3/4: set demix_within_trial = FALSE when feeding medusa_multilag_infer()</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># so cross-lag resolution R_lag is handled once at the group trajectory stage.</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>trajectory <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  subject_epochs,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates =</span> <span class="fu">c</span>(<span class="st">"value_within"</span>, <span class="st">"entropy_within"</span>),</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">trajectory_mode =</span> <span class="st">"auto"</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">contrast_source =</span> <span class="st">"unsmoothed"</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr =</span> acquisition_tr,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">contrasts =</span> <span class="fu">list</span>(<span class="at">late_minus_early =</span> <span class="fu">list</span>(<span class="at">early =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">late =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">4</span>))),</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_perm =</span> <span class="dv">4000</span>L,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_boot_latency =</span> <span class="dv">400</span>L,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">6205</span>L</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parameter / Choice</th>
+<th style="text-align: left;">Package default</th>
+<th style="text-align: left;">Recommended setting</th>
+<th style="text-align: left;">Why and when to adjust</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>weights</code> (in <code>mixed_by()</code>)</strong></td>
+<td style="text-align: left;"><code>NULL</code></td>
+<td style="text-align: left;"><code>"precision_weight_cohort"</code></td>
+<td style="text-align: left;">Normalizes <span class="math inline">\((\widehat\tau_{\mathrm{eff}}^2 + s_i^2)^{-1}\)</span> once across the entire <code>(parcel, evt_time)</code> split rather than per person, preserving both within-run trial heteroskedasticity and between-participant SNR differences. Use <code>"precision_weight"</code> only if you intentionally want every participant weighted equally regardless of scan noise. Never pass <code>1 / se_demixed^2</code> directly (ignores biological trial variance).</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Random-effects grouping</strong></td>
+<td style="text-align: left;">User formula</td>
+<td style="text-align: left;"><code>(1 + x_within || id) + (1 | id:run)</code></td>
+<td style="text-align: left;">Includes random participant slopes for within-person focal predictors (preventing trial-row pseudoreplication) and nested participant–run intercepts <code>(1 | id:run)</code>. Never write <code>(1 | run)</code> when run labels like <code>"run1"</code> repeat across participants.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Upstream <code>demix_within_trial</code></strong></td>
+<td style="text-align: left;"><code>TRUE</code> (in Step 3)</td>
+<td style="text-align: left;"><code>TRUE</code> for <code>mixed_by()</code>; <code>FALSE</code> for <code>medusa_multilag_infer()</code></td>
+<td style="text-align: left;"><code>mixed_by()</code> visits one lag at a time and relies on Step 3’s ridge demixing; <code>medusa_multilag_infer()</code> sees the entire lag profile and performs regularized spectral deblurring (<code>trajectory_mode = "auto"</code>) with full cross-lag covariance propagation, avoiding double-regularization.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>covariates</code> (in <code>medusa_multilag_infer()</code>)</strong></td>
+<td style="text-align: left;">Required</td>
+<td style="text-align: left;">Pass correlated trial predictors jointly (<code>c("value_within", "entropy_within")</code>)</td>
+<td style="text-align: left;">Time-varying covariates supplied together are fit jointly in a single within-run multiple regression (controlling shared variance), while participant-constant covariates (e.g., <code>value_mean</code>, age) are automatically routed to Level-2 precision-weighted WLS with HC2 SEs.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>trajectory_mode</code></strong></td>
+<td style="text-align: left;"><code>"auto"</code></td>
+<td style="text-align: left;"><code>"auto"</code></td>
+<td style="text-align: left;">Automatically applies regularized spectral deblurring when <code>demix_within_trial = FALSE</code> (skipping deblurring if already demixed upstream) followed by cross-lag covariance-aware P-spline smoothing. Use <code>"none"</code> when evaluating raw lag readouts without spectral or spline post-processing.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>contrast_source</code></strong></td>
+<td style="text-align: left;"><code>"unsmoothed"</code></td>
+<td style="text-align: left;"><code>"unsmoothed"</code></td>
+<td style="text-align: left;">Evaluates planned window contrasts on the deblurred trajectory <em>prior</em> to P-spline smoothing, retaining resolution recovery without introducing smoothing shrinkage bias into linear window averages.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>use_whitened</code></strong></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;"><code>FALSE</code> (or <code>TRUE</code> with all covariates pre-whitened in Step 4)</td>
+<td style="text-align: left;">Unwhitened <code>decon_demixed</code> works out of the box with arbitrary formulas; if serial residual autocorrelation is strong in rapid designs, set <code>whiten_panel = TRUE</code> in Step 4 (passing all covariates so <code>*_whitened</code> columns exist) and match <code>decon_demixed_whitened</code> to <code>*_whitened</code> predictors.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Study-wide multiplicity</strong></td>
+<td style="text-align: left;">Within-term (<code>mixed_by</code>) / within-trajectory (<code>multilag</code>)</td>
+<td style="text-align: left;">Explicit <code>"BY"</code> or <code>"holm"</code> across planned family</td>
+<td style="text-align: left;">Built-in <code>p_maxT</code> and <code>p_tfce</code> control familywise error across lags <em>within one <code>(parcel, term)</code> trajectory</em>. When testing multiple parcels or terms, apply Holm or Benjamini–Yekutieli across the planned epoch <code>omnibus_p</code> values or across the planned <code>(parcel, lag, term)</code> table.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="core-mechanisms-in-detail" class="level2">
+<h2 class="anchored" data-anchor-id="core-mechanisms-in-detail">Core Mechanisms in Detail</h2>
+<section id="separating-within-person-state-slopes-from-between-person-trait-slopes" class="level3">
+<h3 class="anchored" data-anchor-id="separating-within-person-state-slopes-from-between-person-trait-slopes">1. Separating within-person state slopes from between-person trait slopes</h3>
+<p>A raw trial-level predictor <span class="math inline">\(x_{sri}\)</span> (participant <span class="math inline">\(s\)</span>, run <span class="math inline">\(r\)</span>, trial <span class="math inline">\(i\)</span>) mixes phasic trial-to-trial variation around a person’s average with cross-sectional differences across people: <span class="math inline">\(x_{sri} = (x_{sri} - \bar x_s) + \bar x_s\)</span>. Comparing high- vs.&nbsp;low-value trials <em>within</em> the same person answers a fundamentally different biological question from comparing people who experience higher average value overall—and the two slopes can even have opposite signs.</p>
+<div id="fig-within" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Blue trial-level slopes are positive for six individuals. Orange participant means fall as the predictor rises.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-within-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/01-within-between.png" class="img-fluid figure-img" alt="Blue trial-level slopes are positive for six individuals. Orange participant means fall as the predictor rises.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-within-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.1: Simulated participant means slope down across people even though the within-participant lines generally slope up. Only six within-participant series are shown for legibility.
+</figcaption>
+</figure>
+</div>
+<p>In <a href="#fig-within" class="quarto-xref">Figure&nbsp;<span>7.1</span></a>, the true within-person trial slope is <span class="math inline">\(+0.55\)</span> while the between-person trait slope is <span class="math inline">\(-0.72\)</span>. Fitting a single uncentered predictor estimates a confounded pooled slope of <strong>-0.432</strong>, whereas entering <code>x_within</code> and <code>x_mean</code> separately recovers <strong>0.521</strong> within participants and <strong>-0.731</strong> between participants.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Interpreting between-person effects in MEDuSA
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Keep two upstream conventions in mind whenever interpreting participant intercepts or trait covariates: 1. <strong>Run centering removes tonic run baselines:</strong> Step 2 scaling (<code>"noise_sd"</code>, <code>"demean"</code>, <code>"zscore"</code>) centers BOLD within each run, so tonic run-constant neural baselines are not identifiable; between-person predictors (<code>x_mean</code>) explain differences in average <em>event-locked phasic deflections</em> across people, or cross-level interactions (<code>x_within * trait</code>) modulating within-person slopes. 2. <strong>HRF normalization conventions:</strong> Step 1 normalizes candidate HRFs to unit positive-lobe integral (<code>normalize = "area"</code>), so restored BOLD-unit amplitudes reflect the product of phasic neural amplitude and local neurovascular gain.</p>
+</div>
+</div>
+<p>When a predictor drifts across runs (e.g., fatigue or block-level contingencies), centering within each <code>(id, run)</code> isolates pure within-run trial contrasts, while run-mean and person-mean terms can capture run- and person-level shifts separately.</p>
+</section>
+<section id="why-participantsnot-trialsare-the-unit-of-population-inference" class="level3">
+<h3 class="anchored" data-anchor-id="why-participantsnot-trialsare-the-unit-of-population-inference">2. Why participants—not trials—are the unit of population inference</h3>
+<p>For a single decomposed predictor, the canonical split-wise mixed model at one <code>(parcel, evt_time)</code> readout is:</p>
+<p><span class="math display">\[
+Y_{sri} = \beta_0 + \beta_W x^W_{sri} + \beta_B \bar x_s + b_{0s} + b_{Ws} x^W_{sri} + a_{sr} + \varepsilon_{sri}.
+\]</span></p>
+<p>Here <span class="math inline">\(b_{0s}\)</span> captures persistent participant baseline deflection, <span class="math inline">\(a_{sr}\)</span> captures participant-specific run shifts (<code>(1 | id:run)</code>), and <span class="math inline">\(b_{Ws}\)</span> captures inter-individual heterogeneity in the within-person slope (<code>(1 + x_within || id)</code>). In a balanced design with <span class="math inline">\(S\)</span> participants, <span class="math inline">\(m\)</span> independent trials per participant, unit-variance centered predictor, slope heterogeneity <span class="math inline">\(\sigma_b^2\)</span>, and trial residual variance <span class="math inline">\(\sigma_\varepsilon^2\)</span>, the variance of the population slope estimate is:</p>
+<p><span class="math display">\[
+\operatorname{Var}(\widehat\beta_W) = \frac{\sigma_b^2}{S} + \frac{\sigma_\varepsilon^2}{Sm}.
+\]</span></p>
+<p>Collecting more trials <span class="math inline">\(m\)</span> shrinks the second term toward zero, sharpening each person’s slope estimate, <strong>but leaves <span class="math inline">\(\sigma_b^2 / S\)</span> untouched</strong>. Omitting random participant slopes—or running trial-row OLS—treats <span class="math inline">\(Sm\)</span> trials as independent draws of the population slope and mistakes stable individual differences <span class="math inline">\(\sigma_b^2\)</span> for population certainty.</p>
+<div id="fig-null" class="quarto-float quarto-figure quarto-figure-center anchored" alt="With 12 people, the trial-row test rejects about 80 percent of the time at 192 trials per person. The participant-slope test remains around 5 percent.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-null-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/02-null.png" class="img-fluid figure-img" alt="With 12 people, the trial-row test rejects about 80 percent of the time at 192 trials per person. The participant-slope test remains around 5 percent.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-null-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.2: Two tests of the same zero population slope in 3,000 simulations per trial count. The participant-slope test uses one slope per person. Trial-row OLS ignores within-person slope dependence. Bars show approximate 95% Monte Carlo error intervals.
+</figcaption>
+</figure>
+</div>
+<p>In <a href="#fig-null" class="quarto-xref">Figure&nbsp;<span>7.2</span></a> (12 participants, true population mean slope <span class="math inline">\(\beta_W = 0\)</span>, nonzero <span class="math inline">\(\sigma_b^2\)</span>), naive trial-row OLS false-positive rates escalate with trial count—reaching <strong>79.8%</strong> at 192 trials per person—whereas testing participant slopes holds nominal Type I error at <strong>5.2%</strong>.</p>
+</section>
+<section id="propagating-trial-precision-and-matched-trial-space-whitening" class="level3">
+<h3 class="anchored" data-anchor-id="propagating-trial-precision-and-matched-trial-space-whitening">3. Propagating trial precision and matched trial-space whitening</h3>
+<p>Conditional on participant and run random effects, the observed trial response combines true biological trial-to-trial variability <span class="math inline">\(\varepsilon^{\mathrm{latent}}_{sr}\)</span> and propagated Step 1–4 BOLD measurement error:</p>
+<p><span class="math display">\[
+R_{sr} = \operatorname{Cov}(\varepsilon^{\mathrm{latent}}_{sr}) + \Omega_{sr}.
+\]</span></p>
+<p>In <code>lme4::lmer()</code>, prior weights <span class="math inline">\(w_i\)</span> scale the conditional residual variance as <span class="math inline">\(\sigma^2 / w_i\)</span>. Step 4’s <code>precision_weight_cohort</code> sets <span class="math inline">\(w_i \propto (\widehat\tau_{\mathrm{eff}}^2 + s_i^2)^{-1}\)</span> across all runs and participants, and <code>mixed_by()</code> normalizes finite positive weights once over the complete-case split to mean 1.</p>
+<div id="fig-weights" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Weighted model residual SDs closely match known SDs of 0.19 and 0.40. The unweighted model estimates 0.31 for both runs.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/03-weights.png" class="img-fluid figure-img" alt="Weighted model residual SDs closely match known SDs of 0.19 and 0.40. The unweighted model estimates 0.31 for both runs.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.3: For the same readout, the weighted model allows larger conditional residual spread in the noisier run. The unweighted fit imposes the same spread across both runs. The generating SD combines latent trial variation and measurement noise.
+</figcaption>
+</figure>
+</div>
+<p>As <a href="#fig-weights" class="quarto-xref">Figure&nbsp;<span>7.3</span></a> shows, when Run 2 has higher measurement noise than Run 1 (true combined conditional SDs <span class="math inline">\(0.194\)</span> and <span class="math inline">\(0.403\)</span>), precision-weighted <code>lmer()</code> recovers conditional residual scales matching both runs (<span class="math inline">\(0.191\)</span> and <span class="math inline">\(0.396\)</span>), downweighting noisy trials and noisy scans appropriately instead of forcing a single pooled residual SD (<span class="math inline">\(0.313\)</span>).</p>
+<details>
+<summary>
+Matched linear transformations when using ZCA-whitened panels (<code>*_whitened</code>)
+</summary>
+<p>When trial-to-trial measurement errors remain serially correlated across closely spaced events, Step 4’s <code>whiten_panel = TRUE</code> applies a run-mean-preserving regularized ZCA map <span class="math inline">\(T = P + \Phi Q\)</span> (where <span class="math inline">\(P\)</span> projects onto the run mean and <span class="math inline">\(Q = I - P\)</span> centers within run) identically to the response (<code>decon_demixed_whitened</code>) and to every covariate supplied to Step 4 (<code>*_whitened</code>). Because <span class="math inline">\(T \mathbf{1} = \mathbf{1}\)</span>, run intercepts remain intact, while both fixed and random slopes for within-run predictors operate on the exact transformed design columns <span class="math inline">\(T x\)</span>.</p>
+<p>Two rules are essential whenever <code>use_whitened = TRUE</code> or <code>decon_demixed_whitened</code> is modeled: 1. <strong>Never mix coordinates:</strong> Always pair <code>decon_demixed_whitened</code> with <code>*_whitened</code> predictors from the same <code>(parcel, evt_time)</code> split; regressing whitened activity on unwhitened time-varying covariates estimates a mismatched slope. 2. <strong>Form interactions before whitening:</strong> Because <span class="math inline">\(T(x \odot z) \neq (Tx) \odot (Tz)\)</span>, construct any within-run product or polynomial columns <em>before</em> calling <code>decon_epoch_regression(..., whiten_panel = TRUE)</code> so Step 4 transforms the interaction column directly.</p>
+</details>
+<p>Always audit fitted models across splits—checking participant support, <code>lme4::isSingular()</code> flags, and within-run conditional lag-1 residual correlations (<a href="#fig-residuals" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>):</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show split-level model audit code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>fits <span class="ot">&lt;-</span> <span class="fu">lapply</span>(group_models<span class="sc">$</span>models<span class="sc">$</span>model, <span class="cf">function</span>(entry) entry<span class="sc">$</span>reml)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>group_models<span class="sc">$</span>models[, .(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  parcel, evt_time,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">trials =</span> <span class="fu">vapply</span>(fits, nobs, <span class="fu">numeric</span>(<span class="dv">1</span>)),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">participants =</span> <span class="fu">vapply</span>(fits, <span class="cf">function</span>(fit) <span class="fu">nlevels</span>(<span class="fu">model.frame</span>(fit)<span class="sc">$</span>id), <span class="fu">integer</span>(<span class="dv">1</span>)),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">singular =</span> <span class="fu">vapply</span>(fits, lme4<span class="sc">::</span>isSingular, <span class="fu">logical</span>(<span class="dv">1</span>))</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>)]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="fig-residuals" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Participant-run residual correlations scatter on both sides of zero, with no obvious consistent direction across the two runs.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-residuals-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/06-residuals.png" class="img-fluid figure-img" alt="Participant-run residual correlations scatter on both sides of zero, with no obvious consistent direction across the two runs.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-residuals-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.4: Lag-one correlations of scaled conditional residuals in the focal model, computed separately for each participant and run. Even with independent generating residuals at this readout, 24 trials per run produce noisy correlation estimates.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="split-wise-profiles-and-defining-the-multiplicity-family" class="level3">
+<h3 class="anchored" data-anchor-id="split-wise-profiles-and-defining-the-multiplicity-family">4. Split-wise profiles and defining the multiplicity family</h3>
+<p>Fitting <code>mixed_by()</code> across 3 simulated parcels (<code>Phasic</code>, <code>Sustained</code>, <code>Null</code>) and 8 peri-event lags (<span class="math inline">\(-2\text{ s}\)</span> to <span class="math inline">\(+5\text{ s}\)</span>) for 24 participants yields 24 REML fits (0 singular) and <span class="math inline">\(3 \times 8 \times 2 = 48\)</span> planned focal tests across <code>value_within</code> and <code>entropy_within</code>.</p>
+<div id="fig-profiles" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The value slope peaks near one second in the phasic parcel. The entropy slope persists for several seconds in the sustained parcel. Both slopes fluctuate around zero in the null parcel.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-profiles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/04-profiles.png" class="img-fluid figure-img" alt="The value slope peaks near one second in the phasic parcel. The entropy slope persists for several seconds in the sustained parcel. Both slopes fluctuate around zero in the null parcel.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-profiles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.5: Three simulated parcel profiles. Dashed lines show known population slopes, and ribbons are pointwise 95% Satterthwaite t intervals. All panels share a vertical scale.
+</figcaption>
+</figure>
+</div>
+<div id="fig-family" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Most discoveries are near the simulated phasic value peak and the sustained entropy response. Two cells pass only the unadjusted threshold.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-family-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/05-family.png" class="img-fluid figure-img" alt="Most discoveries are near the simulated phasic value peak and the sustained entropy response. Two cells pass only the unadjusted threshold.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-family-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.6: The same 48 tests arranged as parcel-by-lag cells. Teal cells pass BY across the entire family. Orange cells meet the unadjusted 0.05 cutoff only.
+</figcaption>
+</figure>
+</div>
+<p>In <a href="#fig-profiles" class="quarto-xref">Figure&nbsp;<span>7.5</span></a> and <a href="#fig-family" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>, 9 cells pass the unadjusted <span class="math inline">\(p \le .05\)</span> threshold—including isolated false positives on zero-truth lags—whereas <strong>7</strong> cells survive Benjamini–Yekutieli (<code>"BY"</code>) FDR control across the full 48-test family, cleanly isolating the phasic <code>value_within</code> peak around <span class="math inline">\(+1\text{ s}\)</span> and the sustained <code>entropy_within</code> plateau across <span class="math inline">\(+1\text{ to }+4\text{ s}\)</span>. Because adjacent lags are positively correlated, <code>"BY"</code> guarantees FDR control under arbitrary dependence, though its harmonic-sum penalty makes it conservative when lag grids are dense—motivating the joint trajectory estimator below.</p>
+<hr>
+</section>
+</section>
+<section id="sec-pr62" class="level2">
+<h2 class="anchored" data-anchor-id="sec-pr62">Joint Trajectory Inference (<code>medusa_multilag_infer()</code>)</h2>
+<p>Rather than treating the 8 lags of a parcel profile as unrelated split-wise regressions, <code>medusa_multilag_infer()</code> estimates and tests the entire lag vector <span class="math inline">\(\widehat b = (\widehat b_1, \dots, \widehat b_L)^\top\)</span> jointly using its cross-lag covariance <span class="math inline">\(\Sigma_b\)</span>.</p>
+<section id="within-subject-joint-regression-available-case-pooling-and-spectral-deblurring" class="level3">
+<h3 class="anchored" data-anchor-id="within-subject-joint-regression-available-case-pooling-and-spectral-deblurring">1. Within-subject joint regression, available-case pooling, and spectral deblurring</h3>
+<ol type="1">
+<li><strong>Joint within-run multiple regression &amp; Level-2 trait routing:</strong> When given <code>subject_epochs</code> or <code>group_panel</code>, <code>medusa_multilag_infer()</code> fits all supplied time-varying <code>covariates</code> jointly in a precision-weighted within-run multiple regression at each lag (applying matched <span class="math inline">\(M_{\text{post}}\)</span> predictor projection if Step 3 target demixing was active), blending model-based and heteroskedasticity-robust slope SEs. Any between-participant constant predictors are automatically fit at Level 2 via precision-weighted WLS with HC2 leverage-adjusted SEs.</li>
+<li><strong>Available-case cross-lag pooling:</strong> Participants who miss edge lags (for instance, due to run-boundary clipping or Step 3’s <code>obs_frac_tau &lt; 0.20</code> censoring gate) are <strong>retained at all supported interior lags</strong> rather than dropped listwise. At each lag <span class="math inline">\(\ell\)</span>, participant slopes <span class="math inline">\(b_{s\ell}\)</span> are pooled with random-effects precision weights <span class="math inline">\((\widehat\tau_\ell^2 + s_{s\ell}^2)^{-1}\)</span>, and pairwise cross-lag correlations shrink empirical slope correlations toward the working operator correlation before eigenvalue flooring.</li>
+<li><strong>Spectral resolution deblurring and P-spline smoothing:</strong> Under <code>trajectory_mode = "auto"</code>, when upstream <code>demix_within_trial = FALSE</code>, <code>medusa_multilag_infer()</code> applies a regularized spectral inverse of the Step 3/4 cross-lag resolution matrix <span class="math inline">\(R_{\mathrm{lag}}\)</span> (<code>"deblur"</code>, normalized to preserve local lobe gain) followed by covariance-aware boosted P-spline smoothing (<code>"deblur_pspline"</code>). Its processed trajectory covariance <span class="math inline">\(\Sigma_{\mathrm{multilag}}\)</span> incorporates a Marra–Wood posterior smoothing-bias variance component rather than naive plug-in sandwich shrinkage.</li>
+</ol>
+<div id="fig-pr62-deblur" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The blurred effect is wider than the known target. The deblurred curve is closer to the target in this controlled example.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pr62-deblur-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/09-pr62-deblur.png" class="img-fluid figure-img" alt="The blurred effect is wider than the known target. The deblurred curve is closer to the target in this controlled example.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pr62-deblur-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.7: Deterministic coefficient-table example. The supplied resolution matrix spreads the known phasic target across adjacent lags. The deblurred curve nearly overlaps the known target in this example. Recovery depends on regularization and on the matrix representing the actual readout.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show the custom subject coefficient-table route</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>partial_trajectory <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  subject_slopes,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">lag_resolution =</span> resolution_by_parcel,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">lag_error_cor =</span> error_cor_by_parcel,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">trajectory_mode =</span> <span class="st">"deblur"</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_perm =</span> <span class="dv">4000</span>L,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_boot_latency =</span> <span class="dv">0</span>L,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">6205</span>L</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="studentized-wishart-calibration-max-t-1d-tfce-and-omnibus-tests" class="level3">
+<h3 class="anchored" data-anchor-id="studentized-wishart-calibration-max-t-1d-tfce-and-omnibus-tests">2. Studentized Wishart calibration: <code>Max-|T|</code>, 1D TFCE, and Omnibus tests</h3>
+<p>To account for finite-sample uncertainty in the estimated <span class="math inline">\(L \times L\)</span> cross-lag covariance across participants, <code>medusa_multilag_infer()</code> calibrates trajectory statistics using <code>n_perm</code> <strong>studentized Wishart covariance draws</strong> (with plus-one Monte Carlo <span class="math inline">\(p\)</span>-values):</p>
+<ul>
+<li><strong><code>Max-|T|</code> and simultaneous bands (<code>p_maxT</code>, <code>conf.low.sim</code>, <code>conf.high.sim</code>):</strong> Compares each lag’s absolute studentized statistic against the distribution of <span class="math inline">\(\max_\ell |T_\ell|\)</span> across the epoch. The resulting simultaneous 95% band covers the <strong>entire true trajectory across all lags jointly</strong> with 95% probability, unlike narrower pointwise ribbons.</li>
+<li><strong>1D TFCE (<code>p_tfce</code>):</strong> Integrates statistic height and contiguous same-sign cluster extent across thresholds along the ordered lag grid, boosting sensitivity to sustained deflections (<code>Sustained</code> parcel) without arbitrary cluster-forming cutoffs. Because TFCE borrows support across neighboring lags, a small <code>p_tfce</code> establishes presence of an extended cluster rather than exact lag onset.</li>
+<li><strong>Epoch Omnibus (<code>omnibus_p</code>):</strong> Evaluates a regularized Mahalanobis quadratic form across the full raw lag vector to test whether the epoch departs from zero anywhere.</li>
+</ul>
+<div id="fig-pr62-trajectory" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The simultaneous band is wider than the pointwise intervals. A smoothed curve peaks around one second, near the raw peak.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pr62-trajectory-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/07-pr62-trajectory.png" class="img-fluid figure-img" alt="The simultaneous band is wider than the pointwise intervals. A smoothed curve peaks around one second, near the raw peak.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pr62-trajectory-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.8: Raw lag estimates, pointwise intervals, and the raw simultaneous Max-|T| band from the panel route. The orange curve is the P-spline used for shape and the planned window contrast. The known synthetic panel has no deconvolution blur, so this example uses P-spline smoothing alone.
+</figcaption>
+</figure>
+</div>
+<div id="fig-pr62-tests" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The two generated signals pass all three tests. The null entropy trajectory stays well above 0.05 on all three tests.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pr62-tests-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/08-pr62-tests.png" class="img-fluid figure-img" alt="The two generated signals pass all three tests. The null entropy trajectory stays well above 0.05 on all three tests.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pr62-tests-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7.9: The smallest within-trajectory Max-|T| and TFCE p-values and the epoch omnibus p-value for three simulated parcel–term pairs. The vertical reference is 0.05. Values at the Monte Carlo floor use 4,000 draws.
+</figcaption>
+</figure>
+</div>
+<p>In the live demonstration (<a href="#fig-pr62-trajectory" class="quarto-xref">Figure&nbsp;<span>7.8</span></a> and <a href="#fig-pr62-tests" class="quarto-xref">Figure&nbsp;<span>7.9</span></a>), both true signals—<code>Phasic</code> <code>value_within</code> and <code>Sustained</code> <code>entropy_within</code>—hit the 4,000-draw Monte Carlo floor (<code>min_p_maxT =</code> 0.0002, <code>min_p_tfce =</code> 0.0002, <code>omnibus_p =</code> 0.0005), while every null parcel–term trajectory remains well above <code>.05</code> (<code>Null</code> <code>entropy_within</code>: <code>omnibus_p =</code> 0.269, <code>min_p_maxT =</code> 0.423, <code>min_p_tfce =</code> 0.438). See the <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html">Multi-lag trajectory calibration chapter</a> for 180-replicate empirical Type I error and simultaneous-band coverage results across complete and gapped/serially correlated panels.</p>
+</section>
+<section id="planned-window-contrasts-and-continuous-timing-summaries" class="level3">
+<h3 class="anchored" data-anchor-id="planned-window-contrasts-and-continuous-timing-summaries">3. Planned window contrasts and continuous timing summaries</h3>
+<p>When a hypothesis compares early vs.&nbsp;late epoch phases (<code>contrasts = list(late_minus_early = list(early = c(0, 1), late = c(3, 4)))</code>), <code>medusa_multilag_infer()</code> evaluates <span class="math inline">\(c^\top \widehat b_*\)</span> with SE <span class="math inline">\(\sqrt{c^\top \Sigma_* c}\)</span> on the curve selected by <code>contrast_source</code>:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;"><code>contrast_source</code></th>
+<th style="text-align: left;">Trajectory evaluated</th>
+<th style="text-align: left;">When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>"unsmoothed"</code> (recommended default)</strong></td>
+<td style="text-align: left;">After spectral deblurring (if active), <strong>before</strong> P-spline smoothing</td>
+<td style="text-align: left;">Preserves resolution deblurring gains without letting P-spline curvature shrinkage pull early and late window means toward each other.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>"raw"</code></strong></td>
+<td style="text-align: left;">Original group lag estimates before cross-lag operators</td>
+<td style="text-align: left;">Purest test of raw lag averages when no spectral deblurring is desired.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>"multilag"</code></strong></td>
+<td style="text-align: left;">Final processed curve after deblurring + P-spline smoothing</td>
+<td style="text-align: left;">Descriptive contrast of the plotted smooth curve itself (see <a href="../worked-example.html#sec-worked-contrasts">worked contrast comparison</a>).</td>
+</tr>
+</tbody>
+</table>
+<p>In our simulated panel, the <code>late_minus_early</code> (<code>[3, 4] s</code> minus <code>[0, 1] s</code>) contrast cleanly separates the decaying phasic value response (<code>estimate =</code> -0.177, <span class="math inline">\(t_{23} = -7.49\)</span>, <span class="math inline">\(p = 1.3e-07\)</span>) from the rising sustained entropy response (<code>estimate =</code> 0.082, <span class="math inline">\(t_{23} = 4.26\)</span>, <span class="math inline">\(p = 0.0003\)</span>).</p>
+<p>Finally, <code>$latency</code> interpolates the processed trajectory on a natural cubic spline (<code>fine_dt = 0.01</code> s) to estimate continuous <code>peak_lag</code>, squared-amplitude center of mass (<code>com_lag</code>), and contiguous half-height width (<code>fwhm</code>), propagating uncertainty via <code>n_boot_latency</code> parametric draws from the trajectory covariance. For <code>Phasic</code> <code>value_within</code>, the grid maximum sits at 1.00 s and the spline peak at <strong>1.02 s</strong> (95% CI <code>[0.92, 1.11]</code> s, FWHM 2.10 s), whereas <code>Sustained</code> <code>entropy_within</code> exhibits a broader center of mass at <strong>2.45 s</strong> and FWHM <strong>3.94 s</strong>. Always treat sub-TR decimal timing as smooth curve interpolation bounded by upstream HRF and inverse resolution, and require a well-defined signal (<code>omnibus_p</code> / <code>p_maxT</code>) before interpreting peak latency; on flat null curves, peak location spans the entire epoch window.</p>
+<hr>
+</section>
+</section>
+<section id="reproduce-the-step-5-demonstrations" class="level2">
+<h2 class="anchored" data-anchor-id="reproduce-the-step-5-demonstrations">Reproduce the Step 5 Demonstrations</h2>
+<p>All Step 5 mixed-model and multi-lag trajectory simulations run directly against the installed <code>medusa</code> package:</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show reproduction commands</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate_step5.R</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> figures_step5.R</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate_pr62.R</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> figures_pr62.R</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_step5_group_models.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p><a href="simulate_step5.R">Mixed-model simulation</a> · <a href="figures_step5.R">Mixed-model figures</a> · <a href="group_coefficients.csv">Group estimates</a> · <a href="null_calibration.csv">Null calibration</a> · <a href="model_diagnostics.csv">Fit diagnostics</a> · <a href="simulate_pr62.R">Trajectory simulation</a> · <a href="figures_pr62.R">Trajectory figures</a> · <a href="pr62_coefficients.csv">Trajectory coefficients</a> · <a href="pr62_contrasts.csv">Window contrasts</a> · <a href="pr62_latency.csv">Latency estimates</a></p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="pagination-link" aria-label="Step 4: Parcel Aggregation and Analysis Panels">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="pagination-link" aria-label="Step 6 · Trial-level connectivity and PPI">
+        <span class="nav-page-text"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

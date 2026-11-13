@@ -1,0 +1,4 @@
+"run","parcel","pass","rho","psi1","psi2","method"
+"run1","Fast","Canonical_HRF",0.8599,0.5043,-0.2591,"pooled_reml"
+"run1","Fast","Current_MEDuSA",0.6396,0.2321,-0.2903,"pooled_reml"
+"run1","Fast","Oracle_true_HRF",0.6392,0.2331,-0.2908,"pooled_reml"

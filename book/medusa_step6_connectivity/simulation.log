@@ -1,0 +1,17 @@
+M-MOM backend: medusa native 
+            scenario              method truth     n       mean         bias
+              <char>              <char> <num> <int>      <num>        <num>
+1:       Genuine PPI               Naive  0.35   120  0.2299306 -0.120069386
+2:       Genuine PPI              M-MOMS  0.35   120  0.3428434 -0.007156642
+3:       Genuine PPI Known-error moments  0.35   120  0.3541431  0.004143102
+4: Shared-error null               Naive  0.00   120  0.2136508  0.213650768
+5: Shared-error null              M-MOMS  0.00   120  0.3215161  0.321516085
+6: Shared-error null Known-error moments  0.00   120 -0.0175737 -0.017573696
+         rmse     reject  coverage
+        <num>      <num>     <num>
+1: 0.12278081 1.00000000 0.0000000
+2: 0.03930798 1.00000000 0.9500000
+3: 0.04012424 1.00000000 0.9583333
+4: 0.21496300 1.00000000 0.0000000
+5: 0.32377444 1.00000000 0.0000000
+6: 0.04224808 0.05833333 0.9416667

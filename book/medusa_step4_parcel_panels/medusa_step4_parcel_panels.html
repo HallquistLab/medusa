@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>6&nbsp; Step 4: Parcel Aggregation and Analysis Panels – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../medusa_step5_group_models/medusa_step5_group_models.html" rel="next">
+<link href="../medusa_step3_epochs/medusa_step3_epochs.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">6.1</span> Overview</a></li>
+  <li><a href="#goals-of-step-4" id="toc-goals-of-step-4" class="nav-link" data-scroll-target="#goals-of-step-4"><span class="header-section-number">6.2</span> Goals of Step 4</a></li>
+  <li><a href="#inputs-what-step-4-receives-and-why" id="toc-inputs-what-step-4-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-4-receives-and-why"><span class="header-section-number">6.3</span> Inputs: What Step 4 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-4-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-4-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-4-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">6.4</span> Outputs: What Step 4 Produces and Why It Is Set Up That Way</a></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings"><span class="header-section-number">6.5</span> Recommended Settings</a></li>
+  <li><a href="#step-4-mechanisms-illustrated" id="toc-step-4-mechanisms-illustrated" class="nav-link" data-scroll-target="#step-4-mechanisms-illustrated"><span class="header-section-number">6.6</span> Step 4 Mechanisms Illustrated</a>
+  <ul class="collapse">
+  <li><a href="#precision--evidence-weighted-voxel-aggregation-and-missing-voxel-renormalization" id="toc-precision--evidence-weighted-voxel-aggregation-and-missing-voxel-renormalization" class="nav-link" data-scroll-target="#precision--evidence-weighted-voxel-aggregation-and-missing-voxel-renormalization"><span class="header-section-number">6.6.1</span> 1. Precision- &amp; Evidence-Weighted Voxel Aggregation (and Missing-Voxel Renormalization)</a></li>
+  <li><a href="#why-task-free-noise_innovations-are-essential-for-parcel-standard-errors" id="toc-why-task-free-noise_innovations-are-essential-for-parcel-standard-errors" class="nav-link" data-scroll-target="#why-task-free-noise_innovations-are-essential-for-parcel-standard-errors"><span class="header-section-number">6.6.2</span> 2. Why Task-Free <code>noise_innovations</code> Are Essential for Parcel Standard Errors</a></li>
+  <li><a href="#exact-multi-stratum-parcel-operators-when-intra-parcel-hrfs-differ" id="toc-exact-multi-stratum-parcel-operators-when-intra-parcel-hrfs-differ" class="nav-link" data-scroll-target="#exact-multi-stratum-parcel-operators-when-intra-parcel-hrfs-differ"><span class="header-section-number">6.6.3</span> 3. Exact Multi-Stratum Parcel Operators When Intra-Parcel HRFs Differ</a></li>
+  <li><a href="#working-trial-variance-tau2_mode-empirical-bayes-shrinkage-and-paired-zca" id="toc-working-trial-variance-tau2_mode-empirical-bayes-shrinkage-and-paired-zca" class="nav-link" data-scroll-target="#working-trial-variance-tau2_mode-empirical-bayes-shrinkage-and-paired-zca"><span class="header-section-number">6.6.4</span> 4. Working Trial Variance (<code>tau2_mode</code>), Empirical-Bayes Shrinkage, and Paired ZCA</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></h1>
+<p class="subtitle lead">Precision-weighted spatial pooling, task-free spatial noise propagation, and group-ready panel columns</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">6.1</span> Overview</h2>
+<p>Most cognitive neuroscience hypotheses are tested at the level of <strong>anatomical regions or functional parcels</strong> rather than noisy individual voxels. However, <em>where</em> and <em>how</em> you average across voxels matters enormously. Averaging raw BOLD before Step 1 blurs distinct intra-parcel vascular delays and cancels opposite-signed tuning only if signs oppose; conversely, fitting single-trial regressions voxel-by-voxel in Step 3 and averaging noisy beta estimates afterward throws away high-SNR parcel variance estimation (<code>tau2_bio</code>), distorts ZCA whitening, and ignores <strong>spatial noise correlations</strong> among neighboring voxels when computing parcel standard errors.</p>
+<p>Step 4—executed seamlessly inside <code>decon_epoch_regression(..., parcel_groups = parcel_ids)</code>—aggregates continuous deconvolved activity across voxels within each parcel <em>after</em> voxel-specific deconvolution (preserving per-stratum HRFs and <span class="math inline">\(\text{AR}(p)\)</span> whiteners) and <em>before</em> epoch de-mixing, Empirical-Bayes weighting, and ZCA whitening. Crucially, MEDuSA combines <strong>exact multi-stratum parcel operators</strong> (<span class="math inline">\(\sum_v u_v D_v F_v\)</span>) with <strong>task-free whitened <code>noise_innovations</code></strong> from Step 2 to measure true within-parcel spatial noise covariance—avoiding the classic pitfall where shared task-evoked activity inflates estimated parcel noise—and exports a tidy, self-contained <code>panel</code> carrying both within-unit (<code>precision_weight</code>) and cohort-comparable (<code>precision_weight_cohort</code>) weights plus cross-parcel <code>shared_noise_loading</code> vectors for Step 5–6 inference.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Position in the MEDuSA Pipeline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Step 2 <code>decon</code> + <code>parcel_groups</code> vector</strong> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 4 (<code>decon_epoch_regression(..., parcel_groups = ...)</code> )</strong> <span class="math inline">\(\longrightarrow\)</span> Subject <code>epochs</code> list &amp; stacked <code>group_panel</code> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 5 (<code>mixed_by</code> / <code>medusa_multilag_infer</code>) &amp; Step 6 (<code>decon_connectivity_repair</code>)</strong></p>
+</div>
+</div>
+<hr>
+</section>
+<section id="goals-of-step-4" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="goals-of-step-4"><span class="header-section-number">6.2</span> Goals of Step 4</h2>
+<p>Step 4 achieves four specific goals when transitioning from voxels to regional analysis panels:</p>
+<ol type="1">
+<li><strong>Pool voxels using cross-run SNR-optimal weights (<code>parcel_weights</code>):</strong> Weight each parcel’s constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span>, renormalizing automatically if a voxel drops out in one run.</li>
+<li><strong>Propagate true spatial noise correlation without task contamination:</strong> Compute each parcel’s effective observation-noise SD from Step 2’s <strong>task-free whitened <code>noise_innovations</code></strong> (<code>\|Z_r (u \odot \sigma)\|_2</code>), accurately spanning negative, independent, partially shared, and common spatial noise regimes.</li>
+<li><strong>Preserve mixed intra-parcel HRF strata exactly:</strong> Accumulate per-stratum forward/inverse operator contributions weighted by <span class="math inline">\(u_v\)</span> whenever voxels inside a parcel belong to different <code>(HRF, AR)</code> strata, avoiding single-HRF approximation error.</li>
+<li><strong>Package a lossless, identity-safe trial panel for Steps 5–6:</strong> Deliver aligned raw, de-mixed, Empirical-Bayes-shrunk, and ZCA-whitened parcel columns alongside cohort-comparable precision weights and cross-parcel shared-error loadings.</li>
+</ol>
+<p><strong>What Step 4 deliberately leaves to Steps 5–6:</strong> Step 4 produces one participant’s parcel panel (and operator summaries). You must attach an explicit participant <code>id</code> column (and <code>session</code> if longitudinal) before stacking participants with <code>data.table::rbindlist()</code> for Step 5–6 population models.</p>
+<hr>
+</section>
+<section id="inputs-what-step-4-receives-and-why" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="inputs-what-step-4-receives-and-why"><span class="header-section-number">6.3</span> Inputs: What Step 4 Receives and Why</h2>
+<p>In addition to the Step 3 inputs (<code>deconvolution</code>, <code>events</code>, <code>target_condition</code>, <code>lags</code>, <code>covariates</code>), Step 4 relies on four key spatial and panel inputs:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Input</th>
+<th>Structure</th>
+<th>Why It Is Set Up That Way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>parcel_groups</code></td>
+<td>Named character/factor vector mapping <code>voxel_ids</code> to parcel names (automatically sets <code>aggregate_by_parcel = TRUE</code>)</td>
+<td>Naming elements by <code>voxel_ids</code> guarantees exact column alignment even if subsetting occurred earlier; defaults to <code>hrf_fit$specification$spatial_groups</code> when <code>aggregate_by_parcel = TRUE</code> so Step 1 and Step 4 share identical parcellation boundaries.</td>
+</tr>
+<tr class="even">
+<td><code>deconvolution$noise_innovations</code></td>
+<td>Automatic handoff inside <code>deconvolution</code> (<code>n_valid_rows × n_voxels</code> per run)</td>
+<td>Supplies orthonormalized, task-projected AR(<span class="math inline">\(p\)</span>) innovations from Step 2. Without task-free innovations, any empirical spatial correlation across voxel <code>activity</code> series would mistake shared neural responses to the task for shared scanner noise!</td>
+</tr>
+<tr class="odd">
+<td><code>tau2_mode</code></td>
+<td><code>"auto"</code> (default), <code>"marginal"</code>, or <code>"residual"</code></td>
+<td>Controls how latent biological trial-to-trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> is estimated on the high-SNR parcel series to calibrate <code>precision_weight</code>, <code>precision_weight_cohort</code>, and ZCA (<code>"marginal"</code> is covariate-agnostic; <code>"auto"</code> blends residual and marginal MoM when covariates are supplied).</td>
+</tr>
+<tr class="even">
+<td><code>whiten_panel</code> &amp; <code>restore_scale</code></td>
+<td>Logical flags (<code>TRUE</code> recommended for both)</td>
+<td><code>restore_scale = TRUE</code> places all runs of a parcel onto physical BOLD units before cross-run pooling, while <code>whiten_panel = TRUE</code> computes paired within-run ZCA-decorrelated outcome and predictor columns directly on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="outputs-what-step-4-produces-and-why-it-is-set-up-that-way" class="level2" data-number="6.4">
+<h2 data-number="6.4" class="anchored" data-anchor-id="outputs-what-step-4-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">6.4</span> Outputs: What Step 4 Produces and Why It Is Set Up That Way</h2>
+<p>Every column in <code>epochs$panel</code> (and companion element on <code>epochs</code>) has a specific downstream consumer—understanding <strong>which column to use where</strong> prevents subtle modeling mistakes:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Panel Column / Object Field</th>
+<th>Meaning &amp; Units</th>
+<th>Why It Is Set Up That Way &amp; Downstream Role</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>run</code>, <code>trial</code>, <code>event_index</code>, <code>onset</code>, <code>evt_time</code>, <code>parcel</code></td>
+<td>Composite observation keys (add <code>id</code> before stacking subjects!)</td>
+<td><code>event_index</code> points to the exact row of <code>events[[run]]</code> for safe behavioral joins; <code>(id, run, event_index, evt_time, parcel)</code> uniquely identifies every row in <code>group_panel</code>.</td>
+</tr>
+<tr class="even">
+<td><code>decon_raw</code> vs.&nbsp;<code>decon_demixed</code></td>
+<td>Raw kernel readout vs.&nbsp;cue-subtracted, target-demixed, gain-restored readout</td>
+<td><strong>Use <code>decon_demixed</code></strong> (or <code>decon_demixed_whitened</code>) as your primary outcome in Step 5 <code>mixed_by()</code> and <code>medusa_multilag_infer()</code>. Keep <code>decon_raw</code> for auditing how much Step 3’s operator correction changed the signal.</td>
+</tr>
+<tr class="odd">
+<td><code>se_demixed</code> &amp; <code>error_ac1</code></td>
+<td>Conditional operator-propagated trial SE; adjacent-trial error correlation</td>
+<td>Propagates parcel spatial noise + AR(<span class="math inline">\(p\)</span>) covariance through <span class="math inline">\(B_{r,\tau}\)</span>. Passed directly into Step 6 (<code>decon_connectivity_repair()</code>) to disattenuate noisy seed predictors!</td>
+</tr>
+<tr class="even">
+<td><code>precision_weight</code> vs.&nbsp;<code>precision_weight_cohort</code></td>
+<td>Mean-1 normalized inverse total variance vs.&nbsp;<strong>unnormalized</strong> <span class="math inline">\(1 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)\)</span></td>
+<td>Within one participant/parcel, <code>precision_weight</code> averages to 1. Across a multi-subject cohort where participants differ in head motion, run count, or fSNR, <strong>use <code>precision_weight_cohort</code> in <code>mixed_by()</code></strong> so noisier participants are appropriately downweighted relative to cleaner participants!</td>
+</tr>
+<tr class="odd">
+<td><code>decon_eb</code> &amp; <code>reliability_trial</code></td>
+<td>Empirical-Bayes shrunk readout <span class="math inline">\(\bar{y}_r + \text{rel}_{ri}(y_{ri} - \bar{y}_r)\)</span></td>
+<td>Useful for stabilized single-trial visualization or decoding, <strong>not</strong> as a direct regression outcome (where shrinkage attenuates slopes unless predictors are matched) or uncorrected regression predictor.</td>
+</tr>
+<tr class="even">
+<td><code>decon_demixed_whitened</code> &amp; <code>&lt;var&gt;_whitened</code></td>
+<td>Paired within-run ZCA-decorrelated outcome &amp; centered predictors (<code>whiten_panel = TRUE</code>)</td>
+<td>Decorrelates off-diagonal within-run trial errors while preserving marginal trial variance. <strong>Always pair whitened outcomes with whitened predictors</strong> (<code>decon_demixed_whitened ~ x_whitened</code>), never mixing whitened and unwhitened variables!</td>
+</tr>
+<tr class="odd">
+<td><code>shared_noise_loading</code> (list-column) &amp; <code>epochs$unit_error_cor</code></td>
+<td>Per-parcel loading vector reproducing cross-parcel noise correlations (<span class="math inline">\(R_{\text{err}} \approx \ell \ell^\top\)</span>)</td>
+<td><code>data.table::rbindlist()</code> drops matrix attributes attached to individual subject panels. Embedding <code>shared_noise_loading</code> as a column ensures cross-parcel noise covariance survives stacking (and full RDS/parquet/CSV workflows) for Step 6 <code>shared_error = "auto"</code>!</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="recommended-settings" class="level2" data-number="6.5">
+<h2 data-number="6.5" class="anchored" data-anchor-id="recommended-settings"><span class="header-section-number">6.5</span> Recommended Settings</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Recommended participant-level parcel panel call (Steps 3 + 4 combined)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>ep <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">deconvolution       =</span> decon,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates          =</span> covariates,     <span class="co"># or NULL for covariate-agnostic panel</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">events              =</span> events,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_condition    =</span> <span class="st">"feedback"</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">lags                =</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">2</span>, <span class="dv">4</span>, <span class="at">by =</span> <span class="dv">1</span>),</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_groups       =</span> parcel_ids,     <span class="co"># activates aggregate_by_parcel = TRUE</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">source_model        =</span> <span class="st">"impulse"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">readout_kernel      =</span> <span class="st">"triangle"</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">demix_other_events  =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">demix_target_trials =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">demix_within_trial  =</span> <span class="cn">FALSE</span>,          <span class="co"># leave FALSE when feeding medusa_multilag_infer()</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">restore_scale       =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_mode           =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">whiten_panel        =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_panel        =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Attach participant ID explicitly before stacking across the cohort:</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>ep<span class="sc">$</span>panel[, id <span class="sc">:</span><span class="er">=</span> subject_id]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<hr>
+</section>
+<section id="step-4-mechanisms-illustrated" class="level2" data-number="6.6">
+<h2 data-number="6.6" class="anchored" data-anchor-id="step-4-mechanisms-illustrated"><span class="header-section-number">6.6</span> Step 4 Mechanisms Illustrated</h2>
+<section id="precision--evidence-weighted-voxel-aggregation-and-missing-voxel-renormalization" class="level3" data-number="6.6.1">
+<h3 data-number="6.6.1" class="anchored" data-anchor-id="precision--evidence-weighted-voxel-aggregation-and-missing-voxel-renormalization"><span class="header-section-number">6.6.1</span> 1. Precision- &amp; Evidence-Weighted Voxel Aggregation (and Missing-Voxel Renormalization)</h3>
+<p>Within each parcel <span class="math inline">\(g\)</span>, Step 4 computes fixed cross-run nominal voxel weights <span class="math inline">\(u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / (0.05 + \text{med}(\overline{R}^2_{\text{cv}}))}{\max(\overline{\sigma}_v^2, 0.10\,\text{med}(\overline{\sigma}^2))}\)</span> normalized to <span class="math inline">\(\sum_{v \in g} u_v = 1\)</span>. Quieter, task-responsive voxels contribute more than noisy edge voxels.</p>
+<p>What happens if a voxel becomes invalid in one run (e.g., partial FoV dropout or coil artifact in Run 2)? MEDuSA renormalizes the remaining valid voxels in that run to sum to 1 (<a href="#fig-step4-weights" class="quarto-xref">Figure&nbsp;<span>6.1</span></a>). Because renormalization slightly shifts the spatial composition of a small parcel, always inspect <code>decon$scaling[[r]]$status</code> when voxel dropout is non-trivial.</p>
+<div id="fig-step4-weights" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step4-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/01-weights.png" class="img-fluid figure-img" style="width:92.0%" alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.1: Nominal four-voxel parcel weights in Run 1 (<code>sd = 0.013, 0.018, 0.022, 0.032</code>) and automatic renormalization in Run 2 when Voxel 1 is marked invalid.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="why-task-free-noise_innovations-are-essential-for-parcel-standard-errors" class="level3" data-number="6.6.2">
+<h3 data-number="6.6.2" class="anchored" data-anchor-id="why-task-free-noise_innovations-are-essential-for-parcel-standard-errors"><span class="header-section-number">6.6.2</span> 2. Why Task-Free <code>noise_innovations</code> Are Essential for Parcel Standard Errors</h3>
+<p>Suppose four voxels in a parcel have weights <span class="math inline">\(u\)</span> and marginal noise SDs <span class="math inline">\(\sigma\)</span>. If voxel errors were spatially independent, the parcel noise SD would be <span class="math inline">\(\sigma_{\text{ind}} = \sqrt{\sum_v u_v^2 \sigma_v^2}\)</span> (<code>0.0091</code> in <code>simulate_step4.R</code>); if all four voxels shared identical noise (<span class="math inline">\(\rho_{\text{spatial}} = 1\)</span>), the parcel noise SD would nearly double to <span class="math inline">\(\sigma_{\text{ceil}} = \sum_v u_v \sigma_v\)</span> (<code>0.0171</code>)!</p>
+<p>If you tried to estimate spatial noise correlation from second differences of deconvolved <code>activity</code> (<span class="math inline">\(\Delta^2 \hat{a}\)</span>), <strong>shared task-evoked neural activity across the parcel looks just like shared noise</strong>, pegging the estimate near the <code>0.0171</code> ceiling even when true noise is independent (<code>0.000</code>) or negatively correlated (<code>-0.20</code>)! By instead projecting <code>u * sigma</code> onto Step 2’s <strong>task-free whitened <code>noise_innovations</code></strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA tracks the true spatial noise SD across all four regimes—including sub-independence negative correlation—to within a few ten-thousandths (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>6.2</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>6.1</span></a>), and reproduces analytical <code>se_demixed</code> to machine precision (9.71e-17).</p>
+<div id="fig-step4-noise" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/02-noise.png" class="img-fluid figure-img" style="width:95.0%" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.2: Effective parcel BOLD noise SD across four spatial correlation regimes (<code>-0.20</code>, <code>0.00</code>, <code>0.65</code>, <code>0.95</code>): true oracle spatial SD vs.&nbsp;MEDuSA’s task-free innovation estimator vs.&nbsp;a naive <span class="math inline">\(\Delta^2\)</span> activity proxy.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  d4<span class="sc">$</span>metrics[, <span class="fu">c</span>(<span class="st">"run"</span>, <span class="st">"parcel"</span>, <span class="st">"rho"</span>, <span class="st">"independence"</span>, <span class="st">"oracle"</span>, <span class="st">"medusa"</span>, <span class="st">"naive_d2"</span>, <span class="st">"ceiling"</span>)],</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">4</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Run"</span>, <span class="st">"Parcel"</span>, <span class="st">"Spatial r"</span>, <span class="st">"Indep. Floor"</span>, <span class="st">"True SD"</span>, <span class="st">"MEDuSA SD"</span>, <span class="st">"Naive Δ² Proxy"</span>, <span class="st">"Common Ceiling"</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-step4-noise" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;6.1: Parcel spatial noise SD recovery and exact analytical SE check (<code>parcel_noise_check.csv</code>).
+</figcaption>
+<div aria-describedby="tbl-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 15%">
+<col style="width: 11%">
+<col style="width: 14%">
+<col style="width: 8%">
+<col style="width: 11%">
+<col style="width: 16%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Run</th>
+<th style="text-align: left;">Parcel</th>
+<th style="text-align: right;">Spatial r</th>
+<th style="text-align: right;">Indep. Floor</th>
+<th style="text-align: right;">True SD</th>
+<th style="text-align: right;">MEDuSA SD</th>
+<th style="text-align: right;">Naive Δ² Proxy</th>
+<th style="text-align: right;">Common Ceiling</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">run1</td>
+<td style="text-align: left;">Negative</td>
+<td style="text-align: right;">-0.20</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0064</td>
+<td style="text-align: right;">0.0061</td>
+<td style="text-align: right;">0.0171</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">run1</td>
+<td style="text-align: left;">Independent</td>
+<td style="text-align: right;">0.00</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0090</td>
+<td style="text-align: right;">0.0164</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">run1</td>
+<td style="text-align: left;">Shared</td>
+<td style="text-align: right;">0.65</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0148</td>
+<td style="text-align: right;">0.0146</td>
+<td style="text-align: right;">0.0171</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">run1</td>
+<td style="text-align: left;">Nearly common</td>
+<td style="text-align: right;">0.95</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0168</td>
+<td style="text-align: right;">0.0168</td>
+<td style="text-align: right;">0.0170</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">run2</td>
+<td style="text-align: left;">Negative</td>
+<td style="text-align: right;">-0.20</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0064</td>
+<td style="text-align: right;">0.0065</td>
+<td style="text-align: right;">0.0160</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">run2</td>
+<td style="text-align: left;">Independent</td>
+<td style="text-align: right;">0.00</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0095</td>
+<td style="text-align: right;">0.0150</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">run2</td>
+<td style="text-align: left;">Shared</td>
+<td style="text-align: right;">0.65</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0148</td>
+<td style="text-align: right;">0.0151</td>
+<td style="text-align: right;">0.0171</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">run2</td>
+<td style="text-align: left;">Nearly common</td>
+<td style="text-align: right;">0.95</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">0.0168</td>
+<td style="text-align: right;">0.0168</td>
+<td style="text-align: right;">0.0164</td>
+<td style="text-align: right;">0.0171</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="exact-multi-stratum-parcel-operators-when-intra-parcel-hrfs-differ" class="level3" data-number="6.6.3">
+<h3 data-number="6.6.3" class="anchored" data-anchor-id="exact-multi-stratum-parcel-operators-when-intra-parcel-hrfs-differ"><span class="header-section-number">6.6.3</span> 3. Exact Multi-Stratum Parcel Operators When Intra-Parcel HRFs Differ</h3>
+<p>When Step 1 uses voxel-level HRF selection (<code>pooling = "voxel"</code>) or separate <code>noise_groups</code> inside a parcel, two voxels in the same parcel can belong to different <code>(HRF, AR)</code> strata (for example, <span class="math inline">\(4\text{ s}\)</span> and <span class="math inline">\(8\text{ s}\)</span> peak delays). Approximating the parcel operator with a single averaged HRF <span class="math inline">\(\bar{h} = \frac{1}{2}(h_4 + h_8)\)</span> produces a 16.6% waveform discrepancy because matrix inversion is nonlinear: <span class="math inline">\(\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h}) F(\bar{h})\)</span>! Step 4 avoids this approximation by accumulating exact stratum-by-stratum forward/inverse products <span class="math inline">\(\sum_s w_s D_s F_s\)</span> (<a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>6.3</span></a>).</p>
+<div id="fig-step4-mixed" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step4-mixed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/03-mixed-hrf.png" class="img-fluid figure-img" style="width:92.0%" alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-mixed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.3: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-stratum parcel operator</code>) vs.&nbsp;a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="working-trial-variance-tau2_mode-empirical-bayes-shrinkage-and-paired-zca" class="level3" data-number="6.6.4">
+<h3 data-number="6.6.4" class="anchored" data-anchor-id="working-trial-variance-tau2_mode-empirical-bayes-shrinkage-and-paired-zca"><span class="header-section-number">6.6.4</span> 4. Working Trial Variance (<code>tau2_mode</code>), Empirical-Bayes Shrinkage, and Paired ZCA</h3>
+<p>On the aggregated parcel series, Step 4 estimates latent trial-to-trial biological variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> (<code>"marginal"</code> from run-centered variance, lag-1 trial differences, and MAD minus expected operator noise; <code>"residual"</code> from covariate regression residuals minus <span class="math inline">\(\operatorname{tr}((I - P_X)\Omega)\)</span>). Different <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> estimates adjust how steeply <code>precision_weight</code> varies across trials (<a href="#fig-step4-precision" class="quarto-xref">Figure&nbsp;<span>6.4</span></a>), govern <code>decon_eb</code> shrinkage toward the run mean (<a href="#fig-step4-shrinkage" class="quarto-xref">Figure&nbsp;<span>6.5</span></a>), and set the biological covariance component <span class="math inline">\(\hat{\tau}_{\text{ZCA}}^2 M_{\text{post}} M_{\text{post}}^\top\)</span> inside paired within-run ZCA whitening (<a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>6.6</span></a>).</p>
+<div id="fig-step4-precision" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step4-precision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/04-precision.png" class="img-fluid figure-img" style="width:90.0%" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-precision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixed</code> under <code>"marginal"</code> and <code>"residual"</code> working trial-variance modes.
+</figcaption>
+</figure>
+</div>
+<div id="fig-step4-shrinkage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Scatter plot showing shrinkage of noisy trials toward the run mean.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step4-shrinkage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/05-shrinkage.png" class="img-fluid figure-img" style="width:90.0%" alt="Scatter plot showing shrinkage of noisy trials toward the run mean.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-shrinkage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) vs.&nbsp;<code>decon_demixed</code> colored by <code>reliability_trial</code> (<code>Nearly common</code> parcel, Run 1).
+</figcaption>
+</figure>
+</div>
+<div id="fig-step4-zca" class="quarto-float quarto-figure quarto-figure-center anchored" alt="27x27 correlation heatmaps before and after regularized ZCA.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step4-zca-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/06-zca.png" class="img-fluid figure-img" style="width:92.0%" alt="27x27 correlation heatmaps before and after regularized ZCA.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-zca-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6.6: Within-run parcel correlation matrix <span class="math inline">\(\Sigma_{\text{tot}}\)</span> before and after paired regularized ZCA (<code>Nearly common</code> parcel, Run 1).
+</figcaption>
+</figure>
+</div>
+<details>
+<summary>
+Mathematical Reference: Innovation Spatial Covariance &amp; Cross-Parcel Loadings
+</summary>
+<ul>
+<li><strong>Within-parcel effective noise variance:</strong> Let <span class="math inline">\(Z_r \in \mathbb{R}^{m_r \times V}\)</span> denote Step 2’s column-unit-norm task-projected whitened innovations (<code>colSums(Z_r^2) == 1</code>). For parcel <span class="math inline">\(g\)</span> with valid voxels <span class="math inline">\(V_g\)</span>, normalized weights <span class="math inline">\(u_g\)</span>, and voxel observation-noise SDs <span class="math inline">\(\sigma_{r,V_g}\)</span>, define <span class="math inline">\(\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})\)</span>. Because <span class="math inline">\(\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}\)</span>, <span class="math inline">\(\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}\)</span> is an unbiased, task-free estimator of parcel observation-noise variance, bounded safely into <span class="math inline">\([0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]\)</span>.</li>
+<li><strong>Cross-parcel <code>shared_noise_loading</code>:</strong> Normalizing <span class="math inline">\(\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2\)</span> and pooling <span class="math inline">\(\tilde{Z}_r^\top \tilde{Z}_r\)</span> across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk toward zero on noisy off-diagonals, and projected onto the PSD cone) yields <code>unit_error_cor</code>, whose principal factor loadings are stored in <code>panel$shared_noise_loading</code> for Step 6.</li>
+</ul>
+<p><a href="simulate_step4.R">Step 4 simulation script</a> · <a href="figures_step4.R">Figure script</a> · <a href="parcel_noise_check.csv">Parcel noise table</a></p>
+</details>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="pagination-link" aria-label="Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="pagination-link" aria-label="Step 5 · Group and trajectory inference">
+        <span class="nav-page-text"><span class="chapter-title">Step 5 · Group and trajectory inference</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

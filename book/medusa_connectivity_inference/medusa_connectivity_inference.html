@@ -1,0 +1,2194 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Measurement-error models and REPAIR – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../evidence.html" rel="next">
+<link href="../medusa_standard_errors_mmom.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../medusa_connectivity_inference/medusa_connectivity_inference.html"><span class="chapter-title">Measurement-error models and REPAIR</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#summary-of-findings" id="toc-summary-of-findings" class="nav-link active" data-scroll-target="#summary-of-findings">Summary of Findings</a></li>
+  <li><a href="#define-the-neural-relationship-and-the-measurement-relationship" id="toc-define-the-neural-relationship-and-the-measurement-relationship" class="nav-link" data-scroll-target="#define-the-neural-relationship-and-the-measurement-relationship">1. Define the neural relationship and the measurement relationship</a></li>
+  <li><a href="#three-workable-measurement-models" id="toc-three-workable-measurement-models" class="nav-link" data-scroll-target="#three-workable-measurement-models">2. Three workable measurement models</a></li>
+  <li><a href="#full-cross-trial-corrected-score-estimating-equations" id="toc-full-cross-trial-corrected-score-estimating-equations" class="nav-link" data-scroll-target="#full-cross-trial-corrected-score-estimating-equations">3. Full cross-trial corrected-score estimating equations</a></li>
+  <li><a href="#conditional-simulation-benchmarks-400-repetitions-per-scenario" id="toc-conditional-simulation-benchmarks-400-repetitions-per-scenario" class="nav-link" data-scroll-target="#conditional-simulation-benchmarks-400-repetitions-per-scenario">4. Conditional simulation benchmarks (400 repetitions per scenario)</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../medusa_connectivity_inference/medusa_connectivity_inference.html"><span class="chapter-title">Measurement-error models and REPAIR</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span class="chapter-title">Measurement-error models and REPAIR</span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>How this chapter relates to Step 6 in <code>medusa</code>
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>In <code>medusa</code>, <code>decon_connectivity_repair(..., shared_error = "auto")</code> implements per-trial M-MOMS predictor disattenuation, task-free cross-parcel <code>shared_noise_loading</code> / <code>unit_error_cor</code> error-moment subtraction (<code>err_xy</code>), and HKSJ participant-level random-effects pooling (<a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>). This research chapter investigates what lies <strong>beyond</strong> diagonal per-trial M-MOMS: unequal regional source resolution (<span class="math inline">\(K_s \neq K_t\)</span>), full cross-trial error covariance blocks (<span class="math inline">\(\Omega_{ss}, \Omega_{st}\)</span>), likelihood-only finite-basis source reconstruction, and participant-cluster estimating equations.</p>
+</div>
+</div>
+<section id="summary-of-findings" class="level3">
+<h3 class="anchored" data-anchor-id="summary-of-findings">Summary of Findings</h3>
+<p><strong>Attaching diagonal trial SEs to ordinary M-MOMS disattenuates independent white measurement noise, but full latent connectivity inference faces three deeper structural requirements:</strong> unbiased source resolution, cross-parcel/cross-trial shared-error moments, and participant-cluster uncertainty calibration.</p>
+<ul>
+<li><strong>Recover an unbiased source mean (or model resolution explicitly):</strong> Regularized continuous deconvolution yields <span class="math inline">\(\mathbb{E}[\widehat a_r \mid a_r] = K_r a_r\)</span> with <span class="math inline">\(K_r \neq I\)</span>. In our controlled unequal-resolution experiment (<span class="math inline">\(K_s \neq K_t\)</span>), full noise-moment subtraction alone estimated connectivity as <strong>0.767</strong> when truth was <code>0.550</code>. Inverting known, well-conditioned resolution operators restored recovery to <strong>0.551</strong>.</li>
+<li><strong>Propagate shared errors and cluster at the participant level:</strong> Under unbiased source measurements with strong serial (<span class="math inline">\(0.55\)</span>) and shared cross-parcel (<span class="math inline">\(0.45\)</span>) Gaussian noise, the full cross-trial corrected-score estimator recovered <strong>0.546</strong>. Participant-cluster intervals covered truth in <strong>94.8%</strong> of repetitions, whereas row-based intervals covered only <strong>86.0%</strong>.</li>
+<li><strong>Respect finite-participant limits:</strong> With only 12 participants, asymptotic cluster sandwich intervals undercovered (91.8% connectivity coverage)—motivating the HKSJ <span class="math inline">\(t\)</span>-distribution small-sample pooling used in <code>medusa::decon_connectivity_repair()</code>.</li>
+</ul>
+</section>
+<section id="define-the-neural-relationship-and-the-measurement-relationship" class="level3">
+<h3 class="anchored" data-anchor-id="define-the-neural-relationship-and-the-measurement-relationship">1. Define the neural relationship and the measurement relationship</h3>
+<p>For participant <span class="math inline">\(g\)</span> and trial <span class="math inline">\(i\)</span>, define a centered task variable <span class="math inline">\(z_{gi}\)</span> and latent source amplitudes:</p>
+<p><span class="math display">\[
+a_{t,gi}=\alpha_g+\beta a_{s,gi}+\gamma z_{gi}
+               +\delta z_{gi}a_{s,gi}+\eta_{gi}.
+\]</span></p>
+<p><span class="math inline">\(\beta\)</span> is the seed–target association at <span class="math inline">\(z=0\)</span>; <span class="math inline">\(\delta\)</span> is its task modulation (PPI). A general linear measurement interface across all trials of participant <span class="math inline">\(g\)</span> is:</p>
+<p><span class="math display">\[
+\begin{bmatrix}\widehat a_{s,g}\\\widehat a_{t,g}\end{bmatrix}
+=
+\begin{bmatrix}K_{s,g}&amp;0\\0&amp;K_{t,g}\end{bmatrix}
+\begin{bmatrix}a_{s,g}\\a_{t,g}\end{bmatrix}
++\begin{bmatrix}u_g\\v_g\end{bmatrix},
+\qquad
+\operatorname{Cov}\!\begin{pmatrix}u_g\\v_g\end{pmatrix}
+=
+\begin{bmatrix}\Omega_{ss,g}&amp;\Omega_{st,g}\\
+\Omega_{st,g}^{\top}&amp;\Omega_{tt,g}\end{bmatrix}.
+\]</span></p>
+<p>Classical additive measurement-error correction assumes <span class="math inline">\(K_s = K_t = I\)</span>. In addition, <strong>PPI products and trial smoothing do not commute</strong>:</p>
+<p><span class="math display">\[
+K\,\operatorname{diag}(z)a_s \ne \operatorname{diag}(z)K a_s.
+\]</span></p>
+<p>Multiplying a smoothed or ZCA-whitened seed by the task modulator <span class="math inline">\(z\)</span> afterward does not match smoothing the latent interaction—which is why <code>decon_connectivity_repair()</code> defaults to <code>use_whitened = FALSE</code>.</p>
+</section>
+<section id="three-workable-measurement-models" class="level3">
+<h3 class="anchored" data-anchor-id="three-workable-measurement-models">2. Three workable measurement models</h3>
+<section id="a.-likelihood-only-coefficients-in-a-modest-source-basis" class="level4">
+<h4 class="anchored" data-anchor-id="a.-likelihood-only-coefficients-in-a-modest-source-basis">A. Likelihood-only coefficients in a modest source basis</h4>
+<p>Represent each region’s BOLD series using a prespecified, low-dimensional neural source basis passed through its learned HRF:</p>
+<p><span class="math display">\[
+y_r=G_r a_r+Z_r\xi_r+\varepsilon_r,
+\qquad \operatorname{Cov}(\varepsilon_r)=\Sigma_r.
+\]</span></p>
+<p>When <span class="math inline">\(G_r\)</span> has full column rank (e.g., well-spaced trial impulses or low-dimensional epoch bases) and is fit via unpenalized GLS in whitened coordinates,</p>
+<p><span class="math display">\[
+\widehat a_r=A_r y_r,\qquad A_rG_r=I,
+\qquad E(\widehat a_r\mid a_r)=a_r,
+\qquad \Omega_{rr}=A_r\Sigma_r A_r^{\top},
+\qquad \Omega_{st}=A_s\Sigma_{\varepsilon_s,\varepsilon_t}A_t^{\top}.
+\]</span></p>
+<p>This provides an exact unbiased additive measurement-error model (<span class="math inline">\(K_r = I\)</span>), closely paralleling likelihood-only coefficient reconstruction in REPAIR (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/">Abdulrahman &amp; Henson, 2016</a>). In <code>likelihood_only_bridge.R</code> (16 source amplitudes, 180 BOLD volumes, distinct regional HRFs, shared/serial AR noise), source operators satisfy <span class="math inline">\(AG = I\)</span> to <strong>8.88e-16</strong>, and a 10,000-draw Monte Carlo check matches analytical source SDs within <strong>1.5%</strong>. Its trade-off is design conditioning: rapid jittered event schedules or omitted sustained activity can make unpenalized <span class="math inline">\(G_r\)</span> collinear or misspecified.</p>
+</section>
+<section id="b.-de-penalize-only-identifiable-contrasts" class="level4">
+<h4 class="anchored" data-anchor-id="b.-de-penalize-only-identifiable-contrasts">B. De-penalize only identifiable contrasts</h4>
+<p>For a linear Gaussian posterior with precision <span class="math inline">\(C_{\rm post}^{-1} = J + P_{\rm prior}\)</span>, likelihood information <span class="math inline">\(J\)</span> is recoverable only on subspaces where <span class="math inline">\(J\)</span> is well-conditioned. In <code>likelihood_only_bridge.R</code>, the full 180-column continuous convolution matrix has numerical rank <strong>178</strong>, confirming why continuous TR-grid deconvolution cannot simply drop its penalty globally without projecting onto identifiable trial/window contrasts first.</p>
+</section>
+<section id="c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model" class="level4">
+<h4 class="anchored" data-anchor-id="c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model">C. Retain resolution <span class="math inline">\(K_s, K_t\)</span> inside a joint latent Gaussian model</h4>
+<p>When unshrinking is ill-conditioned, <span class="math inline">\(K_s\)</span> and <span class="math inline">\(K_t\)</span> can be retained explicitly inside a joint Gaussian marginal likelihood over <span class="math inline">\((\widehat a_{s,g}, \widehat a_{t,g}) \mid z_g\)</span>. In <code>joint_gaussian_demo.R</code> (known unequal <span class="math inline">\(K_s \neq K_t\)</span> and known <span class="math inline">\(\Omega\)</span>), maximum likelihood recovered connectivity <strong>0.507</strong> (truth <code>0.550</code>) and PPI <strong>0.336</strong> (truth <code>0.350</code>) with a positive-definite Hessian, trading stronger distributional assumptions and computation for exact handling of non-identity resolution.</p>
+<details>
+<summary>
+Gaussian conditional-mean calibration variant
+</summary>
+<p>Let <span class="math inline">\(m_s = E(a_s \mid \widehat a_s, z)\)</span> under a Gaussian seed prior. With independent regional errors, <span class="math display">\[
+E(\widehat a_t \mid \widehat a_s, z) = K_t\{Z\gamma + \beta m_s + \delta\operatorname{diag}(z)m_s\},
+\]</span> requiring design columns <span class="math inline">\(K_t m_s\)</span> and <span class="math inline">\(K_t \operatorname{diag}(z) m_s\)</span> rather than multiplying <span class="math inline">\(m_s\)</span> by <span class="math inline">\(z\)</span> after applying <span class="math inline">\(K_t\)</span>, plus an explicit shared-noise regression term <span class="math inline">\(\Omega_{ts}(K_s V_s K_s^\top + \Omega_{ss})^{-1}(\widehat a_s - K_s \mu_s)\)</span> whenever <span class="math inline">\(\Omega_{ts} \neq 0\)</span>.</p>
+</details>
+</section>
+</section>
+<section id="full-cross-trial-corrected-score-estimating-equations" class="level3">
+<h3 class="anchored" data-anchor-id="full-cross-trial-corrected-score-estimating-equations">3. Full cross-trial corrected-score estimating equations</h3>
+<p>For unbiased source measurements (<span class="math inline">\(K_s = K_t = I\)</span>), form participant <span class="math inline">\(g\)</span>’s centered trial design <span class="math inline">\(\widehat D_g = D_g + U_g\)</span> for columns <span class="math inline">\([a_s,\, z,\, a_s z]\)</span> and define full cross-trial error moments <span class="math inline">\(C_g = E(U_g^\top U_g)\)</span> and <span class="math inline">\(c_g = E(U_g^\top v_g)\)</span> (including run-centering projections applied consistently to both data and <span class="math inline">\(\Omega_{ss}, \Omega_{st}\)</span>). Solving the summed participant corrected score (<a href="https://academic.oup.com/biomet/article-abstract/77/1/127/271070">Nakamura, 1990</a>; <a href="https://academic.oup.com/biomet/article-abstract/83/2/433/289324">Buonaccorsi, 1996</a>):</p>
+<p><span class="math display">\[
+q_g(\theta)=\widehat D_g^{\top}\widehat y_g-c_g
+       -(\widehat D_g^{\top}\widehat D_g-C_g)\theta,
+\qquad \sum_{g=1}^G q_g(\widehat\theta)=0,
+\]</span></p>
+<p>yields an unbiased estimating equation <span class="math inline">\(E[q_g(\theta_0)] = 0\)</span> with participant-cluster sandwich variance:</p>
+<p><span class="math display">\[
+\widehat V=H^{-1}\left[\frac{G}{G-1}\sum_{g=1}^G
+q_g(\widehat\theta)q_g(\widehat\theta)^{\top}\right]H^{-\top},
+\quad
+H=\sum_{g=1}^G(\widehat D_g^{\top}\widehat D_g-C_g).
+\]</span></p>
+<details>
+<summary>
+Prototype interface (<code>measurement_error_models.R</code>)
+</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"measurement_error_models.R"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">fit_corrected</span>(blocks, <span class="at">mode =</span> <span class="st">"full"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(fit<span class="sc">$</span>ok)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>estimate  <span class="co"># neural association, task main effect, PPI</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>se        <span class="co"># participant-cluster score SEs</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The prototype refuses indefinite corrected information matrices rather than silently regularizing unidentified designs.</p>
+</details>
+</section>
+<section id="conditional-simulation-benchmarks-400-repetitions-per-scenario" class="level3">
+<h3 class="anchored" data-anchor-id="conditional-simulation-benchmarks-400-repetitions-per-scenario">4. Conditional simulation benchmarks (400 repetitions per scenario)</h3>
+<p>Each scenario simulates 400 repetitions of <span class="math inline">\(G = 60\)</span> participants (<code>Few participants</code> uses <span class="math inline">\(G = 12\)</span>) with 24 trials per participant, true connectivity <span class="math inline">\(\beta = 0.55\)</span>, task main effect <span class="math inline">\(\gamma = 0.25\)</span>, and PPI <span class="math inline">\(\delta = 0.35\)</span> (<code>Null</code> sets <span class="math inline">\(\beta = \delta = 0\)</span>), under serial trial error correlation <span class="math inline">\(0.55\)</span> and shared cross-region error correlation <span class="math inline">\(0.45\)</span>.</p>
+<div id="fig-bias" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Noise correction recovers slopes under unbiased measurements, but remains biased with unequal resolution; the stable resolution inverse restores recovery in the controlled example.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bias-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="bias.png" class="img-fluid figure-img" alt="Noise correction recovers slopes under unbiased measurements, but remains biased with unequal resolution; the stable resolution inverse restores recovery in the controlled example.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bias-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10.1: Mean coefficient bias across three stress scenarios. Bars show plus/minus 1.96 Monte Carlo SE; horizontal scales differ across columns. The oracle uses true neural amplitudes. Empty Undo K rows mean that method was only evaluated in the unequal-resolution scenario.
+</figcaption>
+</figure>
+</div>
+<div id="fig-coverage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Participant-cluster inference improves connectivity coverage with serial errors; neither interval method fixes unequal-resolution bias. Undoing known stable resolution restores coverage in this controlled case.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="coverage.png" class="img-fluid figure-img" alt="Participant-cluster inference improves connectivity coverage with serial errors; neither interval method fixes unequal-resolution bias. Undoing known stable resolution restores coverage in this controlled case.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10.2: Coverage of nominal 95% normal intervals. Bars are exact binomial 95% intervals for the Monte Carlo coverage probability, not individual-model confidence intervals. The dashed reference is 95%; all horizontal axes span 0–100%. Full + row SE and Full + cluster SE have the same point estimate.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>show <span class="ot">&lt;-</span> s[s<span class="sc">$</span>method <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Full moments, cluster SE"</span>, <span class="st">"Resolution inverse + full moments"</span>) <span class="sc">&amp;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  s<span class="sc">$</span>scenario <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Serial + shared Gaussian"</span>, <span class="st">"Serial + shared t5"</span>, <span class="st">"Different resolution"</span>, <span class="st">"Few participants"</span>), ]</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>show <span class="ot">&lt;-</span> show[<span class="fu">order</span>(show<span class="sc">$</span>scenario, show<span class="sc">$</span>method, show<span class="sc">$</span>term), ]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">Scenario =</span> show<span class="sc">$</span>scenario,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">Method =</span> show<span class="sc">$</span>method,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">Effect =</span> show<span class="sc">$</span>term,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">Mean =</span> <span class="fu">round</span>(show<span class="sc">$</span>mean, <span class="dv">3</span>),</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">Bias =</span> <span class="fu">round</span>(show<span class="sc">$</span>bias, <span class="dv">3</span>),</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">Coverage =</span> <span class="fu">pct</span>(show<span class="sc">$</span>coverage),</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">Coverage MCSE</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">pct</span>(show<span class="sc">$</span>coverage_mcse),</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"Selected conditional simulation benchmarks (400 repetitions per row)."</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Selected conditional simulation benchmarks (400 repetitions per row).</caption>
+<colgroup>
+<col style="width: 23%">
+<col style="width: 31%">
+<col style="width: 12%">
+<col style="width: 5%">
+<col style="width: 6%">
+<col style="width: 8%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">Effect</th>
+<th style="text-align: right;">Mean</th>
+<th style="text-align: right;">Bias</th>
+<th style="text-align: left;">Coverage</th>
+<th style="text-align: left;">Coverage MCSE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">0.767</td>
+<td style="text-align: right;">0.217</td>
+<td style="text-align: left;">24.2%</td>
+<td style="text-align: left;">2.1%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">0.413</td>
+<td style="text-align: right;">0.063</td>
+<td style="text-align: left;">79.8%</td>
+<td style="text-align: left;">2.0%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: left;">Resolution inverse + full moments</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">0.551</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: left;">95.8%</td>
+<td style="text-align: left;">1.0%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: left;">Resolution inverse + full moments</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">0.358</td>
+<td style="text-align: right;">0.008</td>
+<td style="text-align: left;">95.2%</td>
+<td style="text-align: left;">1.1%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">0.556</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: left;">91.8%</td>
+<td style="text-align: left;">1.4%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">0.364</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: left;">89.2%</td>
+<td style="text-align: left;">1.5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">0.546</td>
+<td style="text-align: right;">-0.004</td>
+<td style="text-align: left;">94.8%</td>
+<td style="text-align: left;">1.1%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: left;">94.0%</td>
+<td style="text-align: left;">1.2%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">0.549</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: left;">94.2%</td>
+<td style="text-align: left;">1.2%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: left;">93.8%</td>
+<td style="text-align: left;">1.2%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Three practical lessons bridge these benchmarks back to empirical <code>medusa</code> analyses:</p>
+<ol type="1">
+<li><strong>Omitting shared cross-parcel error creates severe false connectivity:</strong> Under <code>Null serial + shared</code>, ignoring <span class="math inline">\(\Omega_{st}\)</span> (<code>Zero shared covariance</code>) falsely rejects in <strong>95.0%</strong> of repetitions, whereas subtracting <span class="math inline">\(\Omega_{st}\)</span> drops connectivity false positives to <strong>5.0%</strong>—directly motivating <code>shared_error = "auto"</code> in Step 6.</li>
+<li><strong>Unequal source resolution requires matched HRF/inverse scales:</strong> When two parcels have markedly different effective smoothing (<span class="math inline">\(K_s \neq K_t\)</span>), naive attenuation and resolution distortion can partially cancel (0.579) while variance-only disattenuation overshoots (0.767). Keep regularization policies matched across seed and target parcels and control shared task main effects carefully (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/">Cole et al., 2019</a>).</li>
+<li><strong>Small-<span class="math inline">\(G\)</span> cohorts require finite-sample <span class="math inline">\(t\)</span>/HKSJ adjustments:</strong> Normal asymptotic cluster SEs undercover at <span class="math inline">\(G = 12\)</span> (<a href="https://arxiv.org/html/2205.03285v1">MacKinnon, Nielsen &amp; Webb, 2022</a>), which is why <code>decon_connectivity_repair()</code> uses HKSJ <span class="math inline">\(t\)</span>-intervals over participant slopes rather than normal row or unadjusted cluster <span class="math inline">\(z\)</span>-intervals.</li>
+</ol>
+<details>
+<summary>
+Reproducibility and complete 74-row simulation table
+</summary>
+<p>Run from <code>medusa_connectivity_inference/</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> likelihood_only_bridge.R .</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> joint_gaussian_demo.R .</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="va">MEDUSA_REPS</span><span class="op">=</span>400 <span class="ex">Rscript</span> connectivity_prototype.R .</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> prepare_figures.R .</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_connectivity_inference.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  s[, <span class="fu">c</span>(<span class="st">"scenario"</span>, <span class="st">"G"</span>, <span class="st">"method"</span>, <span class="st">"term"</span>, <span class="st">"attempts"</span>, <span class="st">"usable"</span>, <span class="st">"failures"</span>, <span class="st">"mean"</span>, <span class="st">"bias"</span>, <span class="st">"mean_se"</span>, <span class="st">"coverage"</span>, <span class="st">"rejection"</span>)],</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">3</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"Complete conditional simulation results across all 74 scenario/method/term combinations."</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Complete conditional simulation results across all 74 scenario/method/term combinations.</caption>
+<colgroup>
+<col style="width: 17%">
+<col style="width: 2%">
+<col style="width: 24%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 4%">
+<col style="width: 6%">
+<col style="width: 4%">
+<col style="width: 4%">
+<col style="width: 5%">
+<col style="width: 6%">
+<col style="width: 7%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">scenario</th>
+<th style="text-align: right;">G</th>
+<th style="text-align: left;">method</th>
+<th style="text-align: left;">term</th>
+<th style="text-align: right;">attempts</th>
+<th style="text-align: right;">usable</th>
+<th style="text-align: right;">failures</th>
+<th style="text-align: right;">mean</th>
+<th style="text-align: right;">bias</th>
+<th style="text-align: right;">mean_se</th>
+<th style="text-align: right;">coverage</th>
+<th style="text-align: right;">rejection</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1.258</td>
+<td style="text-align: right;">0.708</td>
+<td style="text-align: right;">0.121</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.760</td>
+<td style="text-align: right;">0.210</td>
+<td style="text-align: right;">0.103</td>
+<td style="text-align: right;">0.458</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.555</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.948</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.168</td>
+<td style="text-align: right;">0.168</td>
+<td style="text-align: right;">0.044</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.950</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.741</td>
+<td style="text-align: right;">0.191</td>
+<td style="text-align: right;">0.047</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.745</td>
+<td style="text-align: right;">0.195</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.767</td>
+<td style="text-align: right;">0.217</td>
+<td style="text-align: right;">0.082</td>
+<td style="text-align: right;">0.242</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.556</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: right;">0.089</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.555</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.948</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">0.042</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">0.050</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.546</td>
+<td style="text-align: right;">-0.004</td>
+<td style="text-align: right;">0.042</td>
+<td style="text-align: right;">0.948</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.549</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.042</td>
+<td style="text-align: right;">0.943</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.767</td>
+<td style="text-align: right;">0.217</td>
+<td style="text-align: right;">0.056</td>
+<td style="text-align: right;">0.062</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.556</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: right;">0.068</td>
+<td style="text-align: right;">0.838</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.555</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.034</td>
+<td style="text-align: right;">0.953</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.835</td>
+<td style="text-align: right;">0.165</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.546</td>
+<td style="text-align: right;">-0.004</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.860</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.549</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.031</td>
+<td style="text-align: right;">0.868</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.579</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">0.900</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.503</td>
+<td style="text-align: right;">-0.047</td>
+<td style="text-align: right;">0.061</td>
+<td style="text-align: right;">0.805</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.389</td>
+<td style="text-align: right;">-0.161</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.112</td>
+<td style="text-align: right;">0.112</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.052</td>
+<td style="text-align: right;">0.948</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.497</td>
+<td style="text-align: right;">-0.053</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.545</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.499</td>
+<td style="text-align: right;">-0.051</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.550</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.550</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.958</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.550</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.062</td>
+<td style="text-align: right;">0.907</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.551</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.021</td>
+<td style="text-align: right;">0.970</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.935</td>
+<td style="text-align: right;">0.065</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.548</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.963</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.551</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.932</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Resolution inverse + full moments</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.551</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.060</td>
+<td style="text-align: right;">0.958</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1.129</td>
+<td style="text-align: right;">0.579</td>
+<td style="text-align: right;">0.100</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.724</td>
+<td style="text-align: right;">0.174</td>
+<td style="text-align: right;">0.095</td>
+<td style="text-align: right;">0.545</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.555</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.948</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.160</td>
+<td style="text-align: right;">0.160</td>
+<td style="text-align: right;">0.042</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.950</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.708</td>
+<td style="text-align: right;">0.158</td>
+<td style="text-align: right;">0.044</td>
+<td style="text-align: right;">0.052</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">Connectivity</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.711</td>
+<td style="text-align: right;">0.161</td>
+<td style="text-align: right;">0.046</td>
+<td style="text-align: right;">0.052</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.412</td>
+<td style="text-align: right;">0.062</td>
+<td style="text-align: right;">0.068</td>
+<td style="text-align: right;">0.873</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.362</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">0.069</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">0.995</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">0.004</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.922</td>
+<td style="text-align: right;">0.078</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Diagonal</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.943</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.413</td>
+<td style="text-align: right;">0.063</td>
+<td style="text-align: right;">0.055</td>
+<td style="text-align: right;">0.797</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.364</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.064</td>
+<td style="text-align: right;">0.892</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">0.004</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">0.072</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.940</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, cluster SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.938</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.413</td>
+<td style="text-align: right;">0.063</td>
+<td style="text-align: right;">0.052</td>
+<td style="text-align: right;">0.772</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.364</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.063</td>
+<td style="text-align: right;">0.925</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">0.004</td>
+<td style="text-align: right;">0.032</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">0.072</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.028</td>
+<td style="text-align: right;">0.935</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Full moments, row SE</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.930</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.227</td>
+<td style="text-align: right;">-0.123</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.263</td>
+<td style="text-align: right;">-0.087</td>
+<td style="text-align: right;">0.043</td>
+<td style="text-align: right;">0.482</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.261</td>
+<td style="text-align: right;">-0.089</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: right;">0.028</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.019</td>
+<td style="text-align: right;">0.920</td>
+<td style="text-align: right;">0.080</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.259</td>
+<td style="text-align: right;">-0.091</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: right;">0.007</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.258</td>
+<td style="text-align: right;">-0.092</td>
+<td style="text-align: right;">0.021</td>
+<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.932</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.352</td>
+<td style="text-align: right;">0.002</td>
+<td style="text-align: right;">0.039</td>
+<td style="text-align: right;">0.897</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: right;">0.963</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">0.072</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.945</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Oracle</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.943</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Resolution inverse + full moments</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.358</td>
+<td style="text-align: right;">0.008</td>
+<td style="text-align: right;">0.051</td>
+<td style="text-align: right;">0.953</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Different resolution</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.414</td>
+<td style="text-align: right;">0.064</td>
+<td style="text-align: right;">0.063</td>
+<td style="text-align: right;">0.860</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Few participants</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.363</td>
+<td style="text-align: right;">0.013</td>
+<td style="text-align: right;">0.068</td>
+<td style="text-align: right;">0.920</td>
+<td style="text-align: right;">0.995</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Independent Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">0.004</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Null serial + shared</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.922</td>
+<td style="text-align: right;">0.078</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Serial + shared Gaussian</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.930</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Serial + shared t5</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: left;">Zero shared covariance</td>
+<td style="text-align: left;">PPI</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.349</td>
+<td style="text-align: right;">-0.001</td>
+<td style="text-align: right;">0.032</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</details>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../medusa_standard_errors_mmom.html" class="pagination-link" aria-label="From BOLD noise to M-MOM error variances">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../evidence.html" class="pagination-link" aria-label="Validation and the limits of the evidence">
+        <span class="nav-page-text"><span class="chapter-title">Validation and the limits of the evidence</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

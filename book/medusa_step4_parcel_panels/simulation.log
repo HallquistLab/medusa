@@ -1,0 +1,29 @@
+  run        parcel   rho independence   oracle   medusa naive_d2 ceiling
+ run1      Negative -0.20     0.009122 0.006431 0.006098  0.01710 0.01710
+ run1   Independent  0.00     0.009123 0.009123 0.009009  0.01640 0.01709
+ run1        Shared  0.65     0.009123 0.014793 0.014631  0.01708 0.01708
+ run1 Nearly common  0.95     0.009123 0.016774 0.016765  0.01703 0.01708
+ run2      Negative -0.20     0.009122 0.006431 0.006517  0.01604 0.01710
+ run2   Independent  0.00     0.009123 0.009123 0.009486  0.01501 0.01709
+ run2        Shared  0.65     0.009123 0.014793 0.015089  0.01708 0.01708
+ run2 Nearly common  0.95     0.009123 0.016774 0.016830  0.01638 0.01708
+  se_check signal_check gamma rms_before rms_after
+ 3.816e-17    1.008e-12   0.9    0.03849   0.03846
+ 5.551e-17    1.313e-12   0.9    0.03851   0.03846
+ 8.327e-17    8.621e-13   0.9    0.03864   0.03846
+ 9.714e-17    8.887e-13   0.9    0.03883   0.03847
+ 3.469e-17    8.866e-13   0.9    0.03849   0.03846
+ 4.857e-17    7.011e-13   0.9    0.03851   0.03846
+ 6.939e-17    1.220e-12   0.9    0.03863   0.03846
+ 6.939e-17    6.822e-13   0.9    0.03877   0.03846
+  run   voxel    sd nominal realized
+ run1 Voxel 1 0.013  0.5097   0.5097
+ run1 Voxel 2 0.018  0.2551   0.2551
+ run1 Voxel 3 0.022  0.1657   0.1657
+ run1 Voxel 4 0.032  0.0694   0.0694
+ run2 Voxel 1 0.013  0.5097   0.0000
+ run2 Voxel 2 0.018  0.2551   0.5204
+ run2 Voxel 3 0.022  0.1657   0.3380
+ run2 Voxel 4 0.032  0.0694   0.1416
+Relative mixed-HRF response difference (exact multi-stratum vs single averaged HRF): 0.165727 
+Verified panel grain, innovation-based spatial SEs, dropped-voxel renormalization, precision normalization, EB and paired ZCA.

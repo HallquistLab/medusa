@@ -1,0 +1,30 @@
+# Canonical SPM difference-of-gammas hemodynamic response function
+
+Evaluates the canonical SPM difference-of-gammas hemodynamic response
+function at repetition time \`TR\`, subsampled from 1/16th TR microtime
+resolution and normalized to unit sum.
+
+## Usage
+
+``` r
+spm_hrf(TR, P)
+```
+
+## Arguments
+
+- TR:
+
+  Numeric scalar scan repetition time in seconds.
+
+- P:
+
+  Optional numeric parameter vector of length up to 7: delay of response
+  (6 s), delay of undershoot (16 s), dispersion of response (1),
+  dispersion of undershoot (1), response-to-undershoot ratio (6), onset
+  (0 s), and kernel length (32 s).
+
+## Value
+
+A list with elements \`hrf\` (a single-column numeric matrix containing
+the unit-sum HRF kernel on the \`TR\` grid) and \`p\` (the 7-element
+parameter vector used).

@@ -1,0 +1,58 @@
+[1] "workflow-script.R"
+Using model_formulae to setup model_set
+Starting processing of data splits
+Loading required package: Matrix
+
+Attaching package: ‘lmerTest’
+
+The following object is masked from ‘package:lme4’:
+
+    lmer
+
+The following object is masked from ‘package:stats’:
+
+    step
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Welcome to emmeans.
+Caution: You lose important information if you filter this package's results.
+See '? untidy'
+         outcome model_name                                                 rhs
+          <char>     <char>                                              <char>
+1: decon_demixed   feedback ~rpe_within + (1 + rpe_within || id) + (1 | id:run)
+   engine effect       term  estimate  std.error statistic       df     p.value
+   <char> <char>     <char>     <num>      <num>     <num>    <num>       <num>
+1:   lme4  fixed rpe_within 0.5252254 0.02069343  25.38127 10.30309 1.25845e-10
+    conf.low conf.high estimator
+       <num>     <num>    <char>
+1: 0.4793008 0.5711501      REML
+     lag   estimate p_maxT n_subjects
+   <num>      <num>  <num>      <int>
+1:    -2 0.29056975 0.0005         12
+2:    -1 0.45708299 0.0005         12
+3:     0 0.53531226 0.0005         12
+4:     1 0.48801982 0.0005         12
+5:     2 0.34401115 0.0005         12
+6:     3 0.16695887 0.0005         12
+7:     4 0.02743219 0.1015         12
+  shared       term     estimate      p.value
+1   auto     seed_c  0.745088995 1.835915e-09
+2   auto      rpe_c  0.441462070 7.279302e-10
+3   auto seed_c:x_c -0.003095051 7.652014e-01
+4   zero     seed_c  0.745886118 1.746513e-09
+5   zero      rpe_c  0.441149710 7.268417e-10
+6   zero seed_c:x_c -0.003152405 7.611446e-01

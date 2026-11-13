@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>4&nbsp; Step 2: Event-Informed Continuous Deconvolution – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../medusa_step3_epochs/medusa_step3_epochs.html" rel="next">
+<link href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">4.1</span> Overview</a></li>
+  <li><a href="#goals-of-step-2" id="toc-goals-of-step-2" class="nav-link" data-scroll-target="#goals-of-step-2"><span class="header-section-number">4.2</span> Goals of Step 2</a></li>
+  <li><a href="#sec-event-informed-vs-blind" id="toc-sec-event-informed-vs-blind" class="nav-link" data-scroll-target="#sec-event-informed-vs-blind"><span class="header-section-number">4.3</span> How Event-Informed Regression Works—and Why It Improves Over Blind Deconvolution</a>
+  <ul class="collapse">
+  <li><a href="#why-blind-deconvolution-struggles-on-event-related-fmri" id="toc-why-blind-deconvolution-struggles-on-event-related-fmri" class="nav-link" data-scroll-target="#why-blind-deconvolution-struggles-on-event-related-fmri"><span class="header-section-number">4.3.1</span> Why Blind Deconvolution Struggles on Event-Related fMRI</a></li>
+  <li><a href="#how-medusas-hybrid-event-informed-architecture-works" id="toc-how-medusas-hybrid-event-informed-architecture-works" class="nav-link" data-scroll-target="#how-medusas-hybrid-event-informed-architecture-works"><span class="header-section-number">4.3.2</span> How MEDuSA’s Hybrid Event-Informed Architecture Works</a></li>
+  <li><a href="#live-demonstration-event-informed-continuous-gls-vs.-blind-deconvolution" id="toc-live-demonstration-event-informed-continuous-gls-vs.-blind-deconvolution" class="nav-link" data-scroll-target="#live-demonstration-event-informed-continuous-gls-vs.-blind-deconvolution"><span class="header-section-number">4.3.3</span> Live Demonstration: Event-Informed Continuous GLS vs.&nbsp;Blind Deconvolution</a></li>
+  </ul></li>
+  <li><a href="#inputs-what-step-2-receives-and-why" id="toc-inputs-what-step-2-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-2-receives-and-why"><span class="header-section-number">4.4</span> Inputs: What Step 2 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-2-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-2-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-2-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">4.5</span> Outputs: What Step 2 Produces and Why It Is Set Up That Way</a></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings"><span class="header-section-number">4.6</span> Recommended Settings</a></li>
+  <li><a href="#core-deconvolution-mechanisms-sensitivity-checks" id="toc-core-deconvolution-mechanisms-sensitivity-checks" class="nav-link" data-scroll-target="#core-deconvolution-mechanisms-sensitivity-checks"><span class="header-section-number">4.7</span> Core Deconvolution Mechanisms &amp; Sensitivity Checks</a>
+  <ul class="collapse">
+  <li><a href="#why-regularization-is-unavoidableand-how-penalties-shape-hatst" id="toc-why-regularization-is-unavoidableand-how-penalties-shape-hatst" class="nav-link" data-scroll-target="#why-regularization-is-unavoidableand-how-penalties-shape-hatst"><span class="header-section-number">4.7.1</span> 1. Why Regularization Is Unavoidable—and How Penalties Shape <span class="math inline">\(\hat{s}(t)\)</span></a></li>
+  <li><a href="#adaptive-multi-run-gcv-tuning-lambda-null" id="toc-adaptive-multi-run-gcv-tuning-lambda-null" class="nav-link" data-scroll-target="#adaptive-multi-run-gcv-tuning-lambda-null"><span class="header-section-number">4.7.2</span> 2. Adaptive Multi-Run GCV Tuning (<code>lambda = NULL</code>)</a></li>
+  <li><a href="#resolution-leakage-and-diagnose_crossrun_recovery" id="toc-resolution-leakage-and-diagnose_crossrun_recovery" class="nav-link" data-scroll-target="#resolution-leakage-and-diagnose_crossrun_recovery"><span class="header-section-number">4.7.3</span> 3. Resolution, Leakage, and <code>diagnose_crossrun_recovery()</code></a></li>
+  <li><a href="#nuisance-handling-observation-masks-scaling-and-boundaries" id="toc-nuisance-handling-observation-masks-scaling-and-boundaries" class="nav-link" data-scroll-target="#nuisance-handling-observation-masks-scaling-and-boundaries"><span class="header-section-number">4.7.4</span> 4. Nuisance Handling, Observation Masks, Scaling, and Boundaries</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></h1>
+<p class="subtitle lead">Reconstructing continuous latent neural activity via event-anchored GLS regularization</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">4.1</span> Overview</h2>
+<p>Once Step 1 has learned each run’s out-of-sample HRF and serial noise structure, Step 2 (<code>deconvolve_crossrun_hrf()</code>) reconstructs a <strong>continuous latent neural activity time series</strong> <span class="math inline">\(\hat{s}(t)\)</span> on the original acquisition grid for every run and voxel. Because hemodynamic convolution acts as a sluggish low-pass filter, directly inverting <span class="math inline">\(H(h)\)</span> amplifies high-frequency scanner noise violently; conversely, over-penalizing smoothness blurs rapid cognitive transitions and shrinks trial peaks.</p>
+<p>What makes MEDuSA’s Step 2 fundamentally stronger than traditional <strong>blind deconvolution</strong> (<code>deconvolve_nlreg()</code>, <code>deconvolve_reglin()</code>)—while remaining far more flexible than a rigid parametric GLM—is its <strong>hybrid event-informed continuous architecture</strong>. The deconvolved signal <span class="math inline">\(\hat{s}(t)\)</span> itself is estimated <em>continuously and unconstrained</em> across the entire run (never clamped to zero outside events or restricted to fixed trial boxcars). Simultaneously, MEDuSA uses an <strong>auxiliary event-informed GLS regression model</strong> under the hood to separate evoked task BOLD from background noise—anchoring pure observation-noise scaling (<code>scaling = "noise_sd"</code>), protecting genuine neural bursts during adaptive artifact downweighting (<code>rwls = "auto"</code>), tuning smoothness on task-active regions (<code>lambda = NULL</code>), and exporting the exact linear inverse operator needed by Step 3 to de-mix overlapping epochs and propagate standard errors.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Position in the MEDuSA Pipeline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong><code>bold</code> + Step 1 <code>hrf_fit</code></strong> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 2 (<code>deconvolve_crossrun_hrf</code>)</strong> <span class="math inline">\(\longrightarrow\)</span> <code>decon</code> S3 object (<code>activity</code> + operator metadata + <code>scaling</code> + <code>noise_innovations</code> + <code>frame_weights</code>) <span class="math inline">\(\longrightarrow\)</span> <strong>Step 3 (<code>decon_epoch_regression</code>)</strong></p>
+</div>
+</div>
+<hr>
+</section>
+<section id="goals-of-step-2" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="goals-of-step-2"><span class="header-section-number">4.2</span> Goals of Step 2</h2>
+<p>Step 2 addresses five tightly linked goals:</p>
+<ol type="1">
+<li><strong>Estimate continuous, unconstrained latent neural dynamics:</strong> Recover a continuous time-by-voxel activity matrix <span class="math inline">\(\hat{s}_r\)</span> on the full <span class="math inline">\(n_r\)</span>-sample acquisition grid via AR(<span class="math inline">\(p\)</span>)-whitened, smoothness-penalized generalized least squares (GLS).</li>
+<li><strong>Place voxels and runs on an uncontaminated noise-SD reference scale:</strong> Isolate marginal observation-noise standard deviation (<span class="math inline">\(\hat{\sigma}_{\text{marg}}\)</span>) from task-evoked BOLD variance via event-informed GLS residuals (<code>scaling = "noise_sd"</code>), avoiding the signal-induced compression of whole-run <code>zscore</code> scaling.</li>
+<li><strong>Suppress sub-scrubbing scanner glitches without clipping heavy neural responses:</strong> Downweight transient motion or RF artifacts orthogonal to the task-HRF subspace (<code>rwls = "auto"</code>) while protecting genuine high-amplitude neural bursts and HRF latency shifts.</li>
+<li><strong>Tune regularization (<code>lambda</code>) for downstream trial inference rather than raw BOLD prediction:</strong> Balance prewhitened generalized cross-validation (GCV) against gain-restored trial variance and modulation transfer across task-supported voxels.</li>
+<li><strong>Preserve the complete linear operator state for Step 3–6 handoffs:</strong> Retain the exact HRF/noise strata, scaling divisors, task-free whitened <code>noise_innovations</code>, and <code>frame_weights</code> so downstream epoch de-mixing, parcel SEs, and connectivity models propagate exact covariances.</li>
+</ol>
+<p><strong>What Step 2 deliberately leaves to Step 3:</strong> Continuous regularized deconvolution <em>cannot</em> simultaneously achieve low noise and zero event cross-talk—every finite <span class="math inline">\(\lambda &gt; 0\)</span> leaves known amplitude shrinkage (<span class="math inline">\(R_{ii} &lt; 1\)</span>) and local temporal spread (<span class="math inline">\(R_{ij} \neq 0\)</span>) in <code>decon$activity</code>. Step 2 leaves raw <code>activity</code> un-inflated and hands the exact linear operator to <code>decon_epoch_regression()</code> (Step 3) to de-mix overlapping events and restore amplitude gain at the trial-epoch level.</p>
+<hr>
+</section>
+<section id="sec-event-informed-vs-blind" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-event-informed-vs-blind"><span class="header-section-number">4.3</span> How Event-Informed Regression Works—and Why It Improves Over Blind Deconvolution</h2>
+<p>A recurring question for fMRI researchers is: <em>Why does MEDuSA use event timestamps during deconvolution instead of performing purely blind deconvolution, and if it uses event timestamps, why isn’t it just an ordinary task GLM?</em> Understanding this distinction is the key to understanding Step 2.</p>
+<section id="why-blind-deconvolution-struggles-on-event-related-fmri" class="level3" data-number="4.3.1">
+<h3 data-number="4.3.1" class="anchored" data-anchor-id="why-blind-deconvolution-struggles-on-event-related-fmri"><span class="header-section-number">4.3.1</span> Why Blind Deconvolution Struggles on Event-Related fMRI</h3>
+<p>Blind deconvolution algorithms—such as Bush &amp; Cisler’s (2011) nonlinear sigmoid encoding (<code>deconvolve_nlreg()</code> / <code>algorithm = "bush2011"</code>) or blind linear ridge/spline deconvolution (<code>deconvolve_reglin()</code>)—receive only a raw BOLD vector <span class="math inline">\(y\)</span> and a fixed canonical kernel <span class="math inline">\(h\)</span>, with <strong>no knowledge of when task events occurred</strong>. That blindness creates four compounding distortions:</p>
+<ol type="1">
+<li><strong>Shift-shape unidentifiability and latency inversion:</strong> Convolving a delayed neural spike with a fast HRF produces the exact same BOLD peak as convolving an early neural spike with a slow HRF. Without cross-run event regression (Step 1), blind deconvolution locks onto a single assumed HRF, shifting inferred neural onset times backward or forward whenever regional vasculature differs from canonical.</li>
+<li><strong>Task-contaminated amplitude scaling (<code>zscore</code>) and nonlinear ceiling compression:</strong> Because blind methods cannot separate evoked BOLD signal from background noise, they standardize each voxel by its <strong>total whole-run BOLD SD</strong> (<code>zscore</code>). In strongly task-responsive voxels, evoked BOLD variance inflates the denominator <span class="math inline">\(\text{SD}(y)\)</span>, <em>shrinking</em> recovered neural slopes relative to noisier or weaker voxels! Worse, Bush’s nonlinear algorithm passes latent encoding through a logistic sigmoid <span class="math inline">\(\hat{e}_t = (1 + e^{-x_t})^{-1} \in (0, 1)\)</span>, compressing heavy-tailed neural bursts against an artificial upper ceiling and destroying linear superposition.</li>
+<li><strong>Oversmoothed GCV and unguarded outlier trade-offs:</strong> Blind GCV averages prediction error across <em>all</em> brain voxels—including silent white-matter/null voxels where optimal <span class="math inline">\(\lambda = \infty\)</span>—dragging the global penalty toward oversmoothing. Meanwhile, any attempt at blind outlier downweighting treats a genuine <span class="math inline">\(4\times\)</span> neural prediction-error burst and a scanner spike identically because both produce large BOLD excursions.</li>
+<li><strong>No task-free noise innovations or linear operator covariance:</strong> Blind outputs provide only a point-estimate time series, leaving downstream trial regressions with no analytical per-trial <code>se_demixed</code>, no cross-trial resolution matrix, and task-contaminated spatial noise correlations.</li>
+</ol>
+</section>
+<section id="how-medusas-hybrid-event-informed-architecture-works" class="level3" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="how-medusas-hybrid-event-informed-architecture-works"><span class="header-section-number">4.3.2</span> How MEDuSA’s Hybrid Event-Informed Architecture Works</h3>
+<p>MEDuSA separates <strong>what is constrained</strong> from <strong>what is informed by events</strong>:</p>
+<ul>
+<li><p><strong>The latent activity trajectory <span class="math inline">\(\hat{s}_r\)</span> itself is continuous and unconstrained.</strong> Given scaled, centered usable observations <span class="math inline">\(\tilde{y}_{r,o}\)</span>, the Step 2 solver minimizes the penalized prewhitened GLS objective over <span class="math inline">\(\mathbb{R}^{n_r}\)</span>: <span class="math display">\[
+\hat{s}_r = \arg\min_{s \in \mathbb{R}^{n_r}} \left\| W_r \bigl(\tilde{y}_{r,o} - M_{r,o} H_r s\bigr) \right\|_2^2 + \lambda s^\top P s
+\]</span> Notice that <strong>event timestamps do not appear inside the penalty <span class="math inline">\(P\)</span> or constrain <span class="math inline">\(s\)</span></strong>. Spontaneous inter-trial fluctuations, sustained deliberation plateaus, and unmodeled temporal profiles are free to emerge anywhere on the acquisition grid.</p></li>
+<li><p><strong>Event-informed GLS regression (<code>hrf_build_noise_mean_design()</code>) anchors the four calibration quantities surrounding that continuous solve:</strong></p>
+<ol type="1">
+<li><strong>Uncontaminated marginal noise scaling (<code>scaling = "noise_sd"</code>):</strong> Before inverting <span class="math inline">\(H_r\)</span>, <code>hrf_estimate_gls_noise_sd()</code> builds an event-informed design matrix <span class="math inline">\(X_{\text{ev}}\)</span> containing run intercept/trend, user <code>nuisance</code>, <span class="math inline">\(&lt;1/128\text{ Hz}\)</span> DCT drift cosines, <strong>free per-trial convolved event columns</strong> under <span class="math inline">\(\hat{h}^{(-r)}\)</span>, and <strong>1st/2nd condition HRF Taylor derivatives</strong> (absorbing trial-to-trial latency jitter). Projecting <span class="math inline">\(X_{\text{ev}}\)</span> out in unit-marginal AR(<span class="math inline">\(p\)</span>)-whitened space (<span class="math inline">\(e = (I - Q Q^\top) W_{\text{unit}} y\)</span>), dividing by GLS leverage <span class="math inline">\(\sqrt{1 - h_{tt}}\)</span>, and Winsorizing at <span class="math inline">\(3 s_{\text{MAD}}\)</span> isolates pure observation noise <span class="math inline">\(\hat{\sigma}_{\text{marg}}\)</span>—completely invariant to how strongly a voxel responds to the task—and saves the orthonormalized <strong>task-free <code>noise_innovations</code></strong> for Step 4 parcel SEs and Step 6 connectivity!</li>
+<li><strong>Task-envelope-guarded adaptive glitch weighting (<code>rwls = "auto"</code>):</strong> Real fMRI runs contain sub-scrubbing motion micro-jerks and RF spikes (<span class="math inline">\(\text{FD} \approx 0.2\text{--}0.4\text{ mm}\)</span>) that ring through a linear inverse filter. <code>hrf_estimate_rwls_weights()</code> evaluates cross-voxel residual energy orthogonal to the <code>[trial HRF, dHRF/dt]</code> subspace and <strong>expands frame tolerance proportionally to the convolved task-design envelope</strong>. If a run passes a Winsorized-SVD Liu–Tang–Zhang (2009) spatial null gate (<span class="math inline">\(p &lt; 0.01/m\)</span>), MEDuSA downweights genuine non-task scanner glitches—routing isolated impulses to <strong>rank-<span class="math inline">\(k\)</span> Woodbury Sparse Bayesian Learning</strong> (<span class="math inline">\(\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)\)</span>, preventing AR(<span class="math inline">\(p\)</span>) whitening smearing!) and sustained physiological bursts to innovation-space rWLS—while keeping <span class="math inline">\(w_t = 1.0\)</span> on heavy neural bursts!</li>
+<li><strong>Task-SNR-weighted, gain-calibrated GCV (<code>lambda = NULL</code>):</strong> <code>hrf_tune_decon_lambda()</code> restricts tuning to voxels with positive out-of-sample task <span class="math inline">\(R^2\)</span> from Step 1 (<code>selections</code>), pooling across all usable runs in an order-invariant pass and trading prewhitened GCV fit against Stage-3 gain-restored trial level/contrast variance and modulation transfer.</li>
+<li><strong>Exact linear operator handoff (<code>D_r</code>):</strong> Because <span class="math inline">\(\hat{s}_r = D_r \tilde{y}_{r,o}\)</span> remains strictly linear conditional on its weights, Step 3 (<code>decon_epoch_regression()</code>) can pass the event schedule forward through <span class="math inline">\(D_r H_r\)</span> to de-mix overlapping cues/targets and propagate exact per-trial SEs.</li>
+</ol></li>
+</ul>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Method Family</th>
+<th>HRF &amp; Noise Model</th>
+<th>Scaling Reference</th>
+<th>Glitch vs.&nbsp;Burst Handling</th>
+<th>Latent Output &amp; Downstream SEs</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Blind Nonlinear (<code>deconvolve_nlreg</code> / Bush 2011)</strong></td>
+<td>Fixed canonical HRF; unwhitened OLS</td>
+<td>Whole-run <code>zscore</code> (task-contaminated)</td>
+<td>Logistic sigmoid squashes bursts &amp; glitches into <span class="math inline">\((0,1)\)</span></td>
+<td>Bounded nonlinear encoding; <strong>no</strong> linear operator or trial SEs</td>
+</tr>
+<tr class="even">
+<td><strong>Blind Linear (<code>deconvolve_reglin</code>)</strong></td>
+<td>Fixed HRF; optional scalar AR(1)</td>
+<td>Whole-run <code>zscore</code> or raw <span class="math inline">\(\Delta^2\)</span></td>
+<td>Unweighted (glitches ring) or blind GCV oversmoothing across null voxels</td>
+<td>Continuous linear series, but no cross-run HRF, task-free innovations, or epoch de-mixing handoff</td>
+</tr>
+<tr class="odd">
+<td><strong>Standard Parametric GLM / LSS</strong></td>
+<td>Assumed HRF/basis; fixed event boxcars</td>
+<td>Residual error</td>
+<td>Rigid trial basis; zero activity assumed outside modeled events</td>
+<td>Scalar trial betas only; <strong>no</strong> continuous lag-flexible time series</td>
+</tr>
+<tr class="even">
+<td><strong>MEDuSA Event-Informed Continuous GLS (<code>deconvolve_crossrun_hrf</code>)</strong></td>
+<td>Cross-fitted 3D HRF + 2-pass REML <span class="math inline">\(\text{AR}(p)\)</span></td>
+<td>Event-projected GLS marginal <code>noise_sd</code></td>
+<td><code>rwls = "auto"</code> downweights non-task glitches while task envelope protects neural bursts</td>
+<td>Unconstrained continuous <span class="math inline">\(\hat{s}(t)\)</span> <strong>plus</strong> exact operator <span class="math inline">\(D_r\)</span>, <code>noise_innovations</code>, and propagated trial covariance</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="live-demonstration-event-informed-continuous-gls-vs.-blind-deconvolution" class="level3" data-number="4.3.3">
+<h3 data-number="4.3.3" class="anchored" data-anchor-id="live-demonstration-event-informed-continuous-gls-vs.-blind-deconvolution"><span class="header-section-number">4.3.3</span> Live Demonstration: Event-Informed Continuous GLS vs.&nbsp;Blind Deconvolution</h3>
+<p>To see all four mechanisms in action on the same dataset, our simulation (<code>simulate_step2.R</code>) generates 8 voxels with identical true marginal observation noise (<span class="math inline">\(\sigma = 0.035\)</span>), varying task gains (<code>1.0</code> in <code>v01–v03</code>, <code>0.5</code> in <code>v04–v06</code>, <code>0.0</code> in null voxels <code>v07–v08</code>), a genuine <strong>heavy-tailed neural burst</strong> (<code>3.8</code> units) at <span class="math inline">\(t = 65\text{ s}\)</span>, and an isolated <strong>non-task scanner glitch</strong> (<code>+0.55</code> BOLD units) at <span class="math inline">\(t = 124\text{ s}\)</span>.</p>
+<p>First, compare the scaling denominators in <a href="#tbl-step2-blind-scale" class="quarto-xref">Table&nbsp;<span>4.1</span></a>: blind <code>zscore</code> inflates the divisor to <strong>0.415</strong> in high-gain voxels versus <strong>0.216</strong> in moderate-gain voxels and <strong>0.055</strong> in null voxels—compressing strong task regions by nearly <span class="math inline">\(2\times\)</span> relative to moderate regions! Event-informed <code>noise_sd</code> recovers <strong>0.031–0.038</strong> uniformly across all eight voxels regardless of task amplitude.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(bve<span class="sc">$</span>scale_table, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Voxel"</span>, <span class="st">"Task Regime"</span>, <span class="st">"True Noise SD"</span>, <span class="st">"Blind Whole-Run SD (zscore)"</span>, <span class="st">"Event-Informed GLS Noise SD"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-step2-blind-scale" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step2-blind-scale-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4.1: Reference scale divisors across high-gain, moderate-gain, and null voxels (true observation-noise SD = 0.035 in every voxel).
+</figcaption>
+<div aria-describedby="tbl-step2-blind-scale-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 24%">
+<col style="width: 13%">
+<col style="width: 27%">
+<col style="width: 27%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Voxel</th>
+<th style="text-align: left;">Task Regime</th>
+<th style="text-align: right;">True Noise SD</th>
+<th style="text-align: right;">Blind Whole-Run SD (zscore)</th>
+<th style="text-align: right;">Event-Informed GLS Noise SD</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">v01</td>
+<td style="text-align: left;">High task gain (1.0)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.415</td>
+<td style="text-align: right;">0.032</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">v02</td>
+<td style="text-align: left;">High task gain (1.0)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.415</td>
+<td style="text-align: right;">0.031</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">v03</td>
+<td style="text-align: left;">High task gain (1.0)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.416</td>
+<td style="text-align: right;">0.034</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">v04</td>
+<td style="text-align: left;">Moderate task gain (0.5)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.216</td>
+<td style="text-align: right;">0.034</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">v05</td>
+<td style="text-align: left;">Moderate task gain (0.5)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.215</td>
+<td style="text-align: right;">0.034</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">v06</td>
+<td style="text-align: left;">Moderate task gain (0.5)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.217</td>
+<td style="text-align: right;">0.032</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">v07</td>
+<td style="text-align: left;">Null voxel (0.0)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.052</td>
+<td style="text-align: right;">0.033</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">v08</td>
+<td style="text-align: left;">Null voxel (0.0)</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.059</td>
+<td style="text-align: right;">0.038</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<p>Second, compare the recovered continuous trajectories and learned frame weights in <a href="#fig-step2-event-vs-blind" class="quarto-xref">Figure&nbsp;<span>4.1</span></a> and <a href="#tbl-step2-blind-metrics" class="quarto-xref">Table&nbsp;<span>4.2</span></a>:</p>
+<ul>
+<li><strong>At the <span class="math inline">\(65\text{ s}\)</span> neural burst (Panel A):</strong> Event-informed GLS preserves peak recovery (<code>0.746</code>) and overall correlation (<code>0.835</code>), whereas blind linear GCV oversmooths because null voxels pull <span class="math inline">\(\lambda\)</span> upward (<code>0.676</code> peak recovery) and Bush’s nonlinear sigmoid distorts relative amplitudes (correlation <code>0.699</code>).</li>
+<li><strong>At the <span class="math inline">\(124\text{ s}\)</span> non-task scanner glitch (Panels B &amp; C):</strong> <code>rwls = "auto"</code> keeps frame weight <span class="math inline">\(w_t = 1.00\)</span> across the <span class="math inline">\(65\text{ s}\)</span> neural burst (protected by the task envelope) while dropping <span class="math inline">\(w_t\)</span> sharply on the <span class="math inline">\(124\text{ s}\)</span> inter-trial glitch, cutting spurious inverse ringing in half (<code>0.200</code> vs.&nbsp;<code>0.391</code> unweighted and <code>0.659</code> Bush sigmoid)!</li>
+</ul>
+<div id="fig-step2-event-vs-blind" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Three-panel comparison of event-informed continuous GLS versus blind linear and nonlinear deconvolution.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-event-vs-blind-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/10-event-informed-vs-blind.png" class="img-fluid figure-img" style="width:100.0%" alt="Three-panel comparison of event-informed continuous GLS versus blind linear and nonlinear deconvolution.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-event-vs-blind-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.1: Direct comparison on identical simulated BOLD (<code>v01</code>): (A) recovery around a heavy <span class="math inline">\(65\text{ s}\)</span> neural burst across event-informed GLS vs.&nbsp;blind linear and nonlinear deconvolution; (B) suppression of inverse ringing around an isolated <span class="math inline">\(124\text{ s}\)</span> non-task scanner glitch by <code>rwls = "auto"</code>; (C) learned task-envelope-guarded frame weights <span class="math inline">\(w_t\)</span>.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(bve<span class="sc">$</span>summary_metrics, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Deconvolution Method"</span>, <span class="st">"Correlation w/ Truth"</span>, <span class="st">"Physical RMSE"</span>, <span class="st">"Burst Peak Ratio (65 s)"</span>, <span class="st">"Max Glitch Ringing (124 s)"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-step2-blind-metrics" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step2-blind-metrics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blind_vs_event_metrics.csv</code>).
+</figcaption>
+<div aria-describedby="tbl-step2-blind-metrics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 29%">
+<col style="width: 17%">
+<col style="width: 11%">
+<col style="width: 19%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Deconvolution Method</th>
+<th style="text-align: right;">Correlation w/ Truth</th>
+<th style="text-align: right;">Physical RMSE</th>
+<th style="text-align: right;">Burst Peak Ratio (65 s)</th>
+<th style="text-align: right;">Max Glitch Ringing (124 s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Event-informed GLS (rwls = ‘auto’)</td>
+<td style="text-align: right;">0.835</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">0.746</td>
+<td style="text-align: right;">0.200</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Event-informed GLS (rwls = ‘none’)</td>
+<td style="text-align: right;">0.830</td>
+<td style="text-align: right;">0.358</td>
+<td style="text-align: right;">0.745</td>
+<td style="text-align: right;">0.391</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Blind linear GCV (zscore)</td>
+<td style="text-align: right;">0.810</td>
+<td style="text-align: right;">0.375</td>
+<td style="text-align: right;">0.676</td>
+<td style="text-align: right;">0.298</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Blind nonlinear sigmoid (Bush 2011)</td>
+<td style="text-align: right;">0.699</td>
+<td style="text-align: right;">0.458</td>
+<td style="text-align: right;">0.687</td>
+<td style="text-align: right;">0.659</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="inputs-what-step-2-receives-and-why" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="inputs-what-step-2-receives-and-why"><span class="header-section-number">4.4</span> Inputs: What Step 2 Receives and Why</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Input</th>
+<th>Structure</th>
+<th>Why It Is Set Up That Way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>bold</code></td>
+<td>Named list of <code>time × voxel</code> numeric matrices matching <code>hrf_fit$run_ids</code></td>
+<td>Must contain the exact same run names, acquisition lengths <code>n_r</code>, and voxel columns supplied to Step 1 so cross-fitted HRFs, <code>valid_rows</code> masks, and noise parameters align 1-to-1 with observations.</td>
+</tr>
+<tr class="even">
+<td><code>hrf_fit</code></td>
+<td><code>"crossrun_hrf"</code> S3 object from <code>estimate_crossrun_hrf()</code></td>
+<td>Bundles out-of-sample <code>selected_kernels</code>, own-run <code>noise</code> cascades, <code>selections</code> task-SNR metrics, <code>events</code>, <code>nuisance</code>, and <code>valid_rows</code> so Step 2 never re-estimates HRFs in-sample or loses timing metadata.</td>
+</tr>
+<tr class="odd">
+<td><code>lambda</code> &amp; <code>lambda_grid</code></td>
+<td><code>NULL</code> (auto-tuned) or positive scalar; numeric candidate vector</td>
+<td>Controls the smoothness-vs-variance trade-off. Passing <code>lambda = NULL</code> activates multi-run task-weighted GCV over <code>lambda_grid = 10^seq(-2, 1, length.out = 16)</code>.</td>
+</tr>
+<tr class="even">
+<td><code>scaling</code></td>
+<td><code>"noise_sd"</code> (recommended), <code>"zscore"</code>, <code>"demean"</code>, <code>"psc"</code>, or <code>"none"</code></td>
+<td>Determines how each run/voxel is centered and standardized <em>before</em> applying the shared penalty <span class="math inline">\(\lambda\)</span> (so <span class="math inline">\(\lambda\)</span> carries consistent meaning across runs and voxels of differing gain).</td>
+</tr>
+<tr class="odd">
+<td><code>penalty</code></td>
+<td><code>"sobolev"</code> (recommended), <code>"diff2"</code>, <code>"diff1"</code>, <code>"matern1"</code>, or <code>"ridge"</code></td>
+<td>Selects the symmetric positive semi-definite roughness matrix <span class="math inline">\(P\)</span> governing how high-frequency vs.&nbsp;baseline energy is penalized.</td>
+</tr>
+<tr class="even">
+<td><code>rwls</code></td>
+<td><code>"auto"</code> (default), <code>"woodbury"</code>, <code>"innovation"</code>, or <code>"none"</code></td>
+<td>Controls neural-safe transient artifact downweighting on sub-scrubbing glitches that survived binary <code>valid_rows</code> censoring.</td>
+</tr>
+<tr class="odd">
+<td><code>nuisance_mode</code> &amp; <code>observation_mask</code></td>
+<td><code>"ignore"</code> or <code>"joint"</code>; <code>"fit"</code> or <code>"all"</code></td>
+<td>Explicit switches governing whether Step 1’s <code>nuisance</code> regressors are jointly projected inside the inverse (<code>"ignore"</code> when BOLD was already drift-cleaned; <code>"joint"</code> when drift remains in <code>bold</code>) and whether <code>valid_rows</code> masks bad frames out of the observation fit (<code>"fit"</code>).</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="outputs-what-step-2-produces-and-why-it-is-set-up-that-way" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="outputs-what-step-2-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">4.5</span> Outputs: What Step 2 Produces and Why It Is Set Up That Way</h2>
+<p><code>deconvolve_crossrun_hrf()</code> returns an S3 list of class <code>"crossrun_decon"</code>. Crucially, <strong>pass this entire object—not just <code>decon$activity</code>—into Step 3 (<code>decon_epoch_regression()</code>)</strong>:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Output Component</th>
+<th>Structure</th>
+<th>Why It Is Set Up That Way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>activity</code></td>
+<td>Named list of <code>n_time × n_voxels</code> matrices (with <code>tr</code>, <code>time_offset</code>, <code>observation_mask</code> attributes)</td>
+<td>Preserves the <strong>full original acquisition grid</strong> even when interior frames were censored (<code>valid_rows = FALSE</code>), so event lag clocks never shift and continuous visual diagnostics remain aligned to run seconds. Invalid/zero-variance voxels receive <code>NA</code> columns rather than crashing the batch.</td>
+</tr>
+<tr class="even">
+<td><code>scaling</code></td>
+<td>Named list of per-run <code>data.frame</code>s (<code>voxel</code>, <code>center</code>, <code>scale</code>, <code>noise_sd</code>, <code>status</code>)</td>
+<td>Records both the applied pre-deconvolution divisor (<code>scale</code>) and the estimated marginal observation-noise SD (<code>noise_sd</code>). Separating <code>scale</code> from <code>noise_sd</code> allows Step 3 to multiply <code>activity</code> back into physical BOLD units (<code>restore_scale = TRUE</code>) while still propagating exact observation-noise SEs!</td>
+</tr>
+<tr class="odd">
+<td><code>noise_innovations</code></td>
+<td>Named list of <code>n_valid_rows × n_voxels</code> unit-norm task-free whitened residual matrices</td>
+<td>Extracted from <code>hrf_estimate_gls_noise_sd()</code> after projecting out free-trial task responses and HRF derivatives. Allows Step 4 to compute uncontaminated within-parcel spatial noise variance and Step 6 to estimate cross-parcel shared-error correlations (<code>shared_noise_loading</code>).</td>
+</tr>
+<tr class="even">
+<td><code>frame_weights</code></td>
+<td>Named list of length-<code>n_valid_rows</code> numeric vectors in <span class="math inline">\((0, 1]\)</span> (with <code>attr(, "weight_space")</code>)</td>
+<td>Records the realized <code>rwls</code> weights per run (<code>1</code> everywhere when clean). Passing <code>frame_weights</code> forward ensures <code>diagnose_crossrun_recovery()</code> and <code>decon_epoch_regression()</code> reconstruct the <em>exact</em> weighted inverse operator <span class="math inline">\(D_r(w_r)\)</span> and Woodbury/innovation noise covariance!</td>
+</tr>
+<tr class="odd">
+<td><code>hrf_fit</code> &amp; <code>settings</code></td>
+<td>Embedded <code>crossrun_hrf</code> object + resolved inverse settings (including <code>lambda</code> and <code>lambda_tuning</code>)</td>
+<td>Avoids storing gigabytes of dense <span class="math inline">\(n_r \times m_r\)</span> inverse matrices in RAM: because voxels are grouped into <code>(HRF, AR)</code> strata, Step 3 can rebuild each unique stratum operator <span class="math inline">\(D_r\)</span> on the fly in milliseconds using <code>hrf_fit</code>, <code>settings</code>, and <code>frame_weights</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="recommended-settings" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="recommended-settings"><span class="header-section-number">4.6</span> Recommended Settings</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>decon <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold             =</span> bold,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">hrf_fit          =</span> hrf_fit,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda           =</span> <span class="cn">NULL</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling          =</span> <span class="st">"noise_sd"</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">penalty          =</span> <span class="st">"sobolev"</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">rwls             =</span> <span class="st">"auto"</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode    =</span> <span class="st">"ignore"</span>,   <span class="co"># use "joint" if bold was NOT detrended/cleaned upstream</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">observation_mask =</span> <span class="st">"fit"</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">tail_padding     =</span> <span class="dv">0</span>L,</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">backend          =</span> <span class="st">"cpp"</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Always audit conditional gain and cross-talk on your study's event schedule:</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">lags =</span> <span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Argument</th>
+<th>Recommended</th>
+<th>Package Default</th>
+<th>Why Recommended &amp; When to Adjust</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>scaling</code></td>
+<td><code>"noise_sd"</code></td>
+<td><code>"zscore"</code></td>
+<td><strong>Critical override:</strong> The API defaults to <code>"zscore"</code> for backward compatibility, which divides by total BOLD SD (mixing task signal into the denominator). Always specify <code>scaling = "noise_sd"</code> so every voxel/run is standardized by pure marginal observation-noise SD (<span class="math inline">\(\hat{\sigma}_{\text{marg}}\)</span>), then set <code>restore_scale = TRUE</code> in Step 3 when pooling runs.</td>
+</tr>
+<tr class="even">
+<td><code>penalty</code></td>
+<td><code>"sobolev"</code></td>
+<td><code>"diff2"</code></td>
+<td><code>"diff2"</code> (<span class="math inline">\(D_2^\top D_2\)</span>) leaves linear ramps unpenalized, allowing boundary drift or slow baseline swings under weak <span class="math inline">\(\lambda\)</span>. <code>"sobolev"</code> (<span class="math inline">\(0.10 D_1^\top D_1 + 0.90 D_2^\top D_2\)</span>) penalizes both slope and curvature, yielding cleaner baselines and sharper event transitions.</td>
+</tr>
+<tr class="odd">
+<td><code>lambda</code></td>
+<td><code>NULL</code> (auto-tuned)</td>
+<td><code>NULL</code></td>
+<td>Pools task-weighted, gain-calibrated GCV across all usable runs and active voxels. Override with a fixed scalar (e.g., sensitivity check at <code>0.5 * lambda</code> and <code>2 * lambda</code>) only when comparing alternative HRF libraries under strictly matched regularization.</td>
+</tr>
+<tr class="even">
+<td><code>rwls</code></td>
+<td><code>"auto"</code></td>
+<td><code>"auto"</code></td>
+<td>Automatically stays inactive (<span class="math inline">\(w_t = 1\)</span>) on clean Gaussian runs via the LTZ spatial null gate, while engaging Woodbury SBL on isolated glitches and innovation rWLS on multi-TR physiological bursts. Set <code>"none"</code> only if reproducing unweighted algebra.</td>
+</tr>
+<tr class="odd">
+<td><code>nuisance_mode</code></td>
+<td><code>"ignore"</code> on pre-cleaned BOLD; <code>"joint"</code> on raw BOLD</td>
+<td><code>"ignore"</code> (<code>"joint"</code> for legacy fits)</td>
+<td>Note that <code>nuisance</code> passed to Step 1 is <strong>not</strong> projected out during Step 2 when <code>nuisance_mode = "ignore"</code>. If <code>bold</code> still contains scanner drift or motion terms that were only passed via <code>nuisance</code>, set <code>nuisance_mode = "joint"</code>!</td>
+</tr>
+<tr class="even">
+<td><code>observation_mask</code> &amp; <code>tail_padding</code></td>
+<td><code>"fit"</code> &amp; <code>0L</code></td>
+<td><code>"fit"</code> &amp; <code>0L</code></td>
+<td><code>"fit"</code> excludes censored <code>valid_rows == FALSE</code> volumes from the GLS data term while keeping the full latent time grid. Keep <code>tail_padding = 0L</code> so artificial zero BOLD samples are never appended after run end.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="core-deconvolution-mechanisms-sensitivity-checks" class="level2" data-number="4.7">
+<h2 data-number="4.7" class="anchored" data-anchor-id="core-deconvolution-mechanisms-sensitivity-checks"><span class="header-section-number">4.7</span> Core Deconvolution Mechanisms &amp; Sensitivity Checks</h2>
+<section id="why-regularization-is-unavoidableand-how-penalties-shape-hatst" class="level3" data-number="4.7.1">
+<h3 data-number="4.7.1" class="anchored" data-anchor-id="why-regularization-is-unavoidableand-how-penalties-shape-hatst"><span class="header-section-number">4.7.1</span> 1. Why Regularization Is Unavoidable—and How Penalties Shape <span class="math inline">\(\hat{s}(t)\)</span></h3>
+<p>Because the HRF smooths over 15–30 seconds, adding a rapid <span class="math inline">\(+1/-1\)</span> oscillation to neural activity changes predicted BOLD almost imperceptibly (<a href="#fig-step2-ambiguity" class="quarto-xref">Figure&nbsp;<span>4.2</span></a>). An unpenalized or weakly penalized inverse (<code>lambda = 0.0001</code>) explodes high-frequency noise, whereas heavy regularization (<code>lambda = 3</code>) over-smooths and shrinks peaks (<a href="#fig-step2-lambda" class="quarto-xref">Figure&nbsp;<span>4.3</span></a>).</p>
+<div id="fig-step2-ambiguity" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two latent sources differing by a fast oscillation and their nearly identical convolved BOLD series.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-ambiguity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/01-ambiguity.png" class="img-fluid figure-img" style="width:95.0%" alt="Two latent sources differing by a fast oscillation and their nearly identical convolved BOLD series.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-ambiguity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.2: High-frequency forward ambiguity: adding rapid alternating neural fluctuations produces virtually identical convolved BOLD.
+</figcaption>
+</figure>
+</div>
+<div id="fig-step2-lambda" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Three-panel comparison of weak, moderate, and strong lambda regularization.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-lambda-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/02-lambda.png" class="img-fluid figure-img" style="width:95.0%" alt="Three-panel comparison of weak, moderate, and strong lambda regularization.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-lambda-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.3: Effect of varying <code>lambda</code> (<code>0.0001</code>, <code>0.03</code>, <code>3</code>) on the same noisy BOLD series under the <code>sobolev</code> penalty.
+</figcaption>
+</figure>
+</div>
+<p>Comparing all five quadratic penalties (<code>ridge</code>, <code>diff1</code>, <code>diff2</code>, <code>matern1</code>, <code>sobolev</code>) under automatic tuning (<a href="#fig-step2-penalties" class="quarto-xref">Figure&nbsp;<span>4.4</span></a>, <a href="#tbl-step2-penalties" class="quarto-xref">Table&nbsp;<span>4.3</span></a>) shows why <code>sobolev</code> and <code>matern1</code> provide a stable middle ground: pure <code>diff2</code> leaves global linear trends unpenalized (<code>RMSE = 0.390</code> vs.&nbsp;<code>0.264</code> for <code>sobolev</code>), while pure <code>ridge</code> pulls every sample independently toward zero without sharing smoothness across adjacent TRs.</p>
+<div id="fig-step2-penalties" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Five-panel comparison of deconvolved series across penalty geometries.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-penalties-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/03-penalties.png" class="img-fluid figure-img" style="width:95.0%" alt="Five-panel comparison of deconvolved series across penalty geometries.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-penalties-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.4: Comparison of all five penalty families (<code>ridge</code>, <code>diff1</code>, <code>diff2</code>, <code>matern1</code>, <code>sobolev</code>) on the same run.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(d2<span class="sc">$</span>metrics, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Penalty"</span>, <span class="st">"Selected Lambda"</span>, <span class="st">"Correlation w/ Truth"</span>, <span class="st">"Latent RMSE"</span>, <span class="st">"Convolved BOLD RMSE"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-step2-penalties" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step2-penalties-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4.3: Continuous waveform recovery on Run 1 Voxel 1 across the five penalty families (<code>penalty_metrics.csv</code>).
+</figcaption>
+<div aria-describedby="tbl-step2-penalties-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 20%">
+<col style="width: 27%">
+<col style="width: 15%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Penalty</th>
+<th style="text-align: right;">Selected Lambda</th>
+<th style="text-align: right;">Correlation w/ Truth</th>
+<th style="text-align: right;">Latent RMSE</th>
+<th style="text-align: right;">Convolved BOLD RMSE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">ridge</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.828</td>
+<td style="text-align: right;">0.261</td>
+<td style="text-align: right;">0.136</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">diff1</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.798</td>
+<td style="text-align: right;">0.276</td>
+<td style="text-align: right;">0.161</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">diff2</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.595</td>
+<td style="text-align: right;">0.390</td>
+<td style="text-align: right;">0.320</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">matern1</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.813</td>
+<td style="text-align: right;">0.263</td>
+<td style="text-align: right;">0.139</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">sobolev</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.808</td>
+<td style="text-align: right;">0.264</td>
+<td style="text-align: right;">0.140</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="adaptive-multi-run-gcv-tuning-lambda-null" class="level3" data-number="4.7.2">
+<h3 data-number="4.7.2" class="anchored" data-anchor-id="adaptive-multi-run-gcv-tuning-lambda-null"><span class="header-section-number">4.7.2</span> 2. Adaptive Multi-Run GCV Tuning (<code>lambda = NULL</code>)</h3>
+<p>Standard observation-space GCV minimizes BOLD prediction error, which favors stronger smoothing than optimal for estimating sharp trial contrasts. MEDuSA’s <code>hrf_tune_decon_lambda()</code> (<a href="#fig-step2-tuning" class="quarto-xref">Figure&nbsp;<span>4.5</span></a>) evaluates each grid candidate across active voxels/runs and combines prewhitened GCV with Stage-3 <strong>gain-restored level variance (<code>var_level</code>)</strong>, <strong>1-TR contrast variance (<code>var_contrast</code>)</strong>, and <strong>modulation transfer (<code>mtf_rel</code>)</strong> weighted by Step 1’s task SNR.</p>
+<div id="fig-step2-tuning" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Tuning curves across lambda_grid showing raw GCV, adaptive criterion, level variance, and contrast variance.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-tuning-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/04-tuning.png" class="img-fluid figure-img" style="width:95.0%" alt="Tuning curves across lambda_grid showing raw GCV, adaptive criterion, level variance, and contrast variance.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-tuning-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.5: Comparison of raw prewhitened GCV versus MEDuSA’s adaptive task-weighted criterion (top) and the underlying gain-restored level and contrast variance proxies (bottom).
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="resolution-leakage-and-diagnose_crossrun_recovery" class="level3" data-number="4.7.3">
+<h3 data-number="4.7.3" class="anchored" data-anchor-id="resolution-leakage-and-diagnose_crossrun_recovery"><span class="header-section-number">4.7.3</span> 3. Resolution, Leakage, and <code>diagnose_crossrun_recovery()</code></h3>
+<p>Even with known HRF and optimal <span class="math inline">\(\lambda\)</span>, the resolution matrix <span class="math inline">\(R = D H\)</span> is <strong>not</strong> the identity matrix. Dividing a single point readout by its diagonal gain <span class="math inline">\(R_{tt}\)</span> restores isolated peak height to 1, but <em>simultaneously amplifies off-peak side lobes and noise</em> (<a href="#fig-step2-resolution" class="quarto-xref">Figure&nbsp;<span>4.6</span></a>) and leaves directed event-to-event cross-talk across closely spaced trials (<a href="#fig-step2-leakage" class="quarto-xref">Figure&nbsp;<span>4.7</span></a>). <code>diagnose_crossrun_recovery(decon)</code> quantifies both self-gain (<code>mean_gain = 0.549</code> in Run 1, <code>0.637</code> in Run 2) and neighbor leakage (<code>mean_abs_excess_leakage ≈ 0.021–0.024</code>) on your exact event schedule before Step 3 performs matrix de-mixing.</p>
+<div id="fig-step2-resolution" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Impulse response curves before and after scalar diagonal gain normalization.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-resolution-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/05-resolution.png" class="img-fluid figure-img" style="width:95.0%" alt="Impulse response curves before and after scalar diagonal gain normalization.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-resolution-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.6: Impulse resolution curves <span class="math inline">\(R_{:,91}\)</span> at weak, moderate, and strong <span class="math inline">\(\lambda\)</span>: raw recovery (top) versus scalar division by diagonal gain (bottom).
+</figcaption>
+</figure>
+</div>
+<div id="fig-step2-leakage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="15x15 heatmap of off-diagonal event cross-talk.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-leakage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/06-event-leakage.png" class="img-fluid figure-img" style="width:82.0%" alt="15x15 heatmap of off-diagonal event cross-talk.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-leakage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.7: Event-by-event normalized excess cross-talk matrix from <code>diagnose_crossrun_recovery()</code> across 15 Run 1 events.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="nuisance-handling-observation-masks-scaling-and-boundaries" class="level3" data-number="4.7.4">
+<h3 data-number="4.7.4" class="anchored" data-anchor-id="nuisance-handling-observation-masks-scaling-and-boundaries"><span class="header-section-number">4.7.4</span> 4. Nuisance Handling, Observation Masks, Scaling, and Boundaries</h3>
+<p>Finally, <a href="#fig-step2-mask-nuisance" class="quarto-xref">Figure&nbsp;<span>4.8</span></a>, <a href="#fig-step2-scaling" class="quarto-xref">Figure&nbsp;<span>4.9</span></a>, and <a href="#fig-step2-sensitivity" class="quarto-xref">Figure&nbsp;<span>4.10</span></a> illustrate four operational rules to verify in every dataset:</p>
+<ol type="1">
+<li><strong>Nuisance consistency (<a href="#fig-step2-mask-nuisance" class="quarto-xref">Figure&nbsp;<span>4.8</span></a>, top):</strong> When low-frequency drift remains in <code>bold</code>, <code>nuisance_mode = "ignore"</code> lets that drift pass directly into <code>activity</code>; use <code>nuisance_mode = "joint"</code> unless <code>bold</code> was already detrended upstream.</li>
+<li><strong>Observation masks (<a href="#fig-step2-mask-nuisance" class="quarto-xref">Figure&nbsp;<span>4.8</span></a>, bottom):</strong> Setting <code>valid_rows = FALSE</code> across an artifact window (<code>70–80 s</code>) with <code>observation_mask = "fit"</code> bridges the gap smoothly using the penalty and surrounding causal BOLD support without letting the spike corrupt neighboring trials—though interpolated values <em>inside</em> a long gap are prior-driven, not observed data (Step 3 will automatically gate poorly supported trial-lags to <code>NA</code>).</li>
+<li><strong>Scaling restoration (<a href="#fig-step2-scaling" class="quarto-xref">Figure&nbsp;<span>4.9</span></a>):</strong> Multiplying <code>scales$noise_sd$activity</code> or <code>scales$zscore$activity</code> by <code>scaling[[r]]$scale</code> reproduces <code>demean</code> activity to <code>&lt; 1e-8</code> (3.11e-15 in <code>verification.txt</code>), while <code>noise_sd</code> tracks true <span class="math inline">\(\sigma\)</span> cleanly across heterogeneous voxels.</li>
+<li><strong>Run-end boundaries and HRF delay sensitivity (<a href="#fig-step2-sensitivity" class="quarto-xref">Figure&nbsp;<span>4.10</span></a>):</strong> Appending artificial zero BOLD observations (<code>tail_padding = 33L</code>) pulls valid late-run activity downward, while a <span class="math inline">\(+2\text{ s}\)</span> HRF delay error shifts inferred neural peaks ~2 s earlier—underscoring why Step 1’s cross-run HRF learning and <code>tail_padding = 0L</code> are essential.</li>
+</ol>
+<div id="fig-step2-mask-nuisance" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel plot showing drift leakage under nuisance_mode = ignore and artifact containment under observation_mask = fit.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-mask-nuisance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/07-mask-nuisance.png" class="img-fluid figure-img" style="width:95.0%" alt="Two-panel plot showing drift leakage under nuisance_mode = ignore and artifact containment under observation_mask = fit.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-mask-nuisance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.8: Joint vs.&nbsp;ignored nuisance handling (top) and masked vs.&nbsp;unmasked artifact window <code>70–80 s</code> (bottom).
+</figcaption>
+</figure>
+</div>
+<div id="fig-step2-scaling" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot plot comparing zscore SD, estimated GLS noise SD, and generating noise SD across voxels.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-scaling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/08-scaling.png" class="img-fluid figure-img" style="width:92.0%" alt="Dot plot comparing zscore SD, estimated GLS noise SD, and generating noise SD across voxels.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-scaling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.9: Comparison of whole-run BOLD SD (<code>zscore</code>), event-informed GLS <code>noise_sd</code>, and true generating observation-noise SD across 8 voxels.
+</figcaption>
+</figure>
+</div>
+<div id="fig-step2-sensitivity" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel plot showing late-run distortion from zero tail padding and peak timing shift from HRF delay error.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step2-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/09-sensitivity.png" class="img-fluid figure-img" style="width:95.0%" alt="Two-panel plot showing late-run distortion from zero tail padding and peak timing shift from HRF delay error.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4.10: Sensitivity to run-end zero padding (<code>tail_padding = 33L</code> vs.&nbsp;<code>0L</code>, top) and a 2-second HRF delay misspecification (bottom).
+</figcaption>
+</figure>
+</div>
+<details>
+<summary>
+Mathematical Reference: Weighted GLS Operator &amp; Woodbury SBL
+</summary>
+<p>Let <span class="math inline">\(I_r \subset \{1, \dots, n_r\}\)</span> index the <span class="math inline">\(m_r\)</span> valid rows (<code>valid_rows[[r]] == TRUE</code>), <span class="math inline">\(M_{r,o}\)</span> select rows <span class="math inline">\(I_r\)</span>, <span class="math inline">\(H_r \in \mathbb{R}^{n_r \times n_r}\)</span> be the causal Toeplitz HRF convolution matrix for stratum kernel <span class="math inline">\(h\)</span>, and <span class="math inline">\(Z_{r,o}\)</span> be the active nuisance basis (<code>[1, trend, nuisance]</code> under <code>nuisance_mode = "joint"</code>, empty under <code>"ignore"</code>).</p>
+<ul>
+<li><strong>Exact gapped whitening &amp; nuisance projection:</strong> <span class="math inline">\(W_r = L_r^{-1}\)</span> is the inverse Cholesky factor of the exact stationary <span class="math inline">\(\text{AR}(p)\)</span> correlation submatrix <span class="math inline">\(\Sigma_{\text{AR}}[I_r, I_r]\)</span>. Under <code>rwls_space = "woodbury"</code> with transient variances <span class="math inline">\(\delta_t^2 = (1 - w_t)/w_t\)</span> on flagged frames <span class="math inline">\(S\)</span>, MEDuSA whitens against <span class="math inline">\(\Sigma_{\text{AR}}[I_r, I_r] + \operatorname{diag}(\delta^2)\)</span> via a rank-<span class="math inline">\(|S|\)</span> Sherman–Morrison–Woodbury update in <span class="math inline">\(O(m_r |S|)\)</span> operations, preventing high-<span class="math inline">\(\rho\)</span> AR filters from smearing an isolated glitch into adjacent clean frames. Orthogonalizing <span class="math inline">\(Q_Z = \operatorname{orth}(W_r Z_{r,o})\)</span> projects out nuisance terms jointly via <span class="math inline">\(\tilde{W}_r = (I - Q_Z Q_Z^\top) W_r\)</span>.</li>
+<li><strong>Linear inverse operator:</strong> With <span class="math inline">\(A_r = \tilde{W}_r M_{r,o} H_r\)</span> and penalty <span class="math inline">\(P_{\lambda} = \lambda P + \epsilon_{\text{ridge}} I_{n_r}\)</span>, the frozen inverse operator is <span class="math display">\[
+D_r = \bigl(A_r^\top A_r + P_{\lambda}\bigr)^{-1} A_r^\top \tilde{W}_r \in \mathbb{R}^{n_r \times m_r},
+\]</span> evaluated across voxel batches via Cholesky solves in C++ (<code>backend = "cpp"</code>, agreeing with <code>backend = "r"</code> to 2.71e-14).</li>
+</ul>
+<p><a href="simulate_step2.R">Step 2 simulation script</a> · <a href="figures_step2.R">Figure script</a> · <a href="verification.txt">Verification output</a></p>
+</details>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="pagination-link" aria-label="Step 1: Cross-Run HRF and Noise Estimation">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="pagination-link" aria-label="Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation">
+        <span class="nav-page-text"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

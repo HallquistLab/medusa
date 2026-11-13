@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-10",
+  "commit": "ea647a4cb3b82d0d16d5dc4f35c31c78045d65cc",
+  "source_sha256": {
+    "R/crossrun_hrf.R": "34643eaa0bb1ece827e31a2ec0f8e95b5f015ea9787873f4a1096f29c8298525",
+    "R/deconvolve_reglin.R": "658373c14aecc89d24ecbd07cfa4acfd3843c7eabeb920773c8addd57df78fa5",
+    "R/hrf_noise_evidence.R": "7c763b2208b636a2ad9685087265922a9f7de09eb3924ac7169736c024a2e058",
+    "R/diagnose_crossrun_recovery.R": "7e8c08b6d0b6df0f6f528bcec1eb54939b694594a62ebeb6a898cf71fd8d9518"
+  },
+  "simulation_seed": 20261110,
+  "replications_per_scenario": 400,
+  "source_note": "No production package changes made for this exploration."
+}

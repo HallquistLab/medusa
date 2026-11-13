@@ -1,0 +1,15 @@
+{
+  "medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd": "bfbb566435c683602dd0f755f116da7b5dc1754a44f0d5321c72019f5471d37f",
+  "medusa_step2_deconvolution/medusa_step2_deconvolution.qmd": "86f2507942f47e40b593e7125744a66ba53ab872a52928453052b4aa4fe52710",
+  "medusa_step3_epochs/medusa_step3_epochs.qmd": "577439bf05969640bed268d870fe2753df8c8bfdb386e65210f2f0f575472cf5",
+  "medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd": "37eb96bf533986a1ebd1bc9bd30c5b84686a5dbf9b63e5734ca34f15b373c645",
+  "medusa_step5_group_models/medusa_step5_group_models.qmd": "c526b51ec0ecb204baddb0e399c15fd64ccfe9b94e18bd6d0f448e178a1cb111",
+  "medusa_step6_connectivity/medusa_step6_connectivity.qmd": "181357408d58702dbe4aaf9a83992eb335fc888d8c024e7ce02001467d0fc8e6",
+  "medusa_standard_errors_mmom.qmd": "57519c8ca0bbf77e820ee8df77a87c9915d2b61d2abc0e48e6e8d0e78551c9fb",
+  "medusa_connectivity_inference/medusa_connectivity_inference.qmd": "28d3442323231dca9ad49a4273ea3ccfa4b1750112705a126853d2bc8262abd0",
+  "medusa_pr62_calibration/medusa_pr62_calibration.qmd": "317352bbd80af4484cbff354b6c43cd01f27ed046a24d7a732e311a999df0cc2",
+  "medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd": "713bcbf06f4db7adc1a79b2af87e3a9d6f6541b889a40d8656151e3918c07059",
+  "medusa_pipeline_primer.qmd": "ac7177b35386cbdd6f90f47004ce2940ecdb45a9c3e50e72586561bac57d7c98",
+  "medusa_pipeline_primer_audited.qmd": "4273a41b66d0c7e8f64103a7aa057bea24cb14719fc763cd2dbeb02bff942b65",
+  "medusa_validation_suite.qmd": "f7febf63065426aa305a0ca7ee46dbb5399733b934e6f609191bb8e6c7ce6078"
+}

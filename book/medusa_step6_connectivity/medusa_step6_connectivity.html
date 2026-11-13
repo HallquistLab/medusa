@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Step 6 · Trial-level connectivity and PPI – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../medusa_standard_errors_mmom.html" rel="next">
+<link href="../medusa_step5_group_models/medusa_step5_group_models.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-95d82e57bc82e32453d93b9dfd40c530.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#goals-of-step-6" id="toc-goals-of-step-6" class="nav-link" data-scroll-target="#goals-of-step-6">Goals of Step 6</a></li>
+  <li><a href="#inputs-what-step-6-receives-and-why" id="toc-inputs-what-step-6-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-6-receives-and-why">Inputs: What Step 6 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-6-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-6-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-6-produces-and-why-it-is-set-up-that-way">Outputs: What Step 6 Produces and Why It Is Set Up That Way</a></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
+  <li><a href="#core-mechanisms-in-detail" id="toc-core-mechanisms-in-detail" class="nav-link" data-scroll-target="#core-mechanisms-in-detail">Core Mechanisms in Detail</a>
+  <ul class="collapse">
+  <li><a href="#the-structural-trial-model-and-m-moms-moment-correction" id="toc-the-structural-trial-model-and-m-moms-moment-correction" class="nav-link" data-scroll-target="#the-structural-trial-model-and-m-moms-moment-correction">1. The structural trial model and M-MOMS moment correction</a></li>
+  <li><a href="#disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests" id="toc-disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests" class="nav-link" data-scroll-target="#disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests">2. Disattenuation vs.&nbsp;task-dependent shared error: two controlled stress tests</a></li>
+  <li><a href="#sensitivity-analysis-and-reporting-checklist-for-step-6" id="toc-sensitivity-analysis-and-reporting-checklist-for-step-6" class="nav-link" data-scroll-target="#sensitivity-analysis-and-reporting-checklist-for-step-6">3. Sensitivity analysis and reporting checklist for Step 6</a></li>
+  </ul></li>
+  <li><a href="#reproduce-the-step-6-demonstrations" id="toc-reproduce-the-step-6-demonstrations" class="nav-link" data-scroll-target="#reproduce-the-step-6-demonstrations">Reproduce the Step 6 Demonstrations</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-step6" class="quarto-section-identifier"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>In Step 5, deconvolved neural activity sits on the <strong>left-hand side</strong> of the regression (<code>Neural ~ Behavior</code>), where zero-mean BOLD measurement noise inflates standard errors without biasing population slope estimates. <strong>Step 6 moves a deconvolved parcel readout onto the right-hand side (<code>Target ~ Seed + Task + Seed:Task</code>) to test trial-to-trial functional connectivity and psychophysiological interaction (PPI)—or brain-to-behavior prediction (<code>Behavior ~ Seed</code>).</strong></p>
+<p>Placing a noisy deconvolved estimate on the right-hand side creates two immediate statistical hazards that ordinary OLS and <code>lmer()</code> cannot fix:</p>
+<ol type="1">
+<li><strong>Predictor attenuation bias:</strong> Trial-level measurement error <span class="math inline">\(u_i\)</span> in the seed inflates the observed design variance <span class="math inline">\(X^\top X\)</span>, systematically shrinking both the baseline seed connectivity slope and the <code>Seed:Task</code> PPI slope toward zero.</li>
+<li><strong>Spurious coupling from shared cross-parcel noise:</strong> Scanner drift, physiological pulsatility, head motion, and overlapping vascular noise create correlated measurement errors <span class="math inline">\(\operatorname{Cov}(u_i, v_i) \neq 0\)</span> between seed and target parcels. Disattenuating the denominator without subtracting shared seed–target noise in the numerator <em>amplifies</em> false connectivity—and if shared error varies with task condition, it can manufacture a completely spurious PPI.</li>
+</ol>
+<p>Step 6 (<code>decon_connectivity_repair()</code>, backed by <code>medusa_fit_mmom()</code>) addresses these hazards by pairing Step 4’s analytical per-trial error variances (<code>se_demixed^2</code>) and task-free cross-parcel noise innovation correlations (<code>shared_noise_loading</code> / <code>unit_error_cor</code>) with <strong>Method-of-Moments with Step-up Regularization (M-MOMS)</strong> inside each participant, followed by leverage-guarded <strong>Hartung–Knapp–Sidik–Jonkman (HKSJ)</strong> random-effects pooling across participants.</p>
+<hr>
+</section>
+<section id="goals-of-step-6" class="level2">
+<h2 class="anchored" data-anchor-id="goals-of-step-6">Goals of Step 6</h2>
+<p>Step 6 is designed to accomplish four specific goals:</p>
+<ol type="1">
+<li><strong>Disattenuate noisy neural predictors and PPI interactions:</strong> Construct exact per-trial <span class="math inline">\(q \times q\)</span> predictor measurement-error covariance blocks <span class="math inline">\(\Psi_i\)</span>—including the off-diagonal error covariance <span class="math inline">\(x_i s_i^2\)</span> between a noisy seed <span class="math inline">\(\widehat S_i\)</span> and its task product <span class="math inline">\(\widehat S_i x_i\)</span>—and subtract them from observed design moments via <code>medusa_fit_mmom()</code>.</li>
+<li><strong>Subtract stationary cross-parcel shared measurement error automatically:</strong> Use Step 4’s task-free <code>unit_error_cor</code> matrix or <code>shared_noise_loading</code> vectors (<code>shared_error = "auto"</code>) to estimate per-trial seed–target error covariance <span class="math inline">\(\operatorname{Cov}(u_i, v_i)\)</span> (<code>err_xy</code>) without stripping genuine task-evoked neural coupling.</li>
+<li><strong>Preserve clear direct vs.&nbsp;reduced-form PPI estimands:</strong> Let the analyst choose explicitly whether the seed retains its linear task response (<code>orthogonalize_seed_x = FALSE</code>, isolating direct connectivity and linear modulation) or is residualized against task covariates with exact error-covariance projection (<code>orthogonalize_seed_x = TRUE</code>).</li>
+<li><strong>Pool participant slopes with finite-sample random-effects calibration:</strong> Aggregate participant-level M-MOMS slopes at the group level using HKSJ / HC2 leverage-adjusted random-effects inference, treating independent participants as the unit of replication while guarding against extreme low-reliability outlier weights.</li>
+</ol>
+<p><strong>What Step 6 leaves outside scope (and requires you to check):</strong> Step 6 corrects <strong>within-trial additive second-moment measurement error</strong> conditional on the operators learned in Steps 1–4. It does <em>not</em> undo unequal cross-parcel source resolution biases (<span class="math inline">\(K_S \neq K_T\)</span>), model full cross-trial off-diagonal error blocks simultaneously inside M-MOMS, or automatically detect <strong>condition-dependent changes in shared physiological/motion noise</strong> (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i)\)</span> varying with <span class="math inline">\(x_i\)</span>). Because task-modulated shared error is indistinguishable from latent PPI using marginal trial SEs alone, Step 6 pairs estimation with explicit shared-error sensitivity diagnostics. For deeper theoretical derivations and full-covariance research prototypes, see <a href="../medusa_standard_errors_mmom.html">From BOLD noise to M-MOM error variances</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models and REPAIR</a>.</p>
+<hr>
+</section>
+<section id="inputs-what-step-6-receives-and-why" class="level2">
+<h2 class="anchored" data-anchor-id="inputs-what-step-6-receives-and-why">Inputs: What Step 6 Receives and Why</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Input</th>
+<th style="text-align: left;">Structure</th>
+<th style="text-align: left;">Why Step 6 needs it and why it is shaped that way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>panel_dt</code> (<code>subject_epochs</code> list recommended, or <code>group_panel</code>)</strong></td>
+<td style="text-align: left;">Named <code>list</code> of per-participant <code>decon_epoch_regression()</code> objects (preferred) or stacked <code>data.table</code></td>
+<td style="text-align: left;">Pairing seed and target trials requires matching <code>(id, run, trial)</code> rows and consistent physical/noise units across regions. Passing the full <code>subject_epochs</code> list preserves each participant’s full <code>$unit_error_cor</code> matrix from Step 4; passing a stacked <code>data.table</code> falls back cleanly to the <code>$panel$shared_noise_loading</code> list-column (note that plain CSV export drops list-columns unless saved as <code>.rds</code> or Parquet).</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code></strong></td>
+<td style="text-align: left;">Parcel labels and peri-event lag coordinates (e.g., <code>seed_lag = 0, target_lag = 0</code> or lagged <code>seed_lag = 0, target_lag = 1.3</code>)</td>
+<td style="text-align: left;">Identifies the exact paired trial readouts <span class="math inline">\((W_i, Y_i)\)</span> and their matching analytical measurement SEs (<code>se_demixed</code>) on each trial.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>covariates</code> &amp; <code>test_ppi</code></strong></td>
+<td style="text-align: left;">Character vector of centered task covariates; logical <code>test_ppi</code></td>
+<td style="text-align: left;">When <code>test_ppi = TRUE</code>, the <strong>first</strong> column of <code>covariates</code> defines the psychological modulator <span class="math inline">\(x_i\)</span> for the <code>seed:x</code> interaction, while any additional covariates enter as additive main-effect controls. Task covariates are assumed error-free; centered coding makes the main <code>seed</code> slope interpretable at <span class="math inline">\(x_i = 0\)</span>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>shared_error</code></strong></td>
+<td style="text-align: left;"><code>"auto"</code>, <code>"supplied"</code>, or <code>"zero"</code></td>
+<td style="text-align: left;">Controls how seed–target measurement-error covariance <code>err_xy</code> enters the right-hand moment correction <span class="math inline">\(X^\top Y - \sum_i \operatorname{Cov}(e_{X,i}, v_i)\)</span>.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="outputs-what-step-6-produces-and-why-it-is-set-up-that-way" class="level2">
+<h2 class="anchored" data-anchor-id="outputs-what-step-6-produces-and-why-it-is-set-up-that-way">Outputs: What Step 6 Produces and Why It Is Set Up That Way</h2>
+<p><code>decon_connectivity_repair()</code> returns a structured list separating population inference from participant-level measurement-error diagnostics:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Output component</th>
+<th style="text-align: left;">Structure &amp; key columns</th>
+<th style="text-align: left;">Why it is set up that way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$group</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> with one row per modeled term (<code>seed</code>, task covariates, <code>ppi</code>, optional lagged target control): <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code>, <code>tau2</code>, <code>n_subjects</code></td>
+<td style="text-align: left;">Reports the HKSJ leverage-adjusted random-effects population mean slope and 95% <span class="math inline">\(t\)</span>-interval across independent participants, keeping group degrees of freedom anchored to participant count rather than trial count.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>$subjects</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> with one row per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>shared_error_source</code>, <code>regularization_lambda</code>, <code>converged</code></td>
+<td style="text-align: left;">Exposes every participant’s M-MOMS slope, working cross-parcel innovation correlation (<code>r_shared_error</code>), how that correlation was sourced (<code>"unit_error_cor"</code>, <code>"shared_noise_loading"</code>, or <code>"zero"</code>), and whether step-up moment regularization (<code>"mmoms"</code>) intervened on weak design matrices.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$panel_repair</code></strong></td>
+<td style="text-align: left;">Optional paired trial <code>data.table</code> (when <code>return_panel = TRUE</code>)</td>
+<td style="text-align: left;">Retains exact centered/paired seed, target, modulator, and error-variance columns per <code>(id, run, trial)</code> so analysts can run custom sensitivity curves or inspect outlier trials directly.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="recommended-settings" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel_dt =</span> subject_epochs,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_region =</span> <span class="st">"Seed"</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_region =</span> <span class="st">"Target"</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_lag =</span> <span class="dv">0</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_lag =</span> <span class="dv">0</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates =</span> <span class="st">"x_within"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"mmoms"</span>,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col =</span> <span class="st">"id"</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: left;">Package default</th>
+<th style="text-align: left;">Recommended setting</th>
+<th style="text-align: left;">Why and when to adjust</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>panel_dt</code></strong></td>
+<td style="text-align: left;">Required</td>
+<td style="text-align: left;">Named <code>subject_epochs</code> list (or <code>.rds</code> <code>group_panel</code>)</td>
+<td style="text-align: left;">Retains exact Step 4 cross-parcel noise metadata (<code>unit_error_cor</code> and <code>shared_noise_loading</code>) that plain-text CSV exports lose; see <a href="../worked-example.html#sec-worked-handoff">worked handoff check</a>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>method</code></strong></td>
+<td style="text-align: left;"><code>"mmoms"</code></td>
+<td style="text-align: left;"><code>"mmoms"</code> (also fit <code>"naive_unweighted"</code> as a baseline comparison)</td>
+<td style="text-align: left;"><code>"mmoms"</code> applies adaptive step-up regularization when subtracting <span class="math inline">\(\sum_i \Psi_i\)</span> approaches a non-positive-definite design matrix in noisy participants, preventing explosive small-denominator outliers. Always report <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> in the same coordinates so the magnitude of disattenuation is transparent.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>shared_error</code></strong></td>
+<td style="text-align: left;"><code>"auto"</code></td>
+<td style="text-align: left;"><code>"auto"</code> + sensitivity check</td>
+<td style="text-align: left;">Automatically estimates stationary cross-parcel measurement-error correlation from Step 1’s task-free <code>noise_innovations</code> (combining spatial and cross-lag correlation when <code>seed_lag != target_lag</code>). Compare against <code>shared_error = "zero"</code> and condition-dependent sensitivity curves for PPI claims.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>use_whitened</code></strong></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;">Pairs <code>decon_demixed</code> with <code>se_demixed</code> in original run-centered coordinates. Separate parcel-specific ZCA matrices (<span class="math inline">\(T_S \neq T_T\)</span>) mix different neighboring trials into seed and target and do not commute with PPI multiplication (<span class="math inline">\(T(S \odot x) \neq (TS) \odot (Tx)\)</span>).</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>orthogonalize_seed_x</code></strong></td>
+<td style="text-align: left;"><code>TRUE</code></td>
+<td style="text-align: left;"><code>FALSE</code> when testing direct <code>Seed + x + Seed:x</code> models; <code>TRUE</code> for reduced-form residualized-seed modulation</td>
+<td style="text-align: left;">When <code>FALSE</code>, <code>seed</code> and <code>x</code> enter symmetrically without altering the quadratic task structure. When <code>TRUE</code>, the seed is first residualized on <code>covariates</code> (projecting <code>diag(se_demixed^2)</code> through <span class="math inline">\(P D_u P^\top\)</span>); remember that residualizing a task-responsive seed shifts the <code>Seed:x</code> product by a term proportional to <span class="math inline">\(x^2\)</span>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>control_target_at_seed_lag</code></strong></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;"><code>TRUE</code> for Granger-style lagged connectivity (<code>target_lag &gt; seed_lag</code>)</td>
+<td style="text-align: left;">Adds target activity at <code>seed_lag</code> as an additional error-corrected neural covariate (propagating its own <code>se_demixed^2</code> and <code>shared_noise_loading</code>) when asking whether seed activity predicts <em>subsequent change</em> in the target region.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="core-mechanisms-in-detail" class="level2">
+<h2 class="anchored" data-anchor-id="core-mechanisms-in-detail">Core Mechanisms in Detail</h2>
+<section id="the-structural-trial-model-and-m-moms-moment-correction" class="level3">
+<h3 class="anchored" data-anchor-id="the-structural-trial-model-and-m-moms-moment-correction">1. The structural trial model and M-MOMS moment correction</h3>
+<p>For participant <span class="math inline">\(s\)</span> and trial <span class="math inline">\(i\)</span> (after centering seed, target, and task covariates within each participant and run), let <span class="math inline">\(S_i\)</span> be latent seed activity at <code>seed_lag</code>, <span class="math inline">\(T_i\)</span> latent target activity at <code>target_lag</code>, and <span class="math inline">\(x_i\)</span> an error-free centered task modulator:</p>
+<p><span class="math display">\[
+T_i = \beta_S S_i + \beta_x x_i + \beta_P (S_i x_i) + \varepsilon_i.
+\]</span></p>
+<p>Here <span class="math inline">\(\beta_S\)</span> is baseline trial-to-trial coupling at <span class="math inline">\(x_i = 0\)</span>, and <span class="math inline">\(\beta_P\)</span> is the psychophysiological interaction slope—how much the seed–target slope changes per unit change in <span class="math inline">\(x_i\)</span> (for <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, <span class="math inline">\(2\beta_P\)</span> is the slope difference between conditions). Always include both main effects (<span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_x\)</span>) when testing <span class="math inline">\(\beta_P\)</span> so shared main-effect task activation is not absorbed into the interaction.</p>
+<p>Because Step 4 observes noisy readouts <span class="math inline">\(W_i = S_i + u_i\)</span> and <span class="math inline">\(Y_i = T_i + v_i\)</span> rather than <span class="math inline">\((S_i, T_i)\)</span>, the observed regressor vector <span class="math inline">\(X_i = [W_i,\, x_i,\, W_i x_i]^\top\)</span> carries measurement error <span class="math inline">\(e_{X,i} = [u_i,\, 0,\, x_i u_i]^\top\)</span>. Even when <span class="math inline">\(u_i\)</span> is purely univariate on each trial with variance <span class="math inline">\(s_i^2 = \texttt{se\_demixed}_i^2\)</span>, the seed column and the PPI interaction column share the <strong>same</strong> noise realization <span class="math inline">\(u_i\)</span>, creating a structured <span class="math inline">\(3 \times 3\)</span> predictor error covariance block on trial <span class="math inline">\(i\)</span>:</p>
+<p><span class="math display">\[
+\Psi_i = \operatorname{Cov}(e_{X,i} \mid x_i) = s_i^2 \begin{pmatrix} 1 &amp; 0 &amp; x_i \\ 0 &amp; 0 &amp; 0 \\ x_i &amp; 0 &amp; x_i^2 \end{pmatrix}.
+\]</span></p>
+<p>Notice two essential features of <span class="math inline">\(\Psi_i\)</span>: - <strong>Heteroskedastic interaction error:</strong> Trial measurement variance in the PPI column scales with <span class="math inline">\(x_i^2 s_i^2\)</span>, so extreme modulator trials carry amplified measurement noise. - <strong>Signed predictor–interaction error covariance:</strong> Whenever <span class="math inline">\(x_i \neq 0\)</span>, the off-diagonal entry <span class="math inline">\(x_i s_i^2\)</span> is nonzero (and negative when <span class="math inline">\(x_i &lt; 0\)</span>). Passing diagonal SEs without this off-diagonal term miscalibrates both main and interaction slopes.</p>
+<p>Meanwhile, if seed and target measurement errors correlate (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = c_i\)</span>), the observed cross-product <span class="math inline">\(X^\top Y\)</span> is also biased by <span class="math inline">\(\sum_i [c_i,\, 0,\, x_i c_i]^\top\)</span>. M-MOMS solves the bias-corrected normal equations (with step-up eigenvalue regularization when <span class="math inline">\(X^\top X - \sum_i \Psi_i\)</span> nears singularity):</p>
+<p><span class="math display">\[
+\left(X^\top X - \sum_{i=1}^n \Psi_i\right) \widehat\beta = X^\top Y - \sum_{i=1}^n \begin{pmatrix} \operatorname{Cov}(u_i, v_i \mid x_i) \\ 0 \\ x_i \operatorname{Cov}(u_i, v_i \mid x_i) \end{pmatrix}.
+\]</span></p>
+<p>Under <code>shared_error = "auto"</code>, <code>decon_connectivity_repair()</code> populates <span class="math inline">\(\operatorname{Cov}(u_i, v_i) = \widehat r_{ST} \, s_{S,i} s_{T,i}\)</span> using participant <span class="math inline">\(s\)</span>’s task-free innovation correlation <span class="math inline">\(\widehat r_{ST}\)</span> from Step 4 (<code>unit_error_cor</code>, or the inner product of <code>shared_noise_loading</code> vectors). That automatically removes <strong>stationary</strong> cross-parcel background noise correlation without needing resting-state scans or manual calibration.</p>
+</section>
+<section id="disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests" class="level3">
+<h3 class="anchored" data-anchor-id="disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests">2. Disattenuation vs.&nbsp;task-dependent shared error: two controlled stress tests</h3>
+<p>Why isn’t stationary <code>shared_error = "auto"</code>—or marginal SE disattenuation alone—an automatic guarantee for every PPI claim? Consider two panel-level simulations (120 datasets each; 16 participants, 2 runs, 60 trials/run, balanced <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, marginal seed and target measurement error SDs fixed identically at <span class="math inline">\(0.70\)</span> in every condition):</p>
+<ol type="1">
+<li><strong>Genuine PPI (independent errors):</strong> True population interaction <span class="math inline">\(\beta_P = 0.35\)</span>, independent seed–target errors (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0\)</span>).</li>
+<li><strong>Task-modulated shared-error null:</strong> True population interaction <span class="math inline">\(\beta_P = 0\)</span>, zero average error correlation across the run, <strong>but shared error flips sign with task condition</strong>: <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span> (for example, condition-locked breath-hold, arousal, or head-jerking artifacts affecting both regions during <span class="math inline">\(x_i = +1\)</span> trials). Because average unconditional <span class="math inline">\(\operatorname{Cov}(u, v) = 0\)</span> across balanced <span class="math inline">\(-1/+1\)</span> trials, neither marginal SEs (<code>se_demixed</code>) nor a single stationary run-wide correlation (<code>shared_error = "auto"</code>) sees the condition-flipped cross-error!</li>
+</ol>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 20%">
+<col style="width: 6%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 6%">
+<col style="width: 18%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">Estimator</th>
+<th style="text-align: right;">Truth</th>
+<th style="text-align: right;">Mean</th>
+<th style="text-align: right;">Bias</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">Reject (p &lt;= .05)</th>
+<th style="text-align: right;">95% CI Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Genuine PPI</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">0.230</td>
+<td style="text-align: right;">-0.120</td>
+<td style="text-align: right;">0.123</td>
+<td style="text-align: right;">100.0%</td>
+<td style="text-align: right;">0.0%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Genuine PPI</td>
+<td style="text-align: left;">M-MOMS</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">0.343</td>
+<td style="text-align: right;">-0.007</td>
+<td style="text-align: right;">0.039</td>
+<td style="text-align: right;">100.0%</td>
+<td style="text-align: right;">95.0%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Genuine PPI</td>
+<td style="text-align: left;">Known-error moments</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">0.004</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">100.0%</td>
+<td style="text-align: right;">95.8%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Shared-error null</td>
+<td style="text-align: left;">Naive</td>
+<td style="text-align: right;">0.00</td>
+<td style="text-align: right;">0.214</td>
+<td style="text-align: right;">0.214</td>
+<td style="text-align: right;">0.215</td>
+<td style="text-align: right;">100.0%</td>
+<td style="text-align: right;">0.0%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Shared-error null</td>
+<td style="text-align: left;">M-MOMS</td>
+<td style="text-align: right;">0.00</td>
+<td style="text-align: right;">0.322</td>
+<td style="text-align: right;">0.322</td>
+<td style="text-align: right;">0.324</td>
+<td style="text-align: right;">100.0%</td>
+<td style="text-align: right;">0.0%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Shared-error null</td>
+<td style="text-align: left;">Known-error moments</td>
+<td style="text-align: right;">0.00</td>
+<td style="text-align: right;">-0.018</td>
+<td style="text-align: right;">-0.018</td>
+<td style="text-align: right;">0.042</td>
+<td style="text-align: right;">5.8%</td>
+<td style="text-align: right;">94.2%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="fig-ppi" class="quarto-float quarto-figure quarto-figure-center anchored" alt="M-MOMS centers near 0.35 for genuine PPI and near 0.32 for shared-error null. The known-error correction brings the latter near zero.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ppi-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="ppi_estimates.png" class="img-fluid figure-img" alt="M-MOMS centers near 0.35 for genuine PPI and near 0.32 for shared-error null. The known-error correction brings the latter near zero.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ppi-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;8.1: Population PPI estimates across 120 simulated datasets per scenario. The reference line shows the generating slope. The M-MOMS correction recovers the independent-error effect and increases the false interaction under task-dependent shared error.
+</figcaption>
+</figure>
+</div>
+<p>The two panels of <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>8.1</span></a> illustrate both sides of measurement-error correction:</p>
+<ul>
+<li><strong>When measurement error is genuinely disattenuated (<code>Genuine PPI</code>):</strong> Naive regression is severely attenuated (<strong>0.230</strong> vs.&nbsp;truth <code>0.350</code>, <strong>0.0%</strong> CI coverage because narrow group SEs center on the biased value). M-MOMS completely removes the attenuation bias (<strong>0.343</strong>, RMSE dropping from 0.123 to <strong>0.039</strong>, achieving <strong>95.0%</strong> nominal coverage).</li>
+<li><strong>Why larger M-MOMS slopes do not prove valid recovery (<code>Shared-error null</code>):</strong> When <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = r x_i \sigma^2\)</span>, multiplying seed error <span class="math inline">\(u_i\)</span> by <span class="math inline">\(x_i\)</span> creates a nonzero numerator bias <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2\)</span>. Naive regression already exhibits a false positive (<strong>0.214</strong>). Subtracting predictor error variance from the denominator <span class="math inline">\(X^\top X - \sum \Psi_i\)</span> while leaving <span class="math inline">\(r \sigma^2\)</span> in the numerator <strong>magnifies</strong> the artifact to <strong>0.322</strong> (100.0% false rejection). Only when the condition-specific cross-error moment is explicitly subtracted (<code>Known-error moments</code>) does the estimate return to zero (<strong>-0.018</strong>, <strong>94.2%</strong> coverage).</li>
+</ul>
+</section>
+<section id="sensitivity-analysis-and-reporting-checklist-for-step-6" class="level3">
+<h3 class="anchored" data-anchor-id="sensitivity-analysis-and-reporting-checklist-for-step-6">3. Sensitivity analysis and reporting checklist for Step 6</h3>
+<p>Because stationary background noise correlation (<code>shared_error = "auto"</code>) removes baseline cross-parcel shared error <span class="math inline">\(\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T\)</span> (which biases main-effect <code>seed</code> connectivity) while condition-modulated cross-error <span class="math inline">\(\Delta r \cdot x_i \sigma_S \sigma_T\)</span> threatens <code>ppi</code>, every empirical PPI claim should evaluate how sensitive its conclusion is to plausible condition-dependent error correlation:</p>
+<div id="fig-sensitivity" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="ppi_sensitivity.png" class="img-fluid figure-img" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;8.2: Population moment sensitivity in the shared-error null. The hypothetical cross-error correlation changes sign with the task condition. At the generating amplitude of 0.65 the corrected slope crosses zero.
+</figcaption>
+</figure>
+</div>
+<p>As <a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>8.2</span></a> shows, plotting the implied M-MOMS interaction slope across a range of hypothetical task-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> immediately reveals how strong condition-locked artifact coupling would have to be to explain away an observed PPI effect. Pair this sensitivity check with physiological/motion nuisance regressors in Step 1/2 (<code>nuisance_list</code>), framewise displacement stratified checks, and a negative-control reference parcel that shares vascular/physiological noise proximity without the hypothesized circuit connection.</p>
+<p>When reporting a Step 6 connectivity or PPI analysis, always document:</p>
+<ol type="1">
+<li><strong>Circuit &amp; lag specification:</strong> Exact <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, whether <code>control_target_at_seed_lag</code> was included, and the prespecified multiplicity family across region pairs and lags.</li>
+<li><strong>Covariate centering &amp; orthogonalization:</strong> Coding of the modulator <span class="math inline">\(x_i\)</span>, included main effects, and whether <code>orthogonalize_seed_x</code> was <code>FALSE</code> (direct model) or <code>TRUE</code> (residualized-seed model).</li>
+<li><strong>Naive vs.&nbsp;M-MOMS comparison:</strong> Side-by-side <code>naive_unweighted</code> and <code>mmoms</code> estimates in identical coordinates (<code>use_whitened = FALSE</code>) so readers see both raw and disattenuated magnitudes.</li>
+<li><strong>Shared-error provenance &amp; participant diagnostics:</strong> Summary of <code>ppi$subjects$r_shared_error</code>, <code>shared_error_source</code>, participant/trial counts, any <code>mmoms</code> step-up regularization triggers, and sensitivity to <code>shared_error = "zero"</code> vs.&nbsp;<code>"auto"</code> (plus condition-specific noise checks for PPI).</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="reproduce-the-step-6-demonstrations" class="level2">
+<h2 class="anchored" data-anchor-id="reproduce-the-step-6-demonstrations">Reproduce the Step 6 Demonstrations</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Show reproduction commands</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate.R</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> figures.R</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_step6_connectivity.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p><a href="simulate.R">Simulation source</a> · <a href="figures.R">Figure source</a> · <a href="ppi_summary.csv">Summary metrics</a> · <a href="ppi_draws.csv">Replication draws</a> · <a href="simulation.log">Simulation log</a></p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="pagination-link" aria-label="Step 5 · Group and trajectory inference">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 5 · Group and trajectory inference</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../medusa_standard_errors_mmom.html" class="pagination-link" aria-label="From BOLD noise to M-MOM error variances">
+        <span class="nav-page-text"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

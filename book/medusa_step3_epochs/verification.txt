@@ -1,0 +1,5 @@
+Public readout reproduction error 3.10362846533963e-13
+Public SE reproduction error 6.93889390390723e-17
+Independent dense AR covariance error 6.07153216591882e-18
+Public regularized-ZCA reproduction error 1.22124532708767e-15
+Maximum readout weight-sum error 2.22044604925031e-16

@@ -1,0 +1,50 @@
+Registered S3 method overwritten by 'lme4':
+  method           from
+  na.action.merMod car 
+Registered S3 method overwritten by 'fmri.pipeline':
+  method               from         
+  as.character.formula formula.tools
+MEDuSA primer methods audit
+Repository: /Users/hallquist/Data_Analysis/r_packages/fmri.pipeline 
+Commit: 06705c225c2ea0870242cc1532656bda593b200a 
+R: R version 4.5.2 (2025-10-31) 
+
+RUN: target BOLD, events, mask and nuisance do not affect its HRF selection 
+Test passed with 4 successes 🎉.
+RUN: gap-aware AR whitening and evidence match independent GLS fits 
+Test passed with 19 successes 😀.
+RUN: masked nuisance-adjusted inverse matches a joint normal-equation reference 
+Test passed with 3 successes 🥇.
+RUN: calibrated folds exclude all target information and flag inconsistent runs 
+Test passed with 6 successes 🥇.
+RUN: decon_epoch_regression trial-varying duration source model eliminates RT time-on-task confounding 
+Test passed with 11 successes 🎊.
+RUN: decon_epoch_regression propagates analytical per-trial precision weights and ZCA whitening to mixed_by 
+Test passed with 88 successes 😸.
+RUN: decon_epoch_regression removes trial-level non-target cue confounding and sharpens within-trial lag profiles 
+Test passed with 3 successes 😸.
+RUN: single-run HRF estimation pools contiguous temporal sub-blocks and preserves full-run deconvolution 
+Test passed with 23 successes 🥳.
+RUN: decon_epoch_regression supports native parcel pre-aggregation and covariate-agnostic precision weights 
+Test passed with 18 successes 🎉.
+RUN: fast-TR amendments: AR(1)xAR(2) cascade whitening, AR(3) second-difference noise_sd, and sub-TR lobe-calibrated within-trial demixing 
+Test passed with 8 successes 😀.
+
+Selected baseline test count: 10 
+Original audit run: all ten tests passed, 183 assertions total.
+
+Library: 27 unit-sum kernels; delay range 4--8s; dispersions .9/1/1.1.
+
+Damped ZCA propagated covariance (not asserted spherical):
+         [,1]     [,2]     [,3]
+[1,] 0.931414 0.086064 0.017635
+[2,] 0.086064 3.703326 0.095220
+[3,] 0.017635 0.095220 1.870611
+
+Stationary cascade covariance diagnostic (known approximation):
+max_absolute_error max_diagonal_error      mean_diagonal max_interior_error 
+       0.148381149        0.148381149        0.995187186        0.007940412 
+Interpretation: conditional covariance propagation is approximate at
+cascade boundaries and excludes estimation uncertainty in learned HRFs,
+noise parameters, parcel weights, and lambda. Diagnostic is not a
+failure of a package test; no package source was changed.

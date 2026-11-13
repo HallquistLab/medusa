@@ -1,0 +1,1120 @@
+---
+title: "MEDuSA: a practical methods primer"
+subtitle: "From BOLD time series to trial-level models, with reproducible simulations"
+author: "Michael N. Hallquist & Laboratory for Developmental Personality Neuroscience"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show supporting code"
+    code-overflow: wrap
+    css: primer.css
+    page-layout: full
+    code-tools: true
+    theme: cosmo
+    fig-width: 11
+    fig-height: 6.5
+    fig-dpi: 180
+    embed-resources: true
+execute:
+  cache: false
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE, cache=FALSE}
+# Prefer an installed package; MEDUSA_SOURCE permits a reviewed source checkout.
+source_dir <- Sys.getenv("MEDUSA_SOURCE", "")
+if (!nzchar(source_dir) && dir.exists("../../r_packages/fmri.pipeline")) {
+  source_dir <- normalizePath("../../r_packages/fmri.pipeline")
+}
+tryCatch({
+  if (nzchar(source_dir)) {
+    pkgload::load_all(source_dir, compile = FALSE, quiet = TRUE)
+  } else {
+    library(fmri.pipeline)
+  }
+}, error = function(e) {
+  source("../R/load_pipeline.R")
+  load_medusa_sim_env(fp_dir = source_dir, quiet = TRUE)
+})
+
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(knitr)
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 180)
+
+theme_medusa <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(color = "#ECECEC", linewidth = 0.35),
+      strip.background = element_rect(fill = "#F4F6F8", color = NA),
+      strip.text = element_text(face = "bold", size = base_size - 0.5),
+      plot.title = element_text(face = "bold", size = base_size + 1, margin = margin(b = 7)),
+      plot.subtitle = element_text(color = "#4A5568", size = base_size - 0.5),
+      legend.position = "bottom",
+      legend.box = "vertical",
+      legend.text = element_text(size = base_size - 1),
+      plot.title.position = "plot",
+      plot.margin = margin(12, 18, 12, 12)
+    )
+}
+```
+
+# Purpose and scope {#sec-motivation}
+
+MEDuSA links trial-varying behavioral signals to the time course of fMRI responses. The 2022 talk introduced **Multilevel Event-related Deconvolved Signal Analysis**: deconvolve BOLD, align the result to events, fit trial-level mixed models at each region and lag, and correct the resulting family of tests. This primer retains that sequence and explains the newer HRF learning, overlap correction, uncertainty propagation, and connectivity tools.
+
+The object of inference is a **regularized estimate of latent activity**, conditional on the HRF and source model. Deconvolution cannot restore information that the acquisition and hemodynamic filter did not preserve. A finely spaced lag grid provides finely spaced readouts; it does not establish equivalent neural temporal resolution.
+
+::: {.callout-note title="What this demonstration establishes"}
+This is a small, executable teaching simulation, not a validation study or a guarantee that every recommended setting improves every dataset. The curves show the realized behavior of the current methods, including limitations and finite-sample artifacts. Eight participants and twenty trials per run are deliberately inexpensive to render; production inference needs more data and design-specific simulation checks.
+:::
+
+Methodological descriptions and API contracts in this primer are synchronized with `fmri.pipeline` through [PR #62](https://github.com/HallquistLab/fmri.pipeline/pull/62) (`65c49c2`) and [PR #64](https://github.com/HallquistLab/fmri.pipeline/pull/64) (`f7781c9`, package version `0.4-1`; originally audited at `db685e8`). The executable simulation chunks run live against the loaded checkout when rendered, so numerical values reflect the active revision.
+
+| Approach | Main estimate | Main modeling choice |
+|:---|:---|:---|
+| Parametric GLM | A coefficient for each specified task regressor | HRF basis, event timing, and modulation model |
+| FIR | An estimated response at each lag | Event/condition basis and regularization; trial-specific variants are possible |
+| Beta series | One amplitude per trial and regressor | HRF basis, overlap, and trial estimation strategy |
+| MEDuSA | A trial-by-lag panel with operator-based error estimates | Learned HRF, regularized inverse, source/readout model, and downstream covariance handling |
+
+These approaches have extensions and overlapping capabilities. MEDuSA's practical contribution here is the connected workflow and its retained operators, rather than exclusive access to trial-level or temporally flexible models.
+
+**Reading the report.** The visible code blocks show calls used in an applied analysis. Expand **Show supporting code** to inspect simulation generation, plotting, and repeated fitting. Follow the six steps in order: learn the HRF, invert it, extract epochs, propagate uncertainty, model trial effects, then examine connectivity.
+
+# Conceptual Overview of the MEDuSA Pipeline {#sec-conceptual-figure}
+
+@fig-medusa-overview shows observed BOLD and its deconvolved readout in a small two-run simulation ($\text{TR} = 0.65\text{ s}$).
+
+```{r, echo=FALSE, fig.width=11, fig.height=4.5}
+#| label: fig-medusa-overview
+#| fig-alt: "BOLD peaks follow the earlier deconvolved readout peaks across six feedback trials."
+#| fig-cap: "Observed BOLD and deconvolved activity for one simulated parcel. Each series is separately z-scored for shape comparison only. Dashed lines mark feedback; dotted lines mark cues. Shading shows the feedback readout windows. These display z-scores are not the units used by the downstream models."
+
+set.seed(20261110)
+
+# Build a clean pedagogical 2-run mini-simulation for the conceptual figure
+tr_fig <- 0.65
+n_time_fig <- 260L
+t_grid_fig <- (seq_len(n_time_fig) - 1L) * tr_fig
+
+k_mat_fig <- hrf_library(tr = tr_fig, preset = "medusa")
+pars_fig <- attr(k_mat_fig, "parameters")
+
+# Pick a fast peaking kernel for Region 1 (Phasic RPE) and a slower kernel for Region 2 (Sustained)
+u_pen_fig <- 0.05 * abs(ifelse(is.infinite(pars_fig$undershoot_ratio), 20, pars_fig$undershoot_ratio) - 6)
+k_fast_idx <- which.min(abs(pars_fig$peak_delay - 4.5) + abs(pars_fig$dispersion - 0.9) + u_pen_fig)
+k_slow_idx <- which.min(abs(pars_fig$peak_delay - 7.0) + abs(pars_fig$dispersion - 1.1) + u_pen_fig)
+h_true_fast <- k_mat_fig[, k_fast_idx]
+h_true_slow <- k_mat_fig[, k_slow_idx]
+
+# 12 trials per run for stable cross-run HRF estimation; first 6 trials shown in the time-series window
+make_demo_run <- function(n_tr, rpe_vals, seed_offset = 0L) {
+  set.seed(4200 + seed_offset)
+  cue_onsets <- seq(6, by = 13.0, length.out = length(rpe_vals)) + runif(length(rpe_vals), -0.4, 0.4)
+  fb_onsets <- cue_onsets + 2.2
+  ev <- data.frame(
+    onset = c(cue_onsets, fb_onsets),
+    duration = rep(0, 2L * length(rpe_vals)),
+    condition = rep(c("cue", "feedback"), each = length(rpe_vals))
+  )
+  ev <- ev[order(ev$onset), ]
+  rownames(ev) <- NULL
+  
+  # True neural latent time course in Region 1 (Phasic feedback response proportional to RPE + small cue pulse)
+  s_r1 <- numeric(n_tr)
+  s_r2 <- numeric(n_tr)
+  for (i in seq_along(rpe_vals)) {
+    idx_c <- which.min(abs(t_grid_fig - cue_onsets[i]))
+    s_r1[idx_c] <- s_r1[idx_c] + 0.35
+    s_r2[idx_c] <- s_r2[idx_c] + 0.30
+    for (dt_lag in seq(0, 3.9, by = tr_fig)) {
+      idx_f <- which.min(abs(t_grid_fig - (fb_onsets[i] + dt_lag)))
+      if (idx_f <= n_tr) {
+        w_phasic <- exp(-0.5 * ((dt_lag - 0.65) / 0.55)^2)
+        w_sust   <- exp(-0.5 * ((dt_lag - 2.30) / 0.95)^2)
+        s_r1[idx_f] <- s_r1[idx_f] + (1.4 + 0.95 * rpe_vals[i]) * w_phasic
+        s_r2[idx_f] <- s_r2[idx_f] + (1.1 + 0.85 * rpe_vals[i]) * w_sust
+      }
+    }
+  }
+  conv_trunc <- function(x, k) stats::convolve(x, rev(k), type = "open")[seq_len(length(x))]
+  y1_clean <- conv_trunc(s_r1, h_true_fast)
+  y2_clean <- conv_trunc(s_r2, h_true_slow)
+  Y_mat <- matrix(0, nrow = n_tr, ncol = 8L)
+  colnames(Y_mat) <- c(paste0("R1_v", 1:4), paste0("R2_v", 1:4))
+  for (v in 1:4) {
+    Y_mat[, v]     <- y1_clean + as.numeric(arima.sim(list(ar = c(0.45, -0.15)), n = n_tr, sd = 0.22))
+    Y_mat[, v + 4] <- y2_clean + as.numeric(arima.sim(list(ar = c(0.45, -0.15)), n = n_tr, sd = 0.22))
+  }
+  list(Y = Y_mat, events = ev, fb_onsets = fb_onsets, cue_onsets = cue_onsets,
+       rpe = rpe_vals, s_r1 = s_r1, y1_clean = y1_clean)
+}
+
+rpe_run1 <- c(1.6, 1.0, 0.4, -0.2, -0.8, -1.4, 1.3, -0.9, 0.7, -0.4, 1.1, -1.2)
+rpe_run2 <- c(1.4, -1.1, 0.8, -0.5, 1.2, -1.3, 0.9, -0.7, 1.5, -1.0, 0.5, -0.3)
+
+run1_fig <- make_demo_run(n_time_fig, rpe_run1, seed_offset = 1L)
+run2_fig <- make_demo_run(n_time_fig, rpe_run2, seed_offset = 2L)
+
+parcels_fig <- c(rep("Parcel_Phasic", 4), rep("Parcel_Sustained", 4))
+names(parcels_fig) <- colnames(run1_fig$Y)
+
+hrf_fit_fig <- estimate_crossrun_hrf(
+  bold = list(run1 = run1_fig$Y, run2 = run2_fig$Y),
+  events = list(run1 = run1_fig$events, run2 = run2_fig$events),
+  tr = tr_fig,
+  kernel_grid = k_mat_fig,
+  spatial_groups = parcels_fig,
+  pooling = "parcel",
+  min_parcel_voxels = 3L,
+  amplitude_model = "trial",
+  selection_mode = "soft_average"
+)
+
+decon_fig <- deconvolve_crossrun_hrf(
+  bold = list(run1 = run1_fig$Y, run2 = run2_fig$Y),
+  hrf_fit = hrf_fit_fig,
+  penalty = "sobolev",
+  scaling = "noise_sd",
+  lambda = NULL,
+  nuisance_mode = "joint"
+)
+
+lags_fig <- round(seq(-1.3, 3.9, by = tr_fig), 2)
+epoch_fig <- decon_epoch_regression(
+  deconvolution = decon_fig,
+  covariates = list(
+    run1 = matrix(rpe_run1, ncol = 1, dimnames = list(NULL, "rpe")),
+    run2 = matrix(rpe_run2, ncol = 1, dimnames = list(NULL, "rpe"))
+  ),
+  target_condition = "feedback",
+  lags = lags_fig,
+  demix_other_events = TRUE,
+  demix_target_trials = TRUE,
+  demix_within_trial = FALSE,
+  restore_scale = TRUE,
+  weighting = "precision",
+  tau2_mode = "marginal",
+  aggregate_by_parcel = TRUE,
+  parcel_groups = parcels_fig,
+  whiten_panel = TRUE,
+  return_epochs = TRUE,
+  return_panel = TRUE
+)
+
+# --- Panel A & C: Continuous BOLD vs. Deconvolved Latent Activity with Event Windows (first 6 trials) ---
+t_keep <- t_grid_fig <= 88
+df_cont <- data.frame(
+  time = t_grid_fig[t_keep],
+  BOLD = scale(rowMeans(run1_fig$Y[t_keep, 1:4]))[, 1],
+  Deconvolved = scale(rowMeans(decon_fig$activity$run1[t_keep, 1:4]))[, 1],
+  True_Latent = scale(run1_fig$s_r1[t_keep])[, 1]
+)
+df_win <- data.frame(
+  trial = factor(paste0("Trial ", 1:6, " (RPE=", sprintf("%+.1f", rpe_run1[1:6]), ")"),
+                 levels = paste0("Trial ", 1:6, " (RPE=", sprintf("%+.1f", rpe_run1[1:6]), ")")),
+  fb_onset = run1_fig$fb_onsets[1:6],
+  cue_onset = run1_fig$cue_onsets[1:6],
+  xmin = run1_fig$fb_onsets[1:6] - 1.3,
+  xmax = run1_fig$fb_onsets[1:6] + 3.9,
+  rpe = rpe_run1[1:6]
+)
+
+p_A_C <- ggplot() +
+  geom_rect(data = df_win, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = rpe),
+            alpha = 0.16) +
+  geom_vline(data = df_win, aes(xintercept = cue_onset), linetype = "dotted", color = "#718096", linewidth = 0.45) +
+  geom_vline(data = df_win, aes(xintercept = fb_onset), linetype = "dashed", color = "#2B6CB0", linewidth = 0.55) +
+  geom_line(data = df_cont, aes(x = time, y = BOLD, color = "Observed BOLD"), linewidth = 0.85) +
+  geom_line(data = df_cont, aes(x = time, y = Deconvolved, color = "Deconvolved readout"), linewidth = 0.9) +
+  scale_color_manual(
+    name = NULL,
+    values = c(
+      "Observed BOLD" = "#D65F00",
+      "Deconvolved readout" = "#2B6CB0"
+    )
+  ) +
+  scale_fill_gradient2(name = "Trial RPE", low = "#3182CE", mid = "#EDF2F7", high = "#DD6B20", midpoint = 0, breaks = c(-1, 0, 1),
+                        guide = guide_colorbar(barwidth = grid::unit(4, "cm"))) +
+  labs(
+    title = "BOLD and deconvolved activity",
+    subtitle = "Feedback onsets and readout windows across six trials",
+    x = "Run time (s)",
+    y = "Separately standardized signal"
+  ) +
+  theme_medusa() +
+  theme(legend.box = "horizontal")
+
+# --- Panel B: Stage 1 Cross-Fitted HRF Library & Empirical Bayes Soft Kernel Averaging ---
+t_hrf <- (seq_len(nrow(k_mat_fig)) - 1L) * tr_fig
+df_lib_curves <- data.table::CJ(k_idx = seq_len(ncol(k_mat_fig)), t_idx = seq_len(nrow(k_mat_fig)))
+df_lib_curves[, time := t_hrf[t_idx]]
+df_lib_curves[, h_val := k_mat_fig[cbind(t_idx, k_idx)]]
+df_lib_curves[, h_norm := h_val / max(h_val), by = k_idx]
+
+df_learned_hrf <- rbind(
+  data.frame(time = t_hrf, h = h_true_fast / max(h_true_fast), Region = "Fast-HRF parcel", Type = "True HRF"),
+  data.frame(time = t_hrf, h = hrf_fit_fig$selected_kernels$run1[, 1] / max(hrf_fit_fig$selected_kernels$run1[, 1]),
+             Region = "Fast-HRF parcel", Type = "Learned HRF"),
+  data.frame(time = t_hrf, h = h_true_slow / max(h_true_slow), Region = "Slow-HRF parcel", Type = "True HRF"),
+  data.frame(time = t_hrf, h = hrf_fit_fig$selected_kernels$run1[, 5] / max(hrf_fit_fig$selected_kernels$run1[, 5]),
+             Region = "Slow-HRF parcel", Type = "Learned HRF")
+)
+
+p_B <- ggplot() +
+  geom_line(data = df_lib_curves[time <= 20], aes(x = time, y = h_norm, group = k_idx),
+            color = "#CBD5E0", linewidth = 0.3, alpha = 0.55) +
+  geom_line(data = df_learned_hrf[df_learned_hrf$time <= 20, ],
+            aes(x = time, y = h, color = Region, linetype = Type), linewidth = 1.0) +
+  scale_color_manual(values = c("Fast-HRF parcel" = "#2B6CB0", "Slow-HRF parcel" = "#D69E2E")) +
+  scale_linetype_manual(values = c("True HRF" = "dashed", "Learned HRF" = "solid")) +
+  labs(
+    title = "True and learned hemodynamic filters",
+    subtitle = sprintf("%d candidate HRFs in grey; each curve normalized to its own peak", ncol(k_mat_fig)),
+    x = "Time from Impulse (s)",
+    y = "Peak-normalized HRF"
+  ) +
+  theme_medusa()
+
+# --- Panel D: Stage 3 Event-Aligned & Operator De-Mixed Trial Epochs (Trial 1..6) ---
+p_dt_r1 <- as.data.table(epoch_fig$panel)[parcel == "Parcel_Phasic" & run == "run1" & trial <= 6]
+p_dt_r1[, Trial_Label := factor(paste0("Trial ", trial, " (RPE=", sprintf("%+.1f", rpe_run1[trial]), ")"),
+                                levels = paste0("Trial ", 1:6, " (RPE=", sprintf("%+.1f", rpe_run1[1:6]), ")"))]
+
+p_D <- ggplot(p_dt_r1, aes(x = evt_time, y = decon_demixed, color = rpe, group = trial)) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_ribbon(aes(ymin = decon_demixed - se_demixed, ymax = decon_demixed + se_demixed, fill = rpe),
+              alpha = 0.14, color = NA) +
+  geom_line(linewidth = 0.95) +
+  geom_point(size = 1.8) +
+  scale_color_gradient2(name = "Trial RPE", low = "#2B6CB0", mid = "#718096", high = "#DD6B20", midpoint = 0, breaks = c(-1, 0, 1),
+                        guide = guide_colorbar(barwidth = grid::unit(4, "cm"))) +
+  scale_fill_gradient2(name = "Trial RPE", low = "#2B6CB0", mid = "#718096", high = "#DD6B20", midpoint = 0, breaks = c(-1, 0, 1),
+                        guide = guide_colorbar(barwidth = grid::unit(4, "cm"))) +
+  labs(
+    title = "Feedback-aligned trial readouts",
+    subtitle = "One parcel and run; ribbons show operator measurement error, +/- 1 SE",
+    x = "Time from feedback (s)",
+    y = "Corrected activity (input units)"
+  ) +
+  theme_medusa()
+
+# --- Panel E: Stage 4 Spatiotemporal Slope Recovery Across Regions & Lags ---
+cf_fig <- epoch_fig$coefficients[epoch_fig$coefficients$term == "rpe", ]
+df_slopes <- data.frame(
+  lag = cf_fig$lag,
+  beta = cf_fig$beta_corrected,
+  se = cf_fig$se_corrected,
+  Parcel = ifelse(cf_fig$parcel == "Parcel_Phasic",
+                  "Phasic parcel",
+                  "Sustained parcel")
+)
+
+p_E <- ggplot(df_slopes, aes(x = lag, y = beta, color = Parcel, fill = Parcel)) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_ribbon(aes(ymin = beta - 1.96 * se, ymax = beta + 1.96 * se), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1.05) +
+  geom_point(size = 2.1) +
+  scale_color_manual(values = c("Phasic parcel" = "#2B6CB0",
+                                "Sustained parcel" = "#D69E2E")) +
+  scale_fill_manual(values = c("Phasic parcel" = "#2B6CB0",
+                               "Sustained parcel" = "#D69E2E")) +
+  labs(
+    title = "Trial-level RPE slopes",
+    subtitle = "Single-subject regression; pointwise normal intervals, not group inference",
+    x = "Time from feedback (s)",
+    y = "RPE slope"
+  ) +
+  theme_medusa()
+
+p_A_C
+```
+
+```{r, echo=FALSE, fig.width=11, fig.height=4.5}
+#| label: fig-hrf-overview
+#| fig-alt: "True and estimated fast and slow HRFs over a grey library; learned curves closely track the fast and slow simulation kernels."
+#| fig-cap: "Known simulation HRFs versus the kernels learned from the other run. Agreement is an empirical result, not assumed by the fitting procedure. The illustrative sustained neural response also differs from the phasic response, so neural waveform and HRF misspecification can be confounded."
+p_B + guides(color = guide_legend(nrow = 1), linetype = guide_legend(nrow = 1))
+```
+
+```{r, echo=FALSE, fig.width=11, fig.height=8.5}
+#| label: fig-epoch-overview
+#| fig-alt: "Six noisy corrected trial trajectories and two parcel-specific RPE slope profiles."
+#| fig-cap: "The trial readout and its RPE association. The upper panel shows six trial trajectories and their propagated measurement-error SEs; the lower panel shows within-subject regression slopes for two simulated parcels. This figure does not fit a group mixed model or a connectivity model."
+(p_D / p_E) + plot_layout(heights = c(1, 1))
+```
+
+## Functions and returned objects
+
+| Step | Call | Result used next |
+|:---|:---|:---|
+| 1 | `estimate_crossrun_hrf(bold, events, ...)` | HRF kernels, training evidence, and noise estimates |
+| 2 | `deconvolve_crossrun_hrf(bold, hrf_fit, ...)` | Activity, scaling metadata, and inverse settings |
+| 3–4 | `decon_epoch_regression(deconvolution, ...)` | Epoch panel, uncertainty, weights, and optional transformed columns |
+| 5 | `lmer()` or `mixed_by()` | Participant effects and group coefficients at each parcel/lag |
+| 6 | `decon_connectivity_repair()` | Within-person seed/target estimates and subject-level summaries |
+
+**Input contract.** `bold` is a named list of time-by-voxel numeric matrices. Runs must share voxel names and order. `events` has the same run names, with onset and duration in seconds and a condition label. Covariate rows must follow the target-event order within each run. Keep voxel/parcel names, timing offsets, censoring masks, and scaling metadata aligned throughout the analysis. The simulation uses no censoring; a real analysis must supply its valid observation mask.
+
+# Simulated Reinforcement-Learning Dataset {#sec-sim-setup}
+
+To demonstrate every step of the pipeline in executable R code, we construct a illustrative **multi-subject, multi-run fast-TR ($\text{TR} = 0.65\text{ s}$) reinforcement-learning dataset** inspired by the cue/feedback structure discussed in the 2022 talk; its trial variables are synthetic, not fitted reinforcement-learning model outputs.
+
+The trial variables below are generated for illustration; entropy change is orthogonalized to RPE within each run to simplify interpretation. Real computational regressors need not be orthogonal and should follow a prespecified model.
+
+Each trial consists of two closely spaced events:
+
+1. **Cue (`condition = "cue"`):** An impulse at trial onset with variable reaction time $\text{RT}_i \in [0.65, 1.60]\text{ s}$.
+2. **Feedback phase (`condition = "feedback"`):** Appears immediately after choice ($\text{onset}_{\text{fb}, i} = \text{onset}_{\text{cue}, i} + \text{RT}_i$), delivering a trial-varying **signed reward prediction error (`rpe`, $\delta_i$)** and **value entropy change (`entropy_change`, $\Delta H_i$)**.
+
+We simulate $S = 8$ subjects, $R = 2$ runs per subject ($260\text{ TRs} \approx 169\text{ s}$ per run, $20$ trials per run), and $5$ functional parcels ($3$ voxels per parcel = $15$ voxels total) designed to test each methodological feature of MEDuSA:
+
+- **`P1_Phasic_RPE`:** HRF library delay parameter $4.5\text{ s}$; exhibits a rapid, phasic positive response to `rpe` peaking at $\tau \approx +0.65\text{ s}$ post-feedback.
+- **`P2_Sustained_Entropy`:** HRF library delay parameter $7.5\text{ s}$; exhibits a delayed, sustained response to `entropy_change` across $\tau \in [+1.3, +3.25]\text{ s}$ post-feedback.
+- **`P3_Cue_Confound`:** Strong response to the preceding `cue` event ($0.65$–$1.60\text{ s}$ before feedback) whose hemodynamic tail spills directly into the feedback window, testing how `demix_other_events = TRUE` changes contamination of the feedback readout.
+- **`P4_Target_PPI`:** Driven at lag $\tau = +1.3\text{ s}$ by trial-by-trial neural activity in `P1_Phasic_RPE` ($\beta_{\text{conn}} = 0.55$) plus a positive psychophysiological interaction (`P1 * rpe`, $\beta_{\text{ppi}} = 0.35$), testing `decon_connectivity_repair()`.
+- **`P5_Null` (Pure Noise Reference Parcel):** Contains correlated $\text{AR}(2)$ physiological noise and slow drift with zero task modulation, providing a null example. A single realization does not calibrate false-positive rates.
+
+```{r simulate-dataset}
+set.seed(20261110)
+
+tr <- 0.65
+n_time <- 260L
+t_grid <- (seq_len(n_time) - 1L) * tr
+n_subj <- 8L
+n_runs <- 2L
+n_trials_per_run <- 20L
+
+# Evaluate MEDuSA HRF library on the 0.65s TR grid
+k_grid <- hrf_library(tr = tr, preset = "medusa")
+k_pars <- attr(k_grid, "parameters")
+
+u_pen_grid <- 0.05 * abs(ifelse(is.infinite(k_pars$undershoot_ratio), 20, k_pars$undershoot_ratio) - 6)
+idx_fast <- which.min(abs(k_pars$peak_delay - 4.5) + abs(k_pars$dispersion - 0.9) + u_pen_grid)
+idx_can  <- which.min(abs(k_pars$peak_delay - 6.0) + abs(k_pars$dispersion - 1.0) + u_pen_grid)
+idx_slow <- which.min(abs(k_pars$peak_delay - 7.5) + abs(k_pars$dispersion - 1.1) + u_pen_grid)
+
+parcel_names <- c("P1_Phasic_RPE", "P2_Sustained_Entropy", "P3_Cue_Confound", "P4_Target_PPI", "P5_Null")
+n_vox_per_parcel <- 3L
+voxel_groups <- rep(parcel_names, each = n_vox_per_parcel)
+voxel_ids <- paste0(voxel_groups, "_v", rep(seq_len(n_vox_per_parcel), times = length(parcel_names)))
+names(voxel_groups) <- voxel_ids
+
+conv_open_trunc <- function(x, k) {
+  stats::convolve(x, rev(k), type = "open")[seq_len(length(x))]
+}
+
+sim_subjects <- vector("list", n_subj)
+names(sim_subjects) <- sprintf("sub%02d", seq_len(n_subj))
+
+# True subject-level trait (e.g., behavioral exploration sensitivity) correlated with P1 RPE slope
+subj_trait_z <- scale(rnorm(n_subj))[, 1]
+subj_rpe_slope <- 0.90 + 0.35 * subj_trait_z + rnorm(n_subj, sd = 0.10)
+
+for (s in seq_len(n_subj)) {
+  bold_runs <- vector("list", n_runs)
+  event_runs <- vector("list", n_runs)
+  cov_runs <- vector("list", n_runs)
+  names(bold_runs) <- names(event_runs) <- names(cov_runs) <- paste0("run", seq_len(n_runs))
+
+  for (r in seq_len(n_runs)) {
+    # Jittered trial onsets every ~7.4s across the 169s run
+    cue_onsets <- cumsum(c(5.0, runif(n_trials_per_run - 1L, min = 6.4, max = 8.4)))
+    rt_sec <- runif(n_trials_per_run, min = 0.65, max = 1.60)
+    fb_onsets <- cue_onsets + rt_sec
+
+    # Computational signals: RPE and Entropy Change (orthogonalized for clean demonstration)
+    rpe_vec <- scale(rnorm(n_trials_per_run))[, 1]
+    ent_raw <- rnorm(n_trials_per_run)
+    ent_vec <- scale(resid(lm(ent_raw ~ rpe_vec)))[, 1]
+    cue_salience <- scale(rnorm(n_trials_per_run))[, 1]
+
+    ev_df <- data.frame(
+      onset = c(cue_onsets, fb_onsets),
+      duration = rep(0, 2L * n_trials_per_run),
+      condition = rep(c("cue", "feedback"), each = n_trials_per_run)
+    )
+    ev_df <- ev_df[order(ev_df$onset), ]
+    rownames(ev_df) <- NULL
+
+    # Latent trial-level neural states for connectivity (P1 -> P4)
+    p1_trial_state <- 1.1 + subj_rpe_slope[s] * rpe_vec + rnorm(n_trials_per_run, sd = 0.45)
+    p1_c <- p1_trial_state - mean(p1_trial_state)
+    # Generate the target from the full centered seed; fit that same parameterization.
+    p4_trial_state <- 0.8 + 0.55 * p1_c + 0.35 * (p1_c * rpe_vec) + 0.25 * rpe_vec + rnorm(n_trials_per_run, sd = 0.28)
+
+    s_p1 <- numeric(n_time)
+    s_p2 <- numeric(n_time)
+    s_p3 <- numeric(n_time)
+    s_p4 <- numeric(n_time)
+
+    for (i in seq_len(n_trials_per_run)) {
+      # Cue activity (strong in P3_Cue_Confound, modest in P1/P2)
+      idx_c <- which.min(abs(t_grid - cue_onsets[i]))
+      s_p1[idx_c] <- s_p1[idx_c] + 0.20
+      s_p2[idx_c] <- s_p2[idx_c] + 0.20
+      s_p3[idx_c] <- s_p3[idx_c] + 2.20 + 0.90 * cue_salience[i]
+
+      # Feedback activity across within-trial lags
+      for (dt_lag in seq(0, 3.9, by = tr)) {
+        idx_f <- which.min(abs(t_grid - (fb_onsets[i] + dt_lag)))
+        if (idx_f <= n_time) {
+          w_phasic <- exp(-0.5 * ((dt_lag - 0.65) / 0.50)^2)
+          w_sust   <- exp(-0.5 * ((dt_lag - 2.20) / 0.95)^2)
+          w_targ   <- exp(-0.5 * ((dt_lag - 1.30) / 0.55)^2)
+          s_p1[idx_f] <- s_p1[idx_f] + p1_trial_state[i] * w_phasic
+          s_p2[idx_f] <- s_p2[idx_f] + (0.95 + 0.85 * ent_vec[i]) * w_sust
+          s_p4[idx_f] <- s_p4[idx_f] + p4_trial_state[i] * w_targ
+        }
+      }
+    }
+
+    y_clean_list <- list(
+      P1_Phasic_RPE        = conv_open_trunc(s_p1, k_grid[, idx_fast]),
+      P2_Sustained_Entropy = conv_open_trunc(s_p2, k_grid[, idx_slow]),
+      P3_Cue_Confound      = conv_open_trunc(s_p3, k_grid[, idx_can]),
+      P4_Target_PPI        = conv_open_trunc(s_p4, k_grid[, idx_can]),
+      P5_Null              = rep(0, n_time)
+    )
+
+    # Assemble 15-voxel BOLD matrix with fast-TR AR(2) noise + linear drift matched to default nuisance basis
+    Y_run <- matrix(0, nrow = n_time, ncol = length(voxel_ids), dimnames = list(NULL, voxel_ids))
+    drift_basis <- 0.25 * seq(-1, 1, length.out = n_time)
+    for (v in seq_along(voxel_ids)) {
+      p_nm <- voxel_groups[v]
+      ar_noise <- as.numeric(arima.sim(list(ar = c(0.48, -0.16)), n = n_time, sd = 0.20))
+      vox_gain <- 1.0 + 0.08 * ((v %% 3L) - 2L)
+      Y_run[, v] <- vox_gain * y_clean_list[[p_nm]] + drift_basis + ar_noise
+    }
+
+    bold_runs[[r]] <- Y_run
+    event_runs[[r]] <- ev_df
+    cov_runs[[r]] <- data.frame(
+      rpe = rpe_vec,
+      entropy_change = ent_vec,
+      rt = rt_sec
+    )
+  }
+
+  sim_subjects[[s]] <- list(
+    id = names(sim_subjects)[s],
+    bold = bold_runs,
+    events = event_runs,
+    covariates = cov_runs,
+    trait_z = subj_trait_z[s],
+    true_rpe_slope = subj_rpe_slope[s]
+  )
+}
+```
+
+---
+
+# Step 1: Cross-Run HRF & Noise Learning {#sec-stage1-hrf}
+
+For a deeper explanation, see [Cross-Run HRF and Noise Learning: the Step 1 companion](medusa_step1_hrf_noise/medusa_step1_hrf_noise.html), with visual demonstrations, complete methods, and practical decision points.
+
+**Core Functions:** `hrf_library()`, `estimate_crossrun_hrf()`
+
+## Conceptual & Mathematical Logic
+
+The HRF maps a neural source onto delayed, dispersed BOLD. Estimating that filter separately by region can reduce shape mismatch, but HRF shape and neural response duration remain partly confounded. Event timing, adequate task evidence, and a plausible source model are therefore essential.
+
+1. **Candidate library.** `hrf_library(tr, preset = "medusa")` (alias `"manifold"`) constructs a pruned **44-candidate 3D physiological manifold** spanning response delays from 2.5 to 8.0 seconds in 0.5-second steps, TR-aware dispersions ($\ge 0.60$ at fast $\text{TR} \le 1.2\text{ s}$), and undershoot ratios $r \in \{3, 6, 12, \infty\}$ (where `Inf` omits the negative gamma lobe for single-gamma subcortical/thalamic responses), reduced via deterministic maximin cosine selection (`preset = "enet"` builds an unpruned maximin $\epsilon$-net; `preset = "canonical_27"` retains the 27-candidate fixed-$r=6$ grid over delays $4\text{--}8\text{ s}$ and dispersions $0.9, 1.0, 1.1$). Because varying undershoot ratios would distort positive peak heights under net signed-sum scaling, multi-undershoot libraries use **positive-lobe normalization** ($\sum_t \max(h_t, 0) = 1$) so deconvolved neural amplitudes remain commensurate across regions.
+
+2. **Cross-run selection.** For target run $r$, the implementation fits and scores candidate models **within the other runs**, then pools those runs' adjusted partial $R^2$ evidence to select or average a kernel for $r$. It does not predict the target run using amplitudes learned in another run. Target-run trial amplitudes never become HRF-selection evidence for that target. With one run, temporal sub-block scoring provides a weaker fallback using the same acquisition; it is not independent-run validation.
+
+3. **Noise modeling.** After cross-run HRF selection excludes target run $r$, `estimate_crossrun_hrf()` refits run-$r$ noise under the target-excluded selected HRF (plus condition Taylor derivatives and low-frequency DCT drift cosines) via 2-pass damped alternating REML for $\rho$ followed by Isserlis spatial-correlation-calibrated residual PACF shrinkage ($\psi_1,\dots,\psi_q$, with $q\le 2$ at standard TRs and $q\le 4$ at fast $\text{TR}<0.95\text{ s}$, using gap-local lag products across censor boundaries and heterogeneity-gated SUSAN bilateral sub-parcel pooling when tissue properties diverge):
+$$
+\Bigl(1-\sum_{j=1}^{q}\psi_j L^j\Bigr)(1-\rho L)\varepsilon_t=u_t.
+$$
+Availability of sufficient observations and residual degrees of freedom governs estimation and fallback (including clean canonical/nuisance-only handling of 0-event runs); there is no `ar_order = "auto"` argument in this API.
+
+4. **Pooling and averaging.** Calibrated evidence accounts for correlated library candidates using spectral multiplicity calibration. Parcel pooling stabilizes candidate evidence within a spatial group. `selection_mode = "soft_average"` averages high-scoring kernels instead of choosing a single grid node. This can reduce grid discontinuities, but does not establish that the learned HRF equals the true filter. Check parcel homogeneity and weak-evidence regions.
+
+## Recommended Settings for Stage 1
+
+- `kernel_grid = hrf_library(tr = tr, preset = "medusa")`: Covers fast subcortical/sensory and slow association/anterior hippocampal HRFs without unphysiological oscillations.
+- `amplitude_model = "trial"`: Allows trial-varying training amplitudes via unregularized least-squares/SVD after whitening so regions driven purely by zero-mean parametric signals (like signed RPE $\delta_t$ with zero mean intercept) still show strong HRF evidence.
+- `pooling = "parcel"` with `spatial_groups = voxel_groups`: Pools HRF evidence and AR noise parameters across functionally homogeneous parcels.
+- `selection_mode = "soft_average"`: Reduces discrete grid-selection changes; compare learned shapes and evidence across runs.
+
+## Stage 1 in Action on Simulated Data
+
+```{r stage1-hrf-run}
+#| code-fold: false
+# Run Stage 1 HRF estimation for Subject 1
+sub1 <- sim_subjects[[1]]
+
+hrf_fit_sub1 <- estimate_crossrun_hrf(
+  bold = sub1$bold,
+  events = sub1$events,
+  tr = tr,
+  kernel_grid = k_grid,
+  fallback_kernel = idx_can,
+  spatial_groups = voxel_groups,
+  pooling = "parcel",
+  min_parcel_voxels = 3L,
+  amplitude_model = "trial",
+  selection_mode = "soft_average",
+  evidence = "calibrated"
+)
+
+```
+
+```{r stage1-diagnostics}
+# Inspect selected HRF summary for the first voxel of each parcel in Run 1
+sel_run1 <- hrf_fit_sub1$selections$run1
+noise_run1 <- hrf_fit_sub1$noise$run1
+rep_vox <- seq(1, length(voxel_ids), by = n_vox_per_parcel)
+kable(
+  data.frame(
+    Parcel = parcel_names,
+        Learned_Peak_s = vapply(rep_vox, function(v)
+      (which.max(hrf_fit_sub1$selected_kernels$run1[, v]) - 1) * tr, numeric(1)),
+    Training_Adjusted_R2 = round(sel_run1$selected_adjusted_partial_r2[rep_vox], 3),
+    AR1_rho = round(noise_run1$rho[rep_vox], 3),
+    AR2_psi1 = round(noise_run1$psi1[rep_vox], 3)
+  ),
+  col.names = c("Parcel", "Learned peak (s)", "Training adj. R2", "AR1 rho", "AR2 psi1"),
+  caption = "HRF and noise diagnostics: subject 1, run 1."
+)
+```
+
+---
+
+# Step 2: Regularized Continuous GLS Deconvolution {#sec-stage2-decon}
+
+For a complete conceptual and technical walkthrough, see [Continuous Deconvolution: the Step 2 companion](medusa_step2_deconvolution/medusa_step2_deconvolution.html), including simulations, tuning, scaling, boundaries, and resolution diagnostics. The summary below reflects `fmri.pipeline` through PR #62 and PR #64 (`f7781c9`).
+
+**Core Functions:** `deconvolve_crossrun_hrf()`, `deconvolve_reglin()`
+
+## Conceptual & Mathematical Logic
+
+Once Step 1 supplies the target-excluded HRF and run-specific temporal covariance, Step 2 estimates continuous activity on the original acquisition grid. It does not yet produce resolution-corrected trial amplitudes.
+
+In forward form,
+$$
+y = Hs + Z\gamma + \varepsilon, \qquad \operatorname{Cov}(\varepsilon)=\sigma_e^2\Sigma.
+$$
+With $T$ observations and $L$ HRF samples, the internal convolution design has $T+L-1$ latent columns, including pre-run history. Masking selects observation rows without compressing time. For fixed scaling, noise, and nuisance settings, a cropped penalized inverse returns $T$ activity values. When nuisance handling is joint, its projection is applied to both the whitened BOLD and whitened forward design. Deconvolution remains biased and temporally mixed even if its conditional noise covariance is correctly propagated.
+
+### Three Critical Design Choices in Stage 2
+
+1. **Composite Sobolev penalty (`penalty = "sobolev"`).** The implemented penalty is
+   $$
+   P_{\mathrm{sobolev}}=.05I+.45D_1^\top D_1+.50D_2^\top D_2.
+   $$
+   The first-difference mixture $.10I+.90D_1^\top D_1$ is `matern1`, a distinct option. The API default is `diff2`; this primer explicitly requests `sobolev`. Compare penalties through the intended event readout, gain, and leakage rather than assuming one penalty is universally best.
+
+2. **Observation-noise SD units (`scaling = "noise_sd"`).** `hrf_estimate_gls_noise_sd()` estimates **marginal observation-noise SD** ($\sigma_{\text{marg}}$—not AR innovation SD) via leverage-standardized, Winsorized GLS residuals under the selected HRF and AR($p$) covariance when residual degrees of freedom permit, using AR($p$)-adjusted residual second differences as an omitted-event guard and low-df fallback. The divisor is saved with the result. These are observation-noise reference units, not physiological neural units, and because `"noise_sd"`, `"demean"`, and `"zscore"` center each run on usable observations, tonic between-run or between-person baseline levels are removed by design. Multiplying by the recorded divisor restores the input amplitude convention for a fixed inverse but does not undo shrinkage or event mixing. The API default remains whole-BOLD `zscore` scaling.
+
+3. **Gain-aware adaptive tuning (`lambda = NULL`).** `hrf_tune_decon_lambda()` combines raw prewhitened GCV with Stage-3 gain-restored variance and temporal-structure proxies (`gcv_adaptive`). As of PR #64 (`f7781c9`), it pools across **all usable runs in an order-invariant manner** (weighted by usable scan support) and returns one scalar lambda shared by all runs and voxels. Its reference calculation still uses a compact reference window rather than reproducing every mask/nuisance/boundary detail of the final inverse. Inspect the tuning table, grid limits, and actual recovery diagnostics; cross-run HRF selection does not make lambda tuning independently cross-fitted.
+
+## Stage 2 on simulated data
+
+```{r stage2-decon-run}
+#| code-fold: false
+decon_sub1 <- deconvolve_crossrun_hrf(
+  bold = sub1$bold,
+  hrf_fit = hrf_fit_sub1,
+  penalty = "sobolev",
+  scaling = "noise_sd",
+  lambda = NULL,
+  nuisance_mode = "joint"
+)
+
+```
+
+```{r stage2-diagnostics}
+# Inspect Stage 2 scaling and adaptive GCV lambda diagnostics
+sc_tab <- decon_sub1$scaling$run1[rep_vox, c("voxel", "status", "scale", "noise_sd", "noise_rho")]
+sc_tab$tuned_lambda <- decon_sub1$settings$lambda
+kable(
+  data.frame(Parcel = parcel_names, Noise_SD = sc_tab$noise_sd,
+             AR1 = sc_tab$noise_rho, Lambda = sc_tab$tuned_lambda),
+  digits = 3,
+  col.names = c("Parcel", "Noise SD / divisor", "AR1 rho", "Shared lambda"),
+  caption = "Noise scaling and regularization: subject 1, run 1."
+)
+```
+
+---
+
+
+## Penalty sensitivity on the same simulated data
+
+This comparison changes the inverse penalty, holds the HRF fit and input data fixed, and lets the same tuning rule choose a scalar lambda for each call. The readouts and truth are separately standardized to compare **shape**, not absolute amplitude. Correlation quantifies realized shape recovery in this example; it does not rank the penalties for all studies.
+
+```{r, fig.width=11, fig.height=7}
+#| label: fig-penalty-sensitivity
+#| fig-alt: "Three regularizers compared with known truth; ridge and Sobolev recover broad peaks, while diff2 drifts in this realization."
+#| fig-cap: "Three regularizers applied to the same two-run miniature dataset and learned HRFs. The black dashed curve is the known neural waveform. Facets share axes; the legend and separate standardization are identical across penalties. Reported r is the full-run correlation with truth and lambda is the selected scalar regularization strength."
+penalty_curves <- rbindlist(lapply(c("ridge", "diff2", "sobolev"), function(pen) {
+  fit <- deconvolve_crossrun_hrf(
+    bold = list(run1 = run1_fig$Y, run2 = run2_fig$Y), hrf_fit = hrf_fit_fig,
+    penalty = pen, scaling = "noise_sd", lambda = NULL, nuisance_mode = "joint")
+  recovered <- rowMeans(fit$activity$run1[, 1:4])
+  score <- cor(recovered, run1_fig$s_r1)
+  label <- sprintf("%s: r = %.2f, lambda = %.3g", pen, score, fit$settings$lambda)
+  data.table(time = t_grid_fig, panel = label,
+    truth = as.numeric(scale(run1_fig$s_r1)), recovered = as.numeric(scale(recovered)))
+}))
+penalty_long <- melt(penalty_curves, id.vars = c("time", "panel"),
+                     variable.name = "series", value.name = "activity")
+ggplot(penalty_long, aes(time, activity, color = series, linetype = series)) +
+  geom_line(linewidth = .7) +
+  facet_wrap(~panel, ncol = 1) +
+  scale_color_manual(name = NULL, values = c(truth = "#334155", recovered = "#2B6CB0"),
+                     labels = c(truth = "Known neural waveform", recovered = "Estimated readout")) +
+  scale_linetype_manual(name = NULL, values = c(truth = "dashed", recovered = "solid"),
+                       labels = c(truth = "Known neural waveform", recovered = "Estimated readout")) +
+  labs(title = "Penalty sensitivity with a known waveform", x = "Run time (s)",
+       y = "Separately standardized activity") + theme_medusa()
+```
+
+
+# Step 3: Event alignment and resolution correction {#sec-stage3-epoch}
+
+For the conceptual walkthrough, simulations, complete operator details, and choice points, see [Event Alignment and Resolution Correction: the Step 3 companion](medusa_step3_epochs/medusa_step3_epochs.html) (synchronized through PR #62 and PR #64).
+
+**Core function:** `decon_epoch_regression()`
+
+The inverse $M$ smooths and attenuates the latent signal. Conditional on the fitted HRF, the resolution matrix $R=MH$ describes how a source propagates through convolution and inversion. A readout matrix $S(\tau)$ samples the resulting trajectory relative to target-event onset, including sub-TR interpolation, while gating trial-lags with insufficient unmasked causal BOLD support (`obs_frac_tau < 0.20`, e.g., inside long scrub gaps or past the end of acquisition) to `NA`.
+
+The API offers distinct corrections:
+
+- `demix_other_events = TRUE` models non-target sources and subtracts their predicted contribution to target readouts. Its behavior depends on the event/source specification and `demix_ridge` (`>= 0.03` subtracts condition-mean sources; `< 0.03` activates a joint regularized trial-varying branch).
+- `demix_target_trials = TRUE` regularizes inversion of target-trial overlap and calibrates readout gain, and passes centered within-run regression covariates through the matched post-demixing operator $M_{\text{post}}$ (`PR #64`) so rapid-ISI off-diagonal shrinkage does not bias fitted slopes. Closely spaced or nearly indistinguishable events can remain poorly identified.
+- `demix_within_trial = TRUE` approximately inverts coupling among lags, with reference-lobe calibration. Leave it `FALSE` when passing epoch fits to Stage-5 `medusa_multilag_infer()` (which performs group-level spectral deblurring and correlated-SURE P-spline smoothing).
+
+The composite readout and noise covariance are conditional on the recorded model and settings. Corrections are regularized, so even a correctly computed operator need not recover true source amplitudes without bias. HRF/source misspecification, boundary support, and nearly collinear events can leave mixing. The companion distinguishes trial measurement-error SEs from regression SEs, precision weights, and regularized ZCA transformations.
+
+For variable-duration sources, `source_model = "duration"` with `trial_durations` builds boxcars. `duration_scale = "rate"` estimates boxcar height; `"integral"` uses sample-sum mass, with amplitude proportional to height times duration divided by TR. Multiply that mass by TR for a time integral in seconds. Choose the estimand before interpreting an RT effect. In this simulation all cue and feedback sources are impulses; RT changes their separation only. The neural waveforms are placed on the acquisition grid, whereas extraction uses the stated event times, so small timing mismatch remains.
+
+## A direct comparison of cross-event correction
+
+Let's compare `decon_epoch_regression()` on `P3_Cue_Confound` (which has a strong response to the preceding `cue` event, but **zero** true feedback response) with `demix_other_events = FALSE` vs. `demix_other_events = TRUE`.
+
+```{r applied-epoch-panel}
+#| code-fold: false
+lags_eval <- round(seq(-1.3, 3.9, by = tr), 2)
+ep_demix <- decon_epoch_regression(
+  deconvolution = decon_sub1,
+  covariates = lapply(sub1$covariates, function(df) df[, c("rpe", "entropy_change")]),
+  target_condition = "feedback",
+  lags = lags_eval,
+  demix_other_events = TRUE,
+  demix_target_trials = TRUE,
+  demix_within_trial = FALSE,
+  restore_scale = TRUE,
+  weighting = "precision",
+  tau2_mode = "marginal",
+  aggregate_by_parcel = TRUE,
+  parcel_groups = voxel_groups,
+  whiten_panel = TRUE,
+  return_panel = TRUE
+)
+```
+
+```{r, fig.width=10.5, fig.height=4.5}
+#| label: fig-stage3-cue-demix
+#| fig-alt: "Cross-event correction reduces cue-only feedback excursions while leaving small residual estimation error."
+#| fig-cap: "A setting comparison in the cue-only parcel. Feedback truth is zero. Both calls use the same target-trial correction (with within-trial lag de-mixing off by default); only cross-event correction changes. Ribbons are descriptive mean +/- 1.96 empirical trial SE, not covariance-adjusted confidence intervals. Residual excursions show why specifying the operator does not guarantee perfect source separation."
+
+lags_eval <- round(seq(-1.3, 3.9, by = tr), 2)
+
+ep_nodemix <- decon_epoch_regression(
+  deconvolution = decon_sub1,
+  covariates = lapply(sub1$covariates, function(df) df[, c("rpe", "entropy_change")]),
+  target_condition = "feedback",
+  lags = lags_eval,
+  demix_other_events = FALSE,
+  demix_target_trials = TRUE,
+  demix_within_trial = FALSE,
+  restore_scale = TRUE,
+  weighting = "precision",
+  tau2_mode = "marginal",
+  aggregate_by_parcel = TRUE,
+  parcel_groups = voxel_groups,
+  return_panel = TRUE
+)
+
+
+dt_p3_comp <- rbind(
+  as.data.table(ep_nodemix$panel)[parcel == "P3_Cue_Confound",
+    .(mean_act = mean(decon_demixed), se_act = sd(decon_demixed) / sqrt(.N), Mode = "Correction off"),
+    by = evt_time],
+  as.data.table(ep_demix$panel)[parcel == "P3_Cue_Confound",
+    .(mean_act = mean(decon_demixed), se_act = sd(decon_demixed) / sqrt(.N), Mode = "Correction on"),
+    by = evt_time]
+)
+
+ggplot(dt_p3_comp, aes(x = evt_time, y = mean_act, color = Mode, fill = Mode, linetype = Mode)) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey40") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_ribbon(aes(ymin = mean_act - 1.96 * se_act, ymax = mean_act + 1.96 * se_act), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1.05) +
+  geom_point(size = 2.2) +
+  scale_color_manual(values = c(
+    "Correction off" = "#D65F00",
+    "Correction on" = "#2B6CB0"
+  )) +
+  scale_fill_manual(values = c(
+    "Correction off" = "#D65F00",
+    "Correction on" = "#2B6CB0"
+  )) +
+  labs(
+    title = "Cue-only parcel: feedback readout",
+    subtitle = "Known feedback response = 0; remaining deviations are estimation error",
+    x = "Time from feedback (s)",
+    y = "Mean readout (restored input units)"
+  ) +
+  theme_medusa()
+```
+
+---
+
+# Step 4: Parcel panels and uncertainty {#sec-stage4-panel}
+
+See the [Parcel Panels and Trial Uncertainty companion](medusa_step4_parcel_panels/medusa_step4_parcel_panels.html) for the voxel weights, spatial noise approximation, and choices for downstream response and connectivity models.
+
+The trial panel contains several related quantities. Keep their roles distinct:
+
+| Column | Meaning | Appropriate use |
+|:---|:---|:---|
+| `decon_demixed` | Corrected event readout | Response or noisy neural predictor |
+| `se_demixed` | Propagated measurement-error SD | Operator uncertainty and errors-in-variables models |
+| `precision_weight` | Mean-1 normalized inverse total trial variance within participant/unit/lag | Within-subject relative residual weights |
+| `precision_weight_cohort` | Unnormalized inverse total trial variance $(\hat\tau^2+s_i^2)^{-1}$ | Multi-participant mixed models (`mixed_by()` / `lmer()`) preserving between-person precision |
+| `shared_noise_loading` | Task-free cross-parcel noise innovation basis (when `aggregate_by_parcel = TRUE`) | Cross-parcel shared-error covariance in `decon_connectivity_repair(..., shared_error = "auto")` |
+| `decon_demixed_whitened`, `<covariate>_whitened` | Responses and supplied covariates transformed together | Approximate decorrelation of additive trial models |
+| `se_whitened` | Measurement-error SD in transformed coordinates | Error variance for that transformed readout |
+
+For a fixed operator $B$, fitted noise covariance $\Sigma$, and noise variance $\sigma_e^2$, propagation gives
+$$
+\Omega=\sigma_e^2 B\Sigma B^\top.
+$$
+This is conditional uncertainty. Both contiguous and censored runs propagate the exact stationary AR($p$) Toeplitz covariance subset $\Gamma_N[\text{rows},\text{rows}]$ implied by the fitted AR cascade on retained acquisition indices (`PR #62`). However, it omits uncertainty in HRF learning, AR estimation, regularization selection, source specification, and estimated parcel weights. “Exact operator propagation” should not be read as complete uncertainty for the entire pipeline.
+
+**Parcel aggregation.** `aggregate_by_parcel = TRUE` combines voxel activity before epoch fitting using inverse-noise and HRF-evidence weights, builds exact stratum-weighted parcel forward and inverse operators across heterogeneous HRF/noise sub-strata, and estimates within-parcel spatial noise covariance from task-free Step-1 whitened `noise_innovations` (allowing negative cross-voxel correlation down to `s_floor^2` and avoiding task-curvature SE inflation; `PR #64`). Misaligned or heterogeneous parcels can still cancel opposite-signed neural responses; aggregation remains a modeling choice rather than an unconditional improvement.
+
+**Precision weights.** The teaching configuration explicitly uses `tau2_mode = "marginal"`. This estimates marginal trial variance without using the supplied covariates, then forms unnormalized `precision_weight_cohort` $= (\hat\tau^2+s_i^2)^{-1}$ alongside within-unit mean-1 `precision_weight`. In `"auto"` mode, `decon_epoch_regression()` blends residual and marginal estimates when covariates are supplied; it is not covariate-independent and does not use 1D REML. Marginal variance includes systematic task variation and is therefore a conservative working variance, not a pure estimate of biological residual noise.
+
+**ZCA-style transformation.** `whiten_panel = TRUE` constructs a damped correlation-based, variance-preserving transformation within runs. Schematically, $\Phi=D R_{\mathrm{damped}}^{-1/2}D^{-1}$, using exact centered-trace scaling ($\operatorname{tr}(Q_m\Phi Q_m)/(m-1)=1$) to preserve run-mean null modes and a smooth fourth-root eigenvalue floor $(\lambda_+^2+\epsilon^2)^{-1/4}$ (`PR #64`). It transforms centered responses and supplied covariates and restores their means. This reduces modeled trial correlation approximately; it does not guarantee spherical or independent errors. Its transformed measurement variance is $\mathrm{diag}(\Phi\Omega\Phi^\top)$.
+
+Use the corresponding transformed predictors and outcome together. For a nonlinear term, construct the intended design column first and then transform it: a product of separately transformed variables is generally a different model. Inspect residual dependence after fitting.
+
+**Units.** Stage 2 uses noise-SD scaling. The epoch calls below set `restore_scale = TRUE`, returning readouts to the original input BOLD amplitude units. Set it to `FALSE` if noise-SD units are the intended estimand, and keep the same choice across comparisons.
+
+## Inspecting the Exported Trial Panel Across All Subjects
+
+Let's run the full Stage 1–3 pipeline across all $S = 8$ simulated subjects and combine their trial panels into a group-level `data.table`.
+
+```{r run-all-subjects-panel}
+panel_list <- vector("list", n_subj)
+
+for (s in seq_len(n_subj)) {
+  sub_s <- sim_subjects[[s]]
+
+  fit_s <- estimate_crossrun_hrf(
+    bold = sub_s$bold,
+    events = sub_s$events,
+    tr = tr,
+    kernel_grid = k_grid,
+    fallback_kernel = idx_can,
+    spatial_groups = voxel_groups,
+    pooling = "parcel",
+    min_parcel_voxels = 3L,
+    amplitude_model = "trial",
+    selection_mode = "soft_average",
+    evidence = "calibrated"
+  )
+
+  dec_s <- deconvolve_crossrun_hrf(
+    bold = sub_s$bold,
+    hrf_fit = fit_s,
+    penalty = "sobolev",
+    scaling = "noise_sd",
+    lambda = NULL,
+    nuisance_mode = "joint"
+  )
+
+  ep_s <- decon_epoch_regression(
+    deconvolution = dec_s,
+    covariates = lapply(sub_s$covariates, function(df) df[, c("rpe", "entropy_change", "rt")]),
+    target_condition = "feedback",
+    lags = lags_eval,
+    demix_other_events = TRUE,
+    demix_target_trials = TRUE,
+    demix_within_trial = FALSE,
+    restore_scale = TRUE,
+    weighting = "precision",
+    tau2_mode = "marginal",
+    aggregate_by_parcel = TRUE,
+    parcel_groups = voxel_groups,
+    whiten_panel = TRUE,
+    return_panel = TRUE
+  )
+
+  dt_s <- as.data.table(ep_s$panel)
+  dt_s[, id := sub_s$id]
+  panel_list[[s]] <- dt_s
+}
+
+group_panel <- rbindlist(panel_list)
+
+# Preview key columns of the exported Stage 3/4 trial panel
+kable(
+  head(group_panel[parcel == "P1_Phasic_RPE" & abs(evt_time - 0.65) < 1e-4,
+    .(id, run, trial, decon_demixed, se_demixed, precision_weight)], 6),
+  col.names = c("ID", "Run", "Trial", "Readout", "Error SD", "Precision weight"),
+  digits = 3,
+  caption = "Selected columns from the trial panel at +0.65 s, phasic parcel."
+)
+```
+
+---
+
+# Step 5: Group models across parcels and lags {#sec-stage5-mlm}
+
+See the [Group Models for Trial-Level Activity companion](medusa_step5_group_models/medusa_step5_group_models.html) for the group-model design, trial weights, diagnostics, and inference across parcels and lags.
+
+Fit each parcel/lag model to trials nested within participants, with random slopes for within-person predictors when the data support them. The example uses transformed responses **and** predictors, with relative precision weights. The participant effect distribution, remaining serial dependence, and singular fits still need checking.
+
+This is the core applied call for one parcel and lag:
+
+```{r applied-group-model}
+#| code-fold: false
+one_readout <- group_panel[parcel == "P1_Phasic_RPE" & abs(evt_time - 0.65) < 1e-5]
+fit_group <- lme4::lmer(
+  decon_demixed_whitened ~ rpe_whitened + entropy_change_whitened +
+    (1 + rpe_whitened + entropy_change_whitened || id),
+  weights = precision_weight_cohort,
+  data = one_readout
+)
+```
+
+With only eight participants, random slope variances may lie at the boundary. Using `precision_weight_cohort` preserves relative reliability differences across participants as well as across runs and trials (whereas `precision_weight` normalizes each participant's mean weight to one). The figure below reports pointwise normal intervals as a descriptive teaching summary; it does not establish familywise significance. `mixed_by()` can repeat a chosen formula across `split_on = c("parcel", "evt_time")`, and `medusa_multilag_infer()` performs joint multi-covariate and Level-2 trajectory deblurring, Marra–Wood simultaneous confidence bands, and unbiased planned window contrasts (`contrast_source = "unsmoothed"`).
+
+For formal inference, specify the hypothesis family across parcels, lags, and terms in advance. Apply a suitable correction to calibrated tests, for example `p.adjust(p, method = "BY")` over that entire family. The original talk used B–Y FDR. `plan_fwe_correction()` plans level-3 imaging GLM analyses and is not a generic adapter for these trial-panel tests. Cluster/permutation procedures require a valid exchangeability scheme and their own validation.
+
+```{r, fig.width=11, fig.height=7.5}
+#| label: fig-stage5-spatiotemporal
+#| fig-alt: "Four parcel profiles: RPE predominates in the phasic parcel and entropy in the sustained parcel, with remaining temporal distortion."
+#| fig-cap: "Group coefficients from additive transformed mixed models with participant random slopes. Ribbons are pointwise normal estimate +/- 1.96 SE, without multiplicity correction. Four parcels are shown on a common scale. A null example in one simulated dataset is not evidence of calibrated Type I error."
+
+parcels_to_plot <- c("P1_Phasic_RPE", "P2_Sustained_Entropy", "P3_Cue_Confound", "P5_Null")
+mlm_results <- list()
+
+for (p_nm in parcels_to_plot) {
+  for (lg in lags_eval) {
+    sub_df <- group_panel[parcel == p_nm & abs(evt_time - lg) < 1e-5]
+    fit_lmer <- suppressMessages(lme4::lmer(
+      decon_demixed_whitened ~ rpe_whitened + entropy_change_whitened +
+        (1 + rpe_whitened + entropy_change_whitened || id),
+      data = sub_df,
+      weights = precision_weight
+    ))
+    coefs <- summary(fit_lmer)$coefficients
+    for (term_nm in c("rpe_whitened", "entropy_change_whitened")) {
+      est <- coefs[term_nm, "Estimate"]
+      se  <- coefs[term_nm, "Std. Error"]
+      tval <- coefs[term_nm, "t value"]
+      mlm_results[[length(mlm_results) + 1L]] <- data.frame(
+        parcel = p_nm,
+        evt_time = lg,
+        term = ifelse(term_nm == "rpe_whitened", "Signed RPE", "Entropy change"),
+        estimate = est,
+        se = se,
+        singular = lme4::isSingular(fit_lmer),
+        t_stat = tval,
+        p_val = 2 * pnorm(abs(tval), lower.tail = FALSE)
+      )
+    }
+  }
+}
+
+mlm_dt <- as.data.table( rbindlist(mlm_results) )
+# No significance symbols: this small simulation is descriptive.
+
+ggplot(mlm_dt, aes(x = evt_time, y = estimate, color = term, fill = term, linetype = term)) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey45") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey45") +
+  geom_ribbon(aes(ymin = estimate - 1.96 * se, ymax = estimate + 1.96 * se), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1.0) +
+  geom_point(size = 2) +
+  scale_linetype_manual(name = "Computational signal",
+                        values = c("Signed RPE" = "dashed", "Entropy change" = "solid")) +
+  scale_color_manual(name = "Computational signal",
+                     values = c("Signed RPE" = "#2B6CB0", "Entropy change" = "#DD6B20")) +
+  scale_fill_manual(name = "Computational signal",
+                    values = c("Signed RPE" = "#2B6CB0", "Entropy change" = "#DD6B20")) +
+  facet_wrap(~ parcel, ncol = 2, labeller = as_labeller(c(
+    P1_Phasic_RPE = "Phasic RPE", P2_Sustained_Entropy = "Sustained entropy",
+    P3_Cue_Confound = "Cue only", P5_Null = "Null"))) +
+  labs(
+    title = "Group trial-effect profiles",
+    subtitle = "Transformed additive models; pointwise normal intervals",
+    x = "Time from feedback (s)",
+    y = "Fixed-effect slope (restored input units)"
+  ) +
+  theme_medusa()
+```
+
+The phasic RPE coefficient reaches its maximum across the 0.00 s to +0.65 s feedback window (`r sprintf("%+.2f", mlm_dt[parcel == "P1_Phasic_RPE" & term == "Signed RPE"][which.max(estimate), evt_time])` s in this realization, alongside +0.65 s at `r sprintf("%.2f", mlm_dt[parcel == "P1_Phasic_RPE" & term == "Signed RPE" & abs(evt_time - 0.65) < 1e-4, estimate])`), while the sustained entropy parcel peaks later at `r sprintf("%+.2f", mlm_dt[parcel == "P2_Sustained_Entropy" & term == "Entropy change"][which.max(estimate), evt_time])` s. Because regularized deconvolution smooths across adjacent TRs, one-lag shifts around the +0.65 s generator peak reflect finite temporal resolution rather than neural anticipation of feedback. The cue-only and null parcels help reveal residual artifacts but cannot establish error-rate control from one dataset.
+
+---
+
+# Step 6: Connectivity and predictor measurement error {#sec-stage6-repair}
+
+See the [Step 6 companion on trial-level connectivity and PPI](medusa_step6_connectivity/medusa_step6_connectivity.html) for the pairing checks, assumptions behind M-MOMS, and simulated examples of genuine and shared-error interactions.
+
+When a neural readout appears as a predictor, its measurement error can attenuate or otherwise distort regression coefficients. For a simple one-predictor model with independent additive error, the attenuation factor is $\mathrm{Var}(s)/(\mathrm{Var}(s)+\mathrm{Var}(e))$. Correlated predictors, shared noise, serial dependence, and interactions make the general case more complicated.
+
+`decon_connectivity_repair(method = "mmoms")` constructs per-trial predictor error moments and calls modified method-of-moments estimation with adaptive regularization. REPAIR stands for **Random-Effect Prediction Adjustment for Inference in Regression**; the underlying correction is related, but the within-person wrapper and the between-person mixed-model bridge serve different estimands.
+
+For an interaction with an error-free centered task variable $x_i$, the seed/product error block is
+$$
+\Psi_i=\psi_{S,i}\begin{bmatrix}1&x_i\\x_i&x_i^2\end{bmatrix}.
+$$
+This uses diagonal trial error variances rather than the full between-trial covariance, while `shared_error = "auto"` (default in PR #64) estimates cross-parcel shared-noise moments $\operatorname{Cov}(u_i,v_i)$ from `shared_noise_loading` and subtracts them from the predictor–target cross-product (`err_xy`) so shared scanner/physiological noise is not amplified into false connectivity or PPI. With `orthogonalize_seed_x = TRUE`, the wrapper residualizes the seed on task covariates and computes its projected error variance via the quadratic form $r^\top \Omega r / \operatorname{tr}(M^\top M)$ (`PR #64`); residualizing the seed answers a reduced-form total task-effect question rather than the direct structural equation when the seed itself carries a task effect.
+
+The simulation generates the target from the **full centered seed**, with coefficients 0.55 for connectivity, 0.35 for its RPE interaction, and 0.25 for direct RPE. We therefore set `orthogonalize_seed_x = FALSE` to retain that parameterization. Both comparison calls set `use_whitened = FALSE`: their defaults otherwise choose different readout coordinates for naïve GLS and M-MOMS.
+
+Even with those choices, recovered readouts have different HRF errors, gain, voxel aggregation, and interpolation than the latent generator. The latent coefficients are reference values, not guaranteed coefficients in the estimated-readout coordinate system. The table reports what happens; it must not be interpreted as successful recovery simply because a correction was requested. “Seed-to-target” names a regression direction and does not establish causal or effective connectivity.
+
+```{r stage6-connectivity-repair}
+#| code-fold: false
+conn_naive <- decon_connectivity_repair(
+  panel_dt = group_panel,
+  seed_region = "P1_Phasic_RPE",
+  target_region = "P4_Target_PPI",
+  seed_lag = 0.65,
+  target_lag = 1.30,
+  covariates = "rpe",
+  test_ppi = TRUE,
+  use_whitened = FALSE,
+  orthogonalize_seed_x = FALSE,
+  method = "naive_gls",
+  region_col = "parcel",
+  id_col = "id"
+)
+
+conn_mmoms <- decon_connectivity_repair(
+  panel_dt = group_panel,
+  seed_region = "P1_Phasic_RPE",
+  target_region = "P4_Target_PPI",
+  seed_lag = 0.65,
+  target_lag = 1.30,
+  covariates = "rpe",
+  test_ppi = TRUE,
+  use_whitened = FALSE,
+  orthogonalize_seed_x = FALSE,
+  method = "mmoms",
+  region_col = "parcel",
+  id_col = "id"
+)
+
+comp_conn <- rbind(
+   cbind(Method = "Naive GLS", conn_naive$group[, .(term, estimate, std.error, statistic, p.value)]),
+   cbind(Method = "M-MOMS", conn_mmoms$group[, .(term, estimate, std.error, statistic, p.value)])
+)
+comp_conn[, True_Parameter := ifelse(term == "seed_c", 0.55, ifelse(term == "seed_c:x_c", 0.35, 0.25))]
+
+kable(
+  comp_conn[, .(Method, Term = term, Latent_Reference = True_Parameter,
+                Estimate = round(estimate, 3), SE = round(std.error, 3),
+                t_stat = round(statistic, 2), p_value = signif(p.value, 3))],
+  col.names = c("Method", "Term", "Latent reference", "Estimate", "SE", "t", "p"),
+  caption = "Same-coordinate connectivity comparison. Latent reference values describe the generator, not guaranteed readout-level parameters."
+)
+```
+
+The subject-level estimates and regularization diagnostics should be inspected alongside this group table. As of PR #64, `decon_connectivity_repair()` clips extreme subject slopes at three MADs when at least six subjects are available and pools across participants via **Hartung–Knapp–Sidik–Jonkman (HKSJ)** leverage-corrected random-effects weights ($\hat\tau^2 + s_s^2$ with Knapp–Hartung variance scaling $q_{\text{HK}} \ge 1$ and $t_{S-1}$ inference). A larger corrected coefficient is not, by itself, evidence of better recovery. Here the same-coordinate seed estimate is `r sprintf("%.3f", conn_naive$group[term == "seed_c", estimate])` for naïve GLS and `r sprintf("%.3f", conn_mmoms$group[term == "seed_c", estimate])` for M-MOMS (with direct RPE shifting from `r sprintf("%.3f", conn_naive$group[term == "rpe_c", estimate])` to `r sprintf("%.3f", conn_mmoms$group[term == "rpe_c", estimate])`, and PPI from `r sprintf("%.3f", conn_naive$group[term == "seed_c:x_c", estimate])` to `r sprintf("%.3f", conn_mmoms$group[term == "seed_c:x_c", estimate])`); compare these with their uncertainty and the latent reference rather than assuming that correction always succeeds.
+
+## A controlled errors-in-variables check
+
+To separate the statistical correction from imperfect HRF recovery, the following independent simulation uses known noisy neural predictors and known trial error variances. It demonstrates the mechanism under its assumptions, using repeated samples rather than a single favorable dataset. It is not an end-to-end validation of the fMRI workflow.
+
+```{r, fig.width=11, fig.height=4.8}
+#| label: fig-controlled-eiv
+#| fig-alt: "M-MOMS mean estimate is near 0.55; naive OLS is near 0.31, with dataset-to-dataset variation."
+#| fig-cap: "Known-error simulation: 200 independent datasets with 250 trials each. Points summarize the mean estimated slope; intervals show the central 95% of estimates across datasets, not a confidence interval for the mean. Dashed line is the generating slope 0.55. Corrected moments can be unstable when latent predictor variance is small."
+set.seed(4242)
+eiv_results <- rbindlist(lapply(1:200, function(j) {
+  n <- 250L
+  latent <- rnorm(n)
+  psi <- runif(n, 0.4, 1.2)
+  observed <- latent + rnorm(n, sd = sqrt(psi))
+  target <- 0.55 * latent + rnorm(n, sd = 0.7)
+  X <- matrix(observed, ncol = 1, dimnames = list(NULL, "seed"))
+  Psi <- array(psi, c(1, 1, n))
+  corrected <- medusa_fit_mmom(outcome = target, predictors = X, err_x = Psi,
+                                regularization = "step_up")
+  data.table(rep = j, method = c("Naive OLS", "M-MOMS"),
+    estimate = c(coef(lm(target ~ observed))[2], corrected$coefficients$estimate[2]))
+}))
+eiv_summary <- eiv_results[, .(mean = mean(estimate),
+  lower = quantile(estimate, .025), upper = quantile(estimate, .975)), by = method]
+ggplot(eiv_summary, aes(x = method, y = mean)) +
+  geom_hline(yintercept = 0.55, linetype = "dashed", color = "#52606D") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .12, linewidth = .8) +
+  geom_point(size = 3, color = "#2B6CB0") +
+  labs(title = "Measurement-error correction under known assumptions",
+       subtitle = "Independent trials and correctly specified predictor error variance",
+       x = NULL, y = "Estimated seed slope") + theme_medusa()
+```
+
+## Between-person individual differences
+
+`medusa_between_subject_repair()` is an optional bridge to the **installed `repair` package**, not a fallback to `medusa_fit_mmom()`. It requires mixed models that actually contain the participant-specific coefficient of interest, identifier-aligned person-level data, and adequate between-person information. For neural RPE sensitivity, fit a participant random RPE slope, retain the full model, and pass the appropriate `repair` formula and unit-level data. Regressing raw BLUPs on traits without addressing shrinkage and sampling error is a different analysis.
+
+The small eight-participant simulation above does not demonstrate reliable between-person disattenuation. Use a larger, separately validated study design and inspect the package's likelihood-only coefficient and covariance diagnostics before interpreting individual differences.
+
+---
+
+# Recommended starting configuration {#sec-reference-table}
+
+These are explicit starting choices for the illustrated workflow, not universal optima.
+
+| Step | Starting choice | Check before interpreting results |
+|:---|:---|:---|
+| HRF library | `preset = "medusa"` (~44-kernel 3D manifold; or `"canonical_27"`) | Learned peaks, undershoot depth, grid boundaries, weak evidence |
+| HRF fit | `amplitude_model = "trial"`, `pooling = "parcel"`, `selection_mode = "soft_average"` | Number of runs, event design, parcel homogeneity |
+| Continuous inverse | `penalty = "sobolev"`, `lambda = NULL`, `nuisance_mode = "joint"` | Tuning curve, gain, ringing, residual structure |
+| Scaling | `scaling = "noise_sd"` | Noise model and amplitude units; `restore_scale` reverses scaling |
+| Epoch extraction | Explicit lags; `demix_other_events = TRUE`, `demix_target_trials = TRUE`, `demix_within_trial = FALSE` | Source mismatch, overlap, gain, sensitivity to within-trial correction |
+| Panel | Parcel aggregation, `weighting = "precision"`, `tau2_mode = "marginal"` | `noise_innovations` spatial covariance, `precision_weight_cohort` vs `precision_weight`, conditional uncertainty |
+| Additive group model | `whiten_panel = TRUE`, matched transformed outcome/predictors, `weights = "precision_weight_cohort"`, or `medusa_multilag_infer()` | Random slopes, singular fits, remaining dependence, multiplicity / `contrast_source = "unsmoothed"` |
+| Connectivity | Explicit `use_whitened = FALSE`, `orthogonalize_seed_x`, and `shared_error = "auto"` | Same estimand across methods, `shared_noise_loading` cross-error moments, HKSJ pooling |
+
+: Working settings and the diagnostics that determine whether they are suitable. {#tbl-recommendations}
+
+## What a methods section should report
+
+Report acquisition TR and preprocessing/censoring, run and trial counts, event timing/duration assumptions, parcel definition and aggregation, HRF library and cross-fitting scheme, AR/noise estimates, inverse penalty and tuning, input/output scaling, lag/readout grid, all de-mixing settings, conditional error propagation, variance weighting and transformation, mixed-model formula, and the prespecified test family. For connectivity, additionally state the readout coordinates, seed residualization choice, shared-error setting, regularization, and HKSJ subject pooling rule.
+
+## Sources and reproducibility
+
+- Hallquist's 2022 MEDuSA Quant Talk: the introduction/intuition slides establish the deconvolution–alignment–MLM sequence; “Remaining challenges” identifies scaling and temporal precision, while the conclusion identifies connectivity as a future direction. The simulation does not reproduce the talk's empirical findings.
+- `fmri.pipeline` source through PR #62 (`65c49c2`), PR #64 (`f7781c9`), PR #65 (`e232635`), and PR #66: `R/crossrun_hrf.R`, `R/hrf_noise_evidence.R`, `R/deconvolve_reglin.R`, `R/diagnose_crossrun_recovery.R`, `R/medusa_multilag_infer.R`, and the corresponding tests and function reference pages are the implementation authority for this primer.
+- To render against an installed package, run `quarto render medusa_pipeline_primer.qmd`. To audit a source checkout, set `MEDUSA_SOURCE` to its directory before rendering. Install required package dependencies, including `ragg`, `pkgload` for source loading, and `repair` for the optional between-person bridge. Code-fold menus retain reproducible supporting code.
+
+# Legacy File-Based Workflow Bridge {#sec-legacy-bridge}
+
+For existing pipelines organized around NIfTI/CIFTI or parcel time-series files on disk, `fmri.pipeline` also provides file-oriented wrappers that operate on single runs without cross-run HRF learning:
+
+- **`voxelwise_deconvolution()`:** Loops over run NIfTIs, executes per-run voxelwise/atlas deconvolution (`deconvolve_nlreg()` for `"bush2011"` or `deconvolve_reglin()` for `"reglin"`, using a supplied or within-run-tuned kernel rather than leave-one-run-out `estimate_crossrun_hrf()`), and writes deconvolved time series such as `*_deconvolved.csv.gz`.
+- **`evt_align_decon_files()`:** Reads deconvolved outputs and trial onset tables to produce event-locked panels across lags (`evt_time`). For new analyses, we strongly recommend extracting NIfTI runs into named matrices and calling `estimate_crossrun_hrf()` $\to$ `deconvolve_crossrun_hrf()` $\to$ `decon_epoch_regression()` directly (as shown above and in `vignettes/medusa-workflows.Rmd`) because `decon_epoch_regression()` retains the in-memory inverse operator $M_r$ required for analytical resolution de-mixing ($R_r = M_r H_r$), matched $M_{\text{post}}$ covariate alignment, conditional trial error covariance propagation ($\Omega_r$), ZCA panel whitening, and M-MOMS connectivity disattenuation.

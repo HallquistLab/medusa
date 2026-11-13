@@ -1,0 +1,9 @@
+"check","value"
+"Seed A*G identity max error",8.88178419700125e-16
+"Target A*G identity max error",8.88178419700125e-16
+"Source information condition number",3.44228469760708
+"Target information condition number",4.6938176662562
+"Full-grid rank",178
+"Full-grid columns",180
+"MC maximum relative source SD error",0.0148010969391925
+"MC maximum scaled cross-covariance error",0.0348851043375648
