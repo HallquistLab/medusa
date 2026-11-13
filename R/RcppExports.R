@@ -79,13 +79,55 @@ dsigmoid <- function(x, beta = 1) {
 #'
 #' @param infile Path to a scalar NIfTI image, optionally gzipped.
 #' @param voxel_indices One-based linear indices within the spatial volume.
-#' @return A voxels by volumes numeric matrix, in the supplied index order.
-#' @details Uses the RNifti C++ API, including NIfTI slope/intercept scaling,
-#'   without creating a full double-precision R array or intermediate text file.
-#'   Spatial alignment with the atlas must be checked by the caller.
+#' @param time_first Logical; if \code{TRUE}, returns a \code{volumes x voxels}
+#'   matrix directly via cache-blocked extraction without an intermediate
+#'   \code{voxels x volumes} allocation. Defaults to \code{FALSE} for backward
+#'   compatibility.
+#' @return A numeric matrix (\code{voxels x volumes} when \code{time_first = FALSE},
+#'   or \code{volumes x voxels} when \code{time_first = TRUE}) in the supplied
+#'   voxel order.
+#' @details Uses the RNifti C++ API with single-dispatch typed pointer access,
+#'   including NIfTI slope/intercept scaling, without creating a full
+#'   double-precision R array or per-element virtual dispatch.
+#'   Spatial alignment with the atlas/mask must be checked by the caller.
 #' @keywords internal
-extract_nifti_voxel_ts <- function(infile, voxel_indices) {
-    .Call(`_medusa_extract_nifti_voxel_ts`, infile, voxel_indices)
+extract_nifti_voxel_ts <- function(infile, voxel_indices, time_first = FALSE) {
+    .Call(`_medusa_extract_nifti_voxel_ts`, infile, voxel_indices, time_first)
+}
+
+#' Write indexed voxel time series or static maps directly to a 3D/4D NIfTI file
+#'
+#' @param reference File path to a reference NIfTI image or an in-memory NIfTI object.
+#' @param out_file Output file path (\code{.nii} or \code{.nii.gz}).
+#' @param ts_mat Numeric matrix (\code{time x voxels} if \code{time_first = TRUE},
+#'   else \code{voxels x time}).
+#' @param voxel_indices Unique one-based spatial linear indices matching the
+#'   voxel dimension of \code{ts_mat}.
+#' @param tr Repetition time in seconds stored in \code{pixdim[5]} for 4D outputs.
+#' @param time_offset Acquisition start offset stored in \code{toffset}.
+#' @param fill_value Value written to unindexed background voxels.
+#' @param datatype Output NIfTI datatype (\code{"float"} or \code{"double"}).
+#' @param compression Gzip compression level (\code{0}--\code{9}) for \code{.nii.gz}.
+#' @param time_first Logical; whether \code{ts_mat} is \code{time x voxels}.
+#' @keywords internal
+write_nifti_indexed_cpp <- function(reference, out_file, ts_mat, voxel_indices, tr = 1.0, time_offset = 0.0, fill_value = 0.0, datatype = "float", compression = 2L, time_first = TRUE) {
+    .Call(`_medusa_write_nifti_indexed_cpp`, reference, out_file, ts_mat, voxel_indices, tr, time_offset, fill_value, datatype, compression, time_first)
+}
+
+#' Write parcel-level time series or statistics directly to a 3D/4D NIfTI file
+#'
+#' @param reference File path to a reference 3D NIfTI mask or an in-memory NIfTI object.
+#' @param out_file Output file path (\code{.nii} or \code{.nii.gz}).
+#' @param parcel_slot Integer vector of length \code{n_spatial} with \code{0} for
+#'   background voxels and \code{1..M} indexing rows of \code{parcel_values}.
+#' @param parcel_values Numeric matrix of dimensions \code{M x T} (\code{parcels x time}).
+#' @param tr Repetition time in seconds stored in \code{pixdim[5]} for 4D outputs.
+#' @param fill_value Value written to background voxels (\code{parcel_slot == 0}).
+#' @param datatype Output NIfTI datatype (\code{"float"} or \code{"double"}).
+#' @param compression Gzip compression level (\code{0}--\code{9}) for \code{.nii.gz}.
+#' @keywords internal
+write_nifti_parcel_cpp <- function(reference, out_file, parcel_slot, parcel_values, tr = 1.0, fill_value = 0.0, datatype = "float", compression = 2L) {
+    .Call(`_medusa_write_nifti_parcel_cpp`, reference, out_file, parcel_slot, parcel_values, tr, fill_value, datatype, compression)
 }
 
 #' This function creates K shifts of a neural events vector according to the kernel length, K.

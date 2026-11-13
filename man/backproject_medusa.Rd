@@ -12,7 +12,9 @@ backproject_medusa(
   time_col = "time",
   effect_col = "term",
   output_dir = getwd(),
-  ncpus = 4L
+  ncpus = 4L,
+  compression = 2L,
+  fill = 0
 )
 }
 \arguments{
@@ -37,12 +39,18 @@ or `NULL` if `coef_df` contains a single effect. Default `"term"`.}
 Default `getwd()`.}
 
 \item{ncpus}{Integer number of parallel worker processes. Default `4L`.}
+
+\item{compression}{Integer gzip compression level (`0`--`9`) when writing
+`.nii.gz` files. Default `2L` for fast deflate compression.}
+
+\item{fill}{Numeric scalar written to non-parcel background voxels (for
+example `0` or `NA_real_`). Default `0`.}
 }
 \value{
 Invisibly returns a character vector of written `.nii.gz` file paths.
 }
 \description{
 Maps parcel-by-time model statistics (for example from [mixed_by()]) back
-into 4D NIfTI volumes (3D space across event-locked timepoints) using an
-integer-valued 3D parcellation mask.
+into 3D/4D NIfTI volumes (3D space across event-locked timepoints) using an
+integer-valued 3D parcellation mask and a streaming C++ NIfTI writer.
 }

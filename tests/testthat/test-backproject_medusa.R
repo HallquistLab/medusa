@@ -57,4 +57,43 @@ test_that("backproject_medusa writes 4D RNifti volumes with preserved geometry a
     backproject_medusa(dup_df, mask_path, plot_cols = "estimate", output_dir = out_dir, ncpus = 1L),
     "Expected exactly 1 row"
   )
+
+  # Missing parcel-time-effect cell also fails with exact message
+  miss_df <- coef_df[-2L, , drop = FALSE]
+  expect_error(
+    backproject_medusa(miss_df, mask_path, plot_cols = "estimate", output_dir = out_dir, ncpus = 1L),
+    "Expected exactly 1 row.*found 0"
+  )
+
+  # Parallel execution (ncpus = 2L), fill = NA_real_, compression = 1L, effect_col = NULL, and single-timepoint 3D output
+  out_par <- file.path(out_dir, "par")
+  written_par <- backproject_medusa(
+    coef_df = coef_df,
+    brain_mask = mask_path,
+    plot_cols = c("estimate", "statistic"),
+    output_dir = out_par,
+    ncpus = 2L,
+    compression = 1L,
+    fill = NA_real_
+  )
+  expect_length(written_par, 4L)
+  img_par <- RNifti::readNifti(file.path(out_par, "estimate_rpe.nii.gz"))
+  expect_equal(img_par[1, 1, 1, ], img[1, 1, 1, ], tolerance = 1e-6)
+  expect_true(all(is.na(img_par[3, 1, 1, ])))
+
+  single_t_df <- data.frame(roi = c(1L, 2L), time = c(0, 0), z = c(2.5, -3.25))
+  out_3d <- file.path(out_dir, "single_t")
+  w_3d <- backproject_medusa(
+    coef_df = single_t_df,
+    brain_mask = mask_path,
+    plot_cols = "z",
+    effect_col = NULL,
+    output_dir = out_3d,
+    ncpus = 1L
+  )
+  hdr_3d <- RNifti::niftiHeader(w_3d)
+  expect_equal(as.integer(hdr_3d$dim[1:4]), c(3L, 3L, 2L, 2L))
+  img_3d <- RNifti::readNifti(w_3d)
+  expect_equal(img_3d[1, 1, 1], 2.5, tolerance = 1e-6)
+  expect_equal(img_3d[3, 2, 2], -3.25, tolerance = 1e-6)
 })

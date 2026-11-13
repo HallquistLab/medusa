@@ -230,3 +230,94 @@ test_that("invalid PSD tuning settings fail before voxelwise workers run", {
     decon_settings = list(kernel = c(0.1, 0.6, 0.3), backend = "wiener", wiener_shrinkage = "psd")),
     "Automatic GCV tuning is not supported")
 })
+
+test_that("multi-atlas voxelwise_deconvolution extracts each 4D NIfTI once and matches single-atlas outputs", {
+  f <- make_decon_fixture()
+  on.exit(unlink(f$root, recursive = TRUE))
+
+  # Two overlapping atlases with different parcel subsets and non-unit values
+  atlas1 <- array(0L, c(2L, 2L, 2L))
+  atlas1[c(1L, 2L, 4L)] <- c(10L, 20L, 30L)
+  atlas2 <- array(0L, c(2L, 2L, 2L))
+  atlas2[c(2L, 3L, 6L, 8L)] <- c(100L, 200L, 300L, 400L)
+
+  a1_path <- file.path(f$root, "a_one.nii.gz")
+  a2_path <- file.path(f$root, "a_two.nii.gz")
+  RNifti::writeNifti(atlas1, a1_path)
+  RNifti::writeNifti(atlas2, a2_path)
+
+  # Clean finite BOLD across all 8 voxels + a second NIfTI run
+  bold2_path <- file.path(f$root, "bold2.nii.gz")
+  bold1 <- array(0, c(2L, 2L, 2L, 30L))
+  bold2 <- array(0, c(2L, 2L, 2L, 30L))
+  for (i in seq_len(8L)) {
+    bold1[i + 8L * (0:29)] <- 100 + sin((0:29) * i / 7) + cos((0:29) / (i + 1))
+    bold2[i + 8L * (0:29)] <- 100 + cos((0:29) * i / 5)
+  }
+  RNifti::writeNifti(bold1, f$bold)
+  RNifti::writeNifti(bold2, bold2_path)
+
+  out_sep <- file.path(f$root, "sep")
+  out_joint <- file.path(f$root, "joint")
+  meta <- data.frame(id = c("01", "01"), run = c(1L, 2L), stringsAsFactors = FALSE)
+  dset <- list(kernel = c(0.1, 0.6, 0.3), lambda_grid = c(0.05, 0.5))
+
+  voxelwise_deconvolution(c(f$bold, bold2_path), add_metadata = meta, out_dir = out_sep,
+    TR = 1.0, atlas_files = a1_path, nprocs = 1L, algorithm = "reglin", decon_settings = dset)
+  voxelwise_deconvolution(c(f$bold, bold2_path), add_metadata = meta, out_dir = out_sep,
+    TR = 1.0, atlas_files = a2_path, nprocs = 1L, algorithm = "reglin", decon_settings = dset)
+
+  ext_calls <- 0L
+  real_ext <- medusa:::extract_nifti_voxel_ts
+  local_mocked_bindings(
+    extract_nifti_voxel_ts = function(infile, voxel_indices, time_first = FALSE) {
+      ext_calls <<- ext_calls + 1L
+      real_ext(infile, voxel_indices, time_first)
+    }
+  )
+
+  voxelwise_deconvolution(c(f$bold, bold2_path), add_metadata = meta, out_dir = out_joint,
+    TR = 1.0, atlas_files = c(a1_path, a2_path), nprocs = 1L, algorithm = "reglin", decon_settings = dset)
+
+  # Extracted once per NIfTI run (2 runs total), NOT 2 runs x 2 atlases = 4!
+  expect_equal(ext_calls, 2L)
+
+  for (aname in c("a_one", "a_two")) {
+    sep_files <- sort(list.files(file.path(out_sep, aname, "deconvolved"), pattern = "_deconvolved\\.csv\\.gz$", full.names = TRUE))
+    jnt_files <- sort(list.files(file.path(out_joint, aname, "deconvolved"), pattern = "_deconvolved\\.csv\\.gz$", full.names = TRUE))
+    expect_equal(basename(jnt_files), basename(sep_files))
+    for (k in seq_along(sep_files)) {
+      expect_equal(data.table::fread(jnt_files[k]), data.table::fread(sep_files[k]), tolerance = 1e-10)
+      expect_equal(data.table::fread(paste0(jnt_files[k], ".scaling.csv")), data.table::fread(paste0(sep_files[k], ".scaling.csv")), tolerance = 1e-10)
+    }
+    sep_orig <- sort(list.files(file.path(out_sep, aname, "original"), pattern = "_original\\.csv\\.gz$", full.names = TRUE))
+    jnt_orig <- sort(list.files(file.path(out_joint, aname, "original"), pattern = "_original\\.csv\\.gz$", full.names = TRUE))
+    for (k in seq_along(sep_orig)) {
+      expect_equal(data.table::fread(jnt_orig[k]), data.table::fread(sep_orig[k]), tolerance = 1e-10)
+    }
+  }
+
+  # Partial skip: remove only a_two's run2 output; re-running extracts only bold2 once (for a_two's indices)
+  a2_run2 <- sort(list.files(file.path(out_joint, "a_two", "deconvolved"), pattern = "bold2.*_deconvolved\\.csv\\.gz$", full.names = TRUE))
+  unlink(a2_run2)
+  ext_calls <- 0L
+  expect_message(
+    voxelwise_deconvolution(c(f$bold, bold2_path), add_metadata = meta, out_dir = out_joint,
+      TR = 1.0, atlas_files = c(a1_path, a2_path), nprocs = 1L, algorithm = "reglin", decon_settings = dset),
+    "already exists"
+  )
+  expect_equal(ext_calls, 1L)
+  expect_true(file.exists(a2_run2))
+
+  # Parallel multi-run + multi-atlas execution (nprocs = 2L) matches sequential outputs
+  out_par <- file.path(f$root, "par_joint")
+  voxelwise_deconvolution(c(f$bold, bold2_path), add_metadata = meta, out_dir = out_par,
+    TR = 1.0, atlas_files = c(a1_path, a2_path), nprocs = 2L, algorithm = "reglin", decon_settings = dset)
+  for (aname in c("a_one", "a_two")) {
+    par_files <- sort(list.files(file.path(out_par, aname, "deconvolved"), pattern = "_deconvolved\\.csv\\.gz$", full.names = TRUE))
+    sep_files <- sort(list.files(file.path(out_sep, aname, "deconvolved"), pattern = "_deconvolved\\.csv\\.gz$", full.names = TRUE))
+    for (k in seq_along(sep_files)) {
+      expect_equal(data.table::fread(par_files[k]), data.table::fread(sep_files[k]), tolerance = 1e-10)
+    }
+  }
+})

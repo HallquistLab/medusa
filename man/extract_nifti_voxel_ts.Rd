@@ -4,22 +4,30 @@
 \alias{extract_nifti_voxel_ts}
 \title{Extract selected voxel time series in a specified order}
 \usage{
-extract_nifti_voxel_ts(infile, voxel_indices)
+extract_nifti_voxel_ts(infile, voxel_indices, time_first = FALSE)
 }
 \arguments{
 \item{infile}{Path to a scalar NIfTI image, optionally gzipped.}
 
 \item{voxel_indices}{One-based linear indices within the spatial volume.}
+
+\item{time_first}{Logical; if \code{TRUE}, returns a \code{volumes x voxels}
+matrix directly via cache-blocked extraction without an intermediate
+\code{voxels x volumes} allocation. Defaults to \code{FALSE} for backward
+compatibility.}
 }
 \value{
-A voxels by volumes numeric matrix, in the supplied index order.
+A numeric matrix (\code{voxels x volumes} when \code{time_first = FALSE},
+  or \code{volumes x voxels} when \code{time_first = TRUE}) in the supplied
+  voxel order.
 }
 \description{
 Extract selected voxel time series in a specified order
 }
 \details{
-Uses the RNifti C++ API, including NIfTI slope/intercept scaling,
-  without creating a full double-precision R array or intermediate text file.
-  Spatial alignment with the atlas must be checked by the caller.
+Uses the RNifti C++ API with single-dispatch typed pointer access,
+  including NIfTI slope/intercept scaling, without creating a full
+  double-precision R array or per-element virtual dispatch.
+  Spatial alignment with the atlas/mask must be checked by the caller.
 }
 \keyword{internal}

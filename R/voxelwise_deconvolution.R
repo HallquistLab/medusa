@@ -85,9 +85,9 @@
 #'
 #' @return Nothing (invisible NULL).
 #' @importFrom doParallel registerDoParallel
-#' @importFrom parallel makeCluster
+#' @importFrom parallel makeCluster stopCluster clusterCall
 #' @importFrom checkmate assert_file_exists
-#' @importFrom foreach %do% foreach
+#' @importFrom foreach %do% %dopar% foreach registerDoSEQ
 #' @importFrom dplyr mutate across select left_join
 #' @importFrom readr write_csv
 #' @importFrom stats setNames
@@ -161,27 +161,21 @@ voxelwise_deconvolution <- function(
     atlas_files <- mask
   }
   
-  zero_thresh <- 1e-4 #for binarizing/indexing
+  zero_thresh <- 1e-4 # for binarizing/indexing
   atlas_imgs <- lapply(atlas_files, RNifti::readNifti)
   mask_file <- mask
+  mask_geom <- NULL
   if (!is.null(mask)) {
     checkmate::assert_file_exists(mask)
+    mask_geom <- roi_image_geometry(mask_file)
     mask <- RNifti::readNifti(mask)
-    
-    #ensure that mask is binary
+    # ensure that mask is binary
     mask <- is.finite(mask) & mask >= zero_thresh
   }
-  
-  #setup cluster
-  if (nprocs > 1) {
-    cl <- makeCluster(nprocs)
-    registerDoParallel(cl)
-    on.exit(try(stopCluster(cl)))
-  } else {
-    registerDoSEQ()
-  }
 
-  #loop over atlas files
+  # Pre-validate all atlases once before reading or deconvolving NIfTI runs so
+  # multi-atlas workflows decompress each 4D NIfTI only once per run.
+  atlas_specs <- vector("list", length(atlas_files))
   for (ai in seq_along(atlas_files)) {
     cat("Working on atlas: ", atlas_files[ai], "\n")
     aimg <- atlas_imgs[[ai]]
@@ -189,12 +183,12 @@ voxelwise_deconvolution <- function(
     atlas_geometry <- roi_image_geometry(atlas_files[ai])
     if (atlas_geometry$volumes != 1L) stop("Deconvolution atlases must be single-volume images")
     if (!is.null(mask_file)) {
-      validate_roi_geometry(atlas_geometry, roi_image_geometry(mask_file), atlas_files[ai], mask_file)
+      validate_roi_geometry(atlas_geometry, mask_geom, atlas_files[ai], mask_file)
     }
-    
-    if (!is.null(mask)) { aimg <- aimg*mask } #multiply against binary mask to apply it
-    
-    
+    if (!is.null(mask)) {
+      aimg <- aimg * mask
+    }
+
     # One shared index vector defines both metadata and extraction order.
     # NIfTI and R arrays both store i first, then j, then k within each volume.
     voxel_indices <- which(is.finite(aimg) & aimg > zero_thresh)
@@ -203,69 +197,150 @@ voxelwise_deconvolution <- function(
     if (ncol(a_indices) == 2L) a_indices <- cbind(a_indices, 1L)
     xyz <- cbind(a_indices - 1L, 1) %*% t(atlas_geometry$affine)
     a_coordinates <- cbind(a_indices, xyz[, 1:3, drop = FALSE])
-    
+
     a_coordinates <- as.data.frame(a_coordinates) %>%
       setNames(c("i", "j", "k", "x", "y", "z")) %>%
-      dplyr::mutate(vnum = seq_along(voxel_indices), atlas_value = as.numeric(aimg[voxel_indices]), atlas_name = basename(atlas_files[ai])) %>%
+      dplyr::mutate(
+        vnum = seq_along(voxel_indices),
+        atlas_value = as.numeric(aimg[voxel_indices]),
+        atlas_name = basename(atlas_files[ai])
+      ) %>%
       mutate(across(c("x", "y", "z"), ~round(.x, 2))) %>%
       dplyr::select("vnum", "atlas_value", everything())
-    
-    #setup output subdirectories for deconvolved files, named according to atlas
-    atlas_img_name <- basename(sub("\\.nii(\\.gz)?$", "", atlas_files[ai], perl=TRUE))
-    dir.create(file.path(out_dir, atlas_img_name, "deconvolved"), showWarnings=FALSE, recursive=TRUE)
-    if (isTRUE(save_original_ts)) { dir.create(file.path(out_dir, atlas_img_name, "original"), showWarnings=FALSE, recursive=TRUE) }
-    
-    
-    #set a default filename based on the nifti -- hopefully this will not collide with other subjects/runs
-    if (is.null(out_file_expression)) {
-      out_file_expression <- expression(paste0("decon_", gsub("[:/\\]+", ".", niftis[si]), "_", atlas_img_name))
+
+    atlas_img_name <- basename(sub("\\.nii(\\.gz)?$", "", atlas_files[ai], perl = TRUE))
+    dir.create(file.path(out_dir, atlas_img_name, "deconvolved"), showWarnings = FALSE, recursive = TRUE)
+    if (isTRUE(save_original_ts)) {
+      dir.create(file.path(out_dir, atlas_img_name, "original"), showWarnings = FALSE, recursive = TRUE)
     }
 
+    atlas_specs[[ai]] <- list(
+      atlas_file = atlas_files[ai],
+      atlas_img_name = atlas_img_name,
+      atlas_geometry = atlas_geometry,
+      voxel_indices = voxel_indices,
+      a_coordinates = a_coordinates
+    )
+  }
+
+  out_file_expr <- if (is.null(out_file_expression)) {
+    expression(paste0("decon_", gsub("[:/\\]+", ".", niftis[si]), "_", atlas_img_name))
+  } else {
+    out_file_expression
+  }
+
+  if (!is.null(add_metadata)) {
+    add_metadata$.nifti <- niftis
+  }
+
+  # Setup cluster only when multiple NIfTIs are processed in parallel; keep
+  # single-worker execution in-process so testthat mocked bindings work cleanly.
+  use_parallel <- nprocs > 1 && length(niftis) > 1L
+  if (use_parallel) {
+    n_workers <- min(as.integer(nprocs), length(niftis))
+    can_fork <- identical(.Platform$OS.type, "unix") && !nzchar(Sys.getenv("RSTUDIO"))
+    if (can_fork) {
+      registerDoParallel(cores = n_workers)
+      on.exit(try(registerDoSEQ(), silent = TRUE), add = TRUE)
+    } else {
+      cl <- makeCluster(n_workers)
+      on.exit(try(stopCluster(cl), silent = TRUE), add = TRUE)
+      lib_paths <- .libPaths()
+      parallel::clusterCall(cl, function(lp) .libPaths(lp), lib_paths)
+      registerDoParallel(cl)
+    }
+  } else {
+    registerDoSEQ()
+  }
+
+  dopar_pkgs <- c(
+    "dplyr", "readr", "data.table",
+    if ("medusa" %in% loadedNamespaces()) "medusa",
+    "foreach", "iterators"
+  )
+  dopar_exports <- c(
+    "mat2df", "extract_nifti_voxel_ts", "roi_image_geometry",
+    "validate_roi_geometry", "decon_signal_status", "scale_decon_input",
+    "resolve_decon_scaling", "estimate_decon_noise_sd",
+    "deconvolve_reglin", "deconvolve_nlreg", "deconvolve_nlreg_resample"
+  )
+
+  ff <- foreach(
+    si = seq_along(niftis),
+    .packages = dopar_pkgs,
+    .export = dopar_exports
+  ) %dopar% {
     if (!is.null(add_metadata)) {
-      # add nifti as a metadata output
-      add_metadata$.nifti <- niftis
+      this_subj <- add_metadata %>% dplyr::slice(si)
     }
 
-    #loop over niftis in parallel
-    dopar_pkgs <- c("dplyr", "readr", "data.table",
-      if ("medusa" %in% loadedNamespaces()) "medusa",
-      "foreach", "iterators")
-    ff <- foreach(si = seq_along(niftis),
-      .packages=dopar_pkgs,
-      .export=c("mat2df", "extract_nifti_voxel_ts", "roi_image_geometry",
-        "validate_roi_geometry", "decon_signal_status", "scale_decon_input",
-        "resolve_decon_scaling", "estimate_decon_noise_sd")) %dopar% {
-
-      #get the si-th row of the metadata to match nifti, allow one to use this_subj in out_file_expression
-      if (!is.null(add_metadata)) {
-        this_subj <- add_metadata %>% dplyr::slice(si)
+    n_atlases <- length(atlas_specs)
+    out_stems <- character(n_atlases)
+    out_names <- character(n_atlases)
+    needed <- logical(n_atlases)
+    for (ai in seq_len(n_atlases)) {
+      atlas_img_name <- atlas_specs[[ai]]$atlas_img_name
+      out_stems[ai] <- eval(out_file_expr)
+      out_names[ai] <- file.path(
+        out_dir, atlas_img_name, "deconvolved",
+        paste0(out_stems[ai], "_deconvolved.csv.gz")
+      )
+      if (file.exists(out_names[ai])) {
+        message("Deconvolved file already exists: ", out_names[ai])
+      } else {
+        needed[ai] <- TRUE
       }
+    }
 
-      out_name <- file.path(out_dir, atlas_img_name, "deconvolved", paste0(eval(out_file_expression), "_deconvolved.csv.gz"))
+    if (!any(needed)) {
+      return(NULL)
+    }
 
-      if (file.exists(out_name)) {
-        message("Deconvolved file already exists: ", out_name)
-        return(NULL)
+    cat("  Deconvolving subject: ", niftis[si], "\n")
+    input_geometry <- roi_image_geometry(niftis[si])
+    input_geometry$volumes <- 1L
+    needed_idx <- which(needed)
+    for (ai in needed_idx) {
+      validate_roi_geometry(
+        atlas_specs[[ai]]$atlas_geometry,
+        input_geometry,
+        atlas_specs[[ai]]$atlas_file,
+        niftis[si]
+      )
+    }
+
+    # Extract the union of needed voxel indices in a single pass directly into
+    # time x voxels (T x V_union), avoiding repeated .nii.gz decompression and
+    # eliminating intermediate V x T <-> T x V matrix transposes.
+    if (length(needed_idx) == 1L) {
+      union_indices <- atlas_specs[[needed_idx]]$voxel_indices
+    } else {
+      union_indices <- sort(unique(unlist(lapply(atlas_specs[needed_idx], "[[", "voxel_indices"), use.names = FALSE)))
+    }
+    union_tv <- extract_nifti_voxel_ts(niftis[si], union_indices, TRUE)
+    n_time <- nrow(union_tv)
+
+    for (ai in needed_idx) {
+      spec <- atlas_specs[[ai]]
+      atlas_img_name <- spec$atlas_img_name
+      out_name <- out_names[ai]
+
+      if (identical(spec$voxel_indices, union_indices)) {
+        obs_tv <- union_tv
+      } else {
+        obs_tv <- union_tv[, match(spec$voxel_indices, union_indices), drop = FALSE]
       }
-      
-      cat("  Deconvolving subject: ", niftis[si], "\n")
-      # Only spatial geometry must match; the input may contain many volumes.
-      input_geometry <- roi_image_geometry(niftis[si])
-      input_geometry$volumes <- 1L
-      validate_roi_geometry(atlas_geometry, input_geometry, atlas_files[ai], niftis[si])
+      n_vox <- ncol(obs_tv)
 
-      # to_deconvolve is a voxels x time matrix
-      to_deconvolve <- extract_nifti_voxel_ts(niftis[si], voxel_indices)
-
-      # Screen before scaling: a constant signal would otherwise become NaN and
-      # contaminate global tuning. Keep invalid voxels in the output as NA.
-      decon_status <- decon_signal_status(t(to_deconvolve))
+      # Screen before scaling in native time x voxels orientation: a constant
+      # signal would otherwise become NaN and contaminate global tuning.
+      decon_status <- decon_signal_status(obs_tv)
       valid_voxels <- decon_status == "ok"
-      scaled_input <- matrix(NA_real_, nrow(to_deconvolve), ncol(to_deconvolve))
-      centers <- divisors <- rep(NA_real_, nrow(to_deconvolve))
+      scaled_tv <- matrix(NA_real_, nrow = n_time, ncol = n_vox)
+      centers <- divisors <- rep(NA_real_, n_vox)
       if (any(valid_voxels)) {
         scaled <- scale_decon_input(
-          t(to_deconvolve[valid_voxels, , drop = FALSE]),
+          obs_tv[, valid_voxels, drop = FALSE],
           scaling = input_scaling,
           noise_rho = decon_settings$prewhiten_rho,
           noise_psi1 = decon_settings$noise_psi1,
@@ -273,47 +348,49 @@ voxelwise_deconvolution <- function(
           noise_psi3 = decon_settings$noise_psi3,
           noise_psi4 = decon_settings$noise_psi4
         )
-        scaled_input[valid_voxels, ] <- t(scaled$y)
+        scaled_tv[, valid_voxels] <- scaled$y
         centers[valid_voxels] <- scaled$center
         divisors[valid_voxels] <- scaled$scale
       }
-      to_deconvolve <- scaled_input
       if (any(!valid_voxels)) {
         warning(sum(!valid_voxels), " constant or nonfinite voxel signals excluded from deconvolution: ", niftis[si])
       }
 
-      # Zero pad the tail end when requested (default for Bush algorithms) and
-      # trim the same padding after deconvolution.
-      alg_input <- to_deconvolve[valid_voxels, , drop = FALSE]
-      if (hrf_pad > 0L) {
-        alg_input <- cbind(alg_input, matrix(0, nrow = sum(valid_voxels), ncol = hrf_pad))
-      }
-      alg_input <- as.matrix(alg_input)
-
-      #test1 <- deconvolve_nlreg(to_deconvolve[117,], kernel=decon_settings$kernel, nev_lr=decon_settings$nev_lr, epsilon=decon_settings$epsilon)
-      #test2 <- deconvolve_nlreg(to_deconvolve[118,], kernel=decon_settings$kernel, nev_lr=decon_settings$nev_lr, epsilon=decon_settings$epsilon)
-      
       if (!any(valid_voxels)) {
-        deconv_mat <- matrix(NA_real_, nrow(to_deconvolve), ncol(to_deconvolve))
+        deconv_tv <- matrix(NA_real_, nrow = n_time, ncol = n_vox)
       } else {
-        if (algorithm == "bush2015") {
-          #use R implementation of Bush 2015 algorithm
-          bush_pkgs <- if ("medusa" %in% loadedNamespaces()) c("medusa") else character(0L)
-          deconv_mat <- foreach(vox_ts=iter(alg_input, by="row"), .combine="rbind", .packages=bush_pkgs) %do% {
-            reg <- tryCatch(deconvolve_nlreg_resample(as.vector(vox_ts), kernel=decon_settings$kernel, nev_lr=decon_settings$nev_lr, epsilon=decon_settings$epsilon, n_resample=decon_settings$n_resample, beta=decon_settings$beta, normalize=FALSE),
-              error=function(e) { cat("Problem deconvolving: ", niftis[si], as.character(e), "\n", file=log_file, append=TRUE); return(rep(NA, length(vox_ts))) })
+        alg_input <- scaled_tv[, valid_voxels, drop = FALSE]
+        if (hrf_pad > 0L) {
+          alg_input <- rbind(alg_input, matrix(0, nrow = hrf_pad, ncol = ncol(alg_input)))
+        }
+        alg_input <- as.matrix(alg_input)
 
-            if (is.list(reg)) { reg <- reg$NEVmean } #just keep the mean resampled events vector
-            return(reg)
+        if (algorithm == "bush2015") {
+          n_valid <- ncol(alg_input)
+          n_padded <- nrow(alg_input)
+          deconv_valid <- matrix(NA_real_, nrow = n_padded, ncol = n_valid)
+          for (vj in seq_len(n_valid)) {
+            vox_ts <- as.vector(alg_input[, vj])
+            reg <- tryCatch(
+              deconvolve_nlreg_resample(
+                vox_ts,
+                kernel = decon_settings$kernel,
+                nev_lr = decon_settings$nev_lr,
+                epsilon = decon_settings$epsilon,
+                n_resample = decon_settings$n_resample,
+                beta = decon_settings$beta,
+                normalize = FALSE
+              ),
+              error = function(e) {
+                cat("Problem deconvolving: ", niftis[si], as.character(e), "\n", file = log_file, append = TRUE)
+                rep(NA_real_, n_padded)
+              }
+            )
+            if (is.list(reg)) reg <- reg$NEVmean
+            deconv_valid[, vj] <- as.numeric(reg)
           }
-          # foreach returns the single result unchanged when only one voxel
-          # is fitted, so its rbind combiner has not made a matrix yet.
-          if (is.null(dim(deconv_mat))) deconv_mat <- matrix(deconv_mat, nrow = 1L)
         } else if (algorithm %in% c("reglin", "regularized_linear")) {
-          # Regularized linear deconvolution estimates continuous latent activity without
-          # sigmoid bounding. R function is time x voxels, matching the Rcpp path.
-          alg_input <- t(alg_input)
-          deconv_mat <- tryCatch(
+          deconv_valid <- tryCatch(
             deconvolve_reglin(
               BOLDobs = alg_input,
               kernel = decon_settings$kernel,
@@ -337,58 +414,65 @@ voxelwise_deconvolution <- function(
             ),
             error = function(e) {
               cat("Problem deconvolving: ", niftis[si], as.character(e), "\n", file = log_file, append = TRUE)
-              return(matrix(NA, nrow = nrow(alg_input), ncol = ncol(alg_input)))
+              matrix(NA_real_, nrow = nrow(alg_input), ncol = ncol(alg_input))
             }
           )
-
-          deconv_mat <- t(deconv_mat)
         } else if (algorithm == "bush2011") {
-          # This should use the new internal RcppArmadillo function
-          # Rcpp function is time x voxels... transpose inputs and outputs to match voxels x time expectations
-          alg_input <- t(alg_input)
-          deconv_mat <- tryCatch(deconvolve_nlreg(BOLDobs = alg_input, kernel=decon_settings$kernel, nev_lr=decon_settings$nev_lr, epsilon=decon_settings$epsilon, beta=decon_settings$beta, normalize=FALSE),
-            error=function(e) {
-              cat("Problem deconvolving: ", niftis[si], as.character(e), "\n", file=log_file, append=TRUE)
-              return(matrix(NA, nrow=nrow(alg_input), ncol=ncol(alg_input)))
-            })
-
-          deconv_mat <- t(deconv_mat)
+          deconv_valid <- tryCatch(
+            deconvolve_nlreg(
+              BOLDobs = alg_input,
+              kernel = decon_settings$kernel,
+              nev_lr = decon_settings$nev_lr,
+              epsilon = decon_settings$epsilon,
+              beta = decon_settings$beta,
+              normalize = FALSE
+            ),
+            error = function(e) {
+              cat("Problem deconvolving: ", niftis[si], as.character(e), "\n", file = log_file, append = TRUE)
+              matrix(NA_real_, nrow = nrow(alg_input), ncol = ncol(alg_input))
+            }
+          )
         }
-      
-        # Trim the HRF end-padding for all variants.
-        deconv_mat <- deconv_mat[, seq_len(ncol(to_deconvolve)), drop = FALSE]
-        restored <- matrix(NA_real_, nrow(to_deconvolve), ncol(to_deconvolve))
-        restored[valid_voxels, ] <- deconv_mat
-        deconv_mat <- restored
+
+        deconv_valid <- deconv_valid[seq_len(n_time), , drop = FALSE]
+        deconv_tv <- matrix(NA_real_, nrow = n_time, ncol = n_vox)
+        deconv_tv[, valid_voxels] <- deconv_valid
       }
 
-      # melt this for combination
-      deconv_melt <- mat2df(deconv_mat, value_name="decon", varnames=c("vnum", "volume"))
-      deconv_melt$time <- (deconv_melt$volume - 1)*TR + time_offset #convert back to seconds; first volume is time 0
+      # Melt to legacy (vnum, volume) long layout via a single final transpose
+      deconv_melt <- mat2df(unname(t(deconv_tv)), value_name = "decon", varnames = c("vnum", "volume"))
+      deconv_melt$time <- (deconv_melt$volume - 1) * TR + time_offset
 
-      deconv_df <- deconv_melt %>% 
-        dplyr::mutate(vnum=as.numeric(.data$vnum)) %>%
-        left_join(a_coordinates, by="vnum") %>%
-        #mutate(nifti=niftis[si]) %>%
-        dplyr::select(-"i", -"j", -"k") #omitting i, j, k for now
+      deconv_df <- deconv_melt %>%
+        dplyr::mutate(vnum = as.numeric(.data$vnum)) %>%
+        left_join(spec$a_coordinates, by = "vnum") %>%
+        dplyr::select(-"i", -"j", -"k")
 
       deconv_df$decon_status <- decon_status[deconv_df$vnum]
-
-      #add subject metadata, if relevant
-      #if (!is.null(add_metadata)) { deconv_df <- deconv_df %>% cbind(this_subj) }
-
       readr::write_csv(deconv_df, file = out_name)
 
-      # A per-file sidecar makes custom filenames independent of identity
-      # parsing. Preserve identifier strings such as "001" and "participantA".
       scaling_file <- paste0(out_name, ".scaling.csv")
-      readr::write_csv(data.frame(vnum = seq_along(centers),
-        scaling = input_scaling, center = centers, scale = divisors,
-        decon_status = decon_status), scaling_file)
-      identity_metadata <- data.frame(.nifti = niftis[si], algorithm = algorithm,
-        scaling = input_scaling, scaling_file = basename(scaling_file),
-        decon_units = if (algorithm %in% c("bush2011", "bush2015")) "bounded_encoding" else
-          switch(input_scaling, zscore = "input_sd", noise_sd = "noise_sd", psc = "percent_signal_change", "input_units"))
+      readr::write_csv(
+        data.frame(
+          vnum = seq_along(centers),
+          scaling = input_scaling,
+          center = centers,
+          scale = divisors,
+          decon_status = decon_status
+        ),
+        scaling_file
+      )
+      identity_metadata <- data.frame(
+        .nifti = niftis[si],
+        algorithm = algorithm,
+        scaling = input_scaling,
+        scaling_file = basename(scaling_file),
+        decon_units = if (algorithm %in% c("bush2011", "bush2015")) {
+          "bounded_encoding"
+        } else {
+          switch(input_scaling, zscore = "input_sd", noise_sd = "noise_sd", psc = "percent_signal_change", "input_units")
+        }
+      )
       if (!is.null(add_metadata)) {
         for (column in intersect(c("id", "run", "session"), names(this_subj))) {
           identity_metadata[[column]] <- this_subj[[column]]
@@ -396,30 +480,28 @@ voxelwise_deconvolution <- function(
       }
       readr::write_csv(identity_metadata, file = paste0(out_name, ".metadata.csv"))
 
-      #handle output of original time series (before deconvolution) -- mostly useful for debugging
       if (isTRUE(save_original_ts)) {
-        to_deconvolve_melt <- mat2df(to_deconvolve, value_name="BOLD_input", varnames=c("vnum", "time"))
-        to_deconvolve_melt$time <- (to_deconvolve_melt$time - 1)*TR + time_offset #convert back to seconds; first volume is time 0
+        to_deconvolve_melt <- mat2df(unname(t(scaled_tv)), value_name = "BOLD_input", varnames = c("vnum", "time"))
+        to_deconvolve_melt$time <- (to_deconvolve_melt$time - 1) * TR + time_offset
 
-        orig_df <- to_deconvolve_melt %>% 
-          dplyr::mutate(vnum=as.numeric(.data$vnum)) %>%
-          left_join(a_coordinates, by="vnum") %>%
-          #mutate(nifti=niftis[si]) %>%
-          dplyr::select(-"i", -"j", -"k") #omitting i, j, k for now
+        orig_df <- to_deconvolve_melt %>%
+          dplyr::mutate(vnum = as.numeric(.data$vnum)) %>%
+          left_join(spec$a_coordinates, by = "vnum") %>%
+          dplyr::select(-"i", -"j", -"k")
 
-        # Keep the historical name only when it accurately describes the data.
         if (input_scaling == "zscore") orig_df$BOLD_z <- orig_df$BOLD_input
 
-        #if (!is.null(add_metadata)) { orig_df <- orig_df %>% cbind(this_subj) }
-
-        #update output file for original
-        out_name <- file.path(out_dir, atlas_img_name, "original", paste0(eval(out_file_expression), "_original.csv.gz"))
-        readr::write_csv(orig_df, file = out_name)
+        orig_out_name <- file.path(out_dir, atlas_img_name, "original", paste0(out_stems[ai], "_original.csv.gz"))
+        readr::write_csv(orig_df, file = orig_out_name)
       }
     }
-    
-    #write metadata as single data.frame that can be merged selectively, cutting down on storage demands in individual files
-    if (!is.null(add_metadata)) {
+    NULL
+  }
+
+  # Write atlas-level metadata once per atlas, deduplicating across re-runs
+  if (!is.null(add_metadata)) {
+    for (ai in seq_along(atlas_specs)) {
+      atlas_img_name <- atlas_specs[[ai]]$atlas_img_name
       out_name <- file.path(out_dir, atlas_img_name, paste0(atlas_img_name, "_metadata.csv"))
       if (file.exists(out_name)) {
         existing_meta <- tryCatch(
@@ -446,9 +528,7 @@ voxelwise_deconvolution <- function(
         readr::write_csv(add_metadata, file = out_name, append = FALSE, col_names = TRUE)
       }
     }
-
   }
-  
+
   return(invisible(NULL))
-  
 }

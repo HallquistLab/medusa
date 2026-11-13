@@ -177,14 +177,53 @@ BEGIN_RCPP
 END_RCPP
 }
 // extract_nifti_voxel_ts
-Rcpp::NumericMatrix extract_nifti_voxel_ts(std::string infile, Rcpp::NumericVector voxel_indices);
-RcppExport SEXP _medusa_extract_nifti_voxel_ts(SEXP infileSEXP, SEXP voxel_indicesSEXP) {
+Rcpp::NumericMatrix extract_nifti_voxel_ts(std::string infile, Rcpp::NumericVector voxel_indices, bool time_first);
+RcppExport SEXP _medusa_extract_nifti_voxel_ts(SEXP infileSEXP, SEXP voxel_indicesSEXP, SEXP time_firstSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::string >::type infile(infileSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type voxel_indices(voxel_indicesSEXP);
-    rcpp_result_gen = Rcpp::wrap(extract_nifti_voxel_ts(infile, voxel_indices));
+    Rcpp::traits::input_parameter< bool >::type time_first(time_firstSEXP);
+    rcpp_result_gen = Rcpp::wrap(extract_nifti_voxel_ts(infile, voxel_indices, time_first));
+    return rcpp_result_gen;
+END_RCPP
+}
+// write_nifti_indexed_cpp
+std::string write_nifti_indexed_cpp(SEXP reference, std::string out_file, Rcpp::NumericMatrix ts_mat, Rcpp::NumericVector voxel_indices, double tr, double time_offset, double fill_value, std::string datatype, int compression, bool time_first);
+RcppExport SEXP _medusa_write_nifti_indexed_cpp(SEXP referenceSEXP, SEXP out_fileSEXP, SEXP ts_matSEXP, SEXP voxel_indicesSEXP, SEXP trSEXP, SEXP time_offsetSEXP, SEXP fill_valueSEXP, SEXP datatypeSEXP, SEXP compressionSEXP, SEXP time_firstSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type reference(referenceSEXP);
+    Rcpp::traits::input_parameter< std::string >::type out_file(out_fileSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type ts_mat(ts_matSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type voxel_indices(voxel_indicesSEXP);
+    Rcpp::traits::input_parameter< double >::type tr(trSEXP);
+    Rcpp::traits::input_parameter< double >::type time_offset(time_offsetSEXP);
+    Rcpp::traits::input_parameter< double >::type fill_value(fill_valueSEXP);
+    Rcpp::traits::input_parameter< std::string >::type datatype(datatypeSEXP);
+    Rcpp::traits::input_parameter< int >::type compression(compressionSEXP);
+    Rcpp::traits::input_parameter< bool >::type time_first(time_firstSEXP);
+    rcpp_result_gen = Rcpp::wrap(write_nifti_indexed_cpp(reference, out_file, ts_mat, voxel_indices, tr, time_offset, fill_value, datatype, compression, time_first));
+    return rcpp_result_gen;
+END_RCPP
+}
+// write_nifti_parcel_cpp
+std::string write_nifti_parcel_cpp(SEXP reference, std::string out_file, Rcpp::IntegerVector parcel_slot, Rcpp::NumericMatrix parcel_values, double tr, double fill_value, std::string datatype, int compression);
+RcppExport SEXP _medusa_write_nifti_parcel_cpp(SEXP referenceSEXP, SEXP out_fileSEXP, SEXP parcel_slotSEXP, SEXP parcel_valuesSEXP, SEXP trSEXP, SEXP fill_valueSEXP, SEXP datatypeSEXP, SEXP compressionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type reference(referenceSEXP);
+    Rcpp::traits::input_parameter< std::string >::type out_file(out_fileSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type parcel_slot(parcel_slotSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type parcel_values(parcel_valuesSEXP);
+    Rcpp::traits::input_parameter< double >::type tr(trSEXP);
+    Rcpp::traits::input_parameter< double >::type fill_value(fill_valueSEXP);
+    Rcpp::traits::input_parameter< std::string >::type datatype(datatypeSEXP);
+    Rcpp::traits::input_parameter< int >::type compression(compressionSEXP);
+    rcpp_result_gen = Rcpp::wrap(write_nifti_parcel_cpp(reference, out_file, parcel_slot, parcel_values, tr, fill_value, datatype, compression));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -249,7 +288,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_deconvolve_nlreg", (DL_FUNC) &_medusa_deconvolve_nlreg, 7},
     {"_medusa_deconvolve_reglin_cpp", (DL_FUNC) &_medusa_deconvolve_reglin_cpp, 13},
     {"_medusa_dsigmoid", (DL_FUNC) &_medusa_dsigmoid, 2},
-    {"_medusa_extract_nifti_voxel_ts", (DL_FUNC) &_medusa_extract_nifti_voxel_ts, 2},
+    {"_medusa_extract_nifti_voxel_ts", (DL_FUNC) &_medusa_extract_nifti_voxel_ts, 3},
+    {"_medusa_write_nifti_indexed_cpp", (DL_FUNC) &_medusa_write_nifti_indexed_cpp, 10},
+    {"_medusa_write_nifti_parcel_cpp", (DL_FUNC) &_medusa_write_nifti_parcel_cpp, 8},
     {"_medusa_generate_feature", (DL_FUNC) &_medusa_generate_feature, 2},
     {"_medusa_generate_feature_armadillo", (DL_FUNC) &_medusa_generate_feature_armadillo, 2},
     {"_medusa_mat2df", (DL_FUNC) &_medusa_mat2df, 4},
