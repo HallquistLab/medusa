@@ -728,6 +728,9 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
     .errorhandling = "pass") %dopar% {
     identity <- NULL
     tryCatch({
+      if (R.utils::isGzipped(fname, method = "extension")) {
+        loadNamespace("R.utils")
+      }
       d <- data.table::fread(fname, data.table = FALSE)
       required <- unique(c("decon", "time", "vnum", aggregate_by))
       if (!all(required %in% names(d))) stop("Missing required signal columns: ", paste(setdiff(required, names(d)), collapse = ", "))

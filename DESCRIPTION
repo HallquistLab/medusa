@@ -21,6 +21,7 @@ Imports:
     Rcpp,
     RNifti,
     R6,
+    R.utils,
     broom.mixed,
     checkmate,
     data.table,
