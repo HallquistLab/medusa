@@ -243,7 +243,10 @@ hrf_unpack_bold_input <- function(bold) {
       voxel_map = vm,
       parcel_ids = p_ids,
       tr = tr_val,
-      geometry = bold$geometry
+      geometry = bold$geometry,
+      events = bold$events,
+      nuisance = bold$nuisance,
+      valid_rows = bold$valid_rows
     ))
   }
   if (is.matrix(bold) && !is.null(attr(bold, "geometry", exact = TRUE))) {
@@ -261,7 +264,10 @@ hrf_unpack_bold_input <- function(bold) {
       voxel_map = vm,
       parcel_ids = p_ids,
       tr = tr_val,
-      geometry = attr(bold, "geometry", exact = TRUE)
+      geometry = attr(bold, "geometry", exact = TRUE),
+      events = NULL,
+      nuisance = NULL,
+      valid_rows = NULL
     ))
   }
   tr_val <- NULL
@@ -273,7 +279,16 @@ hrf_unpack_bold_input <- function(bold) {
       if (max(abs(tr_vec - tr_vec[1L])) <= 1e-6) tr_val <- as.numeric(tr_vec[1L])
     }
   }
-  list(bold = bold, voxel_map = NULL, parcel_ids = NULL, tr = tr_val, geometry = NULL)
+  list(
+    bold = bold,
+    voxel_map = NULL,
+    parcel_ids = NULL,
+    tr = tr_val,
+    geometry = NULL,
+    events = NULL,
+    nuisance = NULL,
+    valid_rows = NULL
+  )
 }
 
 hrf_resolve_events_input <- function(events, bold, run_col = "run", allow_empty_runs = TRUE) {
@@ -687,14 +702,19 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #' Estimate HRF shapes from other runs, with optional spatial regularization
 #'
 #' @param bold Either a \code{"medusa_nifti_ts"} object from
-#'   \code{\link{read_nifti_ts}} (automatically supplying \code{$bold}, \code{$tr},
-#'   \code{$parcel_ids}, and spatial \code{$geometry}/\code{$voxel_map}) or a named
-#'   list of time-by-voxel numeric matrices for one participant (with identical
-#'   unique voxel column IDs across runs).
+#'   \code{\link{read_nifti_ts}} or \code{\link{read_fmriprep_subject}}
+#'   (automatically supplying \code{$bold}, \code{$tr}, \code{$parcel_ids},
+#'   spatial \code{$geometry}/\code{$voxel_map}, and any attached \code{$events},
+#'   \code{$nuisance}, and \code{$valid_rows}) or a named list of time-by-voxel
+#'   numeric matrices for one participant (with identical unique voxel column IDs
+#'   across runs).
 #' @param events Either a combined multi-run \code{data.frame} containing \code{onset},
 #'   \code{condition}, optional \code{duration}, and a run column (\code{run_col},
 #'   omitted only for single-run inputs), or a run-named list of per-run
-#'   \code{data.frame}s in \code{bold} order.
+#'   \code{data.frame}s in \code{bold} order (e.g., from
+#'   \code{\link{read_bids_events}}). Optional when \code{bold} is a
+#'   \code{"medusa_nifti_ts"} object with \code{$events} populated by
+#'   \code{\link{read_fmriprep_subject}}.
 #' @param tr Common acquisition interval in seconds. Optional when \code{bold} is
 #'   a \code{"medusa_nifti_ts"} object (or carries \code{tr} attributes) with a
 #'   positive finite repetition time.
@@ -707,11 +727,14 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   undershoot ratios (and defaulting to \code{"signed_sum"} otherwise).
 #' @param nuisance Optional matching list of time-by-regressor matrices (or
 #'   numeric \code{data.frame}s; a single matrix/\code{data.frame} is also accepted
-#'   for single-run inputs). An intercept and linear trend are always included
+#'   for single-run inputs), or a \code{"medusa_confounds"} object from
+#'   \code{\link{read_fmriprep_confounds}} (which also supplies \code{valid_rows}
+#'   unless overridden). An intercept and linear trend are always included
 #'   separately for each run.
 #' @param valid_rows Optional matching list of logical observation masks (or a
-#'   single logical vector for single-run inputs); FALSE and NA omit rows from
-#'   training fits without deleting their acquisition times.
+#'   single logical vector for single-run inputs, or a \code{"medusa_confounds"}
+#'   object); FALSE and NA omit rows from training fits without deleting their
+#'   acquisition times.
 #' @param time_offset First acquisition time, scalar or named numeric run vector.
 #' @param spatial_groups Optional voxel parcel labels in voxel column order
 #'   (named by voxel IDs or unnamed of length equal to voxel count). Defaults to
@@ -816,7 +839,7 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   common across voxels. Candidate task ranks must match within a run and leave
 #'   residual degrees of freedom, otherwise that run cannot inform HRF selection.
 #' @export
-estimate_crossrun_hrf <- function(bold, events, tr = NULL, kernel_grid = NULL, nuisance = NULL,
+estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = NULL, nuisance = NULL,
     valid_rows = NULL, time_offset = 0, spatial_groups = NULL,
     pooling = c("voxel", "parcel"), spatial_strength = 0, fallback_kernel = 1L,
     min_r2 = 0.01, min_training_runs = 1L, min_parcel_voxels = 5L,
@@ -827,9 +850,31 @@ estimate_crossrun_hrf <- function(bold, events, tr = NULL, kernel_grid = NULL, n
     spatial_coords = NULL, spatial_fwhm = NULL,
     selection_mode = c("hard", "soft_average"),
     noise_groups = NULL, run_col = "run") {
+  nuisance_missing <- missing(nuisance)
+  valid_rows_missing <- missing(valid_rows)
   bold_unpacked <- hrf_unpack_bold_input(bold)
   bold <- bold_unpacked$bold
   hrf_validate_bold(bold)
+  if (inherits(nuisance, "medusa_confounds")) {
+    if (valid_rows_missing) valid_rows <- nuisance$valid_rows
+    nuisance <- nuisance$nuisance
+  }
+  if (inherits(valid_rows, "medusa_confounds")) {
+    valid_rows <- valid_rows$valid_rows
+  }
+  if (is.null(events)) events <- bold_unpacked$events
+  if (is.null(events)) {
+    stop(
+      "Supply 'events' (or pass a 'medusa_nifti_ts' object with '$events' populated by read_fmriprep_subject()).",
+      call. = FALSE
+    )
+  }
+  if (nuisance_missing && is.null(nuisance) && !is.null(bold_unpacked$nuisance)) {
+    nuisance <- bold_unpacked$nuisance
+  }
+  if (valid_rows_missing && is.null(valid_rows) && !is.null(bold_unpacked$valid_rows)) {
+    valid_rows <- bold_unpacked$valid_rows
+  }
   pooling <- match.arg(pooling)
   amplitude_model <- match.arg(amplitude_model)
   noise_model <- match.arg(noise_model)

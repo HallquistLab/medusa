@@ -6,7 +6,7 @@
 \usage{
 estimate_crossrun_hrf(
   bold,
-  events,
+  events = NULL,
   tr = NULL,
   kernel_grid = NULL,
   nuisance = NULL,
@@ -37,15 +37,20 @@ estimate_crossrun_hrf(
 }
 \arguments{
 \item{bold}{Either a \code{"medusa_nifti_ts"} object from
-\code{\link{read_nifti_ts}} (automatically supplying \code{$bold}, \code{$tr},
-\code{$parcel_ids}, and spatial \code{$geometry}/\code{$voxel_map}) or a named
-list of time-by-voxel numeric matrices for one participant (with identical
-unique voxel column IDs across runs).}
+\code{\link{read_nifti_ts}} or \code{\link{read_fmriprep_subject}}
+(automatically supplying \code{$bold}, \code{$tr}, \code{$parcel_ids},
+spatial \code{$geometry}/\code{$voxel_map}, and any attached \code{$events},
+\code{$nuisance}, and \code{$valid_rows}) or a named list of time-by-voxel
+numeric matrices for one participant (with identical unique voxel column IDs
+across runs).}
 
 \item{events}{Either a combined multi-run \code{data.frame} containing \code{onset},
 \code{condition}, optional \code{duration}, and a run column (\code{run_col},
 omitted only for single-run inputs), or a run-named list of per-run
-\code{data.frame}s in \code{bold} order.}
+\code{data.frame}s in \code{bold} order (e.g., from
+\code{\link{read_bids_events}}). Optional when \code{bold} is a
+\code{"medusa_nifti_ts"} object with \code{$events} populated by
+\code{\link{read_fmriprep_subject}}.}
 
 \item{tr}{Common acquisition interval in seconds. Optional when \code{bold} is
 a \code{"medusa_nifti_ts"} object (or carries \code{tr} attributes) with a
@@ -61,12 +66,15 @@ undershoot ratios (and defaulting to \code{"signed_sum"} otherwise).}
 
 \item{nuisance}{Optional matching list of time-by-regressor matrices (or
 numeric \code{data.frame}s; a single matrix/\code{data.frame} is also accepted
-for single-run inputs). An intercept and linear trend are always included
+for single-run inputs), or a \code{"medusa_confounds"} object from
+\code{\link{read_fmriprep_confounds}} (which also supplies \code{valid_rows}
+unless overridden). An intercept and linear trend are always included
 separately for each run.}
 
 \item{valid_rows}{Optional matching list of logical observation masks (or a
-single logical vector for single-run inputs); FALSE and NA omit rows from
-training fits without deleting their acquisition times.}
+single logical vector for single-run inputs, or a \code{"medusa_confounds"}
+object); FALSE and NA omit rows from training fits without deleting their
+acquisition times.}
 
 \item{time_offset}{First acquisition time, scalar or named numeric run vector.}
 

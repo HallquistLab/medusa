@@ -579,11 +579,13 @@ resolve_run_time_vec <- function(time, r_idx, r_name, n_t, tr, time_offset, mat)
 #' multivariate signal lists, and legacy `fmri_ts` objects.
 #'
 #' @param ts Time-series input: a `T x V` numeric `matrix`, a `"medusa_nifti_ts"`
-#'   object from [read_nifti_ts()], a deconvolution result list from
-#'   [deconvolve_crossrun_hrf()], a named `list` of `T x V` matrices (multi-run or
-#'   multivariate signals; see `list_mode`), or a legacy `fmri_ts` object.
+#'   object from [read_nifti_ts()] or [read_fmriprep_subject()], a deconvolution
+#'   result list from [deconvolve_crossrun_hrf()], a named `list` of `T x V`
+#'   matrices (multi-run or multivariate signals; see `list_mode`), or a legacy
+#'   `fmri_ts` object.
 #' @param events Trial-level `data.frame` (or named `list` of per-run `data.frame`s
-#'   for multi-run inputs). Optional when `ts` is an `fmri_ts` object or a
+#'   for multi-run inputs, e.g., from [read_bids_events()]). Optional when `ts` is
+#'   an `fmri_ts` object, a `medusa_nifti_ts` object with `$events` attached, or a
 #'   `deconvolve_crossrun_hrf()` fit whose stored events include `trial_col` and `event`.
 #' @param event Name of the target event onset column in `events`.
 #' @param time_before Earliest epoch lag relative to `event` in seconds (`<= 0`). Default `-3.0`.
@@ -619,8 +621,11 @@ resolve_run_time_vec <- function(time, r_idx, r_name, n_t, tr, time_offset, mat)
 #'   combined multi-run `data.frame` and attached to multi-run outputs. Default `"run"`.
 #' @param valid Optional logical validity mask (`TRUE` = usable, `FALSE`/`NA` =
 #'   censored): a length-`T` vector, a `T x V` logical matrix, a per-run list,
-#'   or `"observation_mask"` to use `attr(mat, "observation_mask")`. For `fmri_ts`
-#'   inputs, a single column name string is also accepted (matching `valid_col`).
+#'   a `"medusa_confounds"` object from [read_fmriprep_confounds()], or
+#'   `"observation_mask"` to use `attr(mat, "observation_mask")`. Automatically
+#'   defaults to `ts$valid_rows` when `ts` is an enriched `"medusa_nifti_ts"`
+#'   object and `valid` is omitted. For `fmri_ts` inputs, a single column name
+#'   string is also accepted (matching `valid_col`).
 #' @param overlap_policy One of `"allow"`, `"truncate"`, or `"exclude"`. `NULL`
 #'   uses `"truncate"` when collision columns are supplied and `"allow"` otherwise.
 #' @param neighbor_events Event columns used for `align_*` nearest-event
@@ -652,7 +657,8 @@ resolve_run_time_vec <- function(time, r_idx, r_name, n_t, tr, time_offset, mat)
 #' durations, or propagate analytical per-trial standard errors (`se_demixed`),
 #' use [decon_epoch_regression()] instead.
 #'
-#' @seealso [read_nifti_ts()], [deconvolve_crossrun_hrf()],
+#' @seealso [read_nifti_ts()], [read_fmriprep_subject()], [read_bids_events()],
+#'   [read_fmriprep_confounds()], [deconvolve_crossrun_hrf()],
 #'   [decon_epoch_regression()], [get_medusa_interpolated_ts()],
 #'   [evt_align_decon_files()], [get_medusa_compression_score()]
 #'
@@ -667,6 +673,7 @@ resolve_run_time_vec <- function(time, r_idx, r_name, n_t, tr, time_offset, mat)
 #' )
 #' head(aligned)
 #'
+#' @md
 #' @export
 align_medusa_ts <- function(
   ts,
@@ -700,12 +707,16 @@ align_medusa_ts <- function(
   ncpus = 1L
 ) {
   group_by_missing <- missing(group_by)
+  valid_missing <- missing(valid)
   list_mode <- match.arg(list_mode)
   checkmate::assert_string(value_name, min.chars = 1L)
   checkmate::assert_string(trial_col, min.chars = 1L)
   checkmate::assert_string(run_col, min.chars = 1L)
   checkmate::assert_integerish(ncpus, lower = 1L, len = 1L, any.missing = FALSE)
   ncpus <- as.integer(ncpus)
+  if (inherits(valid, "medusa_confounds")) {
+    valid <- valid$valid_rows
+  }
 
   # 1. Legacy fmri_ts R6 input
   if (inherits(ts, "fmri_ts")) {
@@ -741,6 +752,8 @@ align_medusa_ts <- function(
     if (is.null(unit_data) && !is.null(ts$voxel_map)) unit_data <- ts$voxel_map
     if (is.null(parcel_ids) && !is.null(ts$parcel_ids)) parcel_ids <- ts$parcel_ids
     if (is.null(orientation) && !is.null(ts$orientation)) orientation <- ts$orientation
+    if (is.null(events) && !is.null(ts$events)) events <- ts$events
+    if (valid_missing && is.null(valid) && !is.null(ts$valid_rows)) valid <- ts$valid_rows
     ts <- ts$bold
     is_multi_run_container <- TRUE
   } else if (inherits(ts, "crossrun_decon") ||
