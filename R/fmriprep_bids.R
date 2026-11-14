@@ -301,6 +301,9 @@ default_bids_na_strings <- function() {
 
 read_bids_delim <- function(path, na_strings = default_bids_na_strings()) {
   checkmate::assert_file_exists(path)
+  if (R.utils::isGzipped(path, method = "extension")) {
+    loadNamespace("R.utils")
+  }
   is_tsv <- grepl("\\.tsv(\\.gz)?$", path, ignore.case = TRUE)
   dt <- if (is_tsv) {
     data.table::fread(path, sep = "\t", na.strings = na_strings, data.table = FALSE)
