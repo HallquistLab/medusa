@@ -20,7 +20,9 @@ run_decon_alignment(
   scheduler = "slurm",
   time_audit = FALSE,
   file_manifest = NULL,
-  fail_on_error = TRUE
+  fail_on_error = TRUE,
+  input_format = c("auto", "csv.gz", "rds", "nifti", "parquet"),
+  out_format = c("csv.gz", "parquet", "rds")
 )
 }
 \arguments{
@@ -63,6 +65,18 @@ deconvolution files. Overrides per-file metadata and legacy filename parsing.}
 
 \item{fail_on_error}{Stop if any file fails alignment (default TRUE). Set FALSE
 explicitly to allow partial output with a warning and a file status manifest.}
+
+\item{input_format}{Format of deconvolution files to discover inside each atlas's
+\code{deconvolved/} directory: \code{"auto"} (default, discovers
+\code{_deconvolved.csv.gz}, \code{_deconvolved.rds}, \code{_deconvolved.nii.gz},
+and \code{_deconvolved.parquet}, deduplicating stems if multiple formats coexist),
+or an explicit format (\code{"csv.gz"}, \code{"rds"}, \code{"nifti"}, \code{"parquet"}).}
+
+\item{out_format}{Output serialization format for each aligned panel:
+\code{"csv.gz"} (default, written via \code{data.table::fwrite}),
+\code{"parquet"} (columnar Parquet via \code{arrow::write_parquet}, directly
+consumable by \code{\link{mixed_by}} with column projection and filter pushdown),
+or \code{"rds"}.}
 }
 \description{
 Align a set of deconvolved time series files from \code{voxelwise_deconvolution} to a set of events in a task-related design

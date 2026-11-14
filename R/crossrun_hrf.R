@@ -217,6 +217,115 @@ hrf_partition_ar_strata <- function(des_id, rho, psi1, psi2, psi3, psi4,
   list(keys = keys_out, ar_mat = ar_out)
 }
 
+hrf_unpack_bold_input <- function(bold) {
+  if (inherits(bold, "medusa_nifti_ts")) {
+    orient <- if (!is.null(bold$orientation)) bold$orientation else "time_by_voxel"
+    bold_list <- bold$bold
+    if (identical(orient, "voxel_by_time") && is.list(bold_list)) {
+      bold_list <- lapply(bold_list, t)
+    }
+    vm <- bold$voxel_map
+    p_ids <- bold$parcel_ids
+    if (is.list(bold_list) && length(bold_list) > 0L && is.matrix(bold_list[[1L]])) {
+      cnames <- colnames(bold_list[[1L]])
+      if (!is.null(cnames) && !is.null(vm) && "voxel" %in% names(vm) &&
+          !identical(as.character(vm$voxel), cnames) && all(cnames %in% as.character(vm$voxel))) {
+        vm <- vm[match(cnames, as.character(vm$voxel)), , drop = FALSE]
+      }
+      if (!is.null(cnames) && !is.null(p_ids) && !is.null(names(p_ids)) &&
+          !identical(names(p_ids), cnames) && all(cnames %in% names(p_ids))) {
+        p_ids <- p_ids[cnames]
+      }
+    }
+    tr_val <- if (!is.null(bold$tr) && is.finite(bold$tr) && bold$tr > 0) as.numeric(bold$tr) else NULL
+    return(list(
+      bold = bold_list,
+      voxel_map = vm,
+      parcel_ids = p_ids,
+      tr = tr_val,
+      geometry = bold$geometry
+    ))
+  }
+  if (is.matrix(bold) && !is.null(attr(bold, "geometry", exact = TRUE))) {
+    orient <- attr(bold, "orientation", exact = TRUE)
+    mat <- if (identical(orient, "voxel_by_time")) t(bold) else bold
+    for (at in c("voxel_map", "parcel_ids", "tr", "geometry", "orientation")) {
+      attr(mat, at) <- NULL
+    }
+    vm <- attr(bold, "voxel_map", exact = TRUE)
+    p_ids <- attr(bold, "parcel_ids", exact = TRUE)
+    tr_attr <- attr(bold, "tr", exact = TRUE)
+    tr_val <- if (!is.null(tr_attr) && is.finite(tr_attr) && tr_attr > 0) as.numeric(tr_attr) else NULL
+    return(list(
+      bold = list(run1 = mat),
+      voxel_map = vm,
+      parcel_ids = p_ids,
+      tr = tr_val,
+      geometry = attr(bold, "geometry", exact = TRUE)
+    ))
+  }
+  tr_val <- NULL
+  if (is.list(bold) && length(bold) > 0L && is.matrix(bold[[1L]])) {
+    run_trs <- lapply(bold, attr, which = "tr", exact = TRUE)
+    has_all_tr <- all(vapply(run_trs, function(v) is.numeric(v) && length(v) == 1L && is.finite(v) && v > 0, logical(1L)))
+    if (has_all_tr) {
+      tr_vec <- unlist(run_trs, use.names = FALSE)
+      if (max(abs(tr_vec - tr_vec[1L])) <= 1e-6) tr_val <- as.numeric(tr_vec[1L])
+    }
+  }
+  list(bold = bold, voxel_map = NULL, parcel_ids = NULL, tr = tr_val, geometry = NULL)
+}
+
+hrf_resolve_events_input <- function(events, bold, run_col = "run", allow_empty_runs = TRUE) {
+  checkmate::assert_string(run_col, min.chars = 1L)
+  if (is.data.frame(events)) {
+    if ("id" %in% names(events)) {
+      u_ids <- unique(as.character(events$id[!is.na(events$id) & nzchar(as.character(events$id))]))
+      if (length(u_ids) > 1L) {
+        stop(
+          "events contains multiple participant IDs in column 'id' (",
+          paste(utils::head(u_ids, 4L), collapse = ", "),
+          if (length(u_ids) > 4L) ", ..." else "",
+          "); filter events to a single participant before fitting.",
+          call. = FALSE
+        )
+      }
+    }
+    return(split_multirun_events(events, names(bold), run_col = run_col, allow_empty_runs = allow_empty_runs))
+  }
+  hrf_run_list(events, bold, "events", function(y) NULL)
+}
+
+hrf_resolve_nuisance_input <- function(nuisance, bold) {
+  coerce_nuis_mat <- function(z_r, r_name) {
+    if (is.data.frame(z_r)) {
+      bad_cols <- names(z_r)[!vapply(z_r, function(col) is.numeric(col) || is.logical(col), logical(1L))]
+      if (length(bad_cols)) {
+        stop("Non-numeric column(s) in nuisance[['", r_name, "']]: ",
+             paste(bad_cols, collapse = ", "), call. = FALSE)
+      }
+      z_r <- as.matrix(z_r)
+      storage.mode(z_r) <- "double"
+    }
+    z_r
+  }
+  if (!is.null(nuisance) && length(bold) == 1L && (is.matrix(nuisance) || is.data.frame(nuisance))) {
+    nuisance <- stats::setNames(list(nuisance), names(bold))
+  }
+  out <- hrf_run_list(nuisance, bold, "nuisance", function(y) matrix(numeric(), nrow(y), 0))
+  for (r in seq_along(out)) {
+    out[[r]] <- coerce_nuis_mat(out[[r]], names(bold)[r])
+  }
+  out
+}
+
+hrf_resolve_valid_rows_input <- function(valid_rows, bold) {
+  if (!is.null(valid_rows) && length(bold) == 1L && is.logical(valid_rows) && !is.list(valid_rows)) {
+    valid_rows <- stats::setNames(list(valid_rows), names(bold))
+  }
+  hrf_run_list(valid_rows, bold, "valid_rows", function(y) rep(TRUE, nrow(y)))
+}
+
 hrf_validate_bold <- function(bold) {
   checkmate::assert_list(bold, min.len = 1L, names = "unique")
   if (any(!nzchar(names(bold)))) stop("BOLD runs must have nonempty unique names")
@@ -577,25 +686,39 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 
 #' Estimate HRF shapes from other runs, with optional spatial regularization
 #'
-#' @param bold Named list of time-by-voxel numeric matrices for one participant.
-#'   Voxel column IDs must be unique and identical in all runs, in the same order.
-#' @param events Named list of data.frames with onset (seconds), condition, and
-#'   optional duration (seconds, default zero). Names/order must match bold.
-#' @param tr Common acquisition interval in seconds. All runs use the same grid.
+#' @param bold Either a \code{"medusa_nifti_ts"} object from
+#'   \code{\link{read_nifti_ts}} (automatically supplying \code{$bold}, \code{$tr},
+#'   \code{$parcel_ids}, and spatial \code{$geometry}/\code{$voxel_map}) or a named
+#'   list of time-by-voxel numeric matrices for one participant (with identical
+#'   unique voxel column IDs across runs).
+#' @param events Either a combined multi-run \code{data.frame} containing \code{onset},
+#'   \code{condition}, optional \code{duration}, and a run column (\code{run_col},
+#'   omitted only for single-run inputs), or a run-named list of per-run
+#'   \code{data.frame}s in \code{bold} order.
+#' @param tr Common acquisition interval in seconds. Optional when \code{bold} is
+#'   a \code{"medusa_nifti_ts"} object (or carries \code{tr} attributes) with a
+#'   positive finite repetition time.
 #' @param kernel_grid Matrix or list of equal-length candidate causal HRFs, sampled
-#'   at tr starting at lag zero. Use \code{hrf_library()} or supply explicit
-#'   candidates; honors \code{attr(kernel_grid, "normalize")} (\code{"signed_sum"},
+#'   at \code{tr} starting at lag zero. Defaults to
+#'   \code{hrf_library(tr, preset = "medusa")} when \code{NULL}. Honors
+#'   \code{attr(kernel_grid, "normalize")} (\code{"signed_sum"},
 #'   \code{"positive_lobe"}, or \code{"peak"}), automatically switching to
 #'   \code{"positive_lobe"} when unattributed candidates span heterogeneous
 #'   undershoot ratios (and defaulting to \code{"signed_sum"} otherwise).
-#' @param nuisance Optional matching list of time-by-regressor matrices. An
-#'   intercept and linear trend are always included separately for each run.
-#' @param valid_rows Optional matching list of logical observation masks; FALSE
-#'   and NA omit rows from training fits without deleting their acquisition times.
+#' @param nuisance Optional matching list of time-by-regressor matrices (or
+#'   numeric \code{data.frame}s; a single matrix/\code{data.frame} is also accepted
+#'   for single-run inputs). An intercept and linear trend are always included
+#'   separately for each run.
+#' @param valid_rows Optional matching list of logical observation masks (or a
+#'   single logical vector for single-run inputs); FALSE and NA omit rows from
+#'   training fits without deleting their acquisition times.
 #' @param time_offset First acquisition time, scalar or named numeric run vector.
-#' @param spatial_groups Optional voxel parcel labels, named in voxel column order.
-#'   Labels must be nonmissing and nonempty. Parcels must be defined independently
-#'   of target-run responses; no implicit whole-brain parcel is constructed.
+#' @param spatial_groups Optional voxel parcel labels in voxel column order
+#'   (named by voxel IDs or unnamed of length equal to voxel count). Defaults to
+#'   \code{bold$parcel_ids} when \code{bold} is a \code{"medusa_nifti_ts"} object
+#'   read with an \code{atlas}. Labels must be nonmissing and nonempty. Parcels
+#'   must be defined independently of target-run responses; no implicit whole-brain
+#'   parcel is constructed.
 #' @param pooling Select HRFs per voxel or share one HRF per supplied parcel.
 #' @param spatial_strength Nonnegative fixed penalty on voxel candidate distance
 #'   from the training-derived parcel HRF; requires spatial_groups. Zero disables
@@ -628,7 +751,9 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #' @param canonical_strength Fixed shape-distance penalty toward fallback_kernel
 #'   in calibrated mode, default 0.01. Zero removes this additional shrinkage.
 #' @param spatial_coords Optional numeric matrix of 3D voxel coordinates (N x 3)
-#'   used for local Gaussian-weighted anchor pooling.
+#'   used for local Gaussian-weighted anchor pooling. Automatically populated from
+#'   \code{bold$voxel_map[, c("x", "y", "z")]} when \code{bold} is a
+#'   \code{"medusa_nifti_ts"} object and \code{spatial_fwhm} is specified.
 #' @param spatial_fwhm Optional numeric spatial Gaussian FWHM (in coordinate
 #'   units) for local anchor pooling.
 #' @param selection_mode Candidate selection rule: `"hard"` (default) selects a
@@ -640,6 +765,8 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   neighborhoods, in voxel column order. Defaults to \code{spatial_groups} when
 #'   omitted. Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
 #'   groups) to differ from HRF selection parcels.
+#' @param run_col Column name in \code{events} identifying runs when \code{events}
+#'   is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.
 #' @return An object of class crossrun_hrf with normalized kernels, per-target-run
 #'   selections and training manifests, parcel anchors, run status/design summaries,
 #'   optional candidate scores, voxel/run IDs, and frozen settings (including
@@ -689,7 +816,7 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   common across voxels. Candidate task ranks must match within a run and leave
 #'   residual degrees of freedom, otherwise that run cannot inform HRF selection.
 #' @export
-estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL,
+estimate_crossrun_hrf <- function(bold, events, tr = NULL, kernel_grid = NULL, nuisance = NULL,
     valid_rows = NULL, time_offset = 0, spatial_groups = NULL,
     pooling = c("voxel", "parcel"), spatial_strength = 0, fallback_kernel = 1L,
     min_r2 = 0.01, min_training_runs = 1L, min_parcel_voxels = 5L,
@@ -699,7 +826,9 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
     evidence_alpha = 0.05, canonical_strength = 0.01,
     spatial_coords = NULL, spatial_fwhm = NULL,
     selection_mode = c("hard", "soft_average"),
-    noise_groups = NULL) {
+    noise_groups = NULL, run_col = "run") {
+  bold_unpacked <- hrf_unpack_bold_input(bold)
+  bold <- bold_unpacked$bold
   hrf_validate_bold(bold)
   pooling <- match.arg(pooling)
   amplitude_model <- match.arg(amplitude_model)
@@ -715,17 +844,25 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
     noise_rho <- hrf_run_numeric(noise_rho, bold, "noise_rho")
     checkmate::assert_numeric(noise_rho, lower = -0.95, upper = 0.95)
   }
+  if (is.null(tr)) tr <- bold_unpacked$tr
+  if (is.null(tr) || (length(tr) == 1L && is.na(tr))) {
+    stop("Supply a positive finite 'tr' (could not infer repetition time from 'bold').", call. = FALSE)
+  }
   checkmate::assert_number(tr, lower = 0.01, finite = TRUE)
-  if (!is.null(attr(kernel_grid, "tr")) && !isTRUE(all.equal(attr(kernel_grid, "tr"), tr)))
+  if (is.null(kernel_grid)) {
+    kernel_grid <- hrf_library(tr, preset = "medusa")
+  }
+  if (!is.null(attr(kernel_grid, "tr", exact = TRUE)) &&
+      !isTRUE(all.equal(attr(kernel_grid, "tr", exact = TRUE), tr)))
     stop("kernel_grid sampling TR does not match tr")
-  parameters <- attr(kernel_grid, "parameters")
-  explicit_norm <- if (!is.null(attr(kernel_grid, "normalize"))) {
-    match.arg(attr(kernel_grid, "normalize"), c("signed_sum", "positive_lobe", "peak"))
+  parameters <- attr(kernel_grid, "parameters", exact = TRUE)
+  explicit_norm <- if (!is.null(attr(kernel_grid, "normalize", exact = TRUE))) {
+    match.arg(attr(kernel_grid, "normalize", exact = TRUE), c("signed_sum", "positive_lobe", "peak"))
   } else {
     NULL
   }
   kernels_list <- build_decon_kernel_grid(c(0, 1), kernel_grid, normalize = explicit_norm)
-  kernel_normalize <- attr(kernels_list, "normalize")
+  kernel_normalize <- attr(kernels_list, "normalize", exact = TRUE)
   if (kernel_normalize == "signed_sum" &&
       any(vapply(kernels_list, function(h) sum(abs(h)) > 100, logical(1))))
     stop("Candidate signed sums are too close to zero for stable unit-sum normalization")
@@ -746,6 +883,23 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
   checkmate::assert_integerish(batch_size, lower = 1, len = 1L)
   checkmate::assert_flag(return_scores)
   voxel_ids <- colnames(bold[[1L]])
+  if (is.null(spatial_groups) && !is.null(bold_unpacked$parcel_ids)) {
+    p_ids <- bold_unpacked$parcel_ids
+    if (length(p_ids) == length(voxel_ids) && !anyNA(p_ids) && all(nzchar(as.character(p_ids)))) {
+      spatial_groups <- stats::setNames(as.character(p_ids), voxel_ids)
+    }
+  }
+  if (!is.null(spatial_fwhm))
+    checkmate::assert_number(spatial_fwhm, lower = .Machine$double.eps, finite = TRUE)
+  if (is.null(spatial_coords) && !is.null(spatial_fwhm) && !is.null(bold_unpacked$voxel_map) &&
+      all(c("x", "y", "z") %in% names(bold_unpacked$voxel_map)) &&
+      nrow(bold_unpacked$voxel_map) == length(voxel_ids)) {
+    sc_auto <- as.matrix(bold_unpacked$voxel_map[, c("x", "y", "z"), drop = FALSE])
+    if (all(is.finite(sc_auto))) {
+      rownames(sc_auto) <- voxel_ids
+      spatial_coords <- sc_auto
+    }
+  }
   if (!is.null(spatial_coords)) {
     if (is.data.frame(spatial_coords)) spatial_coords <- as.matrix(spatial_coords)
     if (is.atomic(spatial_coords) && is.null(dim(spatial_coords)))
@@ -758,10 +912,9 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
     if (is.null(spatial_groups))
       spatial_groups <- stats::setNames(rep("volume", length(voxel_ids)), voxel_ids)
   }
-  if (!is.null(spatial_fwhm))
-    checkmate::assert_number(spatial_fwhm, lower = .Machine$double.eps, finite = TRUE)
   if (!is.null(spatial_groups)) {
-    if (!is.atomic(spatial_groups) || !identical(names(spatial_groups), voxel_ids) ||
+    if (!is.atomic(spatial_groups) || length(spatial_groups) != length(voxel_ids) ||
+        (!is.null(names(spatial_groups)) && !identical(names(spatial_groups), voxel_ids)) ||
         anyNA(spatial_groups) || any(!nzchar(as.character(spatial_groups))))
       stop("spatial_groups must be named nonmissing labels in voxel column order")
     spatial_groups <- as.character(spatial_groups)
@@ -779,9 +932,9 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
   }
   spatial_weights <- hrf_compute_spatial_weights(spatial_coords, spatial_groups, spatial_fwhm)
   offsets <- hrf_run_numeric(time_offset, bold, "time_offset")
-  events <- hrf_run_list(events, bold, "events", function(y) NULL)
-  nuisance <- hrf_run_list(nuisance, bold, "nuisance", function(y) matrix(numeric(), nrow(y), 0))
-  valid_rows <- hrf_run_list(valid_rows, bold, "valid_rows", function(y) rep(TRUE, nrow(y)))
+  events <- hrf_resolve_events_input(events, bold, run_col = run_col, allow_empty_runs = TRUE)
+  nuisance <- hrf_resolve_nuisance_input(nuisance, bold)
+  valid_rows <- hrf_resolve_valid_rows_input(valid_rows, bold)
   per_run <- run_results <- noise <- design_manifest <- event_manifest <- vector("list", length(bold))
   names(per_run) <- names(run_results) <- names(noise) <- names(design_manifest) <- names(event_manifest) <- names(bold)
   if (!is.null(spatial_groups)) names(spatial_groups) <- voxel_ids
@@ -1292,9 +1445,11 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
     run_ids = names(bold),
     voxel_ids = voxel_ids, n_time = vapply(bold, nrow, integer(1)),
     specification = list(events = events, nuisance = nuisance, valid_rows = valid_rows,
-      spatial_groups = spatial_groups, noise_groups = eff_noise_groups),
+      spatial_groups = spatial_groups, noise_groups = eff_noise_groups,
+      spatial_coords = spatial_coords),
     settings = list(tr = tr, time_offset = offsets, pooling = pooling, amplitude_model = amplitude_model,
-      spatial_strength = spatial_strength, fallback_kernel = as.integer(fallback_kernel),
+      spatial_strength = spatial_strength, spatial_fwhm = spatial_fwhm,
+      fallback_kernel = as.integer(fallback_kernel),
       min_r2 = min_r2, min_training_runs = min_training_runs, min_parcel_voxels = min_parcel_voxels,
       batch_size = as.integer(batch_size), score = "mean_adjusted_partial_r2",
       rank_tolerance = 1e-8, evidence = evidence, evidence_alpha = evidence_alpha,
@@ -1307,14 +1462,39 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
       selection = if (is_single_run) "within_run_subblock_pooled" else "leave_target_run_out",
       parcel_fallback = !is.null(spatial_groups),
       spatial_regularization = if (pooling == "parcel") "shared_parcel_hrf" else
-        if (spatial_strength > 0) "discrete_parcel_shape_penalty" else "none")),
+        if (spatial_strength > 0) "discrete_parcel_shape_penalty" else "none"),
+    voxel_map = bold_unpacked$voxel_map,
+    geometry = bold_unpacked$geometry),
     class = "crossrun_hrf")
+}
+
+#' @export
+print.crossrun_hrf <- function(x, ...) {
+  n_runs <- length(x$run_ids)
+  n_vox <- length(x$voxel_ids)
+  n_cand <- ncol(x$kernels)
+  cat(sprintf(
+    "<crossrun_hrf> %d run%s | %d voxel%s | %d candidate%s | TR: %.4g s | noise: %s | mode: %s\n",
+    n_runs, if (n_runs == 1L) "" else "s",
+    n_vox, if (n_vox == 1L) "" else "s",
+    n_cand, if (n_cand == 1L) "" else "s",
+    x$settings$tr,
+    x$settings$noise_model,
+    x$settings$selection_mode
+  ))
+  if (!is.null(x$specification$spatial_groups)) {
+    cat(sprintf("  Spatial groups: %d parcel(s) | pooling: %s\n",
+                length(unique(x$specification$spatial_groups)), x$settings$pooling))
+  }
+  invisible(x)
 }
 
 #' Deconvolve runs using frozen HRFs learned from other runs
 #'
-#' @param bold Named time-by-voxel run matrices with IDs/order/dimensions matching
-#'   the HRF fit. These should be the same preprocessed BOLD used for estimation.
+#' @param bold Either a \code{"medusa_nifti_ts"} object from
+#'   \code{\link{read_nifti_ts}} or named time-by-voxel run matrices with
+#'   IDs/order/dimensions matching the HRF fit. These should be the same
+#'   preprocessed BOLD used for estimation.
 #' @param hrf_fit Object returned by estimate_crossrun_hrf().
 #' @param lambda Nonnegative regularization strength. If \code{NULL} (the
 #'   default for modern \code{ar1}/\code{calibrated} fits), selected
@@ -1349,10 +1529,14 @@ estimate_crossrun_hrf <- function(bold, events, tr, kernel_grid, nuisance = NULL
 #'   \code{"woodbury"} (or \code{TRUE}; additive-transient Sparse Bayesian Learning
 #'   Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 #'   \code{"innovation"} (Diedrichsen-style innovation-space downweighting).
-#' @return A list with activity matrices, per-run scaling/status tables, the HRF
-#'   fit, frozen inverse settings, standardized noise innovations, and per-run
-#'   observation \code{frame_weights}. Activity matrices retain voxel IDs and carry
-#'   tr and time_offset attributes for subsequent event alignment.
+#' @return An S3 list of class \code{"crossrun_decon"} with \code{activity}
+#'   matrices, per-run \code{scaling}/status tables, the \code{hrf_fit}, frozen
+#'   inverse \code{settings}, standardized \code{noise_innovations}, per-run
+#'   observation \code{frame_weights}, and optional NIfTI \code{voxel_map} and
+#'   \code{geometry} metadata (enabling direct \code{\link{write_nifti_ts}}
+#'   export without an external reference file). Activity matrices retain voxel
+#'   IDs and carry \code{tr}, \code{time_offset}, and \code{observation_mask}
+#'   attributes for subsequent event alignment.
 #' @details One inverse operator is constructed per selected HRF/run length,
 #'   cached for consecutive runs with identical masks/nuisance designs, and applied using block
 #'   matrix products for cpp/r. Scalar Wiener uses direct block FFT fits.
@@ -1375,11 +1559,20 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     nuisance_mode = NULL, observation_mask = NULL,
     lambda_grid = 10^seq(-2, 1.0, length.out = 16), gcv_rule = c("min", "1se"),
     rwls = "auto") {
+  bold_unpacked <- hrf_unpack_bold_input(bold)
+  bold <- bold_unpacked$bold
   hrf_validate_bold(bold)
   if (!inherits(hrf_fit, "crossrun_hrf")) stop("hrf_fit must be a crossrun_hrf object")
   if (!identical(names(bold), hrf_fit$run_ids) || !identical(colnames(bold[[1L]]), hrf_fit$voxel_ids) ||
       !identical(vapply(bold, nrow, integer(1)), hrf_fit$n_time))
     stop("BOLD run/voxel IDs and dimensions must match the HRF fit")
+  voxel_map <- if (!is.null(bold_unpacked$voxel_map)) bold_unpacked$voxel_map else hrf_fit$voxel_map
+  if (!is.null(voxel_map) && "voxel" %in% names(voxel_map) &&
+      !identical(as.character(voxel_map$voxel), hrf_fit$voxel_ids) &&
+      all(hrf_fit$voxel_ids %in% as.character(voxel_map$voxel))) {
+    voxel_map <- voxel_map[match(hrf_fit$voxel_ids, as.character(voxel_map$voxel)), , drop = FALSE]
+  }
+  geometry <- if (!is.null(bold_unpacked$geometry)) bold_unpacked$geometry else hrf_fit$geometry
   modern <- identical(hrf_fit$settings$noise_model, "ar1") || identical(hrf_fit$settings$evidence, "calibrated")
   if (missing(lambda) && !modern) stop("Specify lambda explicitly (or pass lambda = NULL for GCV tuning)")
   checkmate::assert_number(lambda, lower = 0, finite = TRUE, null.ok = TRUE)
@@ -1739,18 +1932,45 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     attr(out, "tr") <- hrf_fit$settings$tr
     attr(out, "time_offset") <- hrf_fit$settings$time_offset[r]
     attr(out, "observation_mask") <- seq_len(n) %in% rows
+    if (!is.null(voxel_map)) attr(out, "voxel_map") <- voxel_map
+    if (!is.null(geometry)) attr(out, "geometry") <- geometry
     activity[[r]] <- out
     noise_innovations[[r]] <- z_innov_r
     scaling_tables[[r]] <- data.frame(run = names(bold)[r], voxel = colnames(y),
       status = status, center = centers, scale = divisors, noise_sd = noise_sds,
       scaling = scaling, noise_rho = rho, n_observations = length(rows))
   }
-  list(
-    activity = activity,
-    scaling = scaling_tables,
-    hrf_fit = hrf_fit,
-    settings = settings,
-    noise_innovations = noise_innovations,
-    frame_weights = frame_weights
+  structure(
+    list(
+      activity = activity,
+      scaling = scaling_tables,
+      hrf_fit = hrf_fit,
+      settings = settings,
+      noise_innovations = noise_innovations,
+      frame_weights = frame_weights,
+      voxel_map = voxel_map,
+      geometry = geometry
+    ),
+    class = "crossrun_decon"
   )
+}
+
+#' @export
+print.crossrun_decon <- function(x, ...) {
+  n_runs <- length(x$activity)
+  n_vox <- if (n_runs > 0L) ncol(x$activity[[1L]]) else 0L
+  cat(sprintf(
+    "<crossrun_decon> %d run%s | %d voxel%s | scaling: %s | penalty: %s | lambda: %.4g | rwls: %s\n",
+    n_runs, if (n_runs == 1L) "" else "s",
+    n_vox, if (n_vox == 1L) "" else "s",
+    x$settings$scaling,
+    x$settings$penalty,
+    x$settings$lambda,
+    x$settings$rwls
+  ))
+  if (!is.null(x$geometry)) {
+    cat(sprintf("  NIfTI geometry attached: %s (TR = %.4g s)\n",
+                paste(x$geometry$dim, collapse = "x"), x$hrf_fit$settings$tr))
+  }
+  invisible(x)
 }

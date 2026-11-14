@@ -19,6 +19,7 @@ voxelwise_deconvolution(
   algorithm = "bush2011",
   decon_settings = list(nev_lr = 0.01, epsilon = 0.005, beta = 60, kernel =
     spm_hrf(TR)$hrf, n_resample = 25),
+  output_format = c("csv.gz", "rds", "nifti", "parquet"),
   afni_dir = NULL
 )
 }
@@ -31,10 +32,11 @@ columns are also saved in per-file sidecars for event alignment.}
 
 \item{out_dir}{Base output directory for deconvolved time series files. Default is \code{getwd()}.}
 
-\item{out_file_expression}{Expression evaluated to resolve the filename for the deconvolved csv files. Default is
+\item{out_file_expression}{Expression evaluated to resolve the filename stem for the deconvolved outputs. Default is
 to prefix \code{"decon_"}, replace slashes in \code{niftis} with periods, and add
-the atlas image name. Note that the suffix \code{_deconvolved.csv.gz} or \code{_original.csv.gz} will be added
-to the expression, so don't pass this piece.}
+the atlas image name. Note that the format-specific suffix (e.g., \code{_deconvolved.csv.gz},
+\code{_deconvolved.rds}, \code{_deconvolved.nii.gz}, or \code{_deconvolved.parquet}) and corresponding
+\code{_original.*} suffix will be appended automatically, so omit the suffix from this expression.}
 
 \item{log_file}{Name (and path) of log file for any deconvolution errors or messages}
 
@@ -57,6 +59,13 @@ which estimates a continuous latent activity time series using regularized linea
 with optional HRF tuning.}
 
 \item{decon_settings}{A list of settings passed to the deconvolution algorithm.}
+
+\item{output_format}{Serialization format for deconvolved (and optional original) voxelwise time series:
+\code{"csv.gz"} (default, written directly via \code{data.table::fwrite} without intermediate relational joins),
+\code{"rds"} (compact \code{time x voxels} matrix bundle avoiding long-table expansion),
+\code{"nifti"} (streamed 4D \code{.nii.gz} image plus a \code{.coords.rds} voxel-coordinate sidecar),
+or \code{"parquet"} (columnar Parquet file; requires the \code{arrow} package). All formats remain directly
+compatible with \code{\link{run_decon_alignment}} and \code{\link{evt_align_decon_files}}.}
 
 \item{afni_dir}{Retained for compatibility; ignored. NIfTI extraction is internal
 and does not require AFNI.}

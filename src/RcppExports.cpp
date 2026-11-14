@@ -176,6 +176,66 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// check_shared_clock_cpp
+bool check_shared_clock_cpp(NumericVector time_vec, int n_time, int n_units);
+RcppExport SEXP _medusa_check_shared_clock_cpp(SEXP time_vecSEXP, SEXP n_timeSEXP, SEXP n_unitsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type time_vec(time_vecSEXP);
+    Rcpp::traits::input_parameter< int >::type n_time(n_timeSEXP);
+    Rcpp::traits::input_parameter< int >::type n_units(n_unitsSEXP);
+    rcpp_result_gen = Rcpp::wrap(check_shared_clock_cpp(time_vec, n_time, n_units));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fast_pivot_decon_cpp
+List fast_pivot_decon_cpp(NumericVector time_vec, NumericVector vnum_vec, IntegerVector group_idx, NumericVector value_vec, Nullable<LogicalVector> valid_vec);
+RcppExport SEXP _medusa_fast_pivot_decon_cpp(SEXP time_vecSEXP, SEXP vnum_vecSEXP, SEXP group_idxSEXP, SEXP value_vecSEXP, SEXP valid_vecSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type time_vec(time_vecSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type vnum_vec(vnum_vecSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type group_idx(group_idxSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type value_vec(value_vecSEXP);
+    Rcpp::traits::input_parameter< Nullable<LogicalVector> >::type valid_vec(valid_vecSEXP);
+    rcpp_result_gen = Rcpp::wrap(fast_pivot_decon_cpp(time_vec, vnum_vec, group_idx, value_vec, valid_vec));
+    return rcpp_result_gen;
+END_RCPP
+}
+// align_interpolate_matrix_cpp
+List align_interpolate_matrix_cpp(List signals, NumericVector clock, LogicalVector censored, bool cens_is_matrix, IntegerVector unit_group, int n_groups, NumericVector onsets, NumericVector evt_before, NumericVector evt_after, IntegerVector overlap_n, std::string overlap_policy, double time_before, double time_after, double pad_before, double pad_after, NumericVector tout, double max_gap, std::string readout_kernel, NumericVector quad_offsets, NumericVector quad_weights, bool trial_grouped, bool spatial_first);
+RcppExport SEXP _medusa_align_interpolate_matrix_cpp(SEXP signalsSEXP, SEXP clockSEXP, SEXP censoredSEXP, SEXP cens_is_matrixSEXP, SEXP unit_groupSEXP, SEXP n_groupsSEXP, SEXP onsetsSEXP, SEXP evt_beforeSEXP, SEXP evt_afterSEXP, SEXP overlap_nSEXP, SEXP overlap_policySEXP, SEXP time_beforeSEXP, SEXP time_afterSEXP, SEXP pad_beforeSEXP, SEXP pad_afterSEXP, SEXP toutSEXP, SEXP max_gapSEXP, SEXP readout_kernelSEXP, SEXP quad_offsetsSEXP, SEXP quad_weightsSEXP, SEXP trial_groupedSEXP, SEXP spatial_firstSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type signals(signalsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type clock(clockSEXP);
+    Rcpp::traits::input_parameter< LogicalVector >::type censored(censoredSEXP);
+    Rcpp::traits::input_parameter< bool >::type cens_is_matrix(cens_is_matrixSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type unit_group(unit_groupSEXP);
+    Rcpp::traits::input_parameter< int >::type n_groups(n_groupsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type onsets(onsetsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type evt_before(evt_beforeSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type evt_after(evt_afterSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type overlap_n(overlap_nSEXP);
+    Rcpp::traits::input_parameter< std::string >::type overlap_policy(overlap_policySEXP);
+    Rcpp::traits::input_parameter< double >::type time_before(time_beforeSEXP);
+    Rcpp::traits::input_parameter< double >::type time_after(time_afterSEXP);
+    Rcpp::traits::input_parameter< double >::type pad_before(pad_beforeSEXP);
+    Rcpp::traits::input_parameter< double >::type pad_after(pad_afterSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type tout(toutSEXP);
+    Rcpp::traits::input_parameter< double >::type max_gap(max_gapSEXP);
+    Rcpp::traits::input_parameter< std::string >::type readout_kernel(readout_kernelSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type quad_offsets(quad_offsetsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type quad_weights(quad_weightsSEXP);
+    Rcpp::traits::input_parameter< bool >::type trial_grouped(trial_groupedSEXP);
+    Rcpp::traits::input_parameter< bool >::type spatial_first(spatial_firstSEXP);
+    rcpp_result_gen = Rcpp::wrap(align_interpolate_matrix_cpp(signals, clock, censored, cens_is_matrix, unit_group, n_groups, onsets, evt_before, evt_after, overlap_n, overlap_policy, time_before, time_after, pad_before, pad_after, tout, max_gap, readout_kernel, quad_offsets, quad_weights, trial_grouped, spatial_first));
+    return rcpp_result_gen;
+END_RCPP
+}
 // extract_nifti_voxel_ts
 Rcpp::NumericMatrix extract_nifti_voxel_ts(std::string infile, Rcpp::NumericVector voxel_indices, bool time_first);
 RcppExport SEXP _medusa_extract_nifti_voxel_ts(SEXP infileSEXP, SEXP voxel_indicesSEXP, SEXP time_firstSEXP) {
@@ -288,6 +348,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_deconvolve_nlreg", (DL_FUNC) &_medusa_deconvolve_nlreg, 7},
     {"_medusa_deconvolve_reglin_cpp", (DL_FUNC) &_medusa_deconvolve_reglin_cpp, 13},
     {"_medusa_dsigmoid", (DL_FUNC) &_medusa_dsigmoid, 2},
+    {"_medusa_check_shared_clock_cpp", (DL_FUNC) &_medusa_check_shared_clock_cpp, 3},
+    {"_medusa_fast_pivot_decon_cpp", (DL_FUNC) &_medusa_fast_pivot_decon_cpp, 5},
+    {"_medusa_align_interpolate_matrix_cpp", (DL_FUNC) &_medusa_align_interpolate_matrix_cpp, 22},
     {"_medusa_extract_nifti_voxel_ts", (DL_FUNC) &_medusa_extract_nifti_voxel_ts, 3},
     {"_medusa_write_nifti_indexed_cpp", (DL_FUNC) &_medusa_write_nifti_indexed_cpp, 10},
     {"_medusa_write_nifti_parcel_cpp", (DL_FUNC) &_medusa_write_nifti_parcel_cpp, 8},

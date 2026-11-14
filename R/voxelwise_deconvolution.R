@@ -5,10 +5,11 @@
 #'   as atlas-level metadata. The \code{id}, \code{run}, and optional \code{session}
 #'   columns are also saved in per-file sidecars for event alignment.
 #' @param out_dir Base output directory for deconvolved time series files. Default is \code{getwd()}.
-#' @param out_file_expression Expression evaluated to resolve the filename for the deconvolved csv files. Default is
+#' @param out_file_expression Expression evaluated to resolve the filename stem for the deconvolved outputs. Default is
 #'   to prefix \code{"decon_"}, replace slashes in \code{niftis} with periods, and add
-#'   the atlas image name. Note that the suffix \code{_deconvolved.csv.gz} or \code{_original.csv.gz} will be added
-#'   to the expression, so don't pass this piece.
+#'   the atlas image name. Note that the format-specific suffix (e.g., \code{_deconvolved.csv.gz},
+#'   \code{_deconvolved.rds}, \code{_deconvolved.nii.gz}, or \code{_deconvolved.parquet}) and corresponding
+#'   \code{_original.*} suffix will be appended automatically, so omit the suffix from this expression.
 #' @param log_file Name (and path) of log file for any deconvolution errors or messages
 #' @param TR the repetition time of the sequence in seconds. Required
 #' @param time_offset The number of seconds that will be subtracted or added to the time field. Default: 0. Useful if some number of volumes
@@ -22,6 +23,12 @@
 #'   which estimates a continuous latent activity time series using regularized linear deconvolution
 #'   with optional HRF tuning.
 #' @param decon_settings A list of settings passed to the deconvolution algorithm.
+#' @param output_format Serialization format for deconvolved (and optional original) voxelwise time series:
+#'   \code{"csv.gz"} (default, written directly via \code{data.table::fwrite} without intermediate relational joins),
+#'   \code{"rds"} (compact \code{time x voxels} matrix bundle avoiding long-table expansion),
+#'   \code{"nifti"} (streamed 4D \code{.nii.gz} image plus a \code{.coords.rds} voxel-coordinate sidecar),
+#'   or \code{"parquet"} (columnar Parquet file; requires the \code{arrow} package). All formats remain directly
+#'   compatible with \code{\link{run_decon_alignment}} and \code{\link{evt_align_decon_files}}.
 #' @param afni_dir Retained for compatibility; ignored. NIfTI extraction is internal
 #'   and does not require AFNI.
 #'
@@ -88,8 +95,7 @@
 #' @importFrom parallel makeCluster stopCluster clusterCall
 #' @importFrom checkmate assert_file_exists
 #' @importFrom foreach %do% %dopar% foreach registerDoSEQ
-#' @importFrom dplyr mutate across select left_join
-#' @importFrom readr write_csv
+#' @importFrom dplyr mutate across select
 #' @importFrom stats setNames
 #' @export
 voxelwise_deconvolution <- function(
@@ -100,7 +106,9 @@ voxelwise_deconvolution <- function(
     epsilon = .005, #convergence criterion (default)
     beta = 60, #best from Bush 2015 update
     kernel = spm_hrf(TR)$hrf, #canonical SPM difference of gammas
-    n_resample = 25), afni_dir=NULL) { #for Bush 2015 only
+    n_resample = 25),
+  output_format = c("csv.gz", "rds", "nifti", "parquet"),
+  afni_dir=NULL) { #for Bush 2015 only
 
   sapply(niftis, checkmate::assert_file_exists)
   checkmate::assert_data_frame(add_metadata, nrows=length(niftis), null.ok=TRUE)
@@ -109,6 +117,17 @@ voxelwise_deconvolution <- function(
   algorithm <- match.arg(
     algorithm,
     c("bush2011", "bush2015", "reglin", "regularized_linear")
+  )
+  output_format <- match.arg(output_format)
+  if (identical(output_format, "parquet")) {
+    require_arrow_pkg("voxelwise_deconvolution(output_format = 'parquet')")
+  }
+  out_ext <- switch(
+    output_format,
+    "csv.gz" = ".csv.gz",
+    "rds" = ".rds",
+    "nifti" = ".nii.gz",
+    "parquet" = ".parquet"
   )
 
   checkmate::assert_list(decon_settings)
@@ -254,15 +273,16 @@ voxelwise_deconvolution <- function(
   }
 
   dopar_pkgs <- c(
-    "dplyr", "readr", "data.table",
+    "dplyr", "data.table",
     if ("medusa" %in% loadedNamespaces()) "medusa",
     "foreach", "iterators"
   )
   dopar_exports <- c(
-    "mat2df", "extract_nifti_voxel_ts", "roi_image_geometry",
+    "extract_nifti_voxel_ts", "write_nifti_ts", "roi_image_geometry",
     "validate_roi_geometry", "decon_signal_status", "scale_decon_input",
     "resolve_decon_scaling", "estimate_decon_noise_sd",
-    "deconvolve_reglin", "deconvolve_nlreg", "deconvolve_nlreg_resample"
+    "deconvolve_reglin", "deconvolve_nlreg", "deconvolve_nlreg_resample",
+    "medusa_write_table", "build_decon_long_dt", "build_orig_long_dt"
   )
 
   ff <- foreach(
@@ -283,7 +303,7 @@ voxelwise_deconvolution <- function(
       out_stems[ai] <- eval(out_file_expr)
       out_names[ai] <- file.path(
         out_dir, atlas_img_name, "deconvolved",
-        paste0(out_stems[ai], "_deconvolved.csv.gz")
+        paste0(out_stems[ai], "_deconvolved", out_ext)
       )
       if (file.exists(out_names[ai])) {
         message("Deconvolved file already exists: ", out_names[ai])
@@ -439,20 +459,11 @@ voxelwise_deconvolution <- function(
         deconv_tv[, valid_voxels] <- deconv_valid
       }
 
-      # Melt to legacy (vnum, volume) long layout via a single final transpose
-      deconv_melt <- mat2df(unname(t(deconv_tv)), value_name = "decon", varnames = c("vnum", "volume"))
-      deconv_melt$time <- (deconv_melt$volume - 1) * TR + time_offset
-
-      deconv_df <- deconv_melt %>%
-        dplyr::mutate(vnum = as.numeric(.data$vnum)) %>%
-        left_join(spec$a_coordinates, by = "vnum") %>%
-        dplyr::select(-"i", -"j", -"k")
-
-      deconv_df$decon_status <- decon_status[deconv_df$vnum]
-      readr::write_csv(deconv_df, file = out_name)
+      time_vec <- (seq_len(n_time) - 1) * TR + time_offset
+      coords_sub <- spec$a_coordinates[, c("vnum", "atlas_value", "x", "y", "z", "atlas_name"), drop = FALSE]
 
       scaling_file <- paste0(out_name, ".scaling.csv")
-      readr::write_csv(
+      data.table::fwrite(
         data.frame(
           vnum = seq_along(centers),
           scaling = input_scaling,
@@ -460,7 +471,8 @@ voxelwise_deconvolution <- function(
           scale = divisors,
           decon_status = decon_status
         ),
-        scaling_file
+        file = scaling_file,
+        na = "NA"
       )
       identity_metadata <- data.frame(
         .nifti = niftis[si],
@@ -478,21 +490,94 @@ voxelwise_deconvolution <- function(
           identity_metadata[[column]] <- this_subj[[column]]
         }
       }
-      readr::write_csv(identity_metadata, file = paste0(out_name, ".metadata.csv"))
+      data.table::fwrite(identity_metadata, file = paste0(out_name, ".metadata.csv"), na = "NA")
+
+      if (output_format %in% c("csv.gz", "parquet")) {
+        deconv_dt <- build_decon_long_dt(deconv_tv, coords_sub, decon_status, time_vec)
+        medusa_write_table(deconv_dt, out_name)
+      } else if (identical(output_format, "rds")) {
+        coords_rds <- coords_sub
+        coords_rds$decon_status <- decon_status
+        saveRDS(
+          list(
+            decon = deconv_tv,
+            coords = coords_rds,
+            voxel_indices = spec$voxel_indices,
+            time = time_vec,
+            tr = TR,
+            time_offset = time_offset,
+            decon_status = decon_status,
+            metadata = identity_metadata
+          ),
+          file = out_name
+        )
+      } else if (identical(output_format, "nifti")) {
+        nifti_dt <- if (is.null(decon_settings$nifti_datatype)) "float" else decon_settings$nifti_datatype
+        write_nifti_ts(
+          deconv_tv,
+          file = out_name,
+          reference = niftis[si],
+          voxel_indices = spec$voxel_indices,
+          tr = TR,
+          time_offset = time_offset,
+          fill = 0,
+          datatype = nifti_dt
+        )
+        coords_rds <- coords_sub
+        coords_rds$decon_status <- decon_status
+        saveRDS(
+          list(
+            voxel_indices = spec$voxel_indices,
+            coords = coords_rds,
+            time = time_vec,
+            tr = TR,
+            time_offset = time_offset,
+            decon_status = decon_status,
+            metadata = identity_metadata
+          ),
+          file = paste0(out_name, ".coords.rds")
+        )
+      }
 
       if (isTRUE(save_original_ts)) {
-        to_deconvolve_melt <- mat2df(unname(t(scaled_tv)), value_name = "BOLD_input", varnames = c("vnum", "time"))
-        to_deconvolve_melt$time <- (to_deconvolve_melt$time - 1) * TR + time_offset
-
-        orig_df <- to_deconvolve_melt %>%
-          dplyr::mutate(vnum = as.numeric(.data$vnum)) %>%
-          left_join(spec$a_coordinates, by = "vnum") %>%
-          dplyr::select(-"i", -"j", -"k")
-
-        if (input_scaling == "zscore") orig_df$BOLD_z <- orig_df$BOLD_input
-
-        orig_out_name <- file.path(out_dir, atlas_img_name, "original", paste0(out_stems[ai], "_original.csv.gz"))
-        readr::write_csv(orig_df, file = orig_out_name)
+        orig_out_name <- file.path(out_dir, atlas_img_name, "original", paste0(out_stems[ai], "_original", out_ext))
+        if (output_format %in% c("csv.gz", "parquet")) {
+          orig_dt <- build_orig_long_dt(scaled_tv, coords_sub, time_vec, add_bold_z = identical(input_scaling, "zscore"))
+          medusa_write_table(orig_dt, orig_out_name)
+        } else if (identical(output_format, "rds")) {
+          orig_rds <- list(
+            BOLD_input = scaled_tv,
+            coords = coords_sub,
+            voxel_indices = spec$voxel_indices,
+            time = time_vec,
+            tr = TR,
+            time_offset = time_offset
+          )
+          if (identical(input_scaling, "zscore")) orig_rds$BOLD_z <- scaled_tv
+          saveRDS(orig_rds, file = orig_out_name)
+        } else if (identical(output_format, "nifti")) {
+          nifti_dt <- if (is.null(decon_settings$nifti_datatype)) "float" else decon_settings$nifti_datatype
+          write_nifti_ts(
+            scaled_tv,
+            file = orig_out_name,
+            reference = niftis[si],
+            voxel_indices = spec$voxel_indices,
+            tr = TR,
+            time_offset = time_offset,
+            fill = 0,
+            datatype = nifti_dt
+          )
+          saveRDS(
+            list(
+              voxel_indices = spec$voxel_indices,
+              coords = coords_sub,
+              time = time_vec,
+              tr = TR,
+              time_offset = time_offset
+            ),
+            file = paste0(orig_out_name, ".coords.rds")
+          )
+        }
       }
     }
     NULL
@@ -505,7 +590,7 @@ voxelwise_deconvolution <- function(
       out_name <- file.path(out_dir, atlas_img_name, paste0(atlas_img_name, "_metadata.csv"))
       if (file.exists(out_name)) {
         existing_meta <- tryCatch(
-          as.data.frame(readr::read_csv(out_name, show_col_types = FALSE)),
+          data.table::fread(out_name, colClasses = "character", na.strings = c("", "NA"), data.table = FALSE),
           error = function(e) NULL
         )
         if (!is.null(existing_meta) && nrow(existing_meta) > 0L) {
@@ -520,15 +605,58 @@ voxelwise_deconvolution <- function(
           } else {
             combined_meta <- unique(combined_meta)
           }
-          readr::write_csv(combined_meta, file = out_name, append = FALSE, col_names = TRUE)
+          data.table::fwrite(combined_meta, file = out_name, na = "NA")
         } else {
-          readr::write_csv(add_metadata, file = out_name, append = FALSE, col_names = TRUE)
+          data.table::fwrite(add_metadata, file = out_name, na = "NA")
         }
       } else {
-        readr::write_csv(add_metadata, file = out_name, append = FALSE, col_names = TRUE)
+        data.table::fwrite(add_metadata, file = out_name, na = "NA")
       }
     }
   }
 
   return(invisible(NULL))
+}
+
+# Build long voxelwise deconvolution table directly via vector indexing,
+# avoiding intermediate mat2df() and dplyr::left_join() allocations.
+build_decon_long_dt <- function(deconv_tv, coords_sub, decon_status, time_vec) {
+  n_time <- nrow(deconv_tv)
+  n_vox <- ncol(deconv_tv)
+  n_total <- as.numeric(n_vox) * as.numeric(n_time)
+  v_rep <- rep.int(seq_len(n_vox), times = n_time)
+  data.table::data.table(
+    vnum = as.numeric(v_rep),
+    volume = rep(seq_len(n_time), each = n_vox),
+    decon = as.vector(t(deconv_tv)),
+    time = rep(as.numeric(time_vec), each = n_vox),
+    atlas_value = coords_sub$atlas_value[v_rep],
+    x = coords_sub$x[v_rep],
+    y = coords_sub$y[v_rep],
+    z = coords_sub$z[v_rep],
+    atlas_name = rep.int(as.character(coords_sub$atlas_name[1L]), n_total),
+    decon_status = decon_status[v_rep]
+  )
+}
+
+build_orig_long_dt <- function(scaled_tv, coords_sub, time_vec, add_bold_z = FALSE) {
+  n_time <- nrow(scaled_tv)
+  n_vox <- ncol(scaled_tv)
+  n_total <- as.numeric(n_vox) * as.numeric(n_time)
+  v_rep <- rep.int(seq_len(n_vox), times = n_time)
+  bold_vec <- as.vector(t(scaled_tv))
+  dt <- data.table::data.table(
+    vnum = as.numeric(v_rep),
+    time = rep(as.numeric(time_vec), each = n_vox),
+    BOLD_input = bold_vec,
+    atlas_value = coords_sub$atlas_value[v_rep],
+    x = coords_sub$x[v_rep],
+    y = coords_sub$y[v_rep],
+    z = coords_sub$z[v_rep],
+    atlas_name = rep.int(as.character(coords_sub$atlas_name[1L]), n_total)
+  )
+  if (isTRUE(add_bold_z)) {
+    data.table::set(dt, j = "BOLD_z", value = bold_vec)
+  }
+  dt
 }

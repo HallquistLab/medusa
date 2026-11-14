@@ -1,5 +1,49 @@
 # medusa 0.1.0
 
+## Fast C++ NIfTI matrix I/O and matrix-native event alignment
+
+* Added `read_nifti_ts()` and `write_nifti_ts()` for streaming C++ conversion
+  between 3D/4D `.nii`/`.nii.gz` images and `time x voxels` (`T x V`) numeric
+  matrices (`"medusa_nifti_ts"` bundles carrying `voxel_map`, `parcel_ids`,
+  `tr`, and validated `sform`/`qform` `geometry` without allocating full 4D R
+  arrays). Updated `voxelwise_deconvolution()` and `backproject_medusa()` to
+  use the streaming C++ NIfTI path.
+* Added `align_medusa_ts()` (`src/epoch_align.cpp`) for C++ matrix-native
+  event-locked alignment and multi-kernel readout quadrature (`"linear"`,
+  `"boxcar"`, `"triangle"`, `"gaussian"`) across `T x V` matrices,
+  `"medusa_nifti_ts"` bundles, `deconvolve_crossrun_hrf()` outputs, multi-run
+  lists, and multivariate signal lists while preserving all `overlap_policy`,
+  censoring, `max_gap`, `epoch_status`, `align_*`, `time_audit`, and
+  `source_clock` invariants (`~80x–130x` faster and `~10x–135x` lower peak R
+  heap memory than legacy long-table workflows).
+* Accelerated `get_medusa_interpolated_ts()` and `get_medusa_compression_score()`
+  on shared-clock `fmri_ts` objects via a zero-copy C++ matrix view (with
+  automatic fallback for ragged per-unit clocks), added `fmri_ts$to_matrix()`,
+  and upgraded `evt_align_decon_files()` with `fast_pivot_decon_cpp()`, `.rds`
+  matrix-bundle support, and fork parallelism on Unix CLI/HPC.
+* Modernized file and tabular serialization across the pipeline:
+  `voxelwise_deconvolution()` now supports `output_format = c("csv.gz", "rds", "nifti", "parquet")`
+  (eliminating intermediate `mat2df()` + `dplyr::left_join()` expansions and
+  writing delimited outputs via multi-threaded `data.table::fwrite()`);
+  `run_decon_alignment()` and `evt_align_decon_files()` discover and align all
+  four deconvolution formats, skip unused coordinate/status columns when reading
+  long tables, and write aligned panels to `.csv.gz`, `.parquet`, or `.rds`; and
+  `mixed_by()` now reads `.parquet` files and Hive-partitioned Parquet
+  directories (via optional `arrow`) as well as `.rds` and delimited `external_df`
+  tables, with automatic column projection and optional `split_filter` pushdown.
+* Unified in-memory NIfTI, cross-run HRF, deconvolution, and epoch-regression
+  ergonomics: `estimate_crossrun_hrf()` and `deconvolve_crossrun_hrf()` now
+  accept `"medusa_nifti_ts"` objects directly (auto-populating `tr`,
+  `spatial_groups = ts$parcel_ids`, `kernel_grid = hrf_library(tr, preset = "medusa")`,
+  and `spatial_coords` when `spatial_fwhm` is requested), split combined
+  single-participant multi-run `events` `data.frame`s automatically across BIDS/MEDuSA
+  run labels, and propagate `voxel_map` and `geometry` onto `"crossrun_hrf"` and
+  `"crossrun_decon"` so `write_nifti_ts(decon, ...)` and
+  `backproject_medusa(..., brain_mask = decon)` need no extra reference file;
+  `decon_epoch_regression()` now accepts column-name `covariates` (e.g.,
+  `c("rpe", "abs_rpe")`), one-sided formulas (`~ rpe + abs_rpe`), column-name
+  `trial_durations` (`"rt"`), and combined multi-run `events` tables.
+
 ## Standalone package extraction
 
 * Extracted all MEDuSA deconvolution, cross-run HRF estimation, event-locked

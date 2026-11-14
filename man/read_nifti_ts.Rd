@@ -115,3 +115,7 @@ head(ts$voxel_map)
 unlink(c(f_img, f_mask))
 
 }
+\seealso{
+[write_nifti_ts()], [align_medusa_ts()], [estimate_crossrun_hrf()],
+  [deconvolve_crossrun_hrf()], [decon_epoch_regression()]
+}

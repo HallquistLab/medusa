@@ -20,12 +20,16 @@ evt_align_decon_files(
 )
 }
 \arguments{
-\item{d_files}{A vector of deconvolved .csv.gz files created by \code{voxelwise_deconvolution}.}
+\item{d_files}{A vector of deconvolved \code{.csv}/\code{.csv.gz}, \code{.rds}, \code{.nii}/\code{.nii.gz}, or
+\code{.parquet} files (created by \code{voxelwise_deconvolution}).}
 
 \item{trial_df}{The trial-level data.frame containing id and run for each subject represented in \code{d_files}.}
 
-\item{alignment}{A list containing alignment details passed to get_medusa_interpolated_ts,
-including overlap_policy, valid_col, neighbor_events, and max_gap.}
+\item{alignment}{A list containing alignment details passed to \code{\link{align_medusa_ts}} /
+\code{\link{get_medusa_interpolated_ts}}, including \code{evt_col}, \code{time_before}, \code{time_after},
+\code{pad_before}, \code{pad_after}, \code{output_resolution}, \code{collide_before}, \code{collide_after},
+\code{overlap_policy}, \code{valid_col}, \code{neighbor_events}, \code{max_gap}, \code{readout_kernel},
+and \code{readout_width}.}
 
 \item{aggregate_by}{The column name in the individual deconvolved files used for averaging repeated units (e.g., voxels) into single
 event-aligned time series. Most commonly, this is "atlas_value", which will lead to averaging of voxels within each parcel in the mask.}
@@ -37,8 +41,8 @@ These cuts are applied to the \code{aggregate_by} column, commonly "atlas_value"
 
 \item{atlas_subset}{An optional numeric vector containing values of \code{aggregate_by}}
 
-\item{out_file}{The output file name (can include path) for the event-aligned csv file. If NULL, nothing is output 
-(but the event-aligned data are always returned as a data.frame)}
+\item{out_file}{Optional output file path for the event-aligned panel (\code{.csv}, \code{.csv.gz}, \code{.parquet},
+or \code{.rds}). If NULL, nothing is written to disk (the event-aligned data are always returned).}
 
 \item{ncpus}{Number of local worker processes to use.}
 
@@ -66,5 +70,9 @@ Align a set of deconvolved time series files to an event of interest function.
 }
 \details{
 This is intended to be used internally by \code{run_decon_alignment}, which accepts a set of mask/atlas files
-  and alignments, then processes these in parallel.
+  and alignments, then processes these in parallel. Long \code{.csv}/\code{.csv.gz} and \code{.parquet} tables
+  sharing a run clock are pivoted directly into \code{time x voxels} matrices in C++ without intermediate
+  \code{fmri_ts} allocation (automatically falling back to \code{fmri_ts} for ragged per-unit clocks); compact
+  \code{.rds} matrix bundles (\code{list(decon = Y, coords = ..., time = ...)}) and 4D \code{.nii}/\code{.nii.gz}
+  deconvolved images (paired with \code{.coords.rds} sidecars) are also supported directly.
 }

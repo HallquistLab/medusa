@@ -125,7 +125,7 @@ Suppose two voxels have the same measurement noise but one responds twice as str
 
 ## Alignment asks: which samples support this epoch?
 
-The established `voxelwise_deconvolution()` → `evt_align_decon_files()` route remains useful. Recent changes extract NIfTI values internally, check spatial geometry, retain invalid voxels with status labels, record scaling and file identities, and interpolate each unit before averaging. An interpolation should not bridge a censoring gap or combine disconnected trial segments.
+When the goal is descriptive event-locked interpolation without assuming a forward event design, `align_medusa_ts()` aligns `time x voxels` matrices, `read_nifti_ts()` bundles, or `deconvolve_crossrun_hrf()` activity directly in C++ without expanding intermediate long tables, while the established `voxelwise_deconvolution()` → `evt_align_decon_files()` route provides the same guarantees for disk-backed `.csv.gz` and `.rds` workflows. Both routes validate spatial geometry, retain invalid voxels with status labels, record scaling and file identities, and interpolate each unit within uncensored segments before averaging. An interpolation should not bridge a censoring gap or combine disconnected trial segments.
 
 Overlap policies make a scientific choice explicit: `allow` retains requested windows, `truncate` respects supplied collision boundaries, and `exclude` removes epochs whose requested target windows overlap. Truncation does not remove the already blurred contribution of a preceding event. Excluding trials can also change the behavioral distribution being analyzed. Inspect missingness and `epoch_status`, not just the final plot.
 

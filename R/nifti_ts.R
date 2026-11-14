@@ -48,8 +48,24 @@ resolve_nifti_spatial_geometry <- function(image, label = "image") {
     units = bitwAnd(as.integer(header$xyzt_units), 7L),
     affine = matrix(as.numeric(xform_mat), 4L, 4L),
     xform_code = if (is.null(xform_code)) NA_integer_ else as.integer(xform_code),
-    reference_file = ref_file
+    reference_file = ref_file,
+    nifti_header = header
   )
+}
+
+resolve_reference_from_geometry <- function(geom) {
+  if (!is.list(geom)) return(NULL)
+  ref_file <- geom$reference_file
+  if (is.character(ref_file) && length(ref_file) == 1L && !is.na(ref_file) && file.exists(ref_file)) {
+    return(ref_file)
+  }
+  if (!is.null(geom$nifti_header)) {
+    return(geom$nifti_header)
+  }
+  if (is.character(ref_file) && length(ref_file) == 1L && !is.na(ref_file)) {
+    return(ref_file)
+  }
+  NULL
 }
 
 validate_nifti_spatial_match <- function(ref, candidate, ref_label, candidate_label, tolerance = 1e-4) {
@@ -176,6 +192,9 @@ medusa_parallel_lapply <- function(X, FUN, ..., ncpus = 1L) {
 #'     \item `run_info`: `data.frame` summarizing `run`, `file`, `n_time`, and
 #'       `header_tr`.
 #'   }
+#'
+#' @seealso [write_nifti_ts()], [align_medusa_ts()], [estimate_crossrun_hrf()],
+#'   [deconvolve_crossrun_hrf()], [decon_epoch_regression()]
 #'
 #' @examples
 #' img <- array(rnorm(4 * 4 * 2 * 10), dim = c(4, 4, 2, 10))
@@ -489,14 +508,17 @@ resolve_write_voxel_indices <- function(mat, time_first, voxel_indices, voxel_ma
 #' `sform`/`qform` affine) of `reference` without allocating full 4D R arrays.
 #'
 #' @param x Numeric matrix (`T x V` by default), numeric vector of length `V`
-#'   (written as a single 3D volume), list of numeric matrices/vectors, or a
+#'   (written as a single 3D volume), list of numeric matrices/vectors, a
+#'   `"crossrun_decon"` result from [deconvolve_crossrun_hrf()], or a
 #'   `"medusa_nifti_ts"` object.
 #' @param file Output `.nii` or `.nii.gz` path, or a character vector of paths
-#'   matching `length(x)` when `x` is a list or multi-run `"medusa_nifti_ts"`.
+#'   matching the number of runs/matrices in `x`.
 #' @param reference Path to a reference 3D/4D NIfTI file, an in-memory `RNifti`
-#'   image/header, or a `"medusa_nifti_ts"` object (which also supplies defaults
-#'   for `voxel_map` and `tr`). Optional when `x` itself is a `"medusa_nifti_ts"`
-#'   object or a matrix created by `read_nifti_ts(..., drop = TRUE)`.
+#'   image/header, or a `"medusa_nifti_ts"`, `"crossrun_decon"`, or
+#'   `"crossrun_hrf"` object (which also supplies defaults for `voxel_map` and
+#'   `tr`). Optional when `x` itself carries spatial geometry (`"medusa_nifti_ts"`,
+#'   `"crossrun_decon"` fit from a `"medusa_nifti_ts"` input, or a matrix from
+#'   `read_nifti_ts(..., drop = TRUE)`).
 #' @param voxel_indices Optional numeric/integer vector of unique 1-based spatial
 #'   linear indices.
 #' @param voxel_map Optional `data.frame` containing `linear_index` (and optional
@@ -519,6 +541,8 @@ resolve_write_voxel_indices <- function(mat, time_first, voxel_indices, voxel_ma
 #'   Default `1L`.
 #'
 #' @return Invisibly returns a character vector of written NIfTI file paths.
+#'
+#' @seealso [read_nifti_ts()], [backproject_medusa()], [deconvolve_crossrun_hrf()]
 #'
 #' @examples
 #' ref_arr <- array(0L, dim = c(4, 4, 2))
@@ -551,6 +575,7 @@ write_nifti_ts <- function(
 ) {
   datatype <- match.arg(datatype)
   orientation_supplied <- !missing(orientation)
+  time_offset_supplied <- !missing(time_offset)
   orientation <- match.arg(orientation)
   checkmate::assert_integerish(compression, lower = 0L, upper = 9L, len = 1L, any.missing = FALSE)
   compression <- as.integer(compression)
@@ -560,32 +585,84 @@ write_nifti_ts <- function(
 
   if (inherits(x, "medusa_nifti_ts")) {
     if (is.null(voxel_map) && is.null(voxel_indices)) voxel_map <- x$voxel_map
-    if (is.null(reference)) reference <- x$geometry$reference_file
+    if (is.null(reference)) reference <- resolve_reference_from_geometry(x$geometry)
     if (is.null(tr) && is.finite(x$tr)) tr <- x$tr
     if (!orientation_supplied) orientation <- x$orientation
     x <- x$bold
+  } else if (inherits(x, "crossrun_decon") ||
+             (is.list(x) && !is.data.frame(x) && all(c("activity", "hrf_fit") %in% names(x)))) {
+    vm_dec <- if (!is.null(x$voxel_map)) x$voxel_map else x$hrf_fit$voxel_map
+    gm_dec <- if (!is.null(x$geometry)) x$geometry else x$hrf_fit$geometry
+    if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(vm_dec)) voxel_map <- vm_dec
+    if (is.null(reference) && !is.null(gm_dec)) reference <- resolve_reference_from_geometry(gm_dec)
+    if (is.null(tr) && !is.null(x$hrf_fit$settings$tr) && is.finite(x$hrf_fit$settings$tr)) {
+      tr <- x$hrf_fit$settings$tr
+    }
+    if (!time_offset_supplied && !is.null(x$hrf_fit$settings$time_offset)) {
+      time_offset <- as.numeric(x$hrf_fit$settings$time_offset)
+    }
+    x <- x$activity
   } else if (is.matrix(x)) {
-    if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(attr(x, "voxel_map"))) {
-      voxel_map <- attr(x, "voxel_map")
+    vm_attr <- attr(x, "voxel_map", exact = TRUE)
+    if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(vm_attr)) {
+      voxel_map <- vm_attr
     }
-    geom_attr <- attr(x, "geometry")
-    if (is.null(reference) && is.list(geom_attr) &&
-        is.character(geom_attr$reference_file) && length(geom_attr$reference_file) == 1L &&
-        !is.na(geom_attr$reference_file)) {
-      reference <- geom_attr$reference_file
+    geom_attr <- attr(x, "geometry", exact = TRUE)
+    if (is.null(reference) && !is.null(geom_attr)) {
+      reference <- resolve_reference_from_geometry(geom_attr)
     }
-    if (is.null(tr) && !is.null(attr(x, "tr")) && is.finite(attr(x, "tr"))) {
-      tr <- attr(x, "tr")
+    tr_attr <- attr(x, "tr", exact = TRUE)
+    if (is.null(tr) && !is.null(tr_attr) && is.finite(tr_attr)) {
+      tr <- tr_attr
     }
-    if (!orientation_supplied && !is.null(attr(x, "orientation"))) {
-      orientation <- attr(x, "orientation")
+    off_attr <- attr(x, "time_offset", exact = TRUE)
+    if (!time_offset_supplied && !is.null(off_attr) && all(is.finite(off_attr))) {
+      time_offset <- as.numeric(off_attr)
+    }
+    orient_attr <- attr(x, "orientation", exact = TRUE)
+    if (!orientation_supplied && !is.null(orient_attr)) {
+      orientation <- orient_attr
+    }
+  } else if (is.list(x) && !is.data.frame(x) && length(x) > 0L && is.matrix(x[[1L]])) {
+    vm_attr <- attr(x[[1L]], "voxel_map", exact = TRUE)
+    if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(vm_attr)) {
+      voxel_map <- vm_attr
+    }
+    geom_attr <- attr(x[[1L]], "geometry", exact = TRUE)
+    if (is.null(reference) && !is.null(geom_attr)) {
+      reference <- resolve_reference_from_geometry(geom_attr)
+    }
+    tr_attr <- attr(x[[1L]], "tr", exact = TRUE)
+    if (is.null(tr) && !is.null(tr_attr) && is.finite(tr_attr)) {
+      tr <- tr_attr
+    }
+    if (!time_offset_supplied &&
+        all(vapply(x, function(m) is.matrix(m) && !is.null(attr(m, "time_offset", exact = TRUE)), logical(1L)))) {
+      time_offset <- vapply(x, function(m) as.numeric(attr(m, "time_offset", exact = TRUE))[1L], numeric(1L))
     }
   }
 
   if (inherits(reference, "medusa_nifti_ts")) {
     if (is.null(voxel_map) && is.null(voxel_indices)) voxel_map <- reference$voxel_map
     if (is.null(tr) && is.finite(reference$tr)) tr <- reference$tr
-    reference <- reference$geometry$reference_file
+    reference <- resolve_reference_from_geometry(reference$geometry)
+  } else if (inherits(reference, "crossrun_decon") ||
+             (is.list(reference) && !is.data.frame(reference) && all(c("activity", "hrf_fit") %in% names(reference)))) {
+    vm_ref <- if (!is.null(reference$voxel_map)) reference$voxel_map else reference$hrf_fit$voxel_map
+    gm_ref <- if (!is.null(reference$geometry)) reference$geometry else reference$hrf_fit$geometry
+    if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(vm_ref)) voxel_map <- vm_ref
+    if (is.null(tr) && !is.null(reference$hrf_fit$settings$tr) && is.finite(reference$hrf_fit$settings$tr)) {
+      tr <- reference$hrf_fit$settings$tr
+    }
+    reference <- resolve_reference_from_geometry(gm_ref)
+  } else if (inherits(reference, "crossrun_hrf")) {
+    if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(reference$voxel_map)) {
+      voxel_map <- reference$voxel_map
+    }
+    if (is.null(tr) && !is.null(reference$settings$tr) && is.finite(reference$settings$tr)) {
+      tr <- reference$settings$tr
+    }
+    reference <- resolve_reference_from_geometry(reference$geometry)
   }
 
   if (is.null(reference) || (is.character(reference) && length(reference) == 1L && is.na(reference))) {

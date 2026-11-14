@@ -11,6 +11,15 @@
 
 #' R6 class representing a multivariate time series object for fMRI analysis
 #'
+#' @description
+#' Stores long-format time series (\code{ts_data}), run-length encoded unit keys
+#' (\code{ts_keys}), and trial-level event metadata (\code{event_data}) for a
+#' single subject/run, including ragged per-unit clocks. For regular shared-clock
+#' fMRI runs, see \code{\link{read_nifti_ts}} and \code{\link{align_medusa_ts}}
+#' for direct \code{time x voxels} matrix workflows without long-table expansion.
+#'
+#' @seealso \code{\link{align_medusa_ts}}, \code{\link{get_medusa_interpolated_ts}},
+#'   \code{\link{read_nifti_ts}}
 #' @importFrom R6 R6Class
 #' @export
 fmri_ts <- R6::R6Class("fmri_ts",
@@ -39,11 +48,13 @@ fmri_ts <- R6::R6Class("fmri_ts",
 
       if (length(poss_conf) > 0L) {
         new_names <- if (length(poss_conf) > 1L) { paste0(".aux", seq_along(poss_conf)) } else { ".aux" }
-        cat("To avoid naming conflicts, renaming these columns:", paste(names(poss_conf), collapse=", "),
-          "to:", paste0(new_names, collapse=", "), "\n")
+        if (isTRUE(getOption("medusa.verbose", FALSE))) {
+          message("To avoid naming conflicts, renaming these columns: ",
+            paste(names(poss_conf), collapse = ", "), " to: ", paste0(new_names, collapse = ", "))
+        }
         self$vm[[".aux"]] <- names(poss_conf)
         setnames(dt, self$vm[[".aux"]], new_names, skip_absent=FALSE)
-        private$vmvec <- unlist(self$vm) #yields key1, key2, etc.
+        private$update_variable_tracking(self$vm)
       }
 
       #handle internal renaming to make programming with these objects easy
@@ -94,7 +105,7 @@ fmri_ts <- R6::R6Class("fmri_ts",
           stopifnot(vm$id %in% names(event_data))
           if (length(unique(event_data[[vm$id]])) > 1L) {
             stop("fmri_ts objects only support single runs of data for single IDs.",
-            " You can combine fmri_ts objects using combine_ts().")
+              " Pass multi-run inputs to align_medusa_ts(), or align per run and bind rows.")
           }
         }
         if (!is.null(vm$run)) {
@@ -102,7 +113,7 @@ fmri_ts <- R6::R6Class("fmri_ts",
           stopifnot(vm$run %in% names(event_data))
           if (length(unique(event_data[[vm$run]])) > 1L) {
             stop("fmri_ts objects only support single runs of data for single IDs.",
-            " You can combine fmri_ts objects using combine_ts().")
+              " Pass multi-run inputs to align_medusa_ts(), or align per run and bind rows.")
           }
         }
 
@@ -200,7 +211,7 @@ fmri_ts <- R6::R6Class("fmri_ts",
       }
 
       #update internal renaming scheme
-      private$vmvec <- unlist(self$vm) #yields key1, key2, etc.
+      private$update_variable_tracking(self$vm)
 
       #convert to internal naming scheme
       private$names_to_internal(self$ts_data)
@@ -214,6 +225,27 @@ fmri_ts <- R6::R6Class("fmri_ts",
     #' @description return variable mapping information
     get_vmvec = function() {
       return(private$vmvec)
+    },
+
+    #' @description Extract time-by-unit numeric matrices and marginal metadata when units share an acquisition clock
+    to_matrix = function() {
+      view <- extract_fmri_ts_matrix_view(self)
+      if (is.null(view)) {
+        stop("Units in this fmri_ts object do not share a common acquisition clock; ",
+             "use $get_ts(orig_names = TRUE) for ragged time series.", call. = FALSE)
+      }
+      mats <- lapply(view$signals, function(v) {
+        m <- matrix(as.double(v), nrow = view$n_time_raw, ncol = view$n_units)
+        attr(m, "tr") <- view$tr
+        m
+      })
+      list(
+        signals = mats,
+        time = view$raw_time,
+        unit_data = view$unit_df,
+        events = view$events,
+        tr = view$tr
+      )
     },
 
     #' @description not currently used

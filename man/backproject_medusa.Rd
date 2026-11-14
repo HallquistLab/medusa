@@ -21,7 +21,9 @@ backproject_medusa(
 \item{coef_df}{A `data.frame` containing parcel, time, optional effect, and
 statistic columns to write.}
 
-\item{brain_mask}{Path to a 3D integer-valued NIfTI parcellation mask.}
+\item{brain_mask}{Path to a 3D integer-valued NIfTI parcellation mask, an
+in-memory 3D `RNifti` image, or a `"medusa_nifti_ts"`, `"crossrun_decon"`,
+or `"crossrun_hrf"` object read with `atlas` metadata.}
 
 \item{plot_cols}{Character vector of numeric column names in `coef_df` to
 backproject.}

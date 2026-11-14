@@ -28,15 +28,21 @@ decon_epoch_regression(
   parcel_groups = NULL,
   whiten_panel = FALSE,
   return_epochs = FALSE,
-  return_panel = FALSE
+  return_panel = FALSE,
+  run_col = "run"
 )
 }
 \arguments{
 \item{deconvolution}{Result of \code{deconvolve_crossrun_hrf()}.}
 
-\item{covariates}{Optional numeric vector, matrix, or data.frame of
-trial-level predictors for target trials (concatenated across runs or
-supplied as a run-named list matching \code{deconvolution$hrf_fit$run_ids}).
+\item{covariates}{Optional trial-level predictors for target trials, supplied
+as: (a) a character vector of numeric/logical column names present in
+\code{events} (e.g., \code{c("rpe", "abs_rpe")}), extracted automatically at
+the target event rows in guaranteed lockstep with \code{event_index}; (b) a
+one-sided formula evaluated on target event rows (e.g.,
+\code{~ rpe + abs_rpe}); (c) a numeric vector, matrix, or \code{data.frame}
+concatenated across target trials in fitted run order; or (d) a run-named
+list matching \code{deconvolution$hrf_fit$run_ids}.
 When \code{NULL} (default), performs covariate-agnostic epoch readout,
 de-mixing, biological variance estimation (\code{tau2_mode = "marginal"}),
 Empirical-Bayes precision weighting, and optional within-run ZCA whitening
@@ -45,9 +51,10 @@ defaults to \code{TRUE} when \code{covariates = NULL}) for downstream
 two-stage \code{\link{mixed_by}} behavioral modeling or inter-region
 connectivity (\code{R2 ~ R1_seed * x}).}
 
-\item{events}{Optional run-named list of event data.frames with \code{onset}
-and optional \code{condition} and \code{duration}. Defaults to the HRF fit's
-event tables.}
+\item{events}{Optional combined multi-run \code{data.frame} (split by
+\code{run_col}) or run-named list of event \code{data.frame}s with
+\code{onset} and optional \code{condition}, \code{duration}, and behavioral
+covariate columns. Defaults to the HRF fit's event tables.}
 
 \item{target_condition}{Optional character scalar naming the target event
 condition in \code{events[[r]]$condition} (e.g., \code{"feedback"}). When
@@ -114,11 +121,12 @@ target trial's duration \code{d_i} from \code{trial_durations} or
 \code{events[[r]]$duration}, with duration-matched readout and unpenalized
 baseline-rate de-confounding).}
 
-\item{trial_durations}{Optional numeric vector (concatenated across runs) or
-run-named list of non-negative target trial durations (in seconds), such as
-per-trial reaction times. Overrides \code{events[[r]]$duration} for target
-trials and defaults \code{source_model} to \code{"duration"} when
-\code{source_model} is not explicitly specified.}
+\item{trial_durations}{Optional single column name in \code{events} (e.g.,
+\code{"rt"}), numeric vector (concatenated across runs), or run-named list
+of non-negative target trial durations (in seconds), such as per-trial
+reaction times. Overrides \code{events[[r]]$duration} for target trials and
+defaults \code{source_model} to \code{"duration"} when \code{source_model}
+is not explicitly specified.}
 
 \item{duration_scale}{Scaling convention for positive-duration target trials
 when \code{source_model = "duration"}: \code{"rate"} (default; trial
@@ -179,13 +187,17 @@ Default: \code{FALSE}.}
 
 \item{return_panel}{Logical; whether to return a tidy MEDUSA-compatible
 \code{data.table} (\code{panel}) with columns \code{run}, \code{trial},
-\code{event_index}, \code{onset}, \code{evt_time}, \code{voxel} (and
-\code{parcel} when \code{aggregate_by_parcel = TRUE}),
+\code{event_index}, \code{onset}, \code{evt_time}, \code{voxel} (plus
+\code{id}/\code{session} when present on \code{events}, and \code{parcel}
+when \code{aggregate_by_parcel = TRUE}),
 \code{decon_raw}, \code{decon_demixed}, \code{se_raw}, \code{se_demixed},
 \code{precision_weight}, \code{precision_weight_op},
 \code{precision_weight_raw}, \code{error_ac1}, \code{tau2_bio}, and the
 covariate columns for downstream \code{mixed_by()} modeling. Defaults to
 \code{TRUE} when \code{covariates = NULL} and \code{return_epochs = FALSE}.}
+
+\item{run_col}{Column name in \code{events} identifying runs when \code{events}
+is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.}
 }
 \value{
 A list with \code{coefficients} (per voxel/parcel, lag, and predictor

@@ -7,7 +7,9 @@
 #'
 #' @param coef_df A `data.frame` containing parcel, time, optional effect, and
 #'   statistic columns to write.
-#' @param brain_mask Path to a 3D integer-valued NIfTI parcellation mask.
+#' @param brain_mask Path to a 3D integer-valued NIfTI parcellation mask, an
+#'   in-memory 3D `RNifti` image, or a `"medusa_nifti_ts"`, `"crossrun_decon"`,
+#'   or `"crossrun_hrf"` object read with `atlas` metadata.
 #' @param plot_cols Character vector of numeric column names in `coef_df` to
 #'   backproject.
 #' @param parcel_col Column name in `coef_df` identifying integer mask parcel
@@ -42,8 +44,6 @@ backproject_medusa <- function(
   fill = 0
 ) {
   checkmate::assert_data_frame(coef_df, min.rows = 1L)
-  checkmate::assert_string(brain_mask)
-  checkmate::assert_file_exists(brain_mask)
   checkmate::assert_character(plot_cols, min.len = 1L, any.missing = FALSE)
   checkmate::assert_subset(plot_cols, names(coef_df))
   checkmate::assert_string(parcel_col)
@@ -61,17 +61,40 @@ backproject_medusa <- function(
   compression <- as.integer(compression)
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-  brain_mask_path <- normalizePath(brain_mask, winslash = "/", mustWork = TRUE)
-  mask_hdr <- RNifti::niftiHeader(brain_mask_path)
-  n_dim <- as.integer(mask_hdr$dim[1L])
-  if (n_dim != 3L && !(n_dim == 4L && mask_hdr$dim[5L] <= 1L)) {
-    stop("brain_mask does not appear to be a 3-D mask image.", call. = FALSE)
-  }
-  dim3 <- as.integer(mask_hdr$dim[2:4])
-  n_vox3 <- prod(dim3)
-  mask_vec <- as.numeric(RNifti::readNifti(brain_mask_path))
-  if (length(mask_vec) != n_vox3) {
-    stop("Unexpected voxel count when reading brain_mask.", call. = FALSE)
+  if (inherits(brain_mask, c("medusa_nifti_ts", "crossrun_decon", "crossrun_hrf")) ||
+      (is.list(brain_mask) && !is.data.frame(brain_mask) && all(c("activity", "hrf_fit") %in% names(brain_mask)))) {
+    vm_obj <- if (!is.null(brain_mask$voxel_map)) brain_mask$voxel_map else brain_mask$hrf_fit$voxel_map
+    gm_obj <- if (!is.null(brain_mask$geometry)) brain_mask$geometry else brain_mask$hrf_fit$geometry
+    if (is.null(vm_obj) || !("atlas_value" %in% names(vm_obj)) || is.null(gm_obj)) {
+      stop("When brain_mask is a MEDuSA object, it must carry voxel_map$atlas_value and spatial geometry.", call. = FALSE)
+    }
+    n_vox3 <- as.integer(prod(gm_obj$dim))
+    mask_vec <- numeric(n_vox3)
+    mask_vec[as.integer(vm_obj$linear_index)] <- as.numeric(vm_obj$atlas_value)
+    mask_ref <- resolve_reference_from_geometry(gm_obj)
+    if (is.null(mask_ref)) {
+      stop("Could not resolve reference NIfTI geometry from brain_mask object.", call. = FALSE)
+    }
+  } else if (is.character(brain_mask)) {
+    checkmate::assert_string(brain_mask)
+    checkmate::assert_file_exists(brain_mask)
+    mask_ref <- normalizePath(brain_mask, winslash = "/", mustWork = TRUE)
+    mask_hdr <- RNifti::niftiHeader(mask_ref)
+    n_dim <- as.integer(mask_hdr$dim[1L])
+    if (n_dim != 3L && !(n_dim == 4L && mask_hdr$dim[5L] <= 1L)) {
+      stop("brain_mask does not appear to be a 3-D mask image.", call. = FALSE)
+    }
+    dim3 <- as.integer(mask_hdr$dim[2:4])
+    n_vox3 <- prod(dim3)
+    mask_vec <- as.numeric(RNifti::readNifti(mask_ref))
+    if (length(mask_vec) != n_vox3) {
+      stop("Unexpected voxel count when reading brain_mask.", call. = FALSE)
+    }
+  } else {
+    roi_info <- read_3d_roi_values(brain_mask, label = "brain_mask")
+    n_vox3 <- as.integer(roi_info$geometry$n_spatial)
+    mask_vec <- roi_info$values
+    mask_ref <- RNifti::niftiHeader(brain_mask)
   }
 
   mvals <- sort(unique(coef_df[[parcel_col]]))
@@ -150,7 +173,7 @@ backproject_medusa <- function(
       write_fn(mask_ref, task$out_path, slots, task$p_mat, task$tr, fill_val, "float", comp_val)
       task$out_path
     },
-    mask_ref = brain_mask_path,
+    mask_ref = mask_ref,
     slots = parcel_slot,
     fill_val = as.numeric(fill),
     comp_val = compression,

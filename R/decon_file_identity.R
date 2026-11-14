@@ -74,8 +74,12 @@ resolve_decon_identity <- function(fname, data, file_manifest = NULL) {
   if (!is.null(file_manifest)) {
     row <- file_manifest[file_manifest$file == normalizePath(fname, winslash = "/"), , drop = FALSE]
   } else if (file.exists(paste0(fname, ".metadata.csv"))) {
-    row <- as.data.frame(readr::read_csv(paste0(fname, ".metadata.csv"),
-      col_types = readr::cols(.default = readr::col_character()), show_col_types = FALSE))
+    row <- data.table::fread(
+      paste0(fname, ".metadata.csv"),
+      colClasses = "character",
+      na.strings = c("", "NA"),
+      data.table = FALSE
+    )
   } else if (all(c("id", "run") %in% names(data))) {
     row <- unique(data[intersect(c("id", "run", "session"), names(data))])
   } else row <- data.frame()

@@ -22,7 +22,16 @@ get_medusa_interpolated_ts(
   neighbor_events = NULL,
   max_gap = NULL,
   readout_kernel = "linear",
-  readout_width = NULL
+  readout_width = NULL,
+  events = NULL,
+  tr = NULL,
+  time = NULL,
+  time_offset = NULL,
+  parcel_ids = NULL,
+  unit_data = NULL,
+  value_name = "value",
+  trial_col = "trial",
+  use_legacy = FALSE
 )
 }
 \arguments{
@@ -78,6 +87,29 @@ contiguous uncensored segment.}
 
 \item{readout_width}{Full window width (in seconds) for non-linear
 \code{readout_kernel} modes. Defaults to \code{1.5 * max_gap}.}
+
+\item{events}{Optional trial-level \code{data.frame} (or list of per-run
+\code{data.frame}s) used when \code{fmri_obj} is a matrix, \code{"medusa_nifti_ts"},
+or deconvolution fit rather than an \code{fmri_ts} object.}
+
+\item{tr}{Optional repetition time in seconds when \code{fmri_obj} is a matrix
+without a \code{tr} attribute.}
+
+\item{time}{Optional numeric vector of acquisition timestamps (length \code{nrow(fmri_obj)})
+for matrix inputs.}
+
+\item{time_offset}{Optional scalar start-time offset in seconds for matrix inputs.}
+
+\item{parcel_ids}{Optional vector assigning matrix columns to parcels/ROIs.}
+
+\item{unit_data}{Optional \code{data.frame} of unit metadata (one row per matrix column).}
+
+\item{value_name}{Signal name prefix for single-signal matrix inputs. Default \code{"value"}.}
+
+\item{trial_col}{Trial identifier column name for matrix inputs. Default \code{"trial"}.}
+
+\item{use_legacy}{Logical; if \code{TRUE}, forces the legacy \code{event_lock_ts()} +
+\code{interpolate_fmri_epochs()} path on \code{fmri_ts} inputs (primarily for testing).}
 }
 \description{
 front-end function for taking a list of windowed time series by mask value, interpolating them onto a time grid,
@@ -100,6 +132,14 @@ The interpolation grid includes zero and remains within the requested
   Epoch annotations beginning with \code{align_} are always included when trial
   is a grouping variable. They describe timing, not physiological attribution.
   Whole-window exclusion adds \code{"overlap_excluded"} to epoch statuses.
+  When spatial units share a common acquisition clock, \code{fmri_ts} inputs
+  are aligned and interpolated via a zero-copy C++ matrix view, automatically
+  falling back to the ragged per-unit \code{data.table} engine when unit
+  clocks differ (e.g., slice-specific timestamps).
+}
+\seealso{
+\code{\link{align_medusa_ts}}, \code{\link{evt_align_decon_files}},
+  \code{\link{decon_epoch_regression}}
 }
 \author{
 Michael Hallquist

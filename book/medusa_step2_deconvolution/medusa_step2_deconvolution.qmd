@@ -155,6 +155,9 @@ decon <- deconvolve_crossrun_hrf(
 
 # Always audit conditional gain and cross-talk on your study's event schedule:
 recovery <- diagnose_crossrun_recovery(decon, lags = 0)
+
+# Optional: write 4D deconvolved activity or 3D diagnostic maps back to NIfTI in C++
+# write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)
 ```
 
 | Argument | Recommended | Package Default | Why Recommended & When to Adjust |

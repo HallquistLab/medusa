@@ -34,6 +34,11 @@ Step 3 accomplishes five core objectives:
 
 **What Step 3 deliberately leaves to Steps 4–6:** Step 3 operates within a single participant's multi-run fit. Combining voxels into parcels is covered in [Step 4]( ../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd ) (which runs inside the same `decon_epoch_regression()` call via `parcel_groups`), population inference across participants is handled in [Step 5](../medusa_step5_group_models/medusa_step5_group_models.qmd), and disattenuating noisy seed predictors is handled in [Step 6](../medusa_step6_connectivity/medusa_step6_connectivity.qmd).
 
+::: {.callout-tip}
+### Descriptive Event Alignment (`align_medusa_ts()`) vs. Operator De-Mixing (`decon_epoch_regression()`)
+When you want **descriptive event-locked interpolation and overlap/censoring auditing** without assuming a forward event design—for example, plotting raw peri-event BOLD waveforms, inspecting blind `deconvolve_nlreg()` / `deconvolve_reglin()` trajectories, or running sensitivity checks under explicit `overlap_policy = "allow" | "truncate" | "exclude"`—use **`align_medusa_ts()`** (or `evt_align_decon_files()` for disk-backed `.csv.gz` / `.rds` archives). `align_medusa_ts()` runs directly on `T × V` matrices, `"medusa_nifti_ts"` bundles (`read_nifti_ts()`), or `deconvolve_crossrun_hrf()` outputs in C++ using the same four readout kernels (`"linear"`, `"boxcar"`, `"triangle"`, `"gaussian"`), gap-fencing (`max_gap`), censoring (`valid = "observation_mask"`), and `epoch_status` / `source_clock` provenance without expanding long `fmri_ts` tables. For primary inferential modeling on `deconvolve_crossrun_hrf()` fits, prefer **`decon_epoch_regression()`**, which retains the Step 2 inverse operator $D_r$ to remove non-target bleed, unmix adjacent target trials, restore regularization gain, and propagate exact analytical `se_demixed` and `precision_weight_cohort`.
+:::
+
 ---
 
 ## Inputs: What Step 3 Receives and Why
