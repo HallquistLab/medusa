@@ -92,7 +92,17 @@
 </div>
 <div class="section level2">
 <h2 id="supplying-validity-and-inspecting-support">Supplying validity and inspecting support<a class="anchor" aria-label="anchor" href="#supplying-validity-and-inspecting-support"></a></h2>
+<p>For in-memory <code>time x voxels</code> (<code>T x V</code>) matrices, <code><a href="reference/read_nifti_ts.html">read_nifti_ts()</a></code> bundles, or <code><a href="reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code> outputs, <code><a href="reference/align_medusa_ts.html">align_medusa_ts()</a></code> performs C++ matrix-native alignment without constructing long tables:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">aligned</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/align_medusa_ts.html">align_medusa_ts</a></span><span class="op">(</span></span>
+<span>  <span class="va">Y</span>, events <span class="op">=</span> <span class="va">trials</span>, event <span class="op">=</span> <span class="st">"feedback"</span>, tr <span class="op">=</span> <span class="va">TR</span>,</span>
+<span>  parcel_ids <span class="op">=</span> <span class="va">region_ids</span>, group_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"trial"</span>, <span class="st">"parcel"</span><span class="op">)</span>,</span>
+<span>  time_before <span class="op">=</span> <span class="op">-</span><span class="fl">3</span>, time_after <span class="op">=</span> <span class="fl">5</span>, output_resolution <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  overlap_policy <span class="op">=</span> <span class="st">"allow"</span>, neighbor_events <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cue"</span>, <span class="st">"response"</span>, <span class="st">"feedback"</span><span class="op">)</span>,</span>
+<span>  valid <span class="op">=</span> <span class="va">usable_mask</span>, max_gap <span class="op">=</span> <span class="va">TR</span>, time_audit <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>On <code>fmri_ts</code> objects (which also use the zero-copy C++ matrix engine automatically whenever units share an acquisition clock, falling back cleanly for ragged per-unit clocks):</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">aligned</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_medusa_interpolated_ts.html">get_medusa_interpolated_ts</a></span><span class="op">(</span></span>
 <span>  <span class="va">object</span>, event <span class="op">=</span> <span class="st">"feedback"</span>, time_before <span class="op">=</span> <span class="op">-</span><span class="fl">3</span>, time_after <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  group_by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"trial"</span>, <span class="st">"region"</span><span class="op">)</span>, output_resolution <span class="op">=</span> <span class="fl">0.5</span>,</span>
@@ -130,7 +140,7 @@
 </div>
 <div class="section level2">
 <h2 id="measuring-temporal-spread-with-frozen-settings">Measuring temporal spread with frozen settings<a class="anchor" aria-label="anchor" href="#measuring-temporal-spread-with-frozen-settings"></a></h2>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">recovery</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/deconvolution_impulse_diagnostics.html">deconvolution_impulse_diagnostics</a></span><span class="op">(</span></span>
 <span>  event_data <span class="op">=</span> <span class="va">trials</span>, onset <span class="op">=</span> <span class="st">"feedback"</span>, trial <span class="op">=</span> <span class="st">"trial"</span>,</span>
 <span>  n_time <span class="op">=</span> <span class="va">n_volumes</span>, tr <span class="op">=</span> <span class="va">TR</span>, time_offset <span class="op">=</span> <span class="va">acquisition_offset</span>,</span>

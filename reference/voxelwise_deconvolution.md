@@ -21,6 +21,7 @@ voxelwise_deconvolution(
   algorithm = "bush2011",
   decon_settings = list(nev_lr = 0.01, epsilon = 0.005, beta = 60, kernel =
     spm_hrf(TR)$hrf, n_resample = 25),
+  output_format = c("csv.gz", "rds", "nifti", "parquet"),
   afni_dir = NULL
 )
 ```
@@ -45,11 +46,13 @@ voxelwise_deconvolution(
 
 - out_file_expression:
 
-  Expression evaluated to resolve the filename for the deconvolved csv
-  files. Default is to prefix `"decon_"`, replace slashes in `niftis`
-  with periods, and add the atlas image name. Note that the suffix
-  `_deconvolved.csv.gz` or `_original.csv.gz` will be added to the
-  expression, so don't pass this piece.
+  Expression evaluated to resolve the filename stem for the deconvolved
+  outputs. Default is to prefix `"decon_"`, replace slashes in `niftis`
+  with periods, and add the atlas image name. Note that the
+  format-specific suffix (e.g., `_deconvolved.csv.gz`,
+  `_deconvolved.rds`, `_deconvolved.nii.gz`, or `_deconvolved.parquet`)
+  and corresponding `_original.*` suffix will be appended automatically,
+  so omit the suffix from this expression.
 
 - log_file:
 
@@ -96,6 +99,21 @@ voxelwise_deconvolution(
 - decon_settings:
 
   A list of settings passed to the deconvolution algorithm.
+
+- output_format:
+
+  Serialization format for deconvolved (and optional original) voxelwise
+  time series: `"csv.gz"` (default, written directly via
+  [`data.table::fwrite`](https://rdrr.io/pkg/data.table/man/fwrite.html)
+  without intermediate relational joins), `"rds"` (compact
+  `time x voxels` matrix bundle avoiding long-table expansion),
+  `"nifti"` (streamed 4D `.nii.gz` image plus a `.coords.rds`
+  voxel-coordinate sidecar), or `"parquet"` (columnar Parquet file;
+  requires the `arrow` package). All formats remain directly compatible
+  with
+  [`run_decon_alignment`](https://hallquistlab.github.io/medusa/reference/run_decon_alignment.md)
+  and
+  [`evt_align_decon_files`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md).
 
 - afni_dir:
 

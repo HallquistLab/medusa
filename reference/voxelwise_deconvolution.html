@@ -60,6 +60,7 @@
 <span>  algorithm <span class="op">=</span> <span class="st">"bush2011"</span>,</span>
 <span>  decon_settings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>nev_lr <span class="op">=</span> <span class="fl">0.01</span>, epsilon <span class="op">=</span> <span class="fl">0.005</span>, beta <span class="op">=</span> <span class="fl">60</span>, kernel <span class="op">=</span></span>
 <span>    <span class="fu"><a href="spm_hrf.html">spm_hrf</a></span><span class="op">(</span><span class="va">TR</span><span class="op">)</span><span class="op">$</span><span class="va">hrf</span>, n_resample <span class="op">=</span> <span class="fl">25</span><span class="op">)</span>,</span>
+<span>  output_format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"csv.gz"</span>, <span class="st">"rds"</span>, <span class="st">"nifti"</span>, <span class="st">"parquet"</span><span class="op">)</span>,</span>
 <span>  afni_dir <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -83,10 +84,11 @@ columns are also saved in per-file sidecars for event alignment.</p></dd>
 
 
 <dt id="arg-out-file-expression">out_file_expression<a class="anchor" aria-label="anchor" href="#arg-out-file-expression"></a></dt>
-<dd><p>Expression evaluated to resolve the filename for the deconvolved csv files. Default is
+<dd><p>Expression evaluated to resolve the filename stem for the deconvolved outputs. Default is
 to prefix <code>"decon_"</code>, replace slashes in <code>niftis</code> with periods, and add
-the atlas image name. Note that the suffix <code>_deconvolved.csv.gz</code> or <code>_original.csv.gz</code> will be added
-to the expression, so don't pass this piece.</p></dd>
+the atlas image name. Note that the format-specific suffix (e.g., <code>_deconvolved.csv.gz</code>,
+<code>_deconvolved.rds</code>, <code>_deconvolved.nii.gz</code>, or <code>_deconvolved.parquet</code>) and corresponding
+<code>_original.*</code> suffix will be appended automatically, so omit the suffix from this expression.</p></dd>
 
 
 <dt id="arg-log-file">log_file<a class="anchor" aria-label="anchor" href="#arg-log-file"></a></dt>
@@ -127,6 +129,15 @@ with optional HRF tuning.</p></dd>
 
 <dt id="arg-decon-settings">decon_settings<a class="anchor" aria-label="anchor" href="#arg-decon-settings"></a></dt>
 <dd><p>A list of settings passed to the deconvolution algorithm.</p></dd>
+
+
+<dt id="arg-output-format">output_format<a class="anchor" aria-label="anchor" href="#arg-output-format"></a></dt>
+<dd><p>Serialization format for deconvolved (and optional original) voxelwise time series:
+<code>"csv.gz"</code> (default, written directly via <code><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">data.table::fwrite</a></code> without intermediate relational joins),
+<code>"rds"</code> (compact <code>time x voxels</code> matrix bundle avoiding long-table expansion),
+<code>"nifti"</code> (streamed 4D <code>.nii.gz</code> image plus a <code>.coords.rds</code> voxel-coordinate sidecar),
+or <code>"parquet"</code> (columnar Parquet file; requires the <code>arrow</code> package). All formats remain directly
+compatible with <code><a href="run_decon_alignment.html">run_decon_alignment</a></code> and <code><a href="evt_align_decon_files.html">evt_align_decon_files</a></code>.</p></dd>
 
 
 <dt id="arg-afni-dir">afni_dir<a class="anchor" aria-label="anchor" href="#arg-afni-dir"></a></dt>

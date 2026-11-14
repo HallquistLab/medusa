@@ -75,7 +75,8 @@
 <span>  emtrends_spec <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  emtrends_pairs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  emtrends_pairs_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  weights <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  split_filter <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -86,8 +87,9 @@
 <dl><dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
 <dd><p>A data.frame or data.table object containing stacked data for each combination of the <code>split_on</code>
 variables. The function will run separate mixed-effect models for each combination. Alternatively, a vector of
-filenames can be passed, which will be read in sequentially and fit (.rds, .csv, .dat, and .txt
-supported at present).</p></dd>
+file or dataset paths can be passed, which will be read in sequentially and fit (<code>.rds</code>, <code>.parquet</code>
+files or Hive-partitioned Parquet directories via <code>arrow</code>, and <code>.csv</code>/<code>.csv.gz</code>/<code>.tsv</code>/<code>.dat</code>/<code>.txt</code>
+supported, projecting only columns required by the requested models and splits).</p></dd>
 
 
 <dt id="arg-outcomes">outcomes<a class="anchor" aria-label="anchor" href="#arg-outcomes"></a></dt>
@@ -111,8 +113,8 @@ model to the next, but you don't want the Cartesian product (combinations) of ou
 <dt id="arg-external-df">external_df<a class="anchor" aria-label="anchor" href="#arg-external-df"></a></dt>
 <dd><p>An optional data.frame/data.table containing external data that should be joined with <code>data</code>
 prior to model fitting. Useful if <code>data</code> contains external time series data and <code>external_df</code> is a
-dataset of behavioral variables that do not vary by neural sensor/region. Optionally, this can be a single
-filename to a .rds file if you want to pass in the filename, not the data itself.</p></dd>
+dataset of behavioral variables that do not vary by neural sensor/region. Optionally, this can be a path to a
+<code>.rds</code>, <code>.parquet</code>, or delimited (<code>.csv</code>/<code>.csv.gz</code>/<code>.tsv</code>/<code>.txt</code>) file.</p></dd>
 
 
 <dt id="arg-external-merge-by">external_merge_by<a class="anchor" aria-label="anchor" href="#arg-external-merge-by"></a></dt>
@@ -221,6 +223,14 @@ Any arguments that are valid for emtrends can be passed through the list structu
 (or <code>external_df</code>) containing positive observation/trial precision
 weights (e.g., <code>"precision_weight"</code> from <code><a href="decon_epoch_regression.html">decon_epoch_regression()</a></code>)
 to be normalized within each split and passed to the mixed-model engine.</p></dd>
+
+
+<dt id="arg-split-filter">split_filter<a class="anchor" aria-label="anchor" href="#arg-split-filter"></a></dt>
+<dd><p>Optional named list of atomic vectors specifying allowed
+values for one or more split or grouping columns (e.g.,
+<code>list(atlas_value = 1:4, evt_time = c(0, 1))</code>). When reading Parquet
+files or partitioned Parquet directories, predicates on columns present in
+the dataset are pushed down to Arrow prior to materialization in R.</p></dd>
 
 </dl></div>
     <div class="section level2">

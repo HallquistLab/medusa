@@ -69,8 +69,10 @@
 
 
 <dl><dt id="arg-bold">bold<a class="anchor" aria-label="anchor" href="#arg-bold"></a></dt>
-<dd><p>Named time-by-voxel run matrices with IDs/order/dimensions matching
-the HRF fit. These should be the same preprocessed BOLD used for estimation.</p></dd>
+<dd><p>Either a <code>"medusa_nifti_ts"</code> object from
+<code><a href="read_nifti_ts.html">read_nifti_ts</a></code> or named time-by-voxel run matrices with
+IDs/order/dimensions matching the HRF fit. These should be the same
+preprocessed BOLD used for estimation.</p></dd>
 
 
 <dt id="arg-hrf-fit">hrf_fit<a class="anchor" aria-label="anchor" href="#arg-hrf-fit"></a></dt>
@@ -151,10 +153,14 @@ Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with activity matrices, per-run scaling/status tables, the HRF
-  fit, frozen inverse settings, standardized noise innovations, and per-run
-  observation <code>frame_weights</code>. Activity matrices retain voxel IDs and carry
-  tr and time_offset attributes for subsequent event alignment.</p>
+    <p>An S3 list of class <code>"crossrun_decon"</code> with <code>activity</code>
+  matrices, per-run <code>scaling</code>/status tables, the <code>hrf_fit</code>, frozen
+  inverse <code>settings</code>, standardized <code>noise_innovations</code>, per-run
+  observation <code>frame_weights</code>, and optional NIfTI <code>voxel_map</code> and
+  <code>geometry</code> metadata (enabling direct <code><a href="write_nifti_ts.html">write_nifti_ts</a></code>
+  export without an external reference file). Activity matrices retain voxel
+  IDs and carry <code>tr</code>, <code>time_offset</code>, and <code>observation_mask</code>
+  attributes for subsequent event alignment.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

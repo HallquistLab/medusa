@@ -52,7 +52,8 @@
 <span>  weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  source_kernel_grid <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  return_matrices <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  max_events <span class="op">=</span> <span class="fl">2000L</span></span>
+<span>  max_events <span class="op">=</span> <span class="fl">2000L</span>,</span>
+<span>  run_col <span class="op">=</span> <span class="st">"run"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -65,9 +66,10 @@
 
 
 <dt id="arg-events">events<a class="anchor" aria-label="anchor" href="#arg-events"></a></dt>
-<dd><p>Optional run-named event tables with onset and optional condition
-and duration. Defaults to the HRF training event records. Every record is a
-separate unit-amplitude source, regardless of its condition label.</p></dd>
+<dd><p>Optional run-named event tables (or a combined multi-run
+<code>data.frame</code> with a <code>run_col</code> column) with onset and optional
+condition and duration. Defaults to the HRF training event records. Every
+record is a separate unit-amplitude source, regardless of its condition label.</p></dd>
 
 
 <dt id="arg-lags">lags<a class="anchor" aria-label="anchor" href="#arg-lags"></a></dt>
@@ -95,6 +97,11 @@ resolution matrices, default FALSE.</p></dd>
 <dt id="arg-max-events">max_events<a class="anchor" aria-label="anchor" href="#arg-max-events"></a></dt>
 <dd><p>Explicit limit per run on the quadratic diagnostic matrix,
 default 2000. Use a smaller prespecified subset or explicitly raise the limit.</p></dd>
+
+
+<dt id="arg-run-col">run_col<a class="anchor" aria-label="anchor" href="#arg-run-col"></a></dt>
+<dd><p>Column name in <code>events</code> identifying runs when <code>events</code>
+is supplied as a combined multi-run <code>data.frame</code>. Default <code>"run"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

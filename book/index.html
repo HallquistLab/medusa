@@ -328,17 +328,17 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td><a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">1. Estimate Cross-Run HRF &amp; Noise</a></td>
-<td><code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
+<td><code>read_nifti_ts()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
 <td>What HRF shape and AR(<span class="math inline">\(p\)</span>) noise covariance govern each run and parcel without circularly fitting the target run’s own task amplitudes?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">2. Deconvolve Continuous Signal</a></td>
-<td><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code></td>
+<td><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code></td>
 <td>What continuous latent time course is supported on the acquisition grid when event-informed GLS regression anchors noise scaling, adaptive glitch weighting, and GCV smoothing?</td>
 </tr>
 <tr class="odd">
 <td><a href="./medusa_step3_epochs/medusa_step3_epochs.html">3. Align Epochs &amp; De-Mix Overlap</a></td>
-<td><code>decon_epoch_regression()</code></td>
+<td><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code></td>
 <td>How do we read out event-locked lags, subtract non-target bleed, unmix adjacent target trials, model variable durations, and propagate per-trial standard errors?</td>
 </tr>
 <tr class="even">
@@ -348,7 +348,7 @@ window.Quarto = {
 </tr>
 <tr class="odd">
 <td><a href="./medusa_step5_group_models/medusa_step5_group_models.html">5. Fit Group Multilevel &amp; Trajectory Models</a></td>
-<td><code>mixed_by()</code>, <code>medusa_multilag_infer()</code></td>
+<td><code>mixed_by()</code>, <code>medusa_multilag_infer()</code>, <code>backproject_medusa()</code></td>
 <td>How do we test planned lag slopes, full multi-lag trajectories, simultaneous bands, and window contrasts across participants?</td>
 </tr>
 <tr class="even">

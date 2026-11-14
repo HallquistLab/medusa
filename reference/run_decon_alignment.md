@@ -22,7 +22,9 @@ run_decon_alignment(
   scheduler = "slurm",
   time_audit = FALSE,
   file_manifest = NULL,
-  fail_on_error = TRUE
+  fail_on_error = TRUE,
+  input_format = c("auto", "csv.gz", "rds", "nifti", "parquet"),
+  out_format = c("csv.gz", "parquet", "rds")
 )
 ```
 
@@ -108,6 +110,25 @@ run_decon_alignment(
 
   Stop if any file fails alignment (default TRUE). Set FALSE explicitly
   to allow partial output with a warning and a file status manifest.
+
+- input_format:
+
+  Format of deconvolution files to discover inside each atlas's
+  `deconvolved/` directory: `"auto"` (default, discovers
+  `_deconvolved.csv.gz`, `_deconvolved.rds`, `_deconvolved.nii.gz`, and
+  `_deconvolved.parquet`, deduplicating stems if multiple formats
+  coexist), or an explicit format (`"csv.gz"`, `"rds"`, `"nifti"`,
+  `"parquet"`).
+
+- out_format:
+
+  Output serialization format for each aligned panel: `"csv.gz"`
+  (default, written via
+  [`data.table::fwrite`](https://rdrr.io/pkg/data.table/man/fwrite.html)),
+  `"parquet"` (columnar Parquet via `arrow::write_parquet`, directly
+  consumable by
+  [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)
+  with column projection and filter pushdown), or `"rds"`.
 
 ## Details
 

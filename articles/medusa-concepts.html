@@ -616,11 +616,17 @@ can change. Keep this distinct from the benefits of de-mixing.</p>
 <div class="section level3">
 <h3 id="alignment-asks-which-samples-support-this-epoch">Alignment asks: which samples support this epoch?<a class="anchor" aria-label="anchor" href="#alignment-asks-which-samples-support-this-epoch"></a>
 </h3>
-<p>The established <code><a href="../reference/voxelwise_deconvolution.html">voxelwise_deconvolution()</a></code> →
-<code><a href="../reference/evt_align_decon_files.html">evt_align_decon_files()</a></code> route remains useful. Recent
-changes extract NIfTI values internally, check spatial geometry, retain
-invalid voxels with status labels, record scaling and file identities,
-and interpolate each unit before averaging. An interpolation should not
+<p>When the goal is descriptive event-locked interpolation without
+assuming a forward event design, <code><a href="../reference/align_medusa_ts.html">align_medusa_ts()</a></code> aligns
+<code>time x voxels</code> matrices, <code><a href="../reference/read_nifti_ts.html">read_nifti_ts()</a></code>
+bundles, or <code><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code> activity directly in
+C++ without expanding intermediate long tables, while the established
+<code><a href="../reference/voxelwise_deconvolution.html">voxelwise_deconvolution()</a></code> →
+<code><a href="../reference/evt_align_decon_files.html">evt_align_decon_files()</a></code> route provides the same guarantees
+for disk-backed <code>.csv.gz</code> and <code>.rds</code> workflows.
+Both routes validate spatial geometry, retain invalid voxels with status
+labels, record scaling and file identities, and interpolate each unit
+within uncensored segments before averaging. An interpolation should not
 bridge a censoring gap or combine disconnected trial segments.</p>
 <p>Overlap policies make a scientific choice explicit:
 <code>allow</code> retains requested windows, <code>truncate</code>

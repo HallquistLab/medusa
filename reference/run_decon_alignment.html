@@ -61,7 +61,9 @@
 <span>  scheduler <span class="op">=</span> <span class="st">"slurm"</span>,</span>
 <span>  time_audit <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  file_manifest <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  fail_on_error <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  fail_on_error <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  input_format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"csv.gz"</span>, <span class="st">"rds"</span>, <span class="st">"nifti"</span>, <span class="st">"parquet"</span><span class="op">)</span>,</span>
+<span>  out_format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"csv.gz"</span>, <span class="st">"parquet"</span>, <span class="st">"rds"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -139,6 +141,22 @@ deconvolution files. Overrides per-file metadata and legacy filename parsing.</p
 <dt id="arg-fail-on-error">fail_on_error<a class="anchor" aria-label="anchor" href="#arg-fail-on-error"></a></dt>
 <dd><p>Stop if any file fails alignment (default TRUE). Set FALSE
 explicitly to allow partial output with a warning and a file status manifest.</p></dd>
+
+
+<dt id="arg-input-format">input_format<a class="anchor" aria-label="anchor" href="#arg-input-format"></a></dt>
+<dd><p>Format of deconvolution files to discover inside each atlas's
+<code>deconvolved/</code> directory: <code>"auto"</code> (default, discovers
+<code>_deconvolved.csv.gz</code>, <code>_deconvolved.rds</code>, <code>_deconvolved.nii.gz</code>,
+and <code>_deconvolved.parquet</code>, deduplicating stems if multiple formats coexist),
+or an explicit format (<code>"csv.gz"</code>, <code>"rds"</code>, <code>"nifti"</code>, <code>"parquet"</code>).</p></dd>
+
+
+<dt id="arg-out-format">out_format<a class="anchor" aria-label="anchor" href="#arg-out-format"></a></dt>
+<dd><p>Output serialization format for each aligned panel:
+<code>"csv.gz"</code> (default, written via <code><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">data.table::fwrite</a></code>),
+<code>"parquet"</code> (columnar Parquet via <code>arrow::write_parquet</code>, directly
+consumable by <code><a href="mixed_by.html">mixed_by</a></code> with column projection and filter pushdown),
+or <code>"rds"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

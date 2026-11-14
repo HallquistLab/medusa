@@ -12,7 +12,8 @@ diagnose_crossrun_recovery(
   weights = NULL,
   source_kernel_grid = NULL,
   return_matrices = FALSE,
-  max_events = 2000L
+  max_events = 2000L,
+  run_col = "run"
 )
 ```
 
@@ -24,7 +25,8 @@ diagnose_crossrun_recovery(
 
 - events:
 
-  Optional run-named event tables with onset and optional condition and
+  Optional run-named event tables (or a combined multi-run `data.frame`
+  with a `run_col` column) with onset and optional condition and
   duration. Defaults to the HRF training event records. Every record is
   a separate unit-amplitude source, regardless of its condition label.
 
@@ -56,6 +58,11 @@ diagnose_crossrun_recovery(
   Explicit limit per run on the quadratic diagnostic matrix,
   default 2000. Use a smaller prespecified subset or explicitly raise
   the limit.
+
+- run_col:
+
+  Column name in `events` identifying runs when `events` is supplied as
+  a combined multi-run `data.frame`. Default `"run"`.
 
 ## Value
 

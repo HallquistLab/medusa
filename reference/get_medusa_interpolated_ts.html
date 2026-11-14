@@ -65,7 +65,16 @@ and (optionally) averaging across voxels/units within a value to derive the mean
 <span>  neighbor_events <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  max_gap <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  readout_kernel <span class="op">=</span> <span class="st">"linear"</span>,</span>
-<span>  readout_width <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  readout_width <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  events <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  tr <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time_offset <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  parcel_ids <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit_data <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  value_name <span class="op">=</span> <span class="st">"value"</span>,</span>
+<span>  trial_col <span class="op">=</span> <span class="st">"trial"</span>,</span>
+<span>  use_legacy <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -159,6 +168,47 @@ contiguous uncensored segment.</p></dd>
 <dd><p>Full window width (in seconds) for non-linear
 <code>readout_kernel</code> modes. Defaults to <code>1.5 * max_gap</code>.</p></dd>
 
+
+<dt id="arg-events">events<a class="anchor" aria-label="anchor" href="#arg-events"></a></dt>
+<dd><p>Optional trial-level <code>data.frame</code> (or list of per-run
+<code>data.frame</code>s) used when <code>fmri_obj</code> is a matrix, <code>"medusa_nifti_ts"</code>,
+or deconvolution fit rather than an <code>fmri_ts</code> object.</p></dd>
+
+
+<dt id="arg-tr">tr<a class="anchor" aria-label="anchor" href="#arg-tr"></a></dt>
+<dd><p>Optional repetition time in seconds when <code>fmri_obj</code> is a matrix
+without a <code>tr</code> attribute.</p></dd>
+
+
+<dt id="arg-time">time<a class="anchor" aria-label="anchor" href="#arg-time"></a></dt>
+<dd><p>Optional numeric vector of acquisition timestamps (length <code>nrow(fmri_obj)</code>)
+for matrix inputs.</p></dd>
+
+
+<dt id="arg-time-offset">time_offset<a class="anchor" aria-label="anchor" href="#arg-time-offset"></a></dt>
+<dd><p>Optional scalar start-time offset in seconds for matrix inputs.</p></dd>
+
+
+<dt id="arg-parcel-ids">parcel_ids<a class="anchor" aria-label="anchor" href="#arg-parcel-ids"></a></dt>
+<dd><p>Optional vector assigning matrix columns to parcels/ROIs.</p></dd>
+
+
+<dt id="arg-unit-data">unit_data<a class="anchor" aria-label="anchor" href="#arg-unit-data"></a></dt>
+<dd><p>Optional <code>data.frame</code> of unit metadata (one row per matrix column).</p></dd>
+
+
+<dt id="arg-value-name">value_name<a class="anchor" aria-label="anchor" href="#arg-value-name"></a></dt>
+<dd><p>Signal name prefix for single-signal matrix inputs. Default <code>"value"</code>.</p></dd>
+
+
+<dt id="arg-trial-col">trial_col<a class="anchor" aria-label="anchor" href="#arg-trial-col"></a></dt>
+<dd><p>Trial identifier column name for matrix inputs. Default <code>"trial"</code>.</p></dd>
+
+
+<dt id="arg-use-legacy">use_legacy<a class="anchor" aria-label="anchor" href="#arg-use-legacy"></a></dt>
+<dd><p>Logical; if <code>TRUE</code>, forces the legacy <code><a href="event_lock_ts.html">event_lock_ts()</a></code> +
+<code><a href="interpolate_fmri_epochs.html">interpolate_fmri_epochs()</a></code> path on <code>fmri_ts</code> inputs (primarily for testing).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -177,7 +227,16 @@ contiguous uncensored segment.</p></dd>
   The <code>source_clock</code> attribute maps IDs to absolute acquisition times.
   Epoch annotations beginning with <code>align_</code> are always included when trial
   is a grouping variable. They describe timing, not physiological attribution.
-  Whole-window exclusion adds <code>"overlap_excluded"</code> to epoch statuses.</p>
+  Whole-window exclusion adds <code>"overlap_excluded"</code> to epoch statuses.
+  When spatial units share a common acquisition clock, <code>fmri_ts</code> inputs
+  are aligned and interpolated via a zero-copy C++ matrix view, automatically
+  falling back to the ragged per-unit <code>data.table</code> engine when unit
+  clocks differ (e.g., slice-specific timestamps).</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="align_medusa_ts.html">align_medusa_ts</a></code>, <code><a href="evt_align_decon_files.html">evt_align_decon_files</a></code>,
+  <code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code></p></div>
     </div>
     <div class="section level2">
     <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>

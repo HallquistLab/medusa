@@ -98,4 +98,13 @@ event_lock_ts(
 Nonfinite target onsets and unsupported windows retain placeholder rows
 with missing time and values and an `epoch_status` column. Nonfinite
 collision candidates are ignored. Nearest-event boundaries remain strict
-and do not guarantee disjoint trial windows.
+and do not guarantee disjoint trial windows. For regular shared-clock
+`time x voxels` matrices or `"medusa_nifti_ts"` inputs, prefer
+[`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+to align and interpolate directly in C++ without expanding
+trial-by-voxel `fmri_ts` tables.
+
+## See also
+
+[`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md),
+[`get_medusa_interpolated_ts`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md)

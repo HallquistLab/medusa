@@ -1,7 +1,20 @@
 # R6 class representing a multivariate time series object for fMRI analysis
 
-R6 class representing a multivariate time series object for fMRI
-analysis
+Stores long-format time series (`ts_data`), run-length encoded unit keys
+(`ts_keys`), and trial-level event metadata (`event_data`) for a single
+subject/run, including ragged per-unit clocks. For regular shared-clock
+fMRI runs, see
+[`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+and
+[`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+for direct `time x voxels` matrix workflows without long-table
+expansion.
+
+## See also
+
+[`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md),
+[`get_medusa_interpolated_ts`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md),
+[`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
 
 ## Public fields
 
@@ -43,6 +56,8 @@ analysis
 - [`fmri_ts$get_kvars()`](#method-fmri_ts-get_kvars)
 
 - [`fmri_ts$get_vmvec()`](#method-fmri_ts-get_vmvec)
+
+- [`fmri_ts$to_matrix()`](#method-fmri_ts-to_matrix)
 
 - [`fmri_ts$export()`](#method-fmri_ts-export)
 
@@ -165,6 +180,17 @@ return variable mapping information
 #### Usage
 
     fmri_ts$get_vmvec()
+
+------------------------------------------------------------------------
+
+### `fmri_ts$to_matrix()`
+
+Extract time-by-unit numeric matrices and marginal metadata when units
+share an acquisition clock
+
+#### Usage
+
+    fmri_ts$to_matrix()
 
 ------------------------------------------------------------------------
 

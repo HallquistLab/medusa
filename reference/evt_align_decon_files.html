@@ -66,7 +66,8 @@
 
 
 <dl><dt id="arg-d-files">d_files<a class="anchor" aria-label="anchor" href="#arg-d-files"></a></dt>
-<dd><p>A vector of deconvolved .csv.gz files created by <code>voxelwise_deconvolution</code>.</p></dd>
+<dd><p>A vector of deconvolved <code>.csv</code>/<code>.csv.gz</code>, <code>.rds</code>, <code>.nii</code>/<code>.nii.gz</code>, or
+<code>.parquet</code> files (created by <code>voxelwise_deconvolution</code>).</p></dd>
 
 
 <dt id="arg-trial-df">trial_df<a class="anchor" aria-label="anchor" href="#arg-trial-df"></a></dt>
@@ -74,8 +75,11 @@
 
 
 <dt id="arg-alignment">alignment<a class="anchor" aria-label="anchor" href="#arg-alignment"></a></dt>
-<dd><p>A list containing alignment details passed to get_medusa_interpolated_ts,
-including overlap_policy, valid_col, neighbor_events, and max_gap.</p></dd>
+<dd><p>A list containing alignment details passed to <code><a href="align_medusa_ts.html">align_medusa_ts</a></code> /
+<code><a href="get_medusa_interpolated_ts.html">get_medusa_interpolated_ts</a></code>, including <code>evt_col</code>, <code>time_before</code>, <code>time_after</code>,
+<code>pad_before</code>, <code>pad_after</code>, <code>output_resolution</code>, <code>collide_before</code>, <code>collide_after</code>,
+<code>overlap_policy</code>, <code>valid_col</code>, <code>neighbor_events</code>, <code>max_gap</code>, <code>readout_kernel</code>,
+and <code>readout_width</code>.</p></dd>
 
 
 <dt id="arg-aggregate-by">aggregate_by<a class="anchor" aria-label="anchor" href="#arg-aggregate-by"></a></dt>
@@ -97,8 +101,8 @@ These cuts are applied to the <code>aggregate_by</code> column, commonly "atlas_
 
 
 <dt id="arg-out-file">out_file<a class="anchor" aria-label="anchor" href="#arg-out-file"></a></dt>
-<dd><p>The output file name (can include path) for the event-aligned csv file. If NULL, nothing is output
-(but the event-aligned data are always returned as a data.frame)</p></dd>
+<dd><p>Optional output file path for the event-aligned panel (<code>.csv</code>, <code>.csv.gz</code>, <code>.parquet</code>,
+or <code>.rds</code>). If NULL, nothing is written to disk (the event-aligned data are always returned).</p></dd>
 
 
 <dt id="arg-ncpus">ncpus<a class="anchor" aria-label="anchor" href="#arg-ncpus"></a></dt>
@@ -134,7 +138,11 @@ partial output with a warning. A status row is retained for every file.</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>This is intended to be used internally by <code>run_decon_alignment</code>, which accepts a set of mask/atlas files
-  and alignments, then processes these in parallel.</p>
+  and alignments, then processes these in parallel. Long <code>.csv</code>/<code>.csv.gz</code> and <code>.parquet</code> tables
+  sharing a run clock are pivoted directly into <code>time x voxels</code> matrices in C++ without intermediate
+  <code>fmri_ts</code> allocation (automatically falling back to <code>fmri_ts</code> for ragged per-unit clocks); compact
+  <code>.rds</code> matrix bundles (<code>list(decon = Y, coords = ..., time = ...)</code>) and 4D <code>.nii</code>/<code>.nii.gz</code>
+  deconvolved images (paired with <code>.coords.rds</code> sidecars) are also supported directly.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

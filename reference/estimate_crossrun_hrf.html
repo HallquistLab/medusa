@@ -48,8 +48,8 @@
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">estimate_crossrun_hrf</span><span class="op">(</span></span>
 <span>  <span class="va">bold</span>,</span>
 <span>  <span class="va">events</span>,</span>
-<span>  <span class="va">tr</span>,</span>
-<span>  <span class="va">kernel_grid</span>,</span>
+<span>  tr <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  kernel_grid <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  nuisance <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  valid_rows <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  time_offset <span class="op">=</span> <span class="fl">0</span>,</span>
@@ -72,7 +72,8 @@
 <span>  spatial_coords <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  spatial_fwhm <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  selection_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"hard"</span>, <span class="st">"soft_average"</span><span class="op">)</span>,</span>
-<span>  noise_groups <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  noise_groups <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  run_col <span class="op">=</span> <span class="st">"run"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -81,36 +82,47 @@
 
 
 <dl><dt id="arg-bold">bold<a class="anchor" aria-label="anchor" href="#arg-bold"></a></dt>
-<dd><p>Named list of time-by-voxel numeric matrices for one participant.
-Voxel column IDs must be unique and identical in all runs, in the same order.</p></dd>
+<dd><p>Either a <code>"medusa_nifti_ts"</code> object from
+<code><a href="read_nifti_ts.html">read_nifti_ts</a></code> (automatically supplying <code>$bold</code>, <code>$tr</code>,
+<code>$parcel_ids</code>, and spatial <code>$geometry</code>/<code>$voxel_map</code>) or a named
+list of time-by-voxel numeric matrices for one participant (with identical
+unique voxel column IDs across runs).</p></dd>
 
 
 <dt id="arg-events">events<a class="anchor" aria-label="anchor" href="#arg-events"></a></dt>
-<dd><p>Named list of data.frames with onset (seconds), condition, and
-optional duration (seconds, default zero). Names/order must match bold.</p></dd>
+<dd><p>Either a combined multi-run <code>data.frame</code> containing <code>onset</code>,
+<code>condition</code>, optional <code>duration</code>, and a run column (<code>run_col</code>,
+omitted only for single-run inputs), or a run-named list of per-run
+<code>data.frame</code>s in <code>bold</code> order.</p></dd>
 
 
 <dt id="arg-tr">tr<a class="anchor" aria-label="anchor" href="#arg-tr"></a></dt>
-<dd><p>Common acquisition interval in seconds. All runs use the same grid.</p></dd>
+<dd><p>Common acquisition interval in seconds. Optional when <code>bold</code> is
+a <code>"medusa_nifti_ts"</code> object (or carries <code>tr</code> attributes) with a
+positive finite repetition time.</p></dd>
 
 
 <dt id="arg-kernel-grid">kernel_grid<a class="anchor" aria-label="anchor" href="#arg-kernel-grid"></a></dt>
 <dd><p>Matrix or list of equal-length candidate causal HRFs, sampled
-at tr starting at lag zero. Use <code><a href="hrf_library.html">hrf_library()</a></code> or supply explicit
-candidates; honors <code>attr(kernel_grid, "normalize")</code> (<code>"signed_sum"</code>,
+at <code>tr</code> starting at lag zero. Defaults to
+<code>hrf_library(tr, preset = "medusa")</code> when <code>NULL</code>. Honors
+<code>attr(kernel_grid, "normalize")</code> (<code>"signed_sum"</code>,
 <code>"positive_lobe"</code>, or <code>"peak"</code>), automatically switching to
 <code>"positive_lobe"</code> when unattributed candidates span heterogeneous
 undershoot ratios (and defaulting to <code>"signed_sum"</code> otherwise).</p></dd>
 
 
 <dt id="arg-nuisance">nuisance<a class="anchor" aria-label="anchor" href="#arg-nuisance"></a></dt>
-<dd><p>Optional matching list of time-by-regressor matrices. An
-intercept and linear trend are always included separately for each run.</p></dd>
+<dd><p>Optional matching list of time-by-regressor matrices (or
+numeric <code>data.frame</code>s; a single matrix/<code>data.frame</code> is also accepted
+for single-run inputs). An intercept and linear trend are always included
+separately for each run.</p></dd>
 
 
 <dt id="arg-valid-rows">valid_rows<a class="anchor" aria-label="anchor" href="#arg-valid-rows"></a></dt>
-<dd><p>Optional matching list of logical observation masks; FALSE
-and NA omit rows from training fits without deleting their acquisition times.</p></dd>
+<dd><p>Optional matching list of logical observation masks (or a
+single logical vector for single-run inputs); FALSE and NA omit rows from
+training fits without deleting their acquisition times.</p></dd>
 
 
 <dt id="arg-time-offset">time_offset<a class="anchor" aria-label="anchor" href="#arg-time-offset"></a></dt>
@@ -118,9 +130,12 @@ and NA omit rows from training fits without deleting their acquisition times.</p
 
 
 <dt id="arg-spatial-groups">spatial_groups<a class="anchor" aria-label="anchor" href="#arg-spatial-groups"></a></dt>
-<dd><p>Optional voxel parcel labels, named in voxel column order.
-Labels must be nonmissing and nonempty. Parcels must be defined independently
-of target-run responses; no implicit whole-brain parcel is constructed.</p></dd>
+<dd><p>Optional voxel parcel labels in voxel column order
+(named by voxel IDs or unnamed of length equal to voxel count). Defaults to
+<code>bold$parcel_ids</code> when <code>bold</code> is a <code>"medusa_nifti_ts"</code> object
+read with an <code>atlas</code>. Labels must be nonmissing and nonempty. Parcels
+must be defined independently of target-run responses; no implicit whole-brain
+parcel is constructed.</p></dd>
 
 
 <dt id="arg-pooling">pooling<a class="anchor" aria-label="anchor" href="#arg-pooling"></a></dt>
@@ -201,7 +216,9 @@ in calibrated mode, default 0.01. Zero removes this additional shrinkage.</p></d
 
 <dt id="arg-spatial-coords">spatial_coords<a class="anchor" aria-label="anchor" href="#arg-spatial-coords"></a></dt>
 <dd><p>Optional numeric matrix of 3D voxel coordinates (N x 3)
-used for local Gaussian-weighted anchor pooling.</p></dd>
+used for local Gaussian-weighted anchor pooling. Automatically populated from
+<code>bold$voxel_map[, c("x", "y", "z")]</code> when <code>bold</code> is a
+<code>"medusa_nifti_ts"</code> object and <code>spatial_fwhm</code> is specified.</p></dd>
 
 
 <dt id="arg-spatial-fwhm">spatial_fwhm<a class="anchor" aria-label="anchor" href="#arg-spatial-fwhm"></a></dt>
@@ -222,6 +239,11 @@ the prespecified fallback kernel.</p></dd>
 neighborhoods, in voxel column order. Defaults to <code>spatial_groups</code> when
 omitted. Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
 groups) to differ from HRF selection parcels.</p></dd>
+
+
+<dt id="arg-run-col">run_col<a class="anchor" aria-label="anchor" href="#arg-run-col"></a></dt>
+<dd><p>Column name in <code>events</code> identifying runs when <code>events</code>
+is supplied as a combined multi-run <code>data.frame</code>. Default <code>"run"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

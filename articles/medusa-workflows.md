@@ -26,17 +26,20 @@ when the vignette is rendered.
 
 | Goal | Route | Important boundary |
 |----|----|----|
-| Deconvolve NIfTI runs and align/aggregate them using existing file workflows | [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md) → [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md) (or [`run_decon_alignment()`](https://hallquistlab.github.io/medusa/reference/run_decon_alignment.md)) | Can use new scaling/penalties/readouts; does not automatically learn cross-run HRFs or de-mix epochs |
-| Learn HRFs from other runs and quantify operator-based epoch effects | [`estimate_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md) → [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md) → [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md) | Requires named time-by-voxel matrices and explicit event/covariate matching |
+| Event-lock and interpolate in-memory matrices, NIfTI bundles, or deconvolved runs onto a lag grid | [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md) / [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md) → [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md) | Fast C++ segment quadrature and overlap/censoring auditing without CSVs or `fmri_ts`; descriptive alignment only (does not de-mix neighboring events) |
+| Deconvolve NIfTI runs and align/aggregate them using existing file workflows | [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md) → [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md) (or [`run_decon_alignment()`](https://hallquistlab.github.io/medusa/reference/run_decon_alignment.md)) | Uses C++ fast pivoting on `.csv.gz` / `.rds` files; does not automatically learn cross-run HRFs or de-mix epochs |
+| Learn HRFs from other runs and quantify operator-based epoch effects | [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md) → [`estimate_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md) → [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md) → [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md) | Uses named time-by-voxel matrices, exact inverse operators, and explicit event/covariate matching |
 | Compare a fixed canonical HRF with a learned HRF under the same downstream model | Use a one-column canonical library and a multi-candidate library in the matrix route | Keep lambda, penalty, noise, scale, and readout comparable |
 
-The second route goes beyond the old pair of functions: epoch regression
-uses the **fitted inverse operator**, not only a saved activity CSV. Do
-not pass a legacy deconvolution file to
-[`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
-or run
+The third route goes beyond descriptive alignment: epoch regression uses
+the **fitted inverse operator**, not only an activity matrix or saved
+CSV. Do not pass a legacy deconvolution file to
+[`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+and do not run
+[`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+or
 [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md)
-on its panel. The panel is already event aligned.
+on `decon_epoch_regression()$panel`—that panel is already event aligned.
 
 Use a package build containing these PRs. For a development checkout,
 run `pkgload::load_all(".")` from the repository root before rendering.
@@ -880,10 +883,15 @@ saveRDS(list(hrf_fit = hrf_fit, deconvolution = decon,
 ## Bridge from NIfTI runs to the matrix route
 
 **Real-data recipe; not executed.** `nifti_paths` is a named vector of
-one participant’s preprocessed runs; `mask_path` identifies the voxels
-to retain. Verify shared space, dimensions, voxel sizes, and
-orientation/affine **before** extracting. Equal array dimensions alone
-are not enough. Keep this voxel metadata with the fit.
+one participant’s preprocessed runs; `mask_path` identifies the brain
+voxels to retain, and optional `atlas_path` supplies integer parcel
+memberships.
+[`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+checks shared dimensions, voxel spacing, spatial units, and
+`sform`/`qform` affine alignment across all runs, mask, and atlas
+**before** reading image payloads, then streams the selected voxels
+directly in C++ into `time x voxels` (`T x V`) matrices without
+materializing full 4D double-precision R arrays.
 
 ``` r
 
@@ -891,43 +899,59 @@ nifti_paths <- c(run1 = "/study/sub01/run1_preprocessed.nii.gz",
                  run2 = "/study/sub01/run2_preprocessed.nii.gz",
                  run3 = "/study/sub01/run3_preprocessed.nii.gz")
 mask_path <- "/study/sub01/analysis_mask.nii.gz"
-mask_img <- RNifti::readNifti(mask_path)
-mask_array <- as.array(mask_img)
-voxel_indices <- which(is.finite(mask_array) & mask_array > 0)
-ijk <- arrayInd(voxel_indices, dim(mask_array))
-voxel_ids <- apply(ijk, 1L, function(x) paste(x, collapse = "_"))
+atlas_path <- "/study/sub01/parcellation_atlas.nii.gz"
 
-# Prefer a valid sform, otherwise qform. Resolve inconsistent headers first.
-mask_affine <- RNifti::xform(mask_img, useQuaternionFirst = FALSE)
-stopifnot(attr(mask_affine, "code") > 0)
-bold <- lapply(nifti_paths, function(path) {
-  img <- RNifti::readNifti(path)
-  affine <- RNifti::xform(img, useQuaternionFirst = FALSE)
-  stopifnot(identical(as.integer(dim(img)[1:3]), as.integer(dim(mask_img))),
-            attr(affine, "code") > 0,
-            isTRUE(all.equal(as.numeric(RNifti::pixdim(img)[1:3]),
-                             as.numeric(RNifti::pixdim(mask_img)[1:3]))),
-            isTRUE(all.equal(unname(affine), unname(mask_affine),
-                             check.attributes = FALSE)))
-  # Public RNifti/R array route: reshape as VOXEL x TIME, select, transpose.
-  # This materializes the image; use a modest mask/run size for this recipe.
-  volume <- matrix(as.numeric(img), nrow = prod(dim(img)[1:3]))
-  y <- t(volume[voxel_indices, , drop = FALSE])
-  colnames(y) <- voxel_ids
-  y
-})
-voxel_map <- data.frame(voxel = voxel_ids, linear_index = voxel_indices,
-                        i = ijk[, 1], j = ijk[, 2], k = ijk[, 3])
+ts <- read_nifti_ts(
+  niftis = nifti_paths,
+  mask = mask_path,
+  atlas = atlas_path,
+  tr = 1.0,
+  ncpus = 3L
+)
+
+# Pass `ts` and a single participant's combined multi-run `trial_df` directly:
+# `tr`, `spatial_groups = ts$parcel_ids`, and `hrf_library(tr, preset = "medusa")`
+# are populated automatically, and `trial_df` is split by `run` in BOLD run order.
+hrf_fit <- estimate_crossrun_hrf(ts, events = trial_df, pooling = "parcel")
+decon <- deconvolve_crossrun_hrf(ts, hrf_fit, scaling = "noise_sd", penalty = "sobolev")
+
+# Reference behavioral predictor columns directly by name (or formula `~ rpe + abs_rpe`):
+# target rows are sliced in lockstep with `event_index` without manual per-run subsetting.
+feedback_fit <- decon_epoch_regression(
+  decon,
+  covariates = c("rpe", "abs_rpe"),
+  target_condition = "feedback",
+  lags = seq(-2, 4, by = 1),
+  restore_scale = TRUE,
+  aggregate_by_parcel = TRUE,
+  whiten_panel = TRUE,
+  return_panel = TRUE
+)
+
+# Geometry and voxel maps propagate onto `hrf_fit` and `decon`:
+# export 4D deconvolved activity or backproject parcel statistics with no extra reference file
+write_nifti_ts(decon, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"))
+# Optional: direct C++ matrix-native event alignment (no CSV or fmri_ts intermediates)
+# aligned <- align_medusa_ts(decon, events = trial_df, event = "onset", time_before = -2, time_after = 4)
 ```
 
-Build `events`, covariate lists, nuisance matrices, and logical masks
-from your study using exactly `names(bold)` and matching order. Check
-the acquisition TR from the sequence/headers and all event clocks. Pass
-these to the same three matrix functions used above. This is a manual
-adapter, not an automatically integrated NIfTI cross-run pipeline.
-Chunking the voxel dimension may be needed for large masks, but changes
-to noise pooling or parcel support must be accounted for; splitting
-voxels arbitrarily need not reproduce a whole-mask fit.
+[`estimate_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md),
+[`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
+[`diagnose_crossrun_recovery()`](https://hallquistlab.github.io/medusa/reference/diagnose_crossrun_recovery.md),
+[`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+and
+[`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+all accept either the unified `"medusa_nifti_ts"` / `"crossrun_decon"`
+objects and combined single-participant `events` tables (matching
+BIDS/MEDuSA run labels such as `1`, `"01"`, `"run1"`, or `"run-01"`) or
+explicit run-named lists (`ts$bold`, `nuisance`, `valid_rows`). Check
+the acquisition TR (`ts$tr` or sequence metadata) and all event clocks
+before fitting. When `spatial_fwhm` is requested in
+`estimate_crossrun_hrf(ts, ...)`, world coordinates
+`ts$voxel_map[, c("x", "y", "z")]` are supplied automatically. Chunking
+the voxel dimension may still be needed for very large whole-brain runs,
+though changes to noise pooling or parcel support must be accounted for;
+splitting voxels arbitrarily need not reproduce a whole-mask fit.
 
 ## Keep or update the established file workflow
 

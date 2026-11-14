@@ -360,6 +360,19 @@ window.Quarto = {
 <li><strong>Propagate observation-noise covariance analytically to the trial level:</strong> Compute conditional per-trial measurement SEs (<code>se_demixed</code>), lag-1 trial error autocorrelation (<code>error_ac1</code>), Empirical-Bayes trial precision weights, and regularized within-run ZCA whitening matrices without Monte Carlo resampling.</li>
 </ol>
 <p><strong>What Step 3 deliberately leaves to Steps 4–6:</strong> Step 3 operates within a single participant’s multi-run fit. Combining voxels into parcels is covered in <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">Step 4</a> (which runs inside the same <code>decon_epoch_regression()</code> call via <code>parcel_groups</code>), population inference across participants is handled in <a href="../medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a>, and disattenuating noisy seed predictors is handled in <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Descriptive Event Alignment (<code>align_medusa_ts()</code>) vs.&nbsp;Operator De-Mixing (<code>decon_epoch_regression()</code>)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>When you want <strong>descriptive event-locked interpolation and overlap/censoring auditing</strong> without assuming a forward event design—for example, plotting raw peri-event BOLD waveforms, inspecting blind <code>deconvolve_nlreg()</code> / <code>deconvolve_reglin()</code> trajectories, or running sensitivity checks under explicit <code>overlap_policy = "allow" | "truncate" | "exclude"</code>—use <strong><code>align_medusa_ts()</code></strong> (or <code>evt_align_decon_files()</code> for disk-backed <code>.csv.gz</code> / <code>.rds</code> archives). <code>align_medusa_ts()</code> runs directly on <code>T × V</code> matrices, <code>"medusa_nifti_ts"</code> bundles (<code>read_nifti_ts()</code>), or <code>deconvolve_crossrun_hrf()</code> outputs in C++ using the same four readout kernels (<code>"linear"</code>, <code>"boxcar"</code>, <code>"triangle"</code>, <code>"gaussian"</code>), gap-fencing (<code>max_gap</code>), censoring (<code>valid = "observation_mask"</code>), and <code>epoch_status</code> / <code>source_clock</code> provenance without expanding long <code>fmri_ts</code> tables. For primary inferential modeling on <code>deconvolve_crossrun_hrf()</code> fits, prefer <strong><code>decon_epoch_regression()</code></strong>, which retains the Step 2 inverse operator <span class="math inline">\(D_r\)</span> to remove non-target bleed, unmix adjacent target trials, restore regularization gain, and propagate exact analytical <code>se_demixed</code> and <code>precision_weight_cohort</code>.</p>
+</div>
+</div>
 <hr>
 </section>
 <section id="inputs-what-step-3-receives-and-why" class="level2" data-number="5.3">

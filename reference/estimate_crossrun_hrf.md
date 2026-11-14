@@ -9,8 +9,8 @@ regularization
 estimate_crossrun_hrf(
   bold,
   events,
-  tr,
-  kernel_grid,
+  tr = NULL,
+  kernel_grid = NULL,
   nuisance = NULL,
   valid_rows = NULL,
   time_offset = 0,
@@ -33,7 +33,8 @@ estimate_crossrun_hrf(
   spatial_coords = NULL,
   spatial_fwhm = NULL,
   selection_mode = c("hard", "soft_average"),
-  noise_groups = NULL
+  noise_groups = NULL,
+  run_col = "run"
 )
 ```
 
@@ -41,40 +42,47 @@ estimate_crossrun_hrf(
 
 - bold:
 
-  Named list of time-by-voxel numeric matrices for one participant.
-  Voxel column IDs must be unique and identical in all runs, in the same
-  order.
+  Either a `"medusa_nifti_ts"` object from
+  [`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+  (automatically supplying `$bold`, `$tr`, `$parcel_ids`, and spatial
+  `$geometry`/`$voxel_map`) or a named list of time-by-voxel numeric
+  matrices for one participant (with identical unique voxel column IDs
+  across runs).
 
 - events:
 
-  Named list of data.frames with onset (seconds), condition, and
-  optional duration (seconds, default zero). Names/order must match
-  bold.
+  Either a combined multi-run `data.frame` containing `onset`,
+  `condition`, optional `duration`, and a run column (`run_col`, omitted
+  only for single-run inputs), or a run-named list of per-run
+  `data.frame`s in `bold` order.
 
 - tr:
 
-  Common acquisition interval in seconds. All runs use the same grid.
+  Common acquisition interval in seconds. Optional when `bold` is a
+  `"medusa_nifti_ts"` object (or carries `tr` attributes) with a
+  positive finite repetition time.
 
 - kernel_grid:
 
-  Matrix or list of equal-length candidate causal HRFs, sampled at tr
-  starting at lag zero. Use
-  [`hrf_library()`](https://hallquistlab.github.io/medusa/reference/hrf_library.md)
-  or supply explicit candidates; honors `attr(kernel_grid, "normalize")`
-  (`"signed_sum"`, `"positive_lobe"`, or `"peak"`), automatically
-  switching to `"positive_lobe"` when unattributed candidates span
-  heterogeneous undershoot ratios (and defaulting to `"signed_sum"`
-  otherwise).
+  Matrix or list of equal-length candidate causal HRFs, sampled at `tr`
+  starting at lag zero. Defaults to `hrf_library(tr, preset = "medusa")`
+  when `NULL`. Honors `attr(kernel_grid, "normalize")` (`"signed_sum"`,
+  `"positive_lobe"`, or `"peak"`), automatically switching to
+  `"positive_lobe"` when unattributed candidates span heterogeneous
+  undershoot ratios (and defaulting to `"signed_sum"` otherwise).
 
 - nuisance:
 
-  Optional matching list of time-by-regressor matrices. An intercept and
-  linear trend are always included separately for each run.
+  Optional matching list of time-by-regressor matrices (or numeric
+  `data.frame`s; a single matrix/`data.frame` is also accepted for
+  single-run inputs). An intercept and linear trend are always included
+  separately for each run.
 
 - valid_rows:
 
-  Optional matching list of logical observation masks; FALSE and NA omit
-  rows from training fits without deleting their acquisition times.
+  Optional matching list of logical observation masks (or a single
+  logical vector for single-run inputs); FALSE and NA omit rows from
+  training fits without deleting their acquisition times.
 
 - time_offset:
 
@@ -82,9 +90,12 @@ estimate_crossrun_hrf(
 
 - spatial_groups:
 
-  Optional voxel parcel labels, named in voxel column order. Labels must
-  be nonmissing and nonempty. Parcels must be defined independently of
-  target-run responses; no implicit whole-brain parcel is constructed.
+  Optional voxel parcel labels in voxel column order (named by voxel IDs
+  or unnamed of length equal to voxel count). Defaults to
+  `bold$parcel_ids` when `bold` is a `"medusa_nifti_ts"` object read
+  with an `atlas`. Labels must be nonmissing and nonempty. Parcels must
+  be defined independently of target-run responses; no implicit
+  whole-brain parcel is constructed.
 
 - pooling:
 
@@ -168,7 +179,9 @@ estimate_crossrun_hrf(
 - spatial_coords:
 
   Optional numeric matrix of 3D voxel coordinates (N x 3) used for local
-  Gaussian-weighted anchor pooling.
+  Gaussian-weighted anchor pooling. Automatically populated from
+  `bold$voxel_map[, c("x", "y", "z")]` when `bold` is a
+  `"medusa_nifti_ts"` object and `spatial_fwhm` is specified.
 
 - spatial_fwhm:
 
@@ -189,6 +202,11 @@ estimate_crossrun_hrf(
   in voxel column order. Defaults to `spatial_groups` when omitted.
   Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
   groups) to differ from HRF selection parcels.
+
+- run_col:
+
+  Column name in `events` identifying runs when `events` is supplied as
+  a combined multi-run `data.frame`. Default `"run"`.
 
 ## Value
 

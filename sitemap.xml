@@ -15,6 +15,7 @@
 <url><loc>https://hallquistlab.github.io/medusa/authors.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/index.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/news/index.html</loc></url>
+<url><loc>https://hallquistlab.github.io/medusa/reference/align_medusa_ts.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/backproject_medusa.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/compress_mts_pca.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/convolve_dcv_hrf.html</loc></url>
@@ -47,9 +48,13 @@
 <url><loc>https://hallquistlab.github.io/medusa/reference/medusa_multilag_infer.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/meta_mixed_by.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/mixed_by.html</loc></url>
+<url><loc>https://hallquistlab.github.io/medusa/reference/read_nifti_ts.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/run_decon_alignment.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/sigmoid.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/spm_hrf.html</loc></url>
 <url><loc>https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.html</loc></url>
+<url><loc>https://hallquistlab.github.io/medusa/reference/write_nifti_indexed_cpp.html</loc></url>
+<url><loc>https://hallquistlab.github.io/medusa/reference/write_nifti_parcel_cpp.html</loc></url>
+<url><loc>https://hallquistlab.github.io/medusa/reference/write_nifti_ts.html</loc></url>
 </urlset>
 

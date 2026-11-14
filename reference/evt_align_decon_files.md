@@ -26,8 +26,8 @@ evt_align_decon_files(
 
 - d_files:
 
-  A vector of deconvolved .csv.gz files created by
-  `voxelwise_deconvolution`.
+  A vector of deconvolved `.csv`/`.csv.gz`, `.rds`, `.nii`/`.nii.gz`, or
+  `.parquet` files (created by `voxelwise_deconvolution`).
 
 - trial_df:
 
@@ -37,8 +37,13 @@ evt_align_decon_files(
 - alignment:
 
   A list containing alignment details passed to
-  get_medusa_interpolated_ts, including overlap_policy, valid_col,
-  neighbor_events, and max_gap.
+  [`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+  /
+  [`get_medusa_interpolated_ts`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md),
+  including `evt_col`, `time_before`, `time_after`, `pad_before`,
+  `pad_after`, `output_resolution`, `collide_before`, `collide_after`,
+  `overlap_policy`, `valid_col`, `neighbor_events`, `max_gap`,
+  `readout_kernel`, and `readout_width`.
 
 - aggregate_by:
 
@@ -63,9 +68,9 @@ evt_align_decon_files(
 
 - out_file:
 
-  The output file name (can include path) for the event-aligned csv
-  file. If NULL, nothing is output (but the event-aligned data are
-  always returned as a data.frame)
+  Optional output file path for the event-aligned panel (`.csv`,
+  `.csv.gz`, `.parquet`, or `.rds`). If NULL, nothing is written to disk
+  (the event-aligned data are always returned).
 
 - ncpus:
 
@@ -102,4 +107,10 @@ IDs to their input file.
 
 This is intended to be used internally by `run_decon_alignment`, which
 accepts a set of mask/atlas files and alignments, then processes these
-in parallel.
+in parallel. Long `.csv`/`.csv.gz` and `.parquet` tables sharing a run
+clock are pivoted directly into `time x voxels` matrices in C++ without
+intermediate `fmri_ts` allocation (automatically falling back to
+`fmri_ts` for ragged per-unit clocks); compact `.rds` matrix bundles
+(`list(decon = Y, coords = ..., time = ...)`) and 4D `.nii`/`.nii.gz`
+deconvolved images (paired with `.coords.rds` sidecars) are also
+supported directly.

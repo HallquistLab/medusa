@@ -23,7 +23,9 @@ remotes::install_github("HallquistLab/medusa")
 
 ## Core Workflow
 
-1.  **Cross-run HRF & AR($`p`$) noise estimation:**
+1.  **NIfTI matrix I/O, cross-run HRF & AR($`p`$) noise estimation:**
+    [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
+    [`write_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md),
     [`hrf_library()`](https://hallquistlab.github.io/medusa/reference/hrf_library.md),
     [`estimate_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
 2.  **Deconvolution:**
@@ -32,12 +34,14 @@ remotes::install_github("HallquistLab/medusa")
     [`deconvolve_nlreg()`](https://hallquistlab.github.io/medusa/reference/deconvolve_nlreg.md),
     [`deconvolve_nlreg_resample()`](https://hallquistlab.github.io/medusa/reference/deconvolve_nlreg_resample.md),
     [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md)
-3.  **Event-locked alignment & epoch de-mixing:** `fmri_ts`,
-    [`event_lock_ts()`](https://hallquistlab.github.io/medusa/reference/event_lock_ts.md),
+3.  **Event-locked alignment & epoch de-mixing:**
+    [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md),
     [`get_medusa_interpolated_ts()`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md),
     [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md),
     [`run_decon_alignment()`](https://hallquistlab.github.io/medusa/reference/run_decon_alignment.md),
-    [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
+    [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+    `fmri_ts`,
+    [`event_lock_ts()`](https://hallquistlab.github.io/medusa/reference/event_lock_ts.md)
 4.  **Diagnostics & connectivity repair:**
     [`diagnose_crossrun_recovery()`](https://hallquistlab.github.io/medusa/reference/diagnose_crossrun_recovery.md),
     [`deconvolution_impulse_diagnostics()`](https://hallquistlab.github.io/medusa/reference/deconvolution_impulse_diagnostics.md),

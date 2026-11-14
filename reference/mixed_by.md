@@ -34,7 +34,8 @@ mixed_by(
   emtrends_spec = NULL,
   emtrends_pairs = FALSE,
   emtrends_pairs_args = list(),
-  weights = NULL
+  weights = NULL,
+  split_filter = NULL
 )
 ```
 
@@ -45,8 +46,11 @@ mixed_by(
   A data.frame or data.table object containing stacked data for each
   combination of the `split_on` variables. The function will run
   separate mixed-effect models for each combination. Alternatively, a
-  vector of filenames can be passed, which will be read in sequentially
-  and fit (.rds, .csv, .dat, and .txt supported at present).
+  vector of file or dataset paths can be passed, which will be read in
+  sequentially and fit (`.rds`, `.parquet` files or Hive-partitioned
+  Parquet directories via `arrow`, and
+  `.csv`/`.csv.gz`/`.tsv`/`.dat`/`.txt` supported, projecting only
+  columns required by the requested models and splits).
 
 - outcomes:
 
@@ -76,8 +80,8 @@ mixed_by(
   be joined with `data` prior to model fitting. Useful if `data`
   contains external time series data and `external_df` is a dataset of
   behavioral variables that do not vary by neural sensor/region.
-  Optionally, this can be a single filename to a .rds file if you want
-  to pass in the filename, not the data itself.
+  Optionally, this can be a path to a `.rds`, `.parquet`, or delimited
+  (`.csv`/`.csv.gz`/`.tsv`/`.txt`) file.
 
 - external_merge_by:
 
@@ -209,6 +213,15 @@ mixed_by(
   [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md))
   to be normalized within each split and passed to the mixed-model
   engine.
+
+- split_filter:
+
+  Optional named list of atomic vectors specifying allowed values for
+  one or more split or grouping columns (e.g.,
+  `list(atlas_value = 1:4, evt_time = c(0, 1))`). When reading Parquet
+  files or partitioned Parquet directories, predicates on columns
+  present in the dataset are pushed down to Arrow prior to
+  materialization in R.
 
 ## Value
 

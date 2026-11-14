@@ -2,6 +2,82 @@
 
 ## medusa 0.1.0
 
+### Fast C++ NIfTI matrix I/O and matrix-native event alignment
+
+- Added
+  [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+  and
+  [`write_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md)
+  for streaming C++ conversion between 3D/4D `.nii`/`.nii.gz` images and
+  `time x voxels` (`T x V`) numeric matrices (`"medusa_nifti_ts"`
+  bundles carrying `voxel_map`, `parcel_ids`, `tr`, and validated
+  `sform`/`qform` `geometry` without allocating full 4D R arrays).
+  Updated
+  [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md)
+  and
+  [`backproject_medusa()`](https://hallquistlab.github.io/medusa/reference/backproject_medusa.md)
+  to use the streaming C++ NIfTI path.
+- Added
+  [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+  (`src/epoch_align.cpp`) for C++ matrix-native event-locked alignment
+  and multi-kernel readout quadrature (`"linear"`, `"boxcar"`,
+  `"triangle"`, `"gaussian"`) across `T x V` matrices,
+  `"medusa_nifti_ts"` bundles,
+  [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  outputs, multi-run lists, and multivariate signal lists while
+  preserving all `overlap_policy`, censoring, `max_gap`, `epoch_status`,
+  `align_*`, `time_audit`, and `source_clock` invariants (`~80x–130x`
+  faster and `~10x–135x` lower peak R heap memory than legacy long-table
+  workflows).
+- Accelerated
+  [`get_medusa_interpolated_ts()`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md)
+  and
+  [`get_medusa_compression_score()`](https://hallquistlab.github.io/medusa/reference/get_medusa_compression_score.md)
+  on shared-clock `fmri_ts` objects via a zero-copy C++ matrix view
+  (with automatic fallback for ragged per-unit clocks), added
+  `fmri_ts$to_matrix()`, and upgraded
+  [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md)
+  with `fast_pivot_decon_cpp()`, `.rds` matrix-bundle support, and fork
+  parallelism on Unix CLI/HPC.
+- Modernized file and tabular serialization across the pipeline:
+  [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md)
+  now supports `output_format = c("csv.gz", "rds", "nifti", "parquet")`
+  (eliminating intermediate
+  [`mat2df()`](https://hallquistlab.github.io/medusa/reference/mat2df.md) +
+  [`dplyr::left_join()`](https://dplyr.tidyverse.org/reference/mutate-joins.html)
+  expansions and writing delimited outputs via multi-threaded
+  [`data.table::fwrite()`](https://rdrr.io/pkg/data.table/man/fwrite.html));
+  [`run_decon_alignment()`](https://hallquistlab.github.io/medusa/reference/run_decon_alignment.md)
+  and
+  [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md)
+  discover and align all four deconvolution formats, skip unused
+  coordinate/status columns when reading long tables, and write aligned
+  panels to `.csv.gz`, `.parquet`, or `.rds`; and
+  [`mixed_by()`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)
+  now reads `.parquet` files and Hive-partitioned Parquet directories
+  (via optional `arrow`) as well as `.rds` and delimited `external_df`
+  tables, with automatic column projection and optional `split_filter`
+  pushdown.
+- Unified in-memory NIfTI, cross-run HRF, deconvolution, and
+  epoch-regression ergonomics:
+  [`estimate_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
+  and
+  [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  now accept `"medusa_nifti_ts"` objects directly (auto-populating `tr`,
+  `spatial_groups = ts$parcel_ids`,
+  `kernel_grid = hrf_library(tr, preset = "medusa")`, and
+  `spatial_coords` when `spatial_fwhm` is requested), split combined
+  single-participant multi-run `events` `data.frame`s automatically
+  across BIDS/MEDuSA run labels, and propagate `voxel_map` and
+  `geometry` onto `"crossrun_hrf"` and `"crossrun_decon"` so
+  `write_nifti_ts(decon, ...)` and
+  `backproject_medusa(..., brain_mask = decon)` need no extra reference
+  file;
+  [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
+  now accepts column-name `covariates` (e.g., `c("rpe", "abs_rpe")`),
+  one-sided formulas (`~ rpe + abs_rpe`), column-name `trial_durations`
+  (`"rt"`), and combined multi-run `events` tables.
+
 ### Standalone package extraction
 
 - Extracted all MEDuSA deconvolution, cross-run HRF estimation,

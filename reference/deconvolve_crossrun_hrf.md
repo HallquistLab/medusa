@@ -28,7 +28,9 @@ deconvolve_crossrun_hrf(
 
 - bold:
 
-  Named time-by-voxel run matrices with IDs/order/dimensions matching
+  Either a `"medusa_nifti_ts"` object from
+  [`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+  or named time-by-voxel run matrices with IDs/order/dimensions matching
   the HRF fit. These should be the same preprocessed BOLD used for
   estimation.
 
@@ -111,10 +113,14 @@ deconvolve_crossrun_hrf(
 
 ## Value
 
-A list with activity matrices, per-run scaling/status tables, the HRF
-fit, frozen inverse settings, standardized noise innovations, and
-per-run observation `frame_weights`. Activity matrices retain voxel IDs
-and carry tr and time_offset attributes for subsequent event alignment.
+An S3 list of class `"crossrun_decon"` with `activity` matrices, per-run
+`scaling`/status tables, the `hrf_fit`, frozen inverse `settings`,
+standardized `noise_innovations`, per-run observation `frame_weights`,
+and optional NIfTI `voxel_map` and `geometry` metadata (enabling direct
+[`write_nifti_ts`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md)
+export without an external reference file). Activity matrices retain
+voxel IDs and carry `tr`, `time_offset`, and `observation_mask`
+attributes for subsequent event alignment.
 
 ## Details
 

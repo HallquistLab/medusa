@@ -304,33 +304,25 @@ knitr::kable(
 #                  run2 = "/study/sub01/run2_preprocessed.nii.gz",
 #                  run3 = "/study/sub01/run3_preprocessed.nii.gz")
 # mask_path <- "/study/sub01/analysis_mask.nii.gz"
-# mask_img <- RNifti::readNifti(mask_path)
-# mask_array <- as.array(mask_img)
-# voxel_indices <- which(is.finite(mask_array) & mask_array > 0)
-# ijk <- arrayInd(voxel_indices, dim(mask_array))
-# voxel_ids <- apply(ijk, 1L, function(x) paste(x, collapse = "_"))
-# 
-# # Prefer a valid sform, otherwise qform. Resolve inconsistent headers first.
-# mask_affine <- RNifti::xform(mask_img, useQuaternionFirst = FALSE)
-# stopifnot(attr(mask_affine, "code") > 0)
-# bold <- lapply(nifti_paths, function(path) {
-#   img <- RNifti::readNifti(path)
-#   affine <- RNifti::xform(img, useQuaternionFirst = FALSE)
-#   stopifnot(identical(as.integer(dim(img)[1:3]), as.integer(dim(mask_img))),
-#             attr(affine, "code") > 0,
-#             isTRUE(all.equal(as.numeric(RNifti::pixdim(img)[1:3]),
-#                              as.numeric(RNifti::pixdim(mask_img)[1:3]))),
-#             isTRUE(all.equal(unname(affine), unname(mask_affine),
-#                              check.attributes = FALSE)))
-#   # Public RNifti/R array route: reshape as VOXEL x TIME, select, transpose.
-#   # This materializes the image; use a modest mask/run size for this recipe.
-#   volume <- matrix(as.numeric(img), nrow = prod(dim(img)[1:3]))
-#   y <- t(volume[voxel_indices, , drop = FALSE])
-#   colnames(y) <- voxel_ids
-#   y
-# })
-# voxel_map <- data.frame(voxel = voxel_ids, linear_index = voxel_indices,
-#                         i = ijk[, 1], j = ijk[, 2], k = ijk[, 3])
+# atlas_path <- "/study/sub01/schaefer200_registered.nii.gz"
+#
+# ts <- read_nifti_ts(
+#   niftis = nifti_paths,
+#   mask = mask_path,
+#   atlas = atlas_path,
+#   tr = 1.0,
+#   ncpus = 3L
+# )
+#
+# bold <- ts$bold
+# voxel_map <- ts$voxel_map
+# parcel_ids <- ts$parcel_ids
+#
+# # Optional: direct C++ matrix-native event alignment (no CSV or fmri_ts intermediates)
+# # aligned <- align_medusa_ts(ts, events = trial_df, event = "feedback_onset", time_before = -2, time_after = 4)
+#
+# # Optional: write 4D deconvolved activity or a 3D voxel summary map back to NIfTI in C++
+# # write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)
 
 
 ## ----file-workflow-recipe, eval=FALSE-----------------------------------------

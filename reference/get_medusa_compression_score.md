@@ -1,9 +1,7 @@
-# front-end function for taking a list of windowed time series by mask value, interpolating them onto a time grid, and (optionally) averaging across voxels/units within a value to derive the mean interpolated time series
+# Compute event-locked multivariate PCA compression scores across spatial units
 
-front-end function for taking a list of windowed time series by mask
-value, interpolating them onto a time grid, and (optionally) averaging
-across voxels/units within a value to derive the mean interpolated time
-series
+Compute event-locked multivariate PCA compression scores across spatial
+units
 
 ## Usage
 
@@ -15,7 +13,18 @@ get_medusa_compression_score(
   time_after = 3,
   collide_before = NULL,
   collide_after = NULL,
-  group_by = NULL
+  group_by = NULL,
+  events = NULL,
+  tr = NULL,
+  time = NULL,
+  time_offset = NULL,
+  parcel_ids = NULL,
+  unit_data = NULL,
+  value_name = "value",
+  trial_col = "trial",
+  pexp_target = 0.9,
+  scale_columns = TRUE,
+  use_legacy = FALSE
 )
 ```
 
@@ -23,13 +32,13 @@ get_medusa_compression_score(
 
 - fmri_obj:
 
-  an fmri_ts object containing a single run of data with corresponding
-  events
+  an fmri_ts object, numeric `T x V` matrix, or single-run
+  `"medusa_nifti_ts"` object
 
 - event:
 
   the event to which the fmri time series should be aligned (column in
-  `fmri_obj$event_data`)
+  `fmri_obj$event_data` or `events`)
 
 - time_before:
 
@@ -55,9 +64,53 @@ get_medusa_compression_score(
 
 - group_by:
 
-  return interpolated time series for each combination of group_by
-  variables. Default is to provide one interpolated time series per
-  trial.
+  return compression scores for each combination of group_by variables.
+
+- events:
+
+  Optional trial-level `data.frame` for matrix inputs.
+
+- tr:
+
+  Optional repetition time in seconds for matrix inputs.
+
+- time:
+
+  Optional numeric vector of acquisition timestamps for matrix inputs.
+
+- time_offset:
+
+  Optional scalar start-time offset in seconds for matrix inputs.
+
+- parcel_ids:
+
+  Optional vector assigning matrix columns to parcels/ROIs.
+
+- unit_data:
+
+  Optional `data.frame` of unit metadata for matrix inputs.
+
+- value_name:
+
+  Signal name prefix for single-signal matrix inputs. Default `"value"`.
+
+- trial_col:
+
+  Trial identifier column name for matrix inputs. Default `"trial"`.
+
+- pexp_target:
+
+  Target cumulative variance proportion(s) passed to
+  [`compress_mts_pca()`](https://hallquistlab.github.io/medusa/reference/compress_mts_pca.md).
+  Default `0.9`.
+
+- scale_columns:
+
+  Logical; standardize columns prior to SVD. Default `TRUE`.
+
+- use_legacy:
+
+  Logical; force legacy `fmri_ts` path when `TRUE`.
 
 ## Author
 

@@ -131,7 +131,14 @@ defaults to the target event column. Does not itself censor observations.</p></d
     <p>Nonfinite target onsets and unsupported windows retain placeholder
   rows with missing time and values and an <code>epoch_status</code> column.
   Nonfinite collision candidates are ignored. Nearest-event boundaries remain
-  strict and do not guarantee disjoint trial windows.</p>
+  strict and do not guarantee disjoint trial windows. For regular shared-clock
+  <code>time x voxels</code> matrices or <code>"medusa_nifti_ts"</code> inputs, prefer
+  <code><a href="align_medusa_ts.html">align_medusa_ts</a></code> to align and interpolate directly in C++
+  without expanding trial-by-voxel <code>fmri_ts</code> tables.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="align_medusa_ts.html">align_medusa_ts</a></code>, <code><a href="get_medusa_interpolated_ts.html">get_medusa_interpolated_ts</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

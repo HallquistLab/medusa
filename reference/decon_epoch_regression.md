@@ -33,7 +33,8 @@ decon_epoch_regression(
   parcel_groups = NULL,
   whiten_panel = FALSE,
   return_epochs = FALSE,
-  return_panel = FALSE
+  return_panel = FALSE,
+  run_col = "run"
 )
 ```
 
@@ -46,22 +47,28 @@ decon_epoch_regression(
 
 - covariates:
 
-  Optional numeric vector, matrix, or data.frame of trial-level
-  predictors for target trials (concatenated across runs or supplied as
-  a run-named list matching `deconvolution$hrf_fit$run_ids`). When
-  `NULL` (default), performs covariate-agnostic epoch readout,
-  de-mixing, biological variance estimation (`tau2_mode = "marginal"`),
-  Empirical-Bayes precision weighting, and optional within-run ZCA
-  whitening (`whiten_panel = TRUE`), returning the trial panel
-  (`return_panel` defaults to `TRUE` when `covariates = NULL`) for
-  downstream two-stage
+  Optional trial-level predictors for target trials, supplied as: (a) a
+  character vector of numeric/logical column names present in `events`
+  (e.g., `c("rpe", "abs_rpe")`), extracted automatically at the target
+  event rows in guaranteed lockstep with `event_index`; (b) a one-sided
+  formula evaluated on target event rows (e.g., `~ rpe + abs_rpe`); (c)
+  a numeric vector, matrix, or `data.frame` concatenated across target
+  trials in fitted run order; or (d) a run-named list matching
+  `deconvolution$hrf_fit$run_ids`. When `NULL` (default), performs
+  covariate-agnostic epoch readout, de-mixing, biological variance
+  estimation (`tau2_mode = "marginal"`), Empirical-Bayes precision
+  weighting, and optional within-run ZCA whitening
+  (`whiten_panel = TRUE`), returning the trial panel (`return_panel`
+  defaults to `TRUE` when `covariates = NULL`) for downstream two-stage
   [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)
   behavioral modeling or inter-region connectivity (`R2 ~ R1_seed * x`).
 
 - events:
 
-  Optional run-named list of event data.frames with `onset` and optional
-  `condition` and `duration`. Defaults to the HRF fit's event tables.
+  Optional combined multi-run `data.frame` (split by `run_col`) or
+  run-named list of event `data.frame`s with `onset` and optional
+  `condition`, `duration`, and behavioral covariate columns. Defaults to
+  the HRF fit's event tables.
 
 - target_condition:
 
@@ -156,11 +163,12 @@ decon_epoch_regression(
 
 - trial_durations:
 
-  Optional numeric vector (concatenated across runs) or run-named list
-  of non-negative target trial durations (in seconds), such as per-trial
-  reaction times. Overrides `events[[r]]$duration` for target trials and
-  defaults `source_model` to `"duration"` when `source_model` is not
-  explicitly specified.
+  Optional single column name in `events` (e.g., `"rt"`), numeric vector
+  (concatenated across runs), or run-named list of non-negative target
+  trial durations (in seconds), such as per-trial reaction times.
+  Overrides `events[[r]]$duration` for target trials and defaults
+  `source_model` to `"duration"` when `source_model` is not explicitly
+  specified.
 
 - duration_scale:
 
@@ -235,13 +243,19 @@ decon_epoch_regression(
 
   Logical; whether to return a tidy MEDUSA-compatible `data.table`
   (`panel`) with columns `run`, `trial`, `event_index`, `onset`,
-  `evt_time`, `voxel` (and `parcel` when `aggregate_by_parcel = TRUE`),
-  `decon_raw`, `decon_demixed`, `se_raw`, `se_demixed`,
-  `precision_weight`, `precision_weight_op`, `precision_weight_raw`,
-  `error_ac1`, `tau2_bio`, and the covariate columns for downstream
+  `evt_time`, `voxel` (plus `id`/`session` when present on `events`, and
+  `parcel` when `aggregate_by_parcel = TRUE`), `decon_raw`,
+  `decon_demixed`, `se_raw`, `se_demixed`, `precision_weight`,
+  `precision_weight_op`, `precision_weight_raw`, `error_ac1`,
+  `tau2_bio`, and the covariate columns for downstream
   [`mixed_by()`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)
   modeling. Defaults to `TRUE` when `covariates = NULL` and
   `return_epochs = FALSE`.
+
+- run_col:
+
+  Column name in `events` identifying runs when `events` is supplied as
+  a combined multi-run `data.frame`. Default `"run"`.
 
 ## Value
 

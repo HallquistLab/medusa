@@ -1,8 +1,9 @@
 # Backproject parcel-level MEDuSA coefficients onto a 4D NIfTI brain mask
 
 Maps parcel-by-time model statistics (for example from \[mixed_by()\])
-back into 4D NIfTI volumes (3D space across event-locked timepoints)
-using an integer-valued 3D parcellation mask.
+back into 3D/4D NIfTI volumes (3D space across event-locked timepoints)
+using an integer-valued 3D parcellation mask and a streaming C++ NIfTI
+writer.
 
 ## Usage
 
@@ -15,7 +16,9 @@ backproject_medusa(
   time_col = "time",
   effect_col = "term",
   output_dir = getwd(),
-  ncpus = 4L
+  ncpus = 4L,
+  compression = 2L,
+  fill = 0
 )
 ```
 
@@ -28,7 +31,9 @@ backproject_medusa(
 
 - brain_mask:
 
-  Path to a 3D integer-valued NIfTI parcellation mask.
+  Path to a 3D integer-valued NIfTI parcellation mask, an in-memory 3D
+  \`RNifti\` image, or a \`"medusa_nifti_ts"\`, \`"crossrun_decon"\`, or
+  \`"crossrun_hrf"\` object read with \`atlas\` metadata.
 
 - plot_cols:
 
@@ -58,6 +63,16 @@ backproject_medusa(
 - ncpus:
 
   Integer number of parallel worker processes. Default \`4L\`.
+
+- compression:
+
+  Integer gzip compression level (\`0\`–\`9\`) when writing \`.nii.gz\`
+  files. Default \`2L\` for fast deflate compression.
+
+- fill:
+
+  Numeric scalar written to non-parcel background voxels (for example
+  \`0\` or \`NA_real\_\`). Default \`0\`.
 
 ## Value
 

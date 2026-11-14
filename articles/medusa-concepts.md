@@ -375,15 +375,24 @@ this distinct from the benefits of de-mixing.
 
 ### Alignment asks: which samples support this epoch?
 
-The established
+When the goal is descriptive event-locked interpolation without assuming
+a forward event design,
+[`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+aligns `time x voxels` matrices,
+[`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+bundles, or
+[`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+activity directly in C++ without expanding intermediate long tables,
+while the established
 [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md)
 →
 [`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md)
-route remains useful. Recent changes extract NIfTI values internally,
-check spatial geometry, retain invalid voxels with status labels, record
-scaling and file identities, and interpolate each unit before averaging.
-An interpolation should not bridge a censoring gap or combine
-disconnected trial segments.
+route provides the same guarantees for disk-backed `.csv.gz` and `.rds`
+workflows. Both routes validate spatial geometry, retain invalid voxels
+with status labels, record scaling and file identities, and interpolate
+each unit within uncensored segments before averaging. An interpolation
+should not bridge a censoring gap or combine disconnected trial
+segments.
 
 Overlap policies make a scientific choice explicit: `allow` retains
 requested windows, `truncate` respects supplied collision boundaries,

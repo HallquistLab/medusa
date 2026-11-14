@@ -1,0 +1,126 @@
+# Write MEDuSA time-by-voxel matrices or voxel maps directly to 3D/4D NIfTI files
+
+Streams a \`time x voxels\` (\`T x V\`) matrix, a \`V\`-length static
+map vector, a list of run matrices (such as
+\`deconvolve_crossrun_hrf()\$activity\`), or a \`"medusa_nifti_ts"\`
+object directly into 3D or 4D NIfTI files (\`.nii\` or \`.nii.gz\`) in
+C++, preserving the spatial geometry (\`dim\`, \`pixdim\`,
+\`sform\`/\`qform\` affine) of \`reference\` without allocating full 4D
+R arrays.
+
+## Usage
+
+``` r
+write_nifti_ts(
+  x,
+  file,
+  reference = NULL,
+  voxel_indices = NULL,
+  voxel_map = NULL,
+  tr = NULL,
+  time_offset = 0,
+  fill = 0,
+  datatype = c("float", "double"),
+  compression = 2L,
+  orientation = c("time_by_voxel", "voxel_by_time"),
+  ncpus = 1L
+)
+```
+
+## Arguments
+
+- x:
+
+  Numeric matrix (\`T x V\` by default), numeric vector of length \`V\`
+  (written as a single 3D volume), list of numeric matrices/vectors, a
+  \`"crossrun_decon"\` result from \[deconvolve_crossrun_hrf()\], or a
+  \`"medusa_nifti_ts"\` object.
+
+- file:
+
+  Output \`.nii\` or \`.nii.gz\` path, or a character vector of paths
+  matching the number of runs/matrices in \`x\`.
+
+- reference:
+
+  Path to a reference 3D/4D NIfTI file, an in-memory \`RNifti\`
+  image/header, or a \`"medusa_nifti_ts"\`, \`"crossrun_decon"\`, or
+  \`"crossrun_hrf"\` object (which also supplies defaults for
+  \`voxel_map\` and \`tr\`). Optional when \`x\` itself carries spatial
+  geometry (\`"medusa_nifti_ts"\`, \`"crossrun_decon"\` fit from a
+  \`"medusa_nifti_ts"\` input, or a matrix from \`read_nifti_ts(...,
+  drop = TRUE)\`).
+
+- voxel_indices:
+
+  Optional numeric/integer vector of unique 1-based spatial linear
+  indices.
+
+- voxel_map:
+
+  Optional \`data.frame\` containing \`linear_index\` (and optional
+  \`voxel\` column IDs, matched automatically against \`colnames(x)\` so
+  column subsets or reorderings map accurately to brain space).
+
+- tr:
+
+  Optional positive repetition time in seconds stored in \`pixdim\[5\]\`
+  for 4D outputs. Defaults to \`reference\`'s TR when available, else
+  \`1.0\`.
+
+- time_offset:
+
+  Scalar acquisition time offset stored in header \`toffset\`. Default
+  \`0\`.
+
+- fill:
+
+  Numeric scalar written to non-indexed background voxels (e.g., \`0\`
+  or \`NA_real\_\`). Default \`0\`.
+
+- datatype:
+
+  On-disk NIfTI scalar type: \`"float"\` (32-bit IEEE float, default) or
+  \`"double"\` (64-bit IEEE float).
+
+- compression:
+
+  Integer gzip compression level in \`0..9\` when writing \`.nii.gz\`
+  files (\`2L\` by default for fast streaming deflate with compact
+  output). Ignored for uncompressed \`.nii\`.
+
+- orientation:
+
+  Matrix orientation of \`x\`: \`"time_by_voxel"\` (default, \`T x V\`)
+  or \`"voxel_by_time"\` (\`V x T\`).
+
+- ncpus:
+
+  Integer number of parallel workers when writing multiple files.
+  Default \`1L\`.
+
+## Value
+
+Invisibly returns a character vector of written NIfTI file paths.
+
+## See also
+
+\[read_nifti_ts()\], \[backproject_medusa()\],
+\[deconvolve_crossrun_hrf()\]
+
+## Examples
+
+``` r
+ref_arr <- array(0L, dim = c(4, 4, 2))
+ref_arr[1:2, 1:2, 1] <- 1L
+f_ref <- tempfile(fileext = ".nii.gz")
+f_out <- tempfile(fileext = ".nii.gz")
+RNifti::writeNifti(ref_arr, f_ref)
+
+idx <- which(ref_arr > 0)
+mat <- matrix(seq_len(5 * length(idx)), nrow = 5, ncol = length(idx))
+write_nifti_ts(mat, f_out, reference = f_ref, voxel_indices = idx, tr = 1.2)
+
+rt <- read_nifti_ts(f_out, mask = f_ref)
+unlink(c(f_ref, f_out))
+```

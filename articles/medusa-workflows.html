@@ -104,27 +104,39 @@ other R chunks execute when the vignette is rendered.</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td>Event-lock and interpolate in-memory matrices, NIfTI bundles, or
+deconvolved runs onto a lag grid</td>
+<td>
+<code><a href="../reference/read_nifti_ts.html">read_nifti_ts()</a></code> /
+<code><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code> →
+<code><a href="../reference/align_medusa_ts.html">align_medusa_ts()</a></code>
+</td>
+<td>Fast C++ segment quadrature and overlap/censoring auditing without
+CSVs or <code>fmri_ts</code>; descriptive alignment only (does not
+de-mix neighboring events)</td>
+</tr>
+<tr class="even">
 <td>Deconvolve NIfTI runs and align/aggregate them using existing file
 workflows</td>
 <td>
 <code><a href="../reference/voxelwise_deconvolution.html">voxelwise_deconvolution()</a></code> →
 <code><a href="../reference/evt_align_decon_files.html">evt_align_decon_files()</a></code> (or
 <code><a href="../reference/run_decon_alignment.html">run_decon_alignment()</a></code>)</td>
-<td>Can use new scaling/penalties/readouts; does not automatically learn
-cross-run HRFs or de-mix epochs</td>
+<td>Uses C++ fast pivoting on <code>.csv.gz</code> / <code>.rds</code>
+files; does not automatically learn cross-run HRFs or de-mix epochs</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Learn HRFs from other runs and quantify operator-based epoch
 effects</td>
 <td>
-<code><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf()</a></code> →
-<code><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code> →
+<code><a href="../reference/read_nifti_ts.html">read_nifti_ts()</a></code> → <code><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf()</a></code>
+→ <code><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code> →
 <code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code>
 </td>
-<td>Requires named time-by-voxel matrices and explicit event/covariate
-matching</td>
+<td>Uses named time-by-voxel matrices, exact inverse operators, and
+explicit event/covariate matching</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Compare a fixed canonical HRF with a learned HRF under the same
 downstream model</td>
 <td>Use a one-column canonical library and a multi-candidate library in
@@ -133,11 +145,12 @@ the matrix route</td>
 </tr>
 </tbody>
 </table>
-<p>The second route goes beyond the old pair of functions: epoch
-regression uses the <strong>fitted inverse operator</strong>, not only a
-saved activity CSV. Do not pass a legacy deconvolution file to
-<code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code> or run
-<code><a href="../reference/evt_align_decon_files.html">evt_align_decon_files()</a></code> on its panel. The panel is already
+<p>The third route goes beyond descriptive alignment: epoch regression
+uses the <strong>fitted inverse operator</strong>, not only an activity
+matrix or saved CSV. Do not pass a legacy deconvolution file to
+<code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code>, and do not run
+<code><a href="../reference/align_medusa_ts.html">align_medusa_ts()</a></code> or <code><a href="../reference/evt_align_decon_files.html">evt_align_decon_files()</a></code>
+on <code>decon_epoch_regression()$panel</code>—that panel is already
 event aligned.</p>
 <p>Use a package build containing these PRs. For a development checkout,
 run <code>pkgload::load_all(".")</code> from the repository root before
@@ -1374,52 +1387,73 @@ loses the fitted operator context needed for audits.</p>
 </h2>
 <p><strong>Real-data recipe; not executed.</strong>
 <code>nifti_paths</code> is a named vector of one participant’s
-preprocessed runs; <code>mask_path</code> identifies the voxels to
-retain. Verify shared space, dimensions, voxel sizes, and
-orientation/affine <strong>before</strong> extracting. Equal array
-dimensions alone are not enough. Keep this voxel metadata with the
-fit.</p>
+preprocessed runs; <code>mask_path</code> identifies the brain voxels to
+retain, and optional <code>atlas_path</code> supplies integer parcel
+memberships. <code><a href="../reference/read_nifti_ts.html">read_nifti_ts()</a></code> checks shared dimensions,
+voxel spacing, spatial units, and <code>sform</code>/<code>qform</code>
+affine alignment across all runs, mask, and atlas
+<strong>before</strong> reading image payloads, then streams the
+selected voxels directly in C++ into <code>time x voxels</code>
+(<code>T x V</code>) matrices without materializing full 4D
+double-precision R arrays.</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nifti_paths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>run1 <span class="op">=</span> <span class="st">"/study/sub01/run1_preprocessed.nii.gz"</span>,</span>
 <span>                 run2 <span class="op">=</span> <span class="st">"/study/sub01/run2_preprocessed.nii.gz"</span>,</span>
 <span>                 run3 <span class="op">=</span> <span class="st">"/study/sub01/run3_preprocessed.nii.gz"</span><span class="op">)</span></span>
 <span><span class="va">mask_path</span> <span class="op">&lt;-</span> <span class="st">"/study/sub01/analysis_mask.nii.gz"</span></span>
-<span><span class="va">mask_img</span> <span class="op">&lt;-</span> <span class="fu">RNifti</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/RNifti/man/readNifti.html" class="external-link">readNifti</a></span><span class="op">(</span><span class="va">mask_path</span><span class="op">)</span></span>
-<span><span class="va">mask_array</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/array.html" class="external-link">as.array</a></span><span class="op">(</span><span class="va">mask_img</span><span class="op">)</span></span>
-<span><span class="va">voxel_indices</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/is.finite.html" class="external-link">is.finite</a></span><span class="op">(</span><span class="va">mask_array</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">mask_array</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span></span>
-<span><span class="va">ijk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">arrayInd</a></span><span class="op">(</span><span class="va">voxel_indices</span>, <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">mask_array</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">voxel_ids</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">ijk</span>, <span class="fl">1L</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">x</span>, collapse <span class="op">=</span> <span class="st">"_"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">atlas_path</span> <span class="op">&lt;-</span> <span class="st">"/study/sub01/parcellation_atlas.nii.gz"</span></span>
 <span></span>
-<span><span class="co"># Prefer a valid sform, otherwise qform. Resolve inconsistent headers first.</span></span>
-<span><span class="va">mask_affine</span> <span class="op">&lt;-</span> <span class="fu">RNifti</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/RNifti/man/xform.html" class="external-link">xform</a></span><span class="op">(</span><span class="va">mask_img</span>, useQuaternionFirst <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">mask_affine</span>, <span class="st">"code"</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span></span>
-<span><span class="va">bold</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">nifti_paths</span>, <span class="kw">function</span><span class="op">(</span><span class="va">path</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">img</span> <span class="op">&lt;-</span> <span class="fu">RNifti</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/RNifti/man/readNifti.html" class="external-link">readNifti</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
-<span>  <span class="va">affine</span> <span class="op">&lt;-</span> <span class="fu">RNifti</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/RNifti/man/xform.html" class="external-link">xform</a></span><span class="op">(</span><span class="va">img</span>, useQuaternionFirst <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">img</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">mask_img</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>            <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">affine</span>, <span class="st">"code"</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span>,</span>
-<span>            <span class="fu"><a href="https://rdrr.io/r/base/Logic.html" class="external-link">isTRUE</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">RNifti</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/RNifti/man/pixdim.html" class="external-link">pixdim</a></span><span class="op">(</span><span class="va">img</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>                             <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">RNifti</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/RNifti/man/pixdim.html" class="external-link">pixdim</a></span><span class="op">(</span><span class="va">mask_img</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>            <span class="fu"><a href="https://rdrr.io/r/base/Logic.html" class="external-link">isTRUE</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">affine</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">mask_affine</span><span class="op">)</span>,</span>
-<span>                             check.attributes <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="co"># Public RNifti/R array route: reshape as VOXEL x TIME, select, transpose.</span></span>
-<span>  <span class="co"># This materializes the image; use a modest mask/run size for this recipe.</span></span>
-<span>  <span class="va">volume</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">img</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/prod.html" class="external-link">prod</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">img</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">volume</span><span class="op">[</span><span class="va">voxel_indices</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">voxel_ids</span></span>
-<span>  <span class="va">y</span></span>
-<span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="va">voxel_map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>voxel <span class="op">=</span> <span class="va">voxel_ids</span>, linear_index <span class="op">=</span> <span class="va">voxel_indices</span>,</span>
-<span>                        i <span class="op">=</span> <span class="va">ijk</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, j <span class="op">=</span> <span class="va">ijk</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, k <span class="op">=</span> <span class="va">ijk</span><span class="op">[</span>, <span class="fl">3</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
-<p>Build <code>events</code>, covariate lists, nuisance matrices, and
-logical masks from your study using exactly <code>names(bold)</code> and
-matching order. Check the acquisition TR from the sequence/headers and
-all event clocks. Pass these to the same three matrix functions used
-above. This is a manual adapter, not an automatically integrated NIfTI
-cross-run pipeline. Chunking the voxel dimension may be needed for large
-masks, but changes to noise pooling or parcel support must be accounted
-for; splitting voxels arbitrarily need not reproduce a whole-mask
-fit.</p>
+<span><span class="va">ts</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/read_nifti_ts.html">read_nifti_ts</a></span><span class="op">(</span></span>
+<span>  niftis <span class="op">=</span> <span class="va">nifti_paths</span>,</span>
+<span>  mask <span class="op">=</span> <span class="va">mask_path</span>,</span>
+<span>  atlas <span class="op">=</span> <span class="va">atlas_path</span>,</span>
+<span>  tr <span class="op">=</span> <span class="fl">1.0</span>,</span>
+<span>  ncpus <span class="op">=</span> <span class="fl">3L</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Pass `ts` and a single participant's combined multi-run `trial_df` directly:</span></span>
+<span><span class="co"># `tr`, `spatial_groups = ts$parcel_ids`, and `hrf_library(tr, preset = "medusa")`</span></span>
+<span><span class="co"># are populated automatically, and `trial_df` is split by `run` in BOLD run order.</span></span>
+<span><span class="va">hrf_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></span><span class="op">(</span><span class="va">ts</span>, events <span class="op">=</span> <span class="va">trial_df</span>, pooling <span class="op">=</span> <span class="st">"parcel"</span><span class="op">)</span></span>
+<span><span class="va">decon</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></span><span class="op">(</span><span class="va">ts</span>, <span class="va">hrf_fit</span>, scaling <span class="op">=</span> <span class="st">"noise_sd"</span>, penalty <span class="op">=</span> <span class="st">"sobolev"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Reference behavioral predictor columns directly by name (or formula `~ rpe + abs_rpe`):</span></span>
+<span><span class="co"># target rows are sliced in lockstep with `event_index` without manual per-run subsetting.</span></span>
+<span><span class="va">feedback_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/decon_epoch_regression.html">decon_epoch_regression</a></span><span class="op">(</span></span>
+<span>  <span class="va">decon</span>,</span>
+<span>  covariates <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rpe"</span>, <span class="st">"abs_rpe"</span><span class="op">)</span>,</span>
+<span>  target_condition <span class="op">=</span> <span class="st">"feedback"</span>,</span>
+<span>  lags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">4</span>, by <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  restore_scale <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  aggregate_by_parcel <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  whiten_panel <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  return_panel <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Geometry and voxel maps propagate onto `hrf_fit` and `decon`:</span></span>
+<span><span class="co"># export 4D deconvolved activity or backproject parcel statistics with no extra reference file</span></span>
+<span><span class="fu"><a href="../reference/write_nifti_ts.html">write_nifti_ts</a></span><span class="op">(</span><span class="va">decon</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"run1_decon.nii.gz"</span>, <span class="st">"run2_decon.nii.gz"</span>, <span class="st">"run3_decon.nii.gz"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># Optional: direct C++ matrix-native event alignment (no CSV or fmri_ts intermediates)</span></span>
+<span><span class="co"># aligned &lt;- align_medusa_ts(decon, events = trial_df, event = "onset", time_before = -2, time_after = 4)</span></span></code></pre></div>
+<p><code><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf()</a></code>,
+<code><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code>,
+<code><a href="../reference/diagnose_crossrun_recovery.html">diagnose_crossrun_recovery()</a></code>,
+<code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code>, and
+<code><a href="../reference/align_medusa_ts.html">align_medusa_ts()</a></code> all accept either the unified
+<code>"medusa_nifti_ts"</code> / <code>"crossrun_decon"</code> objects
+and combined single-participant <code>events</code> tables (matching
+BIDS/MEDuSA run labels such as <code>1</code>, <code>"01"</code>,
+<code>"run1"</code>, or <code>"run-01"</code>) or explicit run-named
+lists (<code>ts$bold</code>, <code>nuisance</code>,
+<code>valid_rows</code>). Check the acquisition TR (<code>ts$tr</code>
+or sequence metadata) and all event clocks before fitting. When
+<code>spatial_fwhm</code> is requested in
+<code>estimate_crossrun_hrf(ts, ...)</code>, world coordinates
+<code>ts$voxel_map[, c("x", "y", "z")]</code> are supplied
+automatically. Chunking the voxel dimension may still be needed for very
+large whole-brain runs, though changes to noise pooling or parcel
+support must be accounted for; splitting voxels arbitrarily need not
+reproduce a whole-mask fit.</p>
 </div>
 <div class="section level2">
 <h2 id="keep-or-update-the-established-file-workflow">Keep or update the established file workflow<a class="anchor" aria-label="anchor" href="#keep-or-update-the-established-file-workflow"></a>

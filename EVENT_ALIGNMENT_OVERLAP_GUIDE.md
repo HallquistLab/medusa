@@ -103,6 +103,29 @@ decontamination procedure.
 
 ## Supplying validity and inspecting support
 
+For in-memory `time x voxels` (`T x V`) matrices,
+[`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+bundles, or
+[`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+outputs,
+[`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+performs C++ matrix-native alignment without constructing long tables:
+
+``` r
+
+aligned <- align_medusa_ts(
+  Y, events = trials, event = "feedback", tr = TR,
+  parcel_ids = region_ids, group_by = c("trial", "parcel"),
+  time_before = -3, time_after = 5, output_resolution = 0.5,
+  overlap_policy = "allow", neighbor_events = c("cue", "response", "feedback"),
+  valid = usable_mask, max_gap = TR, time_audit = TRUE
+)
+```
+
+On `fmri_ts` objects (which also use the zero-copy C++ matrix engine
+automatically whenever units share an acquisition clock, falling back
+cleanly for ragged per-unit clocks):
+
 ``` r
 
 aligned <- get_medusa_interpolated_ts(

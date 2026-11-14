@@ -2,6 +2,10 @@
 
 ## All functions
 
+- [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
+  : Event-lock and interpolate MEDuSA time-series matrices onto an epoch
+  grid
+
 - [`backproject_medusa()`](https://hallquistlab.github.io/medusa/reference/backproject_medusa.md)
   : Backproject parcel-level MEDuSA coefficients onto a 4D NIfTI brain
   mask
@@ -64,10 +68,8 @@
   to the kernel length, K.
 
 - [`get_medusa_compression_score()`](https://hallquistlab.github.io/medusa/reference/get_medusa_compression_score.md)
-  : front-end function for taking a list of windowed time series by mask
-  value, interpolating them onto a time grid, and (optionally) averaging
-  across voxels/units within a value to derive the mean interpolated
-  time series
+  : Compute event-locked multivariate PCA compression scores across
+  spatial units
 
 - [`get_medusa_interpolated_ts()`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md)
   : front-end function for taking a list of windowed time series by mask
@@ -101,6 +103,9 @@
   a set of factors. Its primary use is to run the same model on
   different splits of the data.
 
+- [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+  : Read 3D/4D NIfTI runs directly into MEDuSA time-by-voxel matrices
+
 - [`run_decon_alignment()`](https://hallquistlab.github.io/medusa/reference/run_decon_alignment.md)
   :
 
@@ -113,3 +118,7 @@
 - [`voxelwise_deconvolution()`](https://hallquistlab.github.io/medusa/reference/voxelwise_deconvolution.md)
   : Function to perform voxelwise deconvolution on an fMRI dataset using
   the fMRI model arguments object
+
+- [`write_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md)
+  : Write MEDuSA time-by-voxel matrices or voxel maps directly to 3D/4D
+  NIfTI files

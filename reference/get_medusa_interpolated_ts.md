@@ -25,7 +25,16 @@ get_medusa_interpolated_ts(
   neighbor_events = NULL,
   max_gap = NULL,
   readout_kernel = "linear",
-  readout_width = NULL
+  readout_width = NULL,
+  events = NULL,
+  tr = NULL,
+  time = NULL,
+  time_offset = NULL,
+  parcel_ids = NULL,
+  unit_data = NULL,
+  value_name = "value",
+  trial_col = "trial",
+  use_legacy = FALSE
 )
 ```
 
@@ -128,6 +137,49 @@ get_medusa_interpolated_ts(
   Full window width (in seconds) for non-linear `readout_kernel` modes.
   Defaults to `1.5 * max_gap`.
 
+- events:
+
+  Optional trial-level `data.frame` (or list of per-run `data.frame`s)
+  used when `fmri_obj` is a matrix, `"medusa_nifti_ts"`, or
+  deconvolution fit rather than an `fmri_ts` object.
+
+- tr:
+
+  Optional repetition time in seconds when `fmri_obj` is a matrix
+  without a `tr` attribute.
+
+- time:
+
+  Optional numeric vector of acquisition timestamps (length
+  `nrow(fmri_obj)`) for matrix inputs.
+
+- time_offset:
+
+  Optional scalar start-time offset in seconds for matrix inputs.
+
+- parcel_ids:
+
+  Optional vector assigning matrix columns to parcels/ROIs.
+
+- unit_data:
+
+  Optional `data.frame` of unit metadata (one row per matrix column).
+
+- value_name:
+
+  Signal name prefix for single-signal matrix inputs. Default `"value"`.
+
+- trial_col:
+
+  Trial identifier column name for matrix inputs. Default `"trial"`.
+
+- use_legacy:
+
+  Logical; if `TRUE`, forces the legacy
+  [`event_lock_ts()`](https://hallquistlab.github.io/medusa/reference/event_lock_ts.md) +
+  [`interpolate_fmri_epochs()`](https://hallquistlab.github.io/medusa/reference/interpolate_fmri_epochs.md)
+  path on `fmri_ts` inputs (primarily for testing).
+
 ## Details
 
 The interpolation grid includes zero and remains within the requested
@@ -146,7 +198,17 @@ grouping. The `source_clock` attribute maps IDs to absolute acquisition
 times. Epoch annotations beginning with `align_` are always included
 when trial is a grouping variable. They describe timing, not
 physiological attribution. Whole-window exclusion adds
-`"overlap_excluded"` to epoch statuses.
+`"overlap_excluded"` to epoch statuses. When spatial units share a
+common acquisition clock, `fmri_ts` inputs are aligned and interpolated
+via a zero-copy C++ matrix view, automatically falling back to the
+ragged per-unit `data.table` engine when unit clocks differ (e.g.,
+slice-specific timestamps).
+
+## See also
+
+[`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md),
+[`evt_align_decon_files`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md),
+[`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
 
 ## Author
 
