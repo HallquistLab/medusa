@@ -46,7 +46,7 @@
 <p>Retain a fixed canonical HRF as the baseline and treat learned HRFs as an opt-in comparison. The repeated validation in <a href="HRF_ESTIMATION_VALIDATION.html">HRF_ESTIMATION_VALIDATION.md</a> found benefits with stable HRF mismatch, and harms with low SNR, run-to-run HRF changes, and neural-duration mismatch. Free-event fitting did not improve noisy signed-RPE recovery in that experiment, despite succeeding in a noiseless test.</p>
 <p>Use a small prespecified library and independently defined parcels when testing spatial regularization. Hard parcel pooling harmed recovery in heterogeneous parcels. Neither a universal spatial strength nor parcel size is validated. A functional parcel need not be a homogeneous vascular territory. Inspect parcel boundaries, fold stability, and disagreements rather than assuming homogeneity. The original adjusted-R-squared gate accepted HRFs in every pure colored-noise voxel/run in that experiment. The defaults now use pooled AR(1) covariance, conditional GLS evidence tests, a penalty toward the prespecified shape, and training-run compatibility. See <a href="NOISE_AWARE_HRF_RECOVERY.html">NOISE_AWARE_HRF_RECOVERY.md</a> for the change, validation, and limitations. These are conditional evidence tests, not posterior HRF confidence or whole-brain multiple-testing correction.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">fmri.pipeline</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/HallquistLab/medusa" class="external-link">medusa</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># One participant. All runs share the acquisition TR and voxel grid.</span></span>
 <span><span class="co"># BOLD matrices: time x voxel, retaining all acquisition rows.</span></span>
@@ -57,11 +57,12 @@
 <span><span class="co"># optional duration (seconds, zero for impulses).</span></span>
 <span><span class="co"># First acquisition is time zero unless time_offset is supplied.</span></span>
 <span><span class="va">parcel_ids</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">parcel_for_each_voxel</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">bold</span><span class="op">$</span><span class="va">runA</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">candidates</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/hrf_library.html">hrf_library</a></span><span class="op">(</span>tr <span class="op">=</span> <span class="va">TR</span><span class="op">)</span></span>
+<span><span class="va">candidates</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/hrf_library.html">hrf_library</a></span><span class="op">(</span>tr <span class="op">=</span> <span class="va">TR</span>, preset <span class="op">=</span> <span class="st">"medusa"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></span><span class="op">(</span></span>
 <span>  <span class="va">bold</span>, <span class="va">events</span>, tr <span class="op">=</span> <span class="va">TR</span>, kernel_grid <span class="op">=</span> <span class="va">candidates</span>,</span>
 <span>  spatial_groups <span class="op">=</span> <span class="va">parcel_ids</span>, pooling <span class="op">=</span> <span class="st">"parcel"</span>,</span>
+<span>  selection_mode <span class="op">=</span> <span class="st">"soft_average"</span>,</span>
 <span>  nuisance <span class="op">=</span> <span class="va">nuisance_by_run</span>, valid_rows <span class="op">=</span> <span class="va">usable_by_run</span>,</span>
 <span>  time_offset <span class="op">=</span> <span class="va">first_acquisition_time_by_run</span>,</span>
 <span>  return_scores <span class="op">=</span> <span class="cn">TRUE</span></span>
@@ -76,10 +77,11 @@
 <span>  time_offset <span class="op">=</span> <span class="va">first_acquisition_time_by_run</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Example lambda and strength are not recommendations for every dataset.</span></span>
-<span><span class="co"># Choose externally or within training data, without target-run RPE optimization.</span></span>
+<span><span class="co"># Default lambda = NULL tunes Sobolev smoothness via pooled prewhitened GCV;</span></span>
+<span><span class="co"># rwls = "auto" damps sub-scrubbing glitches/AR bursts without clipping neural peaks;</span></span>
+<span><span class="co"># scaling = "noise_sd" normalizes each run by spike-robust Winsorized GLS marginal noise SD.</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></span><span class="op">(</span></span>
-<span>  <span class="va">bold</span>, <span class="va">fit</span>, lambda <span class="op">=</span> <span class="fl">0.01</span>, scaling <span class="op">=</span> <span class="st">"zscore"</span>, backend <span class="op">=</span> <span class="st">"cpp"</span>,</span>
+<span>  <span class="va">bold</span>, <span class="va">fit</span>, lambda <span class="op">=</span> <span class="cn">NULL</span>, rwls <span class="op">=</span> <span class="st">"auto"</span>, scaling <span class="op">=</span> <span class="st">"noise_sd"</span>, backend <span class="op">=</span> <span class="st">"cpp"</span>,</span>
 <span>  batch_size <span class="op">=</span> <span class="fl">2048</span>, operator_cache_mb <span class="op">=</span> <span class="fl">128</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="va">result</span>, <span class="st">"crossrun_hrf_deconvolution.rds"</span><span class="op">)</span></span>
