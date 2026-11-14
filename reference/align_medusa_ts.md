@@ -1,16 +1,23 @@
 # Event-lock and interpolate MEDuSA time-series matrices onto an epoch grid
 
-Matrix-native counterpart to \[event_lock_ts()\] and
-\[get_medusa_interpolated_ts()\] that aligns and interpolates directly
-on \`time x voxels\` (\`T x V\`) numeric matrices without expanding
-intermediate long tables or constructing \`fmri_ts\` R6 objects.
+Matrix-native counterpart to
+[`event_lock_ts()`](https://hallquistlab.github.io/medusa/reference/event_lock_ts.md)
+and
+[`get_medusa_interpolated_ts()`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md)
+that aligns and interpolates directly on `time x voxels` (`T x V`)
+numeric matrices without expanding intermediate long tables or
+constructing `fmri_ts` R6 objects.
 
 Preserves every audit, censoring, gap-fencing, collision/overlap, and
-kernel quadrature guarantee of \[get_medusa_interpolated_ts()\], while
-running in C++ across single-run matrices, \`"medusa_nifti_ts"\` bundles
-from \[read_nifti_ts()\], deconvolution outputs from
-\[deconvolve_crossrun_hrf()\], multi-run matrix lists, multivariate
-signal lists, and legacy \`fmri_ts\` objects.
+kernel quadrature guarantee of
+[`get_medusa_interpolated_ts()`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md),
+while running in C++ across single-run matrices, `"medusa_nifti_ts"`
+bundles from
+[`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
+deconvolution outputs from
+[`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
+multi-run matrix lists, multivariate signal lists, and legacy `fmri_ts`
+objects.
 
 ## Usage
 
@@ -52,191 +59,205 @@ align_medusa_ts(
 
 - ts:
 
-  Time-series input: a \`T x V\` numeric \`matrix\`, a
-  \`"medusa_nifti_ts"\` object from \[read_nifti_ts()\], a deconvolution
-  result list from \[deconvolve_crossrun_hrf()\], a named \`list\` of
-  \`T x V\` matrices (multi-run or multivariate signals; see
-  \`list_mode\`), or a legacy \`fmri_ts\` object.
+  Time-series input: a `T x V` numeric `matrix`, a `"medusa_nifti_ts"`
+  object from
+  [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
+  or
+  [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md),
+  a deconvolution result list from
+  [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
+  a named `list` of `T x V` matrices (multi-run or multivariate signals;
+  see `list_mode`), or a legacy `fmri_ts` object.
 
 - events:
 
-  Trial-level \`data.frame\` (or named \`list\` of per-run
-  \`data.frame\`s for multi-run inputs). Optional when \`ts\` is an
-  \`fmri_ts\` object or a \`deconvolve_crossrun_hrf()\` fit whose stored
-  events include \`trial_col\` and \`event\`.
+  Trial-level `data.frame` (or named `list` of per-run `data.frame`s for
+  multi-run inputs, e.g., from
+  [`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md)).
+  Optional when `ts` is an `fmri_ts` object, a `medusa_nifti_ts` object
+  with `$events` attached, or a
+  [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  fit whose stored events include `trial_col` and `event`.
 
 - event:
 
-  Name of the target event onset column in \`events\`.
+  Name of the target event onset column in `events`.
 
 - time_before:
 
-  Earliest epoch lag relative to \`event\` in seconds (\`\<= 0\`).
-  Default \`-3.0\`.
+  Earliest epoch lag relative to `event` in seconds (`<= 0`). Default
+  `-3.0`.
 
 - time_after:
 
-  Latest epoch lag relative to \`event\` in seconds (\`\>= 0\`). Default
-  \`3.0\`.
+  Latest epoch lag relative to `event` in seconds (`>= 0`). Default
+  `3.0`.
 
 - collide_before:
 
-  Optional character vector of column names in \`events\` truncating
-  earlier observations (\`time \> evt_before\`) when \`overlap_policy =
-  "truncate"\`.
+  Optional character vector of column names in `events` truncating
+  earlier observations (`time > evt_before`) when
+  `overlap_policy = "truncate"`.
 
 - collide_after:
 
-  Optional character vector of column names in \`events\` truncating
-  later observations (\`time \< evt_after\`) when \`overlap_policy =
-  "truncate"\`.
+  Optional character vector of column names in `events` truncating later
+  observations (`time < evt_after`) when `overlap_policy = "truncate"`.
 
 - pad_before:
 
-  Extra window padding (in seconds, \`\<= 0\`) retained before
-  \`time_before\` to supply interpolation brackets at the left boundary.
-  Default \`-1.5\`.
+  Extra window padding (in seconds, `<= 0`) retained before
+  `time_before` to supply interpolation brackets at the left boundary.
+  Default `-1.5`.
 
 - pad_after:
 
-  Extra window padding (in seconds, \`\>= 0\`) retained after
-  \`time_after\` to supply interpolation brackets at the right boundary.
-  Default \`1.5\`.
+  Extra window padding (in seconds, `>= 0`) retained after `time_after`
+  to supply interpolation brackets at the right boundary. Default `1.5`.
 
 - output_resolution:
 
-  Epoch output step in seconds. Defaults to \`tr\`.
+  Epoch output step in seconds. Defaults to `tr`.
 
 - tr:
 
   Optional positive scalar repetition time in seconds. Inferred from
-  \`ts\` (\`ts\$tr\` or \`attr(ts, "tr")\`) when available.
+  `ts` (`ts$tr` or `attr(ts, "tr")`) when available.
 
 - time:
 
-  Optional numeric vector of length \`T\` (or per-run list) giving
-  acquisition timestamps in seconds. Defaults to \`(0:(T - 1)) \* tr +
-  time_offset\`.
+  Optional numeric vector of length `T` (or per-run list) giving
+  acquisition timestamps in seconds. Defaults to
+  `(0:(T - 1)) * tr + time_offset`.
 
 - time_offset:
 
   Optional scalar (or per-run numeric vector) start-time offset in
-  seconds when \`time\` is not supplied. Defaults to \`attr(mat,
-  "time_offset")\` or \`0\`.
+  seconds when `time` is not supplied. Defaults to
+  `attr(mat, "time_offset")` or `0`.
 
 - parcel_ids:
 
-  Optional vector of length \`V\` assigning each spatial column to a
-  parcel/ROI (populates both \`parcel\` and \`atlas_value\` for
-  \`group_by\`).
+  Optional vector of length `V` assigning each spatial column to a
+  parcel/ROI (populates both `parcel` and `atlas_value` for `group_by`).
 
 - unit_data:
 
-  Optional \`V\`-row \`data.frame\` of spatial unit metadata (e.g.,
-  \`ts\$voxel_map\`) whose columns may be referenced in \`group_by\`.
+  Optional `V`-row `data.frame` of spatial unit metadata (e.g.,
+  `ts$voxel_map`) whose columns may be referenced in `group_by`.
 
 - group_by:
 
-  Character vector of grouping variables, or \`NULL\`. For
-  \`align_medusa_ts()\`, \`missing(group_by)\` defaults to
-  \`c(trial_col, "parcel")\` when \`parcel_ids\` (or \`ts\$parcel_ids\`)
-  is present and \`trial_col\` otherwise; passing explicit \`group_by =
-  NULL\` aggregates across trials and units.
+  Character vector of grouping variables, or `NULL`. For
+  `align_medusa_ts()`, `missing(group_by)` defaults to
+  `c(trial_col, "parcel")` when `parcel_ids` (or `ts$parcel_ids`) is
+  present and `trial_col` otherwise; passing explicit `group_by = NULL`
+  aggregates across trials and units.
 
 - value_name:
 
   Signal name prefix used for single-signal matrix inputs (e.g.,
-  \`"value"\` produces \`value_mean\`, \`value_sd\`, ...). Default
-  \`"value"\`.
+  `"value"` produces `value_mean`, `value_sd`, ...). Default `"value"`.
 
 - trial_col:
 
-  Name of the unique within-run trial identifier column in \`events\`.
-  Default \`"trial"\`.
+  Name of the unique within-run trial identifier column in `events`.
+  Default `"trial"`.
 
 - run_col:
 
-  Name of the run identifier column used when \`events\` is a combined
-  multi-run \`data.frame\` and attached to multi-run outputs. Default
-  \`"run"\`.
+  Name of the run identifier column used when `events` is a combined
+  multi-run `data.frame` and attached to multi-run outputs. Default
+  `"run"`.
 
 - valid:
 
-  Optional logical validity mask (\`TRUE\` = usable, \`FALSE\`/\`NA\` =
-  censored): a length-\`T\` vector, a \`T x V\` logical matrix, a
-  per-run list, or \`"observation_mask"\` to use \`attr(mat,
-  "observation_mask")\`. For \`fmri_ts\` inputs, a single column name
-  string is also accepted (matching \`valid_col\`).
+  Optional logical validity mask (`TRUE` = usable, `FALSE`/`NA` =
+  censored): a length-`T` vector, a `T x V` logical matrix, a per-run
+  list, a `"medusa_confounds"` object from
+  [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+  or `"observation_mask"` to use `attr(mat, "observation_mask")`.
+  Automatically defaults to `ts$valid_rows` when `ts` is an enriched
+  `"medusa_nifti_ts"` object and `valid` is omitted. For `fmri_ts`
+  inputs, a single column name string is also accepted (matching
+  `valid_col`).
 
 - overlap_policy:
 
-  One of \`"allow"\`, \`"truncate"\`, or \`"exclude"\`. \`NULL\` uses
-  \`"truncate"\` when collision columns are supplied and \`"allow"\`
+  One of `"allow"`, `"truncate"`, or `"exclude"`. `NULL` uses
+  `"truncate"` when collision columns are supplied and `"allow"`
   otherwise.
 
 - neighbor_events:
 
-  Event columns used for \`align\_\*\` nearest-event annotations.
-  Defaults to \`event\`.
+  Event columns used for `align_*` nearest-event annotations. Defaults
+  to `event`.
 
 - max_gap:
 
   Maximum allowed interpolation bracket duration in seconds (defaults to
-  \`tr\`).
+  `tr`).
 
 - readout_kernel:
 
-  Readout kernel at each output lag: \`"linear"\` (default),
-  \`"boxcar"\`, \`"triangle"\`, or \`"gaussian"\`.
+  Readout kernel at each output lag: `"linear"` (default), `"boxcar"`,
+  `"triangle"`, or `"gaussian"`.
 
 - readout_width:
 
-  Full window width in seconds for non-linear \`readout_kernel\` modes
-  (defaults to \`1.5 \* max_gap\`).
+  Full window width in seconds for non-linear `readout_kernel` modes
+  (defaults to `1.5 * max_gap`).
 
 - time_audit:
 
-  Logical; if \`TRUE\`, appends \`evt_onset\`, \`collide_before\`,
-  \`collide_after\`, and absolute \`time\` when \`trial_col\` is in
-  \`group_by\`.
+  Logical; if `TRUE`, appends `evt_onset`, `collide_before`,
+  `collide_after`, and absolute `time` when `trial_col` is in
+  `group_by`.
 
 - list_mode:
 
-  Interpretation when \`ts\` is a plain \`list\` of matrices: \`"auto"\`
-  (default), \`"runs"\` (multi-run list), or \`"signals"\` (multivariate
+  Interpretation when `ts` is a plain `list` of matrices: `"auto"`
+  (default), `"runs"` (multi-run list), or `"signals"` (multivariate
   signals for one run).
 
 - orientation:
 
-  Optional matrix orientation override (\`"time_by_voxel"\` or
-  \`"voxel_by_time"\`).
+  Optional matrix orientation override (`"time_by_voxel"` or
+  `"voxel_by_time"`).
 
 - ncpus:
 
   Integer number of parallel workers used across runs when aligning
-  multi-run inputs. Default \`1L\`.
+  multi-run inputs. Default `1L`.
 
 ## Value
 
-A \`data.table\` of aligned, interpolated epoch summaries and
-\`align\_\*\` / \`epoch_status\` diagnostics with a \`source_clock\`
-\`data.frame\` attribute.
+A `data.table` of aligned, interpolated epoch summaries and `align_*` /
+`epoch_status` diagnostics with a `source_clock` `data.frame` attribute.
 
 ## Details
 
-\`align_medusa_ts()\` performs descriptive event-locked interpolation
-and overlap/censoring auditing without assuming a forward generative
-design. When \`ts\` is a \[deconvolve_crossrun_hrf()\] result and the
-goal is to remove non-target event bleed, invert target-to-target
-cross-talk, model variable durations, or propagate analytical per-trial
-standard errors (\`se_demixed\`), use \[decon_epoch_regression()\]
+`align_medusa_ts()` performs descriptive event-locked interpolation and
+overlap/censoring auditing without assuming a forward generative design.
+When `ts` is a
+[`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+result and the goal is to remove non-target event bleed, invert
+target-to-target cross-talk, model variable durations, or propagate
+analytical per-trial standard errors (`se_demixed`), use
+[`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
 instead.
 
 ## See also
 
-\[read_nifti_ts()\], \[deconvolve_crossrun_hrf()\],
-\[decon_epoch_regression()\], \[get_medusa_interpolated_ts()\],
-\[evt_align_decon_files()\], \[get_medusa_compression_score()\]
+[`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
+[`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md),
+[`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md),
+[`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+[`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
+[`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+[`get_medusa_interpolated_ts()`](https://hallquistlab.github.io/medusa/reference/get_medusa_interpolated_ts.md),
+[`evt_align_decon_files()`](https://hallquistlab.github.io/medusa/reference/evt_align_decon_files.md),
+[`get_medusa_compression_score()`](https://hallquistlab.github.io/medusa/reference/get_medusa_compression_score.md)
 
 ## Examples
 

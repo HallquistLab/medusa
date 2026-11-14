@@ -880,7 +880,7 @@ saveRDS(list(hrf_fit = hrf_fit, deconvolution = decon,
              session_info = sessionInfo()), "subject_medusa.rds")
 ```
 
-## Bridge from NIfTI runs to the matrix route
+## Bridge from NIfTI runs and fMRIPrep / BIDS to the matrix route
 
 **Real-data recipe; not executed.** `nifti_paths` is a named vector of
 one participant’s preprocessed runs; `mask_path` identifies the brain
@@ -891,7 +891,18 @@ checks shared dimensions, voxel spacing, spatial units, and
 `sform`/`qform` affine alignment across all runs, mask, and atlas
 **before** reading image payloads, then streams the selected voxels
 directly in C++ into `time x voxels` (`T x V`) matrices without
-materializing full 4D double-precision R arrays.
+materializing full 4D double-precision R arrays. For BIDS and fMRIPrep
+studies,
+[`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md)
+maps `*_events.tsv` files (`trial_type` to `condition`, `"n/a"` handling
+without coercing numeric covariates, run ordering matched to `ts`),
+[`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
+builds clock-preserving `valid_rows` masks and finite `nuisance`
+matrices from `*_desc-confounds_timeseries.tsv` **without deleting
+censored TRs**, and
+[`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
+discovers and bundles BOLD, brain masks, confounds, and BIDS events in a
+single call.
 
 ``` r
 
@@ -909,10 +920,32 @@ ts <- read_nifti_ts(
   ncpus = 3L
 )
 
-# Pass `ts` and a single participant's combined multi-run `trial_df` directly:
-# `tr`, `spatial_groups = ts$parcel_ids`, and `hrf_library(tr, preset = "medusa")`
-# are populated automatically, and `trial_df` is split by `run` in BOLD run order.
-hrf_fit <- estimate_crossrun_hrf(ts, events = trial_df, pooling = "parcel")
+# Optional BIDS / fMRIPrep helpers (never delete motion-censored volumes from BOLD):
+trial_df <- read_bids_events(
+  c("/study/bids/sub-01/func/sub-01_task-mid_run-01_events.tsv",
+    "/study/bids/sub-01/func/sub-01_task-mid_run-02_events.tsv",
+    "/study/bids/sub-01/func/sub-01_task-mid_run-03_events.tsv"),
+  bold = ts
+)
+conf <- read_fmriprep_confounds(
+  c("/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-01_desc-confounds_timeseries.tsv",
+    "/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-02_desc-confounds_timeseries.tsv",
+    "/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-03_desc-confounds_timeseries.tsv"),
+  bold = ts,
+  strategy = "24p",
+  fd_threshold = 0.5
+)
+# Or discover BOLD, per-run brain masks, confounds, and BIDS events in one step
+# (for BrainGnomes postprocessed streams, pass `desc = "postproc"` to ingest
+# `*_censor.1D`, `*_templatemask.nii.gz`, and derivative provenance guards automatically):
+# ts <- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",
+#                             bids_dir = "/study/bids", task = "mid",
+#                             atlas = atlas_path, strategy = "24p", fd_threshold = 0.5)
+
+# Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both
+# finite nuisance regressors and clock-preserving `valid_rows`; when `ts` comes
+# from `read_fmriprep_subject()`, `events` and `nuisance` are already attached):
+hrf_fit <- estimate_crossrun_hrf(ts, events = trial_df, nuisance = conf, pooling = "parcel")
 decon <- deconvolve_crossrun_hrf(ts, hrf_fit, scaling = "noise_sd", penalty = "sobolev")
 
 # Reference behavioral predictor columns directly by name (or formula `~ rpe + abs_rpe`):
@@ -941,13 +974,19 @@ write_nifti_ts(decon, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.ni
 [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
 and
 [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
-all accept either the unified `"medusa_nifti_ts"` / `"crossrun_decon"`
-objects and combined single-participant `events` tables (matching
-BIDS/MEDuSA run labels such as `1`, `"01"`, `"run1"`, or `"run-01"`) or
-explicit run-named lists (`ts$bold`, `nuisance`, `valid_rows`). Check
-the acquisition TR (`ts$tr` or sequence metadata) and all event clocks
-before fitting. When `spatial_fwhm` is requested in
-`estimate_crossrun_hrf(ts, ...)`, world coordinates
+all accept either the unified `"medusa_nifti_ts"` / `"crossrun_decon"` /
+`"medusa_confounds"` objects and combined single-participant `events`
+tables (matching BIDS/MEDuSA run labels such as `1`, `"01"`, `"run1"`,
+or `"run-01"`) or explicit run-named lists (`ts$bold`, `nuisance`,
+`valid_rows`). When ingesting `BrainGnomes` postprocessed derivatives
+(`desc = "postproc"`),
+[`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
+inspects `<bold>.json` provenance to reject physically scrubbed
+(`scrub_timepoints`) volumes that would break the acquisition clock and
+defaults `strategy = "none"` when `confound_regression` has already been
+applied upstream. Check the acquisition TR (`ts$tr` or sequence
+metadata) and all event clocks before fitting. When `spatial_fwhm` is
+requested in `estimate_crossrun_hrf(ts, ...)`, world coordinates
 `ts$voxel_map[, c("x", "y", "z")]` are supplied automatically. Chunking
 the voxel dimension may still be needed for very large whole-brain runs,
 though changes to noise pooling or parcel support must be accounted for;

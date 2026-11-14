@@ -8,7 +8,7 @@ regularization
 ``` r
 estimate_crossrun_hrf(
   bold,
-  events,
+  events = NULL,
   tr = NULL,
   kernel_grid = NULL,
   nuisance = NULL,
@@ -44,17 +44,23 @@ estimate_crossrun_hrf(
 
   Either a `"medusa_nifti_ts"` object from
   [`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
-  (automatically supplying `$bold`, `$tr`, `$parcel_ids`, and spatial
-  `$geometry`/`$voxel_map`) or a named list of time-by-voxel numeric
-  matrices for one participant (with identical unique voxel column IDs
-  across runs).
+  or
+  [`read_fmriprep_subject`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
+  (automatically supplying `$bold`, `$tr`, `$parcel_ids`, spatial
+  `$geometry`/`$voxel_map`, and any attached `$events`, `$nuisance`, and
+  `$valid_rows`) or a named list of time-by-voxel numeric matrices for
+  one participant (with identical unique voxel column IDs across runs).
 
 - events:
 
   Either a combined multi-run `data.frame` containing `onset`,
   `condition`, optional `duration`, and a run column (`run_col`, omitted
   only for single-run inputs), or a run-named list of per-run
-  `data.frame`s in `bold` order.
+  `data.frame`s in `bold` order (e.g., from
+  [`read_bids_events`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md)).
+  Optional when `bold` is a `"medusa_nifti_ts"` object with `$events`
+  populated by
+  [`read_fmriprep_subject`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md).
 
 - tr:
 
@@ -75,14 +81,17 @@ estimate_crossrun_hrf(
 
   Optional matching list of time-by-regressor matrices (or numeric
   `data.frame`s; a single matrix/`data.frame` is also accepted for
-  single-run inputs). An intercept and linear trend are always included
-  separately for each run.
+  single-run inputs), or a `"medusa_confounds"` object from
+  [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
+  (which also supplies `valid_rows` unless overridden). An intercept and
+  linear trend are always included separately for each run.
 
 - valid_rows:
 
   Optional matching list of logical observation masks (or a single
-  logical vector for single-run inputs); FALSE and NA omit rows from
-  training fits without deleting their acquisition times.
+  logical vector for single-run inputs, or a `"medusa_confounds"`
+  object); FALSE and NA omit rows from training fits without deleting
+  their acquisition times.
 
 - time_offset:
 

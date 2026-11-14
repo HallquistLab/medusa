@@ -193,6 +193,18 @@ for producing the HTML vignettes and Quarto book from a checkout.
   a set of factors. Its primary use is to run the same model on
   different splits of the data.
 
+- [`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md)
+  : Read and normalize BIDS event files for MEDuSA HRF, deconvolution,
+  and alignment workflows
+
+- [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
+  : Read fMRIPrep or postprocessed confound tables into clock-preserving
+  MEDuSA nuisance and censoring inputs
+
+- [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
+  : Discover and ingest an fMRIPrep or postprocessed participant into a
+  unified MEDuSA time-series bundle
+
 - [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md)
   : Read 3D/4D NIfTI runs directly into MEDuSA time-by-voxel matrices
 

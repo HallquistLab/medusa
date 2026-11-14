@@ -1383,7 +1383,7 @@ loses the fitted operator context needed for audits.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="bridge-from-nifti-runs-to-the-matrix-route">Bridge from NIfTI runs to the matrix route<a class="anchor" aria-label="anchor" href="#bridge-from-nifti-runs-to-the-matrix-route"></a>
+<h2 id="bridge-from-nifti-runs-and-fmriprep-bids-to-the-matrix-route">Bridge from NIfTI runs and fMRIPrep / BIDS to the matrix route<a class="anchor" aria-label="anchor" href="#bridge-from-nifti-runs-and-fmriprep-bids-to-the-matrix-route"></a>
 </h2>
 <p><strong>Real-data recipe; not executed.</strong>
 <code>nifti_paths</code> is a named vector of one participant’s
@@ -1395,7 +1395,17 @@ affine alignment across all runs, mask, and atlas
 <strong>before</strong> reading image payloads, then streams the
 selected voxels directly in C++ into <code>time x voxels</code>
 (<code>T x V</code>) matrices without materializing full 4D
-double-precision R arrays.</p>
+double-precision R arrays. For BIDS and fMRIPrep studies,
+<code><a href="../reference/read_bids_events.html">read_bids_events()</a></code> maps <code>*_events.tsv</code> files
+(<code>trial_type</code> to <code>condition</code>, <code>"n/a"</code>
+handling without coercing numeric covariates, run ordering matched to
+<code>ts</code>), <code><a href="../reference/read_fmriprep_confounds.html">read_fmriprep_confounds()</a></code> builds
+clock-preserving <code>valid_rows</code> masks and finite
+<code>nuisance</code> matrices from
+<code>*_desc-confounds_timeseries.tsv</code> <strong>without deleting
+censored TRs</strong>, and <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code>
+discovers and bundles BOLD, brain masks, confounds, and BIDS events in a
+single call.</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nifti_paths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>run1 <span class="op">=</span> <span class="st">"/study/sub01/run1_preprocessed.nii.gz"</span>,</span>
 <span>                 run2 <span class="op">=</span> <span class="st">"/study/sub01/run2_preprocessed.nii.gz"</span>,</span>
@@ -1411,10 +1421,32 @@ double-precision R arrays.</p>
 <span>  ncpus <span class="op">=</span> <span class="fl">3L</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Pass `ts` and a single participant's combined multi-run `trial_df` directly:</span></span>
-<span><span class="co"># `tr`, `spatial_groups = ts$parcel_ids`, and `hrf_library(tr, preset = "medusa")`</span></span>
-<span><span class="co"># are populated automatically, and `trial_df` is split by `run` in BOLD run order.</span></span>
-<span><span class="va">hrf_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></span><span class="op">(</span><span class="va">ts</span>, events <span class="op">=</span> <span class="va">trial_df</span>, pooling <span class="op">=</span> <span class="st">"parcel"</span><span class="op">)</span></span>
+<span><span class="co"># Optional BIDS / fMRIPrep helpers (never delete motion-censored volumes from BOLD):</span></span>
+<span><span class="va">trial_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/read_bids_events.html">read_bids_events</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"/study/bids/sub-01/func/sub-01_task-mid_run-01_events.tsv"</span>,</span>
+<span>    <span class="st">"/study/bids/sub-01/func/sub-01_task-mid_run-02_events.tsv"</span>,</span>
+<span>    <span class="st">"/study/bids/sub-01/func/sub-01_task-mid_run-03_events.tsv"</span><span class="op">)</span>,</span>
+<span>  bold <span class="op">=</span> <span class="va">ts</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">conf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/read_fmriprep_confounds.html">read_fmriprep_confounds</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-01_desc-confounds_timeseries.tsv"</span>,</span>
+<span>    <span class="st">"/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-02_desc-confounds_timeseries.tsv"</span>,</span>
+<span>    <span class="st">"/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-03_desc-confounds_timeseries.tsv"</span><span class="op">)</span>,</span>
+<span>  bold <span class="op">=</span> <span class="va">ts</span>,</span>
+<span>  strategy <span class="op">=</span> <span class="st">"24p"</span>,</span>
+<span>  fd_threshold <span class="op">=</span> <span class="fl">0.5</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co"># Or discover BOLD, per-run brain masks, confounds, and BIDS events in one step</span></span>
+<span><span class="co"># (for BrainGnomes postprocessed streams, pass `desc = "postproc"` to ingest</span></span>
+<span><span class="co"># `*_censor.1D`, `*_templatemask.nii.gz`, and derivative provenance guards automatically):</span></span>
+<span><span class="co"># ts &lt;- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",</span></span>
+<span><span class="co">#                             bids_dir = "/study/bids", task = "mid",</span></span>
+<span><span class="co">#                             atlas = atlas_path, strategy = "24p", fd_threshold = 0.5)</span></span>
+<span></span>
+<span><span class="co"># Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both</span></span>
+<span><span class="co"># finite nuisance regressors and clock-preserving `valid_rows`; when `ts` comes</span></span>
+<span><span class="co"># from `read_fmriprep_subject()`, `events` and `nuisance` are already attached):</span></span>
+<span><span class="va">hrf_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></span><span class="op">(</span><span class="va">ts</span>, events <span class="op">=</span> <span class="va">trial_df</span>, nuisance <span class="op">=</span> <span class="va">conf</span>, pooling <span class="op">=</span> <span class="st">"parcel"</span><span class="op">)</span></span>
 <span><span class="va">decon</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></span><span class="op">(</span><span class="va">ts</span>, <span class="va">hrf_fit</span>, scaling <span class="op">=</span> <span class="st">"noise_sd"</span>, penalty <span class="op">=</span> <span class="st">"sobolev"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Reference behavioral predictor columns directly by name (or formula `~ rpe + abs_rpe`):</span></span>
@@ -1440,16 +1472,22 @@ double-precision R arrays.</p>
 <code><a href="../reference/diagnose_crossrun_recovery.html">diagnose_crossrun_recovery()</a></code>,
 <code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code>, and
 <code><a href="../reference/align_medusa_ts.html">align_medusa_ts()</a></code> all accept either the unified
-<code>"medusa_nifti_ts"</code> / <code>"crossrun_decon"</code> objects
-and combined single-participant <code>events</code> tables (matching
-BIDS/MEDuSA run labels such as <code>1</code>, <code>"01"</code>,
-<code>"run1"</code>, or <code>"run-01"</code>) or explicit run-named
-lists (<code>ts$bold</code>, <code>nuisance</code>,
-<code>valid_rows</code>). Check the acquisition TR (<code>ts$tr</code>
-or sequence metadata) and all event clocks before fitting. When
-<code>spatial_fwhm</code> is requested in
-<code>estimate_crossrun_hrf(ts, ...)</code>, world coordinates
-<code>ts$voxel_map[, c("x", "y", "z")]</code> are supplied
+<code>"medusa_nifti_ts"</code> / <code>"crossrun_decon"</code> /
+<code>"medusa_confounds"</code> objects and combined single-participant
+<code>events</code> tables (matching BIDS/MEDuSA run labels such as
+<code>1</code>, <code>"01"</code>, <code>"run1"</code>, or
+<code>"run-01"</code>) or explicit run-named lists
+(<code>ts$bold</code>, <code>nuisance</code>, <code>valid_rows</code>).
+When ingesting <code>BrainGnomes</code> postprocessed derivatives
+(<code>desc = "postproc"</code>), <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code>
+inspects <code>&lt;bold&gt;.json</code> provenance to reject physically
+scrubbed (<code>scrub_timepoints</code>) volumes that would break the
+acquisition clock and defaults <code>strategy = "none"</code> when
+<code>confound_regression</code> has already been applied upstream.
+Check the acquisition TR (<code>ts$tr</code> or sequence metadata) and
+all event clocks before fitting. When <code>spatial_fwhm</code> is
+requested in <code>estimate_crossrun_hrf(ts, ...)</code>, world
+coordinates <code>ts$voxel_map[, c("x", "y", "z")]</code> are supplied
 automatically. Chunking the voxel dimension may still be needed for very
 large whole-brain runs, though changes to noise pooling or parcel
 support must be accounted for; splitting voxels arbitrarily need not
