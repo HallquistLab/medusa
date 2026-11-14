@@ -150,7 +150,7 @@ style_gt_medusa <- function(gt_tbl) {
 
 Multilevel Event-related Deconvolved Signal Analysis (**MEDuSA**) bridges continuous-time neural deconvolution and multilevel trial-by-trial mixed-effects modeling (`mixed_by()` / `lme4::lmer`). Whereas conventional fMRI General Linear Models (GLMs) collapse trial-to-trial variability into a single run-level parameter and assume a fixed canonical neural impulse shape, and whereas Least-Squares-Separate (**LSS**) beta-series models collapse within-trial temporal dynamics into a single scalar per trial, MEDuSA resolves **both** trial-by-trial amplitude fluctuations and within-trial temporal trajectories $\beta(\tau)$ across lags $\tau \in [\tau_{\min}, \tau_{\max}]$.
 
-Recent algorithmic advances in `fmri.pipeline` transformed MEDuSA from its legacy 2011 formulation (`deconvolve_nlreg` with run-wise `zscore` normalization, fixed canonical HRFs, naive linear interpolation, and unweighted mixed models) into a rigorous **five-stage operator-aware estimation and inference architecture (MEDuSA v2.1)**:
+Recent algorithmic advances in the standalone [`medusa`](https://github.com/HallquistLab/medusa) package (extracted from `fmri.pipeline`) transformed MEDuSA from its legacy 2011 formulation (`deconvolve_nlreg` with run-wise `zscore` normalization, fixed canonical HRFs, naive linear interpolation, and unweighted mixed models) into a rigorous **five-stage operator-aware estimation and inference architecture (MEDuSA v2.1)**:
 
 <div class="callout-box">
 **Core Advances Validated Across the Fourteen Pillars of This Report (Post-PR #64 / #65 / #69 Release):**
@@ -228,7 +228,7 @@ gt(arch_df) |>
     Legacy_Bush_2011 = "Legacy MEDuSA (Bush 2011)",
     LSS_BetaSeries = "LSS Beta-Series (AR(1)-GLS)",
     Standard_Parametric_GLM = "Standard Parametric GLM",
-    Modern_MEDuSA_v2 = "Modern MEDuSA v2.1 (fmri.pipeline)"
+    Modern_MEDuSA_v2 = "Modern MEDuSA v2.1 (medusa)"
   ) |>
   cols_width(
     Stage ~ pct(15),
@@ -1955,7 +1955,7 @@ In **functional connectivity**, **task-modulated psychophysiological interaction
 3. **Heteroscedastic Predictor Measurement Error ($\hat{\Psi}_{xx,j}$) and the REPAIR (`M-MOMS`) Solution:**
    Even after task orthogonalization, $\tilde{s}_j = \eta_{A,j} + \tilde{e}_{A,j}$ contains trial-specific measurement error with known operator variance $\tilde{\psi}_{A,j} = (1 - h_{x,r,j})\text{se\_demixed}_{A,j}^2$, and the PPI interaction term $\tilde{s}_j x_{c,j}$ has measurement-error covariance:
    $$\hat{\Psi}_{xx,j} = \tilde{\psi}_{A,j} \begin{bmatrix} 1 & 0 & x_{c,j} \\ 0 & 0 & 0 \\ x_{c,j} & 0 & x_{c,j}^2 \end{bmatrix} \quad \text{on } (\tilde{s}_j, \; x_{c,j}, \; \tilde{s}_j x_{c,j})$$
-   Integrating the **REPAIR** framework (**Vig & Hallquist, 2026**, *REPAIR: Random-effect prediction adjustment for inference in regression*; `repair::fit_mmom()` and `repair::repair()`) into `fmri.pipeline` via `medusa_fit_mmom()`, `decon_connectivity_repair()`, and `medusa_between_subject_repair()` subtracts the exact weighted error covariance $\hat{\Psi}_w = \frac{1}{n_i}\sum_{j=1}^{n_i} w_{ij}\hat{\Psi}_{xx,ij}$ from the observed predictor cross-product $\hat{S}_{xx,w}$ using Fuller's generalized eigenvalue check $\hat{\lambda}_i = \lambda_{\min}(\hat{\Psi}_w^{-1/2}\hat{S}_{xx,w}\hat{\Psi}_w^{-1/2})$ and the adaptive step-up modification `M-MOMS` ($\alpha_i = p + 1 + 2/(\hat{\lambda}_i - 1)$ when $\hat{\lambda}_i > 1$), followed by ancillary sample-size group pooling with Hartung–Knapp–Sidik–Jonkman ($t_{S-1}$) standard errors (avoiding the downward covariance bias $\text{Cov}(w_s, \hat{\gamma}_s) < 0$ caused by weighting EIV estimates by their slope-dependent sandwich variances).
+   Integrating the **REPAIR** framework (**Vig & Hallquist, 2026**, *REPAIR: Random-effect prediction adjustment for inference in regression*; `repair::fit_mmom()` and `repair::repair()`) into `medusa` via `medusa_fit_mmom()`, `decon_connectivity_repair()`, and `medusa_between_subject_repair()` subtracts the exact weighted error covariance $\hat{\Psi}_w = \frac{1}{n_i}\sum_{j=1}^{n_i} w_{ij}\hat{\Psi}_{xx,ij}$ from the observed predictor cross-product $\hat{S}_{xx,w}$ using Fuller's generalized eigenvalue check $\hat{\lambda}_i = \lambda_{\min}(\hat{\Psi}_w^{-1/2}\hat{S}_{xx,w}\hat{\Psi}_w^{-1/2})$ and the adaptive step-up modification `M-MOMS` ($\alpha_i = p + 1 + 2/(\hat{\lambda}_i - 1)$ when $\hat{\lambda}_i > 1$), followed by ancillary sample-size group pooling with Hartung–Knapp–Sidik–Jonkman ($t_{S-1}$) standard errors (avoiding the downward covariance bias $\text{Cov}(w_s, \hat{\gamma}_s) < 0$ caused by weighting EIV estimates by their slope-dependent sandwich variances).
 
 ## Empirical Results: Within-Subject Connectivity, PPI, and Between-Subject Random-Slope Regression
 
@@ -3548,7 +3548,7 @@ dec_df <- data.frame(
 gt(dec_df) |>
   tab_header(
     title = "Table 25B. Practical Settings Decision Matrix: Recommended MEDuSA v2.1 Configurations by Experimental Design",
-    subtitle = "Prescriptive Stage 1–4 settings in fmri.pipeline validated across Pillars 1–14"
+    subtitle = "Prescriptive Stage 1–4 settings in medusa validated across Pillars 1–14"
   ) |>
   cols_label(
     Study_Scenario = "Experimental Scenario",
@@ -3567,9 +3567,11 @@ gt(dec_df) |>
   style_gt_medusa()
 ```
 
-### Canonical Recommended Code Template (`fmri.pipeline`)
+### Canonical Recommended Code Template (`medusa`)
 
 ```r
+library(medusa)
+
 # 1. Build the recommended 3D physiological HRF manifold library (K = 44, positive_lobe; or preset = "canonical_27" for K = 27)
 lib <- hrf_library(tr = tr, preset = "medusa")
 

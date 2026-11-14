@@ -28,7 +28,7 @@ for the change, validation, and limitations. These are conditional evidence test
 not posterior HRF confidence or whole-brain multiple-testing correction.
 
 ```r
-library(fmri.pipeline)
+library(medusa)
 
 # One participant. All runs share the acquisition TR and voxel grid.
 # BOLD matrices: time x voxel, retaining all acquisition rows.
@@ -39,11 +39,12 @@ events <- list(runA = events_A, runB = events_B, runC = events_C)
 # optional duration (seconds, zero for impulses).
 # First acquisition is time zero unless time_offset is supplied.
 parcel_ids <- setNames(parcel_for_each_voxel, colnames(bold$runA))
-candidates <- hrf_library(tr = TR)
+candidates <- hrf_library(tr = TR, preset = "medusa")
 
 fit <- estimate_crossrun_hrf(
   bold, events, tr = TR, kernel_grid = candidates,
   spatial_groups = parcel_ids, pooling = "parcel",
+  selection_mode = "soft_average",
   nuisance = nuisance_by_run, valid_rows = usable_by_run,
   time_offset = first_acquisition_time_by_run,
   return_scores = TRUE
@@ -58,10 +59,11 @@ voxel_fit <- estimate_crossrun_hrf(
   time_offset = first_acquisition_time_by_run
 )
 
-# Example lambda and strength are not recommendations for every dataset.
-# Choose externally or within training data, without target-run RPE optimization.
+# Default lambda = NULL tunes Sobolev smoothness via pooled prewhitened GCV;
+# rwls = "auto" damps sub-scrubbing glitches/AR bursts without clipping neural peaks;
+# scaling = "noise_sd" normalizes each run by spike-robust Winsorized GLS marginal noise SD.
 result <- deconvolve_crossrun_hrf(
-  bold, fit, lambda = 0.01, scaling = "zscore", backend = "cpp",
+  bold, fit, lambda = NULL, rwls = "auto", scaling = "noise_sd", backend = "cpp",
   batch_size = 2048, operator_cache_mb = 128
 )
 saveRDS(result, "crossrun_hrf_deconvolution.rds")
