@@ -43,6 +43,24 @@
   `decon_epoch_regression()` now accepts column-name `covariates` (e.g.,
   `c("rpe", "abs_rpe")`), one-sided formulas (`~ rpe + abs_rpe`), column-name
   `trial_durations` (`"rt"`), and combined multi-run `events` tables.
+* Added zero-dependency BIDS, fMRIPrep, and `BrainGnomes` ingestion helpers:
+  `read_bids_events()` normalizes `*_events.tsv` files (`trial_type` to
+  `condition`, BIDS `"n/a"`/`"."`/`"NaN"` missing tokens without coercing
+  numeric behavioral columns, `cohort-`/`hemi-` entity validation, and run
+  ordering matched to `bold`); `read_fmriprep_confounds()` converts
+  `*_desc-confounds_timeseries.tsv` and `*_desc-<desc>_confounds.tsv` tables
+  into clock-preserving `valid_rows` masks (`fd_threshold`, `dvars_threshold`,
+  `framewise_displacement_filtered` / Power 2012 FD fallback, external
+  `*_censor.1D` / `*_scrub.tsv` sidecars, `non_steady_state_outlier*`, spike
+  dilation, `min_segment_length`) and strictly finite `nuisance` matrices
+  (`"24p"`, `"12p"`, `"6p"`, `"24p_csf_wm"`, `"27p"`, `"36p"`, `"compcor"`,
+  `"custom"` with `<0-k>` range/shorthand expansion, `"none"`) without deleting
+  censored TRs; and `read_fmriprep_subject()` discovers raw fMRIPrep (`desc = "preproc"`)
+  or `BrainGnomes` postprocessed (`desc = "postproc"`, `*_templatemask.nii.gz`,
+  `*_censor.1D`, provenance checks blocking physically scrubbed BOLD and
+  double confound regression) BOLD runs, masks, confounds, and BIDS events into
+  an enriched `"medusa_nifti_ts"` bundle accepted directly by
+  `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, and `align_medusa_ts()`.
 
 ## Standalone package extraction
 

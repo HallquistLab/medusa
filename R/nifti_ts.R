@@ -433,6 +433,31 @@ print.medusa_nifti_ts <- function(x, ...) {
     cat(sprintf("  Atlas parcels: %d unique non-zero values ($parcel_ids available)\n",
                 length(unique(x$parcel_ids))))
   }
+  if (!is.null(x$valid_rows) || !is.null(x$nuisance)) {
+    n_tot <- if (!is.null(x$valid_rows)) sum(lengths(x$valid_rows)) else 0L
+    n_cens <- if (!is.null(x$valid_rows)) {
+      sum(vapply(x$valid_rows, function(v) sum(is.na(v) | !v), integer(1L)))
+    } else {
+      0L
+    }
+    p_cols <- if (!is.null(x$nuisance) && length(x$nuisance) > 0L) {
+      unique(vapply(x$nuisance, ncol, integer(1L)))
+    } else {
+      0L
+    }
+    p_txt <- if (length(p_cols) == 1L) sprintf("%d col(s)", p_cols) else paste0(paste(p_cols, collapse = "-"), " cols")
+    cat(sprintf("  Confounds attached: %d/%d volume(s) censored | nuisance: %s\n", n_cens, n_tot, p_txt))
+  }
+  if (!is.null(x$events)) {
+    n_ev <- if (is.data.frame(x$events)) {
+      nrow(x$events)
+    } else if (is.list(x$events)) {
+      sum(vapply(x$events, nrow, integer(1L)))
+    } else {
+      0L
+    }
+    cat(sprintf("  BIDS events attached: %d event row(s) ($events available)\n", n_ev))
+  }
   if (!is.null(x$run_info) && nrow(x$run_info) > 0L) {
     show_n <- min(6L, nrow(x$run_info))
     for (i in seq_len(show_n)) {

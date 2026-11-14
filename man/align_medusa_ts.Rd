@@ -37,120 +37,125 @@ align_medusa_ts(
 )
 }
 \arguments{
-\item{ts}{Time-series input: a `T x V` numeric `matrix`, a `"medusa_nifti_ts"`
-object from [read_nifti_ts()], a deconvolution result list from
-[deconvolve_crossrun_hrf()], a named `list` of `T x V` matrices (multi-run or
-multivariate signals; see `list_mode`), or a legacy `fmri_ts` object.}
+\item{ts}{Time-series input: a \verb{T x V} numeric \code{matrix}, a \code{"medusa_nifti_ts"}
+object from \code{\link[=read_nifti_ts]{read_nifti_ts()}} or \code{\link[=read_fmriprep_subject]{read_fmriprep_subject()}}, a deconvolution
+result list from \code{\link[=deconvolve_crossrun_hrf]{deconvolve_crossrun_hrf()}}, a named \code{list} of \verb{T x V}
+matrices (multi-run or multivariate signals; see \code{list_mode}), or a legacy
+\code{fmri_ts} object.}
 
-\item{events}{Trial-level `data.frame` (or named `list` of per-run `data.frame`s
-for multi-run inputs). Optional when `ts` is an `fmri_ts` object or a
-`deconvolve_crossrun_hrf()` fit whose stored events include `trial_col` and `event`.}
+\item{events}{Trial-level \code{data.frame} (or named \code{list} of per-run \code{data.frame}s
+for multi-run inputs, e.g., from \code{\link[=read_bids_events]{read_bids_events()}}). Optional when \code{ts} is
+an \code{fmri_ts} object, a \code{medusa_nifti_ts} object with \verb{$events} attached, or a
+\code{deconvolve_crossrun_hrf()} fit whose stored events include \code{trial_col} and \code{event}.}
 
-\item{event}{Name of the target event onset column in `events`.}
+\item{event}{Name of the target event onset column in \code{events}.}
 
-\item{time_before}{Earliest epoch lag relative to `event` in seconds (`<= 0`). Default `-3.0`.}
+\item{time_before}{Earliest epoch lag relative to \code{event} in seconds (\verb{<= 0}). Default \code{-3.0}.}
 
-\item{time_after}{Latest epoch lag relative to `event` in seconds (`>= 0`). Default `3.0`.}
+\item{time_after}{Latest epoch lag relative to \code{event} in seconds (\verb{>= 0}). Default \code{3.0}.}
 
-\item{collide_before}{Optional character vector of column names in `events`
-truncating earlier observations (`time > evt_before`) when `overlap_policy = "truncate"`.}
+\item{collide_before}{Optional character vector of column names in \code{events}
+truncating earlier observations (\code{time > evt_before}) when \code{overlap_policy = "truncate"}.}
 
-\item{collide_after}{Optional character vector of column names in `events`
-truncating later observations (`time < evt_after`) when `overlap_policy = "truncate"`.}
+\item{collide_after}{Optional character vector of column names in \code{events}
+truncating later observations (\code{time < evt_after}) when \code{overlap_policy = "truncate"}.}
 
-\item{pad_before}{Extra window padding (in seconds, `<= 0`) retained before
-`time_before` to supply interpolation brackets at the left boundary. Default `-1.5`.}
+\item{pad_before}{Extra window padding (in seconds, \verb{<= 0}) retained before
+\code{time_before} to supply interpolation brackets at the left boundary. Default \code{-1.5}.}
 
-\item{pad_after}{Extra window padding (in seconds, `>= 0`) retained after
-`time_after` to supply interpolation brackets at the right boundary. Default `1.5`.}
+\item{pad_after}{Extra window padding (in seconds, \verb{>= 0}) retained after
+\code{time_after} to supply interpolation brackets at the right boundary. Default \code{1.5}.}
 
-\item{output_resolution}{Epoch output step in seconds. Defaults to `tr`.}
+\item{output_resolution}{Epoch output step in seconds. Defaults to \code{tr}.}
 
 \item{tr}{Optional positive scalar repetition time in seconds. Inferred from
-`ts` (`ts$tr` or `attr(ts, "tr")`) when available.}
+\code{ts} (\code{ts$tr} or \code{attr(ts, "tr")}) when available.}
 
-\item{time}{Optional numeric vector of length `T` (or per-run list) giving
-acquisition timestamps in seconds. Defaults to `(0:(T - 1)) * tr + time_offset`.}
+\item{time}{Optional numeric vector of length \code{T} (or per-run list) giving
+acquisition timestamps in seconds. Defaults to \code{(0:(T - 1)) * tr + time_offset}.}
 
 \item{time_offset}{Optional scalar (or per-run numeric vector) start-time offset
-in seconds when `time` is not supplied. Defaults to `attr(mat, "time_offset")` or `0`.}
+in seconds when \code{time} is not supplied. Defaults to \code{attr(mat, "time_offset")} or \code{0}.}
 
-\item{parcel_ids}{Optional vector of length `V` assigning each spatial column
-to a parcel/ROI (populates both `parcel` and `atlas_value` for `group_by`).}
+\item{parcel_ids}{Optional vector of length \code{V} assigning each spatial column
+to a parcel/ROI (populates both \code{parcel} and \code{atlas_value} for \code{group_by}).}
 
-\item{unit_data}{Optional `V`-row `data.frame` of spatial unit metadata (e.g.,
-`ts$voxel_map`) whose columns may be referenced in `group_by`.}
+\item{unit_data}{Optional \code{V}-row \code{data.frame} of spatial unit metadata (e.g.,
+\code{ts$voxel_map}) whose columns may be referenced in \code{group_by}.}
 
-\item{group_by}{Character vector of grouping variables, or `NULL`. For
-`align_medusa_ts()`, `missing(group_by)` defaults to `c(trial_col, "parcel")`
-when `parcel_ids` (or `ts$parcel_ids`) is present and `trial_col` otherwise;
-passing explicit `group_by = NULL` aggregates across trials and units.}
+\item{group_by}{Character vector of grouping variables, or \code{NULL}. For
+\code{align_medusa_ts()}, \code{missing(group_by)} defaults to \code{c(trial_col, "parcel")}
+when \code{parcel_ids} (or \code{ts$parcel_ids}) is present and \code{trial_col} otherwise;
+passing explicit \code{group_by = NULL} aggregates across trials and units.}
 
 \item{value_name}{Signal name prefix used for single-signal matrix inputs
-(e.g., `"value"` produces `value_mean`, `value_sd`, ...). Default `"value"`.}
+(e.g., \code{"value"} produces \code{value_mean}, \code{value_sd}, ...). Default \code{"value"}.}
 
 \item{trial_col}{Name of the unique within-run trial identifier column in
-`events`. Default `"trial"`.}
+\code{events}. Default \code{"trial"}.}
 
-\item{run_col}{Name of the run identifier column used when `events` is a
-combined multi-run `data.frame` and attached to multi-run outputs. Default `"run"`.}
+\item{run_col}{Name of the run identifier column used when \code{events} is a
+combined multi-run \code{data.frame} and attached to multi-run outputs. Default \code{"run"}.}
 
-\item{valid}{Optional logical validity mask (`TRUE` = usable, `FALSE`/`NA` =
-censored): a length-`T` vector, a `T x V` logical matrix, a per-run list,
-or `"observation_mask"` to use `attr(mat, "observation_mask")`. For `fmri_ts`
-inputs, a single column name string is also accepted (matching `valid_col`).}
+\item{valid}{Optional logical validity mask (\code{TRUE} = usable, \code{FALSE}/\code{NA} =
+censored): a length-\code{T} vector, a \verb{T x V} logical matrix, a per-run list,
+a \code{"medusa_confounds"} object from \code{\link[=read_fmriprep_confounds]{read_fmriprep_confounds()}}, or
+\code{"observation_mask"} to use \code{attr(mat, "observation_mask")}. Automatically
+defaults to \code{ts$valid_rows} when \code{ts} is an enriched \code{"medusa_nifti_ts"}
+object and \code{valid} is omitted. For \code{fmri_ts} inputs, a single column name
+string is also accepted (matching \code{valid_col}).}
 
-\item{overlap_policy}{One of `"allow"`, `"truncate"`, or `"exclude"`. `NULL`
-uses `"truncate"` when collision columns are supplied and `"allow"` otherwise.}
+\item{overlap_policy}{One of \code{"allow"}, \code{"truncate"}, or \code{"exclude"}. \code{NULL}
+uses \code{"truncate"} when collision columns are supplied and \code{"allow"} otherwise.}
 
-\item{neighbor_events}{Event columns used for `align_*` nearest-event
-annotations. Defaults to `event`.}
+\item{neighbor_events}{Event columns used for \verb{align_*} nearest-event
+annotations. Defaults to \code{event}.}
 
 \item{max_gap}{Maximum allowed interpolation bracket duration in seconds
-(defaults to `tr`).}
+(defaults to \code{tr}).}
 
-\item{readout_kernel}{Readout kernel at each output lag: `"linear"` (default),
-`"boxcar"`, `"triangle"`, or `"gaussian"`.}
+\item{readout_kernel}{Readout kernel at each output lag: \code{"linear"} (default),
+\code{"boxcar"}, \code{"triangle"}, or \code{"gaussian"}.}
 
 \item{readout_width}{Full window width in seconds for non-linear
-`readout_kernel` modes (defaults to `1.5 * max_gap`).}
+\code{readout_kernel} modes (defaults to \code{1.5 * max_gap}).}
 
-\item{time_audit}{Logical; if `TRUE`, appends `evt_onset`, `collide_before`,
-`collide_after`, and absolute `time` when `trial_col` is in `group_by`.}
+\item{time_audit}{Logical; if \code{TRUE}, appends \code{evt_onset}, \code{collide_before},
+\code{collide_after}, and absolute \code{time} when \code{trial_col} is in \code{group_by}.}
 
-\item{list_mode}{Interpretation when `ts` is a plain `list` of matrices:
-`"auto"` (default), `"runs"` (multi-run list), or `"signals"` (multivariate
+\item{list_mode}{Interpretation when \code{ts} is a plain \code{list} of matrices:
+\code{"auto"} (default), \code{"runs"} (multi-run list), or \code{"signals"} (multivariate
 signals for one run).}
 
-\item{orientation}{Optional matrix orientation override (`"time_by_voxel"` or
-`"voxel_by_time"`).}
+\item{orientation}{Optional matrix orientation override (\code{"time_by_voxel"} or
+\code{"voxel_by_time"}).}
 
 \item{ncpus}{Integer number of parallel workers used across runs when aligning
-multi-run inputs. Default `1L`.}
+multi-run inputs. Default \code{1L}.}
 }
 \value{
-A `data.table` of aligned, interpolated epoch summaries and `align_*` /
-  `epoch_status` diagnostics with a `source_clock` `data.frame` attribute.
+A \code{data.table} of aligned, interpolated epoch summaries and \verb{align_*} /
+\code{epoch_status} diagnostics with a \code{source_clock} \code{data.frame} attribute.
 }
 \description{
-Matrix-native counterpart to [event_lock_ts()] and [get_medusa_interpolated_ts()]
-that aligns and interpolates directly on `time x voxels` (`T x V`) numeric
-matrices without expanding intermediate long tables or constructing `fmri_ts`
+Matrix-native counterpart to \code{\link[=event_lock_ts]{event_lock_ts()}} and \code{\link[=get_medusa_interpolated_ts]{get_medusa_interpolated_ts()}}
+that aligns and interpolates directly on \verb{time x voxels} (\verb{T x V}) numeric
+matrices without expanding intermediate long tables or constructing \code{fmri_ts}
 R6 objects.
 
 Preserves every audit, censoring, gap-fencing, collision/overlap, and kernel
-quadrature guarantee of [get_medusa_interpolated_ts()], while running in C++
-across single-run matrices, `"medusa_nifti_ts"` bundles from [read_nifti_ts()],
-deconvolution outputs from [deconvolve_crossrun_hrf()], multi-run matrix lists,
-multivariate signal lists, and legacy `fmri_ts` objects.
+quadrature guarantee of \code{\link[=get_medusa_interpolated_ts]{get_medusa_interpolated_ts()}}, while running in C++
+across single-run matrices, \code{"medusa_nifti_ts"} bundles from \code{\link[=read_nifti_ts]{read_nifti_ts()}},
+deconvolution outputs from \code{\link[=deconvolve_crossrun_hrf]{deconvolve_crossrun_hrf()}}, multi-run matrix lists,
+multivariate signal lists, and legacy \code{fmri_ts} objects.
 }
 \details{
-`align_medusa_ts()` performs descriptive event-locked interpolation and
+\code{align_medusa_ts()} performs descriptive event-locked interpolation and
 overlap/censoring auditing without assuming a forward generative design. When
-`ts` is a [deconvolve_crossrun_hrf()] result and the goal is to remove
+\code{ts} is a \code{\link[=deconvolve_crossrun_hrf]{deconvolve_crossrun_hrf()}} result and the goal is to remove
 non-target event bleed, invert target-to-target cross-talk, model variable
-durations, or propagate analytical per-trial standard errors (`se_demixed`),
-use [decon_epoch_regression()] instead.
+durations, or propagate analytical per-trial standard errors (\code{se_demixed}),
+use \code{\link[=decon_epoch_regression]{decon_epoch_regression()}} instead.
 }
 \examples{
 set.seed(1)
@@ -165,7 +170,8 @@ head(aligned)
 
 }
 \seealso{
-[read_nifti_ts()], [deconvolve_crossrun_hrf()],
-  [decon_epoch_regression()], [get_medusa_interpolated_ts()],
-  [evt_align_decon_files()], [get_medusa_compression_score()]
+\code{\link[=read_nifti_ts]{read_nifti_ts()}}, \code{\link[=read_fmriprep_subject]{read_fmriprep_subject()}}, \code{\link[=read_bids_events]{read_bids_events()}},
+\code{\link[=read_fmriprep_confounds]{read_fmriprep_confounds()}}, \code{\link[=deconvolve_crossrun_hrf]{deconvolve_crossrun_hrf()}},
+\code{\link[=decon_epoch_regression]{decon_epoch_regression()}}, \code{\link[=get_medusa_interpolated_ts]{get_medusa_interpolated_ts()}},
+\code{\link[=evt_align_decon_files]{evt_align_decon_files()}}, \code{\link[=get_medusa_compression_score]{get_medusa_compression_score()}}
 }
