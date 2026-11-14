@@ -34,6 +34,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          # Isolate cache namespace from R-CMD-check (which caches Suggests R
+          # packages without caching Ubuntu apt shared libraries such as libglpk40).
+          cache-version: pkgdown-1
           dependencies: '"hard"'
           extra-packages: any::pkgdown, any::knitr, any::rmarkdown, any::ggplot2, any::tidyr, any::withr, HallquistLab/repair, local::.
           needs: website
