@@ -337,6 +337,148 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// estimate_median_nn_dist_cpp
+double estimate_median_nn_dist_cpp(const arma::mat& coords);
+RcppExport SEXP _medusa_estimate_median_nn_dist_cpp(SEXP coordsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type coords(coordsSEXP);
+    rcpp_result_gen = Rcpp::wrap(estimate_median_nn_dist_cpp(coords));
+    return rcpp_result_gen;
+END_RCPP
+}
+// build_lattice_geodesic_graph_cpp
+Rcpp::List build_lattice_geodesic_graph_cpp(const Rcpp::IntegerMatrix& ijk, const Rcpp::NumericVector& spacing, double max_radius, int max_neighbors, const Rcpp::IntegerVector& group_ids, bool hard_boundary);
+RcppExport SEXP _medusa_build_lattice_geodesic_graph_cpp(SEXP ijkSEXP, SEXP spacingSEXP, SEXP max_radiusSEXP, SEXP max_neighborsSEXP, SEXP group_idsSEXP, SEXP hard_boundarySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type ijk(ijkSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type spacing(spacingSEXP);
+    Rcpp::traits::input_parameter< double >::type max_radius(max_radiusSEXP);
+    Rcpp::traits::input_parameter< int >::type max_neighbors(max_neighborsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< bool >::type hard_boundary(hard_boundarySEXP);
+    rcpp_result_gen = Rcpp::wrap(build_lattice_geodesic_graph_cpp(ijk, spacing, max_radius, max_neighbors, group_ids, hard_boundary));
+    return rcpp_result_gen;
+END_RCPP
+}
+// build_coords_knn_graph_cpp
+Rcpp::List build_coords_knn_graph_cpp(const arma::mat& coords, double max_radius, int max_neighbors, const Rcpp::IntegerVector& group_ids, bool hard_boundary);
+RcppExport SEXP _medusa_build_coords_knn_graph_cpp(SEXP coordsSEXP, SEXP max_radiusSEXP, SEXP max_neighborsSEXP, SEXP group_idsSEXP, SEXP hard_boundarySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type coords(coordsSEXP);
+    Rcpp::traits::input_parameter< double >::type max_radius(max_radiusSEXP);
+    Rcpp::traits::input_parameter< int >::type max_neighbors(max_neighborsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< bool >::type hard_boundary(hard_boundarySEXP);
+    rcpp_result_gen = Rcpp::wrap(build_coords_knn_graph_cpp(coords, max_radius, max_neighbors, group_ids, hard_boundary));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csr_bilateral_noise_smooth_cpp
+Rcpp::List csr_bilateral_noise_smooth_cpp(const arma::mat& profiles, const Rcpp::NumericVector& ind_rhos, const Rcpp::NumericVector& raw_lsd, const Rcpp::LogicalVector& usable, const Rcpp::IntegerVector& row_ptr, const Rcpp::IntegerVector& col_idx, const Rcpp::NumericVector& dist, const Rcpp::IntegerVector& group_ids, double sigma_sp, double cross_weight, double rho_scale, double lsd_scale);
+RcppExport SEXP _medusa_csr_bilateral_noise_smooth_cpp(SEXP profilesSEXP, SEXP ind_rhosSEXP, SEXP raw_lsdSEXP, SEXP usableSEXP, SEXP row_ptrSEXP, SEXP col_idxSEXP, SEXP distSEXP, SEXP group_idsSEXP, SEXP sigma_spSEXP, SEXP cross_weightSEXP, SEXP rho_scaleSEXP, SEXP lsd_scaleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type profiles(profilesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type ind_rhos(ind_rhosSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type raw_lsd(raw_lsdSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalVector& >::type usable(usableSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type row_ptr(row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type col_idx(col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma_sp(sigma_spSEXP);
+    Rcpp::traits::input_parameter< double >::type cross_weight(cross_weightSEXP);
+    Rcpp::traits::input_parameter< double >::type rho_scale(rho_scaleSEXP);
+    Rcpp::traits::input_parameter< double >::type lsd_scale(lsd_scaleSEXP);
+    rcpp_result_gen = Rcpp::wrap(csr_bilateral_noise_smooth_cpp(profiles, ind_rhos, raw_lsd, usable, row_ptr, col_idx, dist, group_ids, sigma_sp, cross_weight, rho_scale, lsd_scale));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csr_cluster_member_weights_cpp
+arma::mat csr_cluster_member_weights_cpp(const Rcpp::IntegerVector& cluster_id, int n_clusters, const Rcpp::LogicalVector& usable, const Rcpp::IntegerVector& row_ptr, const Rcpp::IntegerVector& col_idx, const Rcpp::NumericVector& edge_weights);
+RcppExport SEXP _medusa_csr_cluster_member_weights_cpp(SEXP cluster_idSEXP, SEXP n_clustersSEXP, SEXP usableSEXP, SEXP row_ptrSEXP, SEXP col_idxSEXP, SEXP edge_weightsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type cluster_id(cluster_idSEXP);
+    Rcpp::traits::input_parameter< int >::type n_clusters(n_clustersSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalVector& >::type usable(usableSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type row_ptr(row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type col_idx(col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type edge_weights(edge_weightsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csr_cluster_member_weights_cpp(cluster_id, n_clusters, usable, row_ptr, col_idx, edge_weights));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csr_quad_cor_cpp
+Rcpp::NumericVector csr_quad_cor_cpp(const arma::mat& Z_unit, double d_res, const Rcpp::IntegerVector& row_ptr, const Rcpp::IntegerVector& col_idx, const Rcpp::NumericVector& dist, const Rcpp::IntegerVector& group_ids, const Rcpp::NumericVector& rho_vec, const Rcpp::NumericVector& lsd_vec, const Rcpp::LogicalVector& usable_col, double sigma_sp, double cross_weight, double rho_scale, double lsd_scale);
+RcppExport SEXP _medusa_csr_quad_cor_cpp(SEXP Z_unitSEXP, SEXP d_resSEXP, SEXP row_ptrSEXP, SEXP col_idxSEXP, SEXP distSEXP, SEXP group_idsSEXP, SEXP rho_vecSEXP, SEXP lsd_vecSEXP, SEXP usable_colSEXP, SEXP sigma_spSEXP, SEXP cross_weightSEXP, SEXP rho_scaleSEXP, SEXP lsd_scaleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Z_unit(Z_unitSEXP);
+    Rcpp::traits::input_parameter< double >::type d_res(d_resSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type row_ptr(row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type col_idx(col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type rho_vec(rho_vecSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type lsd_vec(lsd_vecSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalVector& >::type usable_col(usable_colSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma_sp(sigma_spSEXP);
+    Rcpp::traits::input_parameter< double >::type cross_weight(cross_weightSEXP);
+    Rcpp::traits::input_parameter< double >::type rho_scale(rho_scaleSEXP);
+    Rcpp::traits::input_parameter< double >::type lsd_scale(lsd_scaleSEXP);
+    rcpp_result_gen = Rcpp::wrap(csr_quad_cor_cpp(Z_unit, d_res, row_ptr, col_idx, dist, group_ids, rho_vec, lsd_vec, usable_col, sigma_sp, cross_weight, rho_scale, lsd_scale));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csr_hrf_graph_pool_cpp
+Rcpp::List csr_hrf_graph_pool_cpp(const arma::mat& scores, const Rcpp::List& train_scores_list, bool has_gate, const arma::mat& task_p_raw, const arma::mat& shape_p_raw, const Rcpp::LogicalMatrix& compatible, const Rcpp::LogicalMatrix& task_supported, const Rcpp::LogicalMatrix& supported, double eff_task, double eff_shape, const Rcpp::IntegerVector& counts, int min_training_runs, const Rcpp::IntegerVector& row_ptr, const Rcpp::IntegerVector& col_idx, const Rcpp::NumericVector& dist, const Rcpp::IntegerVector& group_ids, int boundary_mode, double cross_weight, double sigma_sp, const Rcpp::NumericVector& rho_train, const Rcpp::NumericVector& lsd_train, const Rcpp::NumericVector& v_quad_fold, const arma::mat& kernel_cos, const Rcpp::NumericVector& dist_fb, int fallback_kernel, double evidence_alpha, double min_r2, double canonical_strength, bool soft_average);
+RcppExport SEXP _medusa_csr_hrf_graph_pool_cpp(SEXP scoresSEXP, SEXP train_scores_listSEXP, SEXP has_gateSEXP, SEXP task_p_rawSEXP, SEXP shape_p_rawSEXP, SEXP compatibleSEXP, SEXP task_supportedSEXP, SEXP supportedSEXP, SEXP eff_taskSEXP, SEXP eff_shapeSEXP, SEXP countsSEXP, SEXP min_training_runsSEXP, SEXP row_ptrSEXP, SEXP col_idxSEXP, SEXP distSEXP, SEXP group_idsSEXP, SEXP boundary_modeSEXP, SEXP cross_weightSEXP, SEXP sigma_spSEXP, SEXP rho_trainSEXP, SEXP lsd_trainSEXP, SEXP v_quad_foldSEXP, SEXP kernel_cosSEXP, SEXP dist_fbSEXP, SEXP fallback_kernelSEXP, SEXP evidence_alphaSEXP, SEXP min_r2SEXP, SEXP canonical_strengthSEXP, SEXP soft_averageSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type scores(scoresSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type train_scores_list(train_scores_listSEXP);
+    Rcpp::traits::input_parameter< bool >::type has_gate(has_gateSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type task_p_raw(task_p_rawSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type shape_p_raw(shape_p_rawSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalMatrix& >::type compatible(compatibleSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalMatrix& >::type task_supported(task_supportedSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalMatrix& >::type supported(supportedSEXP);
+    Rcpp::traits::input_parameter< double >::type eff_task(eff_taskSEXP);
+    Rcpp::traits::input_parameter< double >::type eff_shape(eff_shapeSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type counts(countsSEXP);
+    Rcpp::traits::input_parameter< int >::type min_training_runs(min_training_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type row_ptr(row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type col_idx(col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< int >::type boundary_mode(boundary_modeSEXP);
+    Rcpp::traits::input_parameter< double >::type cross_weight(cross_weightSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma_sp(sigma_spSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type rho_train(rho_trainSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type lsd_train(lsd_trainSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type v_quad_fold(v_quad_foldSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type kernel_cos(kernel_cosSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type dist_fb(dist_fbSEXP);
+    Rcpp::traits::input_parameter< int >::type fallback_kernel(fallback_kernelSEXP);
+    Rcpp::traits::input_parameter< double >::type evidence_alpha(evidence_alphaSEXP);
+    Rcpp::traits::input_parameter< double >::type min_r2(min_r2SEXP);
+    Rcpp::traits::input_parameter< double >::type canonical_strength(canonical_strengthSEXP);
+    Rcpp::traits::input_parameter< bool >::type soft_average(soft_averageSEXP);
+    rcpp_result_gen = Rcpp::wrap(csr_hrf_graph_pool_cpp(scores, train_scores_list, has_gate, task_p_raw, shape_p_raw, compatible, task_supported, supported, eff_task, eff_shape, counts, min_training_runs, row_ptr, col_idx, dist, group_ids, boundary_mode, cross_weight, sigma_sp, rho_train, lsd_train, v_quad_fold, kernel_cos, dist_fb, fallback_kernel, evidence_alpha, min_r2, canonical_strength, soft_average));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_medusa_hrf_event_design_cpp", (DL_FUNC) &_medusa_hrf_event_design_cpp, 8},
@@ -358,6 +500,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_generate_feature_armadillo", (DL_FUNC) &_medusa_generate_feature_armadillo, 2},
     {"_medusa_mat2df", (DL_FUNC) &_medusa_mat2df, 4},
     {"_medusa_sigmoid", (DL_FUNC) &_medusa_sigmoid, 2},
+    {"_medusa_estimate_median_nn_dist_cpp", (DL_FUNC) &_medusa_estimate_median_nn_dist_cpp, 1},
+    {"_medusa_build_lattice_geodesic_graph_cpp", (DL_FUNC) &_medusa_build_lattice_geodesic_graph_cpp, 6},
+    {"_medusa_build_coords_knn_graph_cpp", (DL_FUNC) &_medusa_build_coords_knn_graph_cpp, 5},
+    {"_medusa_csr_bilateral_noise_smooth_cpp", (DL_FUNC) &_medusa_csr_bilateral_noise_smooth_cpp, 12},
+    {"_medusa_csr_cluster_member_weights_cpp", (DL_FUNC) &_medusa_csr_cluster_member_weights_cpp, 6},
+    {"_medusa_csr_quad_cor_cpp", (DL_FUNC) &_medusa_csr_quad_cor_cpp, 13},
+    {"_medusa_csr_hrf_graph_pool_cpp", (DL_FUNC) &_medusa_csr_hrf_graph_pool_cpp, 29},
     {NULL, NULL, 0}
 };
 
