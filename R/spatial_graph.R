@@ -188,6 +188,9 @@ build_spatial_graph <- function(
 
   # 4. Square sparse Matrix (e.g., Matrix::dgCMatrix)
   if (inherits(x, "Matrix")) {
+    if (!requireNamespace("Matrix", quietly = TRUE)) {
+      stop("Package 'Matrix' is required to convert sparse Matrix spatial_graph inputs.", call. = FALSE)
+    }
     if (nrow(x) != ncol(x)) {
       stop("Sparse Matrix spatial_graph must be square (V x V).", call. = FALSE)
     }

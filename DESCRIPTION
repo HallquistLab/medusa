@@ -50,6 +50,7 @@ Suggests:
     jsonlite,
     JuliaCall,
     knitr,
+    Matrix,
     pkgload,
     readr,
     repair,

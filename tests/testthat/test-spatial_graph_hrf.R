@@ -374,3 +374,19 @@ test_that("hrf_safe_svd fallback matches base::svd singular values, subspace, an
   expect_equal(proj_pol, proj_ref, tolerance = 1e-10)
   expect_equal(medusa:::hrf_safe_svd(x)$d[seq_len(rk)], sv_ref$d[seq_len(rk)], tolerance = 1e-12)
 })
+
+test_that("build_spatial_graph converts sparse Matrix distance graphs cleanly", {
+  skip_if_not_installed("Matrix")
+  sm <- Matrix::sparseMatrix(
+    i = c(1L, 2L, 2L, 3L),
+    j = c(2L, 1L, 3L, 2L),
+    x = c(2.0, 2.0, 2.5, 2.5),
+    dims = c(4L, 4L),
+    dimnames = list(paste0("v", 1:4), paste0("v", 1:4))
+  )
+  g <- build_spatial_graph(sm, spatial_fwhm = 4.0, max_neighbors = 4L, max_radius = 6.0)
+  expect_s3_class(g, "medusa_spatial_graph")
+  expect_equal(g$n_voxels, 4L)
+  expect_equal(g$voxel_ids, paste0("v", 1:4))
+  expect_equal(diff(g$row_ptr), c(2L, 3L, 2L, 1L))
+})
