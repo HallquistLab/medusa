@@ -10,6 +10,10 @@
   : Backproject parcel-level MEDuSA coefficients onto a 4D NIfTI brain
   mask
 
+- [`build_spatial_graph()`](https://hallquistlab.github.io/medusa/reference/build_spatial_graph.md)
+  : Build a sparse spatial neighborhood graph for bilateral HRF and
+  noise pooling
+
 - [`compress_mts_pca()`](https://hallquistlab.github.io/medusa/reference/compress_mts_pca.md)
   : Core function for computing multivariate time series compression
   scores by principal components

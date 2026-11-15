@@ -105,6 +105,24 @@
   [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
   and
   [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md).
+- Added sparse bilateral HRF and noise graph pooling
+  ([`build_spatial_graph()`](https://hallquistlab.github.io/medusa/reference/build_spatial_graph.md)
+  and `estimate_crossrun_hrf(..., pooling = "graph")`, while preserving
+  `pooling = "voxel"` as the default for atlas-free NIfTI inputs):
+  constructs `O(V)` CSR neighborhoods via 26-connected in-mask geodesic
+  lattice Dijkstra (`metric = "geodesic"`, blocking cross-sulcal
+  CSF/out-of-mask bleed), 3D spatial-hash radius/`k`-NN
+  (`metric = "euclidean"`), or custom surface/voxel edge graphs;
+  performs bilateral REML noise profile smoothing with adaptive stratum
+  quantization (`max_noise_strata = 10L`) and empirical innovation
+  spatial correlation forms (`v_quad`); pools out-of-sample training-run
+  HRF evidence using Spearman-disattenuated cross-run profile
+  concordance, signed anti-correlation boundary stopping,
+  soft/hard/ignored atlas boundary priors
+  (`parcel_boundary = c("soft", "hard", "ignore")`,
+  `parcel_cross_weight = 0.35`), and prototype waveform quantization
+  (`max_hrf_strata = 48L`) for whole-brain scalability; and hardens
+  multi-trial GLS SVD projections (`hrf_safe_svd()`).
 
 ### Standalone package extraction
 

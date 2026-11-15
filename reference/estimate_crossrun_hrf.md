@@ -15,7 +15,7 @@ estimate_crossrun_hrf(
   valid_rows = NULL,
   time_offset = 0,
   spatial_groups = NULL,
-  pooling = c("voxel", "parcel"),
+  pooling = c("voxel", "parcel", "graph"),
   spatial_strength = 0,
   fallback_kernel = 1L,
   min_r2 = 0.01,
@@ -34,7 +34,13 @@ estimate_crossrun_hrf(
   spatial_fwhm = NULL,
   selection_mode = c("hard", "soft_average"),
   noise_groups = NULL,
-  run_col = "run"
+  run_col = "run",
+  spatial_graph = NULL,
+  parcel_boundary = c("soft", "hard", "ignore"),
+  parcel_cross_weight = 0.35,
+  max_neighbors = 32L,
+  max_hrf_strata = 48L,
+  max_noise_strata = 10L
 )
 ```
 
@@ -108,7 +114,12 @@ estimate_crossrun_hrf(
 
 - pooling:
 
-  Select HRFs per voxel or share one HRF per supplied parcel.
+  HRF spatial pooling strategy: `"voxel"` (default, even for atlas-free
+  NIfTI inputs; selects HRFs per voxel with optional parcel anchor
+  regularization), `"parcel"` (shares one HRF per supplied parcel), or
+  `"graph"` (sparse bilateral spatial-graph pooling across local in-mask
+  geodesic or coordinate neighborhoods, respecting noise borders and
+  optional soft/hard parcel priors without \\O(V^2)\\ dense matrices).
 
 - spatial_strength:
 
@@ -188,14 +199,17 @@ estimate_crossrun_hrf(
 - spatial_coords:
 
   Optional numeric matrix of 3D voxel coordinates (N x 3) used for local
-  Gaussian-weighted anchor pooling. Automatically populated from
-  `bold$voxel_map[, c("x", "y", "z")]` when `bold` is a
-  `"medusa_nifti_ts"` object and `spatial_fwhm` is specified.
+  Gaussian-weighted anchor or graph pooling. Automatically populated
+  from `bold$voxel_map[, c("x", "y", "z")]` when `bold` is a
+  `"medusa_nifti_ts"` object and `spatial_fwhm` is specified or
+  `pooling = "graph"`.
 
 - spatial_fwhm:
 
   Optional numeric spatial Gaussian FWHM (in coordinate units) for local
-  anchor pooling.
+  anchor or graph pooling. When `NULL` under `pooling = "graph"`,
+  defaults to `2.5 * median(spacing)` on volumetric lattices or `2.5`
+  times the median nearest-neighbor distance.
 
 - selection_mode:
 
@@ -208,14 +222,53 @@ estimate_crossrun_hrf(
 - noise_groups:
 
   Optional voxel labels defining noise covariance pooling neighborhoods,
-  in voxel column order. Defaults to `spatial_groups` when omitted.
-  Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
-  groups) to differ from HRF selection parcels.
+  in voxel column order. Defaults to `spatial_groups` when omitted
+  (except under `pooling = "graph"` with `parcel_boundary` set to
+  `"soft"` or `"ignore"`, where noise covariance is pooled bilaterally
+  over the sparse graph).
 
 - run_col:
 
   Column name in `events` identifying runs when `events` is supplied as
   a combined multi-run `data.frame`. Default `"run"`.
+
+- spatial_graph:
+
+  Optional prebuilt `"medusa_spatial_graph"` (from
+  [`build_spatial_graph`](https://hallquistlab.github.io/medusa/reference/build_spatial_graph.md)),
+  sparse adjacency matrix, or edge `data.frame` (e.g., cortical surface
+  mesh) used when `pooling = "graph"`.
+
+- parcel_boundary:
+
+  Boundary handling when `spatial_groups` is present with
+  `pooling = "graph"`: `"soft"` (default; applies prior factor
+  `parcel_cross_weight` across borders, modulated upward when cross-run
+  HRF concordance agrees and suppressed to zero when active profiles
+  disagree), `"hard"` (strictly blocks cross-parcel edges), or
+  `"ignore"`.
+
+- parcel_cross_weight:
+
+  Baseline cross-parcel prior factor in `[0, 1]` when
+  `pooling = "graph"` and `parcel_boundary = "soft"` (default `0.35`).
+
+- max_neighbors:
+
+  Maximum non-self spatial neighbors per voxel in `pooling = "graph"`
+  (default `32L`).
+
+- max_hrf_strata:
+
+  Maximum quantized composite HRF waveform prototypes per run in
+  `pooling = "graph"` with `selection_mode = "soft_average"` so Step-2
+  inverse operator caching remains compact at whole-brain scale (default
+  `48L`). Continuous weights are preserved in `kernel_weights`.
+
+- max_noise_strata:
+
+  Maximum bilateral REML noise strata per run when `pooling = "graph"`
+  (default `10L`).
 
 ## Value
 
