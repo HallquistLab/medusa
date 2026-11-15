@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -225,12 +225,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="./medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -346,19 +346,19 @@ window.Quarto = {
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;"><strong>Step 1 · NIfTI/BIDS I/O, Censoring, HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
+<td style="text-align: left;"><strong>Step 1 · NIfTI/BIDS I/O, Censoring, Spatial Graph, HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
 <td style="text-align: left;"><code>read_fmriprep_subject()</code>, <code>read_fmriprep_confounds()</code>, <code>read_bids_events()</code>, <code>read_nifti_ts()</code>, <code>build_spatial_graph()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
-<td style="text-align: left;">Streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction, BIDS/fMRIPrep/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code> and zero-phase respiratory motion filtering (<code>motion_bandstop_bpm</code> / <code>motion_lowpass_hz</code>), 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and geodesic bilateral graph pooling (<code>pooling = "graph"</code>), and 2-pass REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
+<td style="text-align: left;">Streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction with pre-flight geometry checks, BIDS/fMRIPrep/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code> and zero-phase respiratory motion filtering (<code>motion_bandstop_bpm</code> / <code>motion_lowpass_hz</code>), 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and geodesic bilateral graph pooling (<code>pooling = "graph"</code>), and 2-pass target-excluding REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 2 · Event-informed continuous deconvolution</strong></td>
 <td style="text-align: left;"><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code>, <code>deconvolve_reglin()</code>, <code>deconvolve_nlreg()</code></td>
-<td style="text-align: left;">Continuous neural source recovery with FDR-gated SNR-stratified PAVA <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>), adaptive kurtosis/tail-triggered <code>rwls = "auto"</code> glitch downweighting, <code>"noise_sd"</code> scaling, explicit <code>hrf_inverse_operator()</code> strata, and streaming C++ 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler 2011 comparator).</td>
+<td style="text-align: left;">Continuous neural source recovery with FDR-gated SNR-stratified PAVA <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>), adaptive kurtosis/tail-triggered <code>rwls = "auto"</code> glitch downweighting, Winsorized GLS marginal <code>"noise_sd"</code> scaling, task-free <code>noise_innovations</code>, explicit <code>hrf_inverse_operator()</code> strata, and streaming C++ 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler 2011 comparator).</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 3 · Trial-epoch readout, alignment &amp; demixing</strong></td>
 <td style="text-align: left;"><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code>, <code>evt_align_decon_files()</code></td>
-<td style="text-align: left;">Kernel quadrature onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), post-readout ridge target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, pre-truncation bilateral Graph-EB trial variance (<code>tau2_shrinkage = "graph_eb"</code>), exact Toeplitz error propagation (<code>se_demixed</code>), and fast C++ matrix-native descriptive alignment (<code>align_medusa_ts()</code>).</td>
+<td style="text-align: left;">Kernel quadrature onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), post-readout ridge target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, pre-truncation bilateral Graph-EB trial variance (<code>tau2_shrinkage = "graph_eb"</code>) &amp; moderated sandwich scales, exact Toeplitz error propagation (<code>se_demixed</code>), and fast C++ matrix-native descriptive alignment (<code>align_medusa_ts()</code>).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 4 · Parcel panels &amp; cohort weights</strong></td>
@@ -368,7 +368,7 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 5 · Group &amp; trajectory inference</strong></td>
 <td style="text-align: left;"><code>mixed_by()</code>, <code>medusa_multilag_infer()</code>, <code>backproject_medusa()</code></td>
-<td style="text-align: left;">Cohort-weighted split-wise REML mixed models (<code>lmerTest</code>), joint multi-lag trajectories with available-case pooling, spectral deblurring, Marra–Wood P-splines, studentized Wishart <code>Max-|T|</code> / 1D TFCE / omnibus tests, <code>"unsmoothed"</code> window contrasts, and streaming NIfTI map backprojection.</td>
+<td style="text-align: left;">Cohort-weighted split-wise REML mixed models (<code>lmerTest</code>, supporting disk-backed Parquet/<code>.rds</code>/CSV streaming and <code>split_filter</code> pushdown), joint multi-lag trajectories with available-case pooling, spectral deblurring, Marra–Wood P-splines, studentized Wishart <code>Max-|T|</code> / 1D TFCE / omnibus tests, <code>"unsmoothed"</code> window contrasts, and streaming NIfTI map backprojection.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 6 · Trial connectivity &amp; PPI</strong></td>
@@ -377,11 +377,11 @@ window.Quarto = {
 </tr>
 </tbody>
 </table>
-<p>For NIfTI matrix and file-backed workflows (<code>read_nifti_ts()</code>, <code>write_nifti_ts()</code>, <code>align_medusa_ts()</code>, <code>voxelwise_deconvolution()</code>, and <code>evt_align_decon_files()</code>), see the package vignettes (<code>vignettes/medusa-workflows.Rmd</code> and <code>vignettes/medusa-docs.md</code>) and function reference (<code>?read_nifti_ts</code>, <code>?estimate_crossrun_hrf</code>, <code>?deconvolve_crossrun_hrf</code>, <code>?align_medusa_ts</code>, <code>?decon_epoch_regression</code>, <code>?medusa_multilag_infer</code>, <code>?decon_connectivity_repair</code>).</p>
+<p>For NIfTI matrix and file-backed workflows (<code>read_nifti_ts()</code>, <code>write_nifti_ts()</code>, <code>build_spatial_graph()</code>, <code>align_medusa_ts()</code>, <code>voxelwise_deconvolution()</code>, and <code>evt_align_decon_files()</code>), see the package vignettes (<code>vignettes/medusa-workflows.Rmd</code> and <code>vignettes/medusa-docs.md</code>) and function reference (<code>?read_nifti_ts</code>, <code>?build_spatial_graph</code>, <code>?estimate_crossrun_hrf</code>, <code>?deconvolve_crossrun_hrf</code>, <code>?align_medusa_ts</code>, <code>?decon_epoch_regression</code>, <code>?medusa_multilag_infer</code>, <code>?decon_connectivity_repair</code>).</p>
 </section>
 <section id="reproducing-all-simulations-figures-and-the-book" class="level2">
 <h2 class="anchored" data-anchor-id="reproducing-all-simulations-figures-and-the-book">Reproducing All Simulations, Figures, and the Book</h2>
-<p>With <code>medusa</code> and its plotting/reporting dependencies (<code>ggplot2</code>, <code>ggbrain</code>, <code>patchwork</code>, <code>RNifti</code>, <code>data.table</code>, <code>lmerTest</code>, <code>knitr</code>, <code>rmarkdown</code>) installed in R, render the book from <code>book/</code>:</p>
+<p>With <code>medusa</code> and its plotting/reporting dependencies (<code>ggplot2</code>, <code>data.table</code>, <code>lmerTest</code>, <code>knitr</code>, <code>rmarkdown</code>; plus <code>ggbrain</code>, <code>patchwork</code>, and <code>RNifti</code> when regenerating volumetric brain-map figures) installed in R, render the book from <code>book/</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Because <code>quarto render</code> reads the saved <code>.rds</code> and <code>.csv</code> outputs generated by each chapter’s standalone scripts, rendering completes in seconds. To regenerate every simulation, diagnostic table, and figure from scratch against the installed <code>medusa</code> package, run the chapter scripts below from <code>book/</code>:</p>
 <details>
@@ -444,6 +444,9 @@ Show full simulation and figure regeneration commands
 <li>Power, J. D., Barnes, K. A., Snyder, A. Z., Schlaggar, B. L., &amp; Petersen, S. E. (2012). Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. <em>NeuroImage</em>, 59(3), 2142–2154. <a href="https://doi.org/10.1016/j.neuroimage.2011.10.018">DOI</a></li>
 <li>Fair, D. A., Miranda-Dominguez, O., Snyder, A. Z., Perrone, A., Earl, E. A., Van, A. N., … &amp; Dosenbach, N. U. F. (2020). Correction of respiratory artifacts in MRI head motion estimates. <em>NeuroImage</em>, 208, 116400. <a href="https://doi.org/10.1016/j.neuroimage.2019.116400">DOI</a></li>
 <li>Gratton, C., Dworetsky, A., Coalson, R. S., Adeyemo, B., Laumann, T. O., Wig, G. S., … &amp; Campbell, M. C. (2020). Removal of high frequency contamination from motion estimates in single-band fMRI saves data without biasing functional connectivity. <em>NeuroImage</em>, 217, 116866. <a href="https://doi.org/10.1016/j.neuroimage.2020.116866">DOI</a></li>
+<li>Efron, B., &amp; Morris, C. (1972). Limiting the risk of Bayes and empirical Bayes estimators—Part II: The empirical Bayes case. <em>Journal of the American Statistical Association</em>, 67(337), 130–139.</li>
+<li>Smyth, G. K. (2004). Linear models and empirical Bayes methods for assessing differential expression in microarray experiments. <em>Statistical Applications in Genetics and Molecular Biology</em>, 3(1), Article 3.</li>
+<li>Tomasi, C., &amp; Manduchi, R. (1998). Bilateral filtering for gray and color images. <em>Proceedings of the Sixth International Conference on Computer Vision (ICCV)</em>, 839–846.</li>
 </ul>
 
 

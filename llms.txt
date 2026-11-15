@@ -23,9 +23,14 @@ remotes::install_github("HallquistLab/medusa")
 
 ## Core Workflow
 
-1.  **NIfTI matrix I/O, cross-run HRF & AR($`p`$) noise estimation:**
+1.  **NIfTI/BIDS matrix I/O, spatial graph, cross-run HRF & AR($`p`$)
+    noise estimation:**
+    [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md),
+    [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+    [`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md),
     [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
     [`write_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md),
+    [`build_spatial_graph()`](https://hallquistlab.github.io/medusa/reference/build_spatial_graph.md),
     [`hrf_library()`](https://hallquistlab.github.io/medusa/reference/hrf_library.md),
     [`estimate_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
 2.  **Deconvolution:**
@@ -67,9 +72,10 @@ package vignettes:
     steps (goals, input/output architecture, recommended settings,
     event-informed continuous deconvolution vs. blind deconvolution,
     epoch de-mixing, parcel panels, group multilevel & multi-lag
-    trajectory inference, and disattenuated connectivity),
-    measurement-error theory, and calibration diagnostics. Render
-    locally from `book/` with `quarto render`.
+    trajectory inference, and disattenuated connectivity), volumetric
+    geodesic graph pooling & `ggbrain` mapping, measurement-error
+    theory, and calibration diagnostics. Render locally from `book/`
+    with `quarto render`.
 2.  **[Conceptual
     foundations](https://hallquistlab.github.io/medusa/vignettes/medusa-concepts.Rmd)**:
     Package vignette introducing convolution, regularization, HRF

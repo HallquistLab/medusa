@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -226,12 +226,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -431,11 +431,14 @@ window.Quarto = {
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>What Does Default <code>pooling = "voxel"</code> Do When <code>read_nifti_ts(..., atlas = ...)</code> Supplies an Atlas?
+<span class="screen-reader-only">Tip</span>What Does Default <code>pooling = "voxel"</code> Do on Atlas-Carrying vs.&nbsp;Atlas-Free NIfTI Inputs?
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>When a <code>"medusa_nifti_ts"</code> bundle carries <code>ts$parcel_ids</code>, calling <code>estimate_crossrun_hrf(ts, ...)</code> with the default <code>pooling = "voxel"</code> does <strong>not</strong> force all voxels in a parcel to share one HRF. Instead, it keeps individual HRFs for task-supported voxels (<code>spatial_strength = 0</code>), pools AR(<span class="math inline">\(p\)</span>) noise parameters within parcels, and uses the parcel-pooled HRF strictly as a <code>"fallback_parcel"</code> safety net for low-SNR voxels that fail cross-run gating. Switching explicitly to <code>pooling = "graph"</code> upgrades both HRF evidence and REML noise estimation to edge-preserving geodesic bilateral pooling across all voxels.</p>
+<ul>
+<li><strong>Atlas-free NIfTI (<code>read_nifti_ts(..., atlas = NULL)</code>):</strong> <code>estimate_crossrun_hrf(ts, ...)</code> keeps <code>pooling = "voxel"</code> as a pure single-voxel fit by default so spatial specificity is preserved unless you explicitly opt into <code>pooling = "graph"</code>. Even if Step 1 used <code>pooling = "voxel"</code>, Step 3 (<code>decon_epoch_regression(..., tau2_shrinkage = "auto")</code>) still constructs the 26-connected geodesic CSR graph automatically from <code>decon$voxel_map</code> to stabilize voxelwise trial variances (<code>"graph_eb"</code>).</li>
+<li><strong>Atlas-carrying NIfTI (<code>read_nifti_ts(..., atlas = ...)</code>):</strong> Calling <code>estimate_crossrun_hrf(ts, ...)</code> with default <code>pooling = "voxel"</code> does <strong>not</strong> force all voxels in a parcel to share one HRF; it keeps individual HRFs for task-supported voxels (<code>spatial_strength = 0</code>), pools AR(<span class="math inline">\(p\)</span>) noise parameters within parcels, and uses the parcel-pooled HRF strictly as a <code>"fallback_parcel"</code> safety net for low-SNR voxels that fail cross-run gating. Switching explicitly to <code>pooling = "graph"</code> upgrades both HRF evidence and REML noise estimation to edge-preserving geodesic bilateral pooling across all voxels.</li>
+</ul>
 </div>
 </div>
 <hr>
@@ -869,7 +872,7 @@ Table&nbsp;9.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise pe
 <li><strong>Null-cortex truncation bias:</strong> Nearly half of true <span class="math inline">\(\tau_{\text{bio}}^2 = 0\)</span> voxels draw positive noise fluctuations, inflating average null <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> above zero (0.156).</li>
 <li>Meanwhile, <strong>global Empirical Bayes (<code>tau2_shrinkage = "eb"</code>)</strong> pools all 6,655 voxels toward one whole-slab prior dominated by the 85% null background—leaving <strong>35.1%</strong> active zero-collapse unfixed while pulling the 30-voxel Right Insula hotspot downward relative to local bilateral pooling (<code>hotspot mean</code> <span class="math inline">\(\hat{\tau}_{\text{bio}}^2 =\)</span> <strong>0.602</strong> vs.&nbsp;<strong>0.800</strong> under Graph-EB)!</li>
 </ul>
-<p><code>tau2_shrinkage = "graph_eb"</code> (<code>graph_eb_tau2_csr_cpp()</code>, automatic default when <code>deconvolution</code> carries a spatial graph in voxelwise mode) solves all three problems:</p>
+<p><code>tau2_shrinkage = "graph_eb"</code> (<code>graph_eb_tau2_csr_cpp()</code>, automatic default under <code>tau2_shrinkage = "auto"</code> whenever <code>deconvolution</code> carries a spatial graph or <code>voxel_map</code> coordinates in voxelwise mode) solves all three problems:</p>
 <ol type="1">
 <li><strong>Pre-truncation scale-free pooling:</strong> Shrinks the <em>untruncated</em> dimensionless ratio <span class="math inline">\(\hat{\theta}_u = \hat{\tau}_{\text{raw},u}^2 / s_{\text{obs},u}^2\)</span> across bilateral graph neighbors <em>before</em> applying <span class="math inline">\(\max(0, \cdot)\)</span>—allowing positive and negative estimation errors in null cortex to cancel symmetrically around zero while preventing zero-collapse in active cortex (<strong>21.7%</strong> zero-collapse!).</li>
 <li><strong>Isserlis correlated-error variance discount:</strong> Accounts for the exact squared-error correlation <span class="math inline">\(\operatorname{Corr}(Z_u^2, Z_v^2) = \rho_{uv}^2\)</span> induced by shared spatial scanner innovations (<code>noise_innovations</code>) so effective neighborhood sample size is never overstated.</li>
@@ -1616,8 +1619,8 @@ v_{\text{quad}, u}^{(-r)} = \sum_{a \in \mathcal{N}(u) \cup \{u\}} \sum_{b \in \
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="pagination-link" aria-label="Step 6 · Trial-level connectivity and PPI">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></span>
+      <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="pagination-link" aria-label="Step 6: Trial-Level Connectivity and PPI">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">

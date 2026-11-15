@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Step 5 · Group and trajectory inference – MEDuSA</title>
+<title>Step 5: Group and Trajectory Inference – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -226,12 +226,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -312,6 +312,7 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#from-mixed_by" id="toc-from-mixed_by" class="nav-link" data-scroll-target="#from-mixed_by">From <code>mixed_by()</code></a></li>
   <li><a href="#from-medusa_multilag_infer" id="toc-from-medusa_multilag_infer" class="nav-link" data-scroll-target="#from-medusa_multilag_infer">From <code>medusa_multilag_infer()</code></a></li>
+  <li><a href="#from-backproject_medusa-volumetric-nifti-export" id="toc-from-backproject_medusa-volumetric-nifti-export" class="nav-link" data-scroll-target="#from-backproject_medusa-volumetric-nifti-export">From <code>backproject_medusa()</code> (Volumetric NIfTI Export)</a></li>
   </ul></li>
   <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a>
   <ul class="collapse">
@@ -338,9 +339,9 @@ window.Quarto = {
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span id="sec-step5" class="quarto-section-identifier"><span class="chapter-title">Step 5 · Group and trajectory inference</span></span></h1>
+<h1 class="title"><span id="sec-step5" class="quarto-section-identifier"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></span></h1>
 </div>
 
 
@@ -362,8 +363,9 @@ window.Quarto = {
 <p>Step 4 produces a participant-level trial panel in which each parcel, trial, and peri-event lag carries a deconvolved neural readout alongside propagated measurement-error and precision metadata. <strong>Step 5 tests whether trial-level behavioral associations generalize across the participant population—and characterizes how those effects unfold over peri-event time.</strong></p>
 <p>MEDuSA provides two complementary group-inference pathways in Step 5, matched to two distinct scientific targets:</p>
 <ol type="1">
-<li><strong>Split-wise linear mixed-effects models via <code>mixed_by()</code>:</strong> Fits a prespecified multilevel regression formula independently at each <code>(parcel, evt_time)</code> readout. This pathway is designed for rich within-trial factorial designs, cross-level interactions, random participant slopes, nested run intercepts, and precision-weighted single-readout inference, followed by explicit multiplicity correction across the planned <code>(parcel, lag, term)</code> family.</li>
+<li><strong>Split-wise linear mixed-effects models via <code>mixed_by()</code>:</strong> Fits a prespecified multilevel regression formula independently at each <code>(parcel, evt_time)</code> readout—either on an in-memory <code>group_panel</code> or streamed directly from disk-backed <code>.parquet</code> / Hive-partitioned Parquet datasets, <code>.rds</code>, or <code>.csv(.gz)</code> files with automatic column projection and <code>split_filter</code> pushdown. This pathway is designed for rich within-trial factorial designs, cross-level interactions, random participant slopes, nested run intercepts, and precision-weighted single-readout inference, followed by explicit multiplicity correction across the planned <code>(parcel, lag, term)</code> family.</li>
 <li><strong>Joint multi-lag trajectory inference via <code>medusa_multilag_infer()</code>:</strong> Models all peri-event lags of a <code>(parcel, term)</code> profile <em>jointly</em>, combining participant-level within-run multiple regressions with available-case cross-lag covariance pooling, optional spectral resolution deblurring and P-spline smoothing, studentized Wishart null calibration (<code>Max-|T|</code>, 1D TFCE, omnibus Mahalanobis), simultaneous confidence bands, planned time-window contrasts, and peak/latency summaries.</li>
+<li><strong>Volumetric brain-map export via <code>backproject_medusa()</code> (and <code>write_nifti_ts()</code>):</strong> Maps parcel-level group statistics from <code>mixed_by()</code> or <code>medusa_multilag_infer()</code> directly back onto 3D/4D NIfTI volumes in C++ using carried <code>voxel_map</code> + <code>geometry</code> metadata (or an integer NIfTI parcellation mask) for immediate visualization in <code>ggbrain</code> or standard neuroimaging viewers (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling</a>).</li>
 </ol>
 <table class="caption-top table">
 <thead>
@@ -376,7 +378,7 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">What is the conditional trial association in a multilevel model with explicit random slopes, nested runs, or cross-level interactions?</td>
-<td style="text-align: left;"><code>mixed_by()</code> (wrapping <code>lmerTest::lmer()</code>)</td>
+<td style="text-align: left;"><code>mixed_by()</code> (wrapping <code>lmerTest::lmer()</code>, <code>rstanarm::stan_lmer()</code>, or <code>jlmer()</code>)</td>
 <td style="text-align: left;"><code>coef_df_reml</code> + explicit familywise (<code>"holm"</code>) or arbitrary-dependence FDR (<code>"BY"</code>) adjustment</td>
 </tr>
 <tr class="even">
@@ -398,6 +400,11 @@ window.Quarto = {
 <td style="text-align: left;">How much stronger is activity in a late window vs.&nbsp;an early window, or when does the curve peak?</td>
 <td style="text-align: left;"><code>medusa_multilag_infer()</code></td>
 <td style="text-align: left;"><code>contrasts</code> (on <code>contrast_source = "unsmoothed"</code>) and <code>latency</code> (<code>peak_lag</code>, <code>com_lag</code>, <code>fwhm</code>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">How do parcel-level or lag-evolving group statistics map onto 3D/4D volumetric brain space?</td>
+<td style="text-align: left;"><code>backproject_medusa()</code> (parcel panels) or <code>write_nifti_ts()</code> (voxelwise fits)</td>
+<td style="text-align: left;">Streaming <code>.nii.gz</code> effect/statistic volumes aligned to <code>decon</code> or an integer atlas mask</td>
 </tr>
 </tbody>
 </table>
@@ -434,24 +441,29 @@ window.Quarto = {
 <td style="text-align: left;">Preserves <strong>both</strong> each participant’s <code>$panel</code> and their exact parcel-level <code>$lag_resolution</code>, <code>$lag_error_cor</code>, and <code>$demix_within_trial</code> metadata. Passing the full list avoids losing operator matrices when panels are stacked or saved to CSV, and allows <code>medusa_multilag_infer()</code> to pool participant-specific lag operators automatically.</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><strong><code>group_panel</code> (required for <code>mixed_by()</code>, also accepted by <code>medusa_multilag_infer()</code>)</strong></td>
-<td style="text-align: left;">Stacked long <code>data.table</code> keyed uniquely by <code>(id, run, event_index, evt_time, parcel)</code></td>
-<td style="text-align: left;">Gives <code>mixed_by()</code> a single rectangular table that can be split cleanly by <code>(parcel, evt_time)</code> while retaining behavioral covariates, run identifiers, <code>precision_weight_cohort</code>, and paired <code>*_whitened</code> columns. Keying behavioral merges on <code>(id, run, event_index)</code>—never <code>trial</code> alone—guarantees exact alignment when trials are dropped or runs are numbered per person.</td>
+<td style="text-align: left;"><strong><code>group_panel</code> or disk dataset paths (for <code>mixed_by()</code>, in-memory <code>group_panel</code> also accepted by <code>medusa_multilag_infer()</code>)</strong></td>
+<td style="text-align: left;">Stacked long <code>data.table</code> keyed uniquely by <code>(id, run, event_index, evt_time, parcel)</code>—or character vector of <code>.parquet</code> files, Hive-partitioned Parquet directories (via <code>arrow</code>), <code>.rds</code>, or <code>.csv(.gz)</code> paths</td>
+<td style="text-align: left;">Gives <code>mixed_by()</code> a rectangular panel split cleanly by <code>(parcel, evt_time)</code>. For whole-cortex cohorts (e.g., 200–1000 parcels × 10+ lags × hundreds of subjects), passing Parquet/<code>.rds</code> paths streams splits sequentially while projecting <em>only</em> the columns referenced by <code>model_formulae</code>, <code>split_on</code>, <code>weights</code>, and <code>external_merge_by</code>, pushing <code>split_filter</code> predicates directly down to Arrow!</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><strong><code>external_df</code> &amp; <code>external_merge_by</code> (optional in <code>mixed_by()</code>)</strong></td>
+<td style="text-align: left;">In-memory <code>data.table</code> or file path (<code>.parquet</code>, <code>.rds</code>, <code>.csv</code>) + key vector <code>c("id", "run", "event_index")</code></td>
+<td style="text-align: left;">Keeps neural epoch archives decoupled from evolving behavioral/computational model tables: <code>mixed_by()</code> joins <code>external_df</code> on the fly per split/file without duplicating behavioral columns across hundreds of parcels on disk.</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><strong><code>subject_slopes</code> (optional route for <code>medusa_multilag_infer()</code>)</strong></td>
 <td style="text-align: left;">Long <code>data.frame</code> / <code>data.table</code> with <code>(id, parcel, term, lag, estimate, std.error, df)</code></td>
 <td style="text-align: left;">Allows users who fit custom within-participant first-stage models (e.g., generalized linear models, nonlinear computational fits, or custom nuisance designs) to bring per-participant lag slopes and SEs into <code>medusa_multilag_infer()</code> alongside explicit <code>lag_resolution</code> and <code>lag_error_cor</code> matrices.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><strong>Centered behavioral predictors</strong></td>
 <td style="text-align: left;">Within-person / within-run deviations (<code>x_within</code>) + person means (<code>x_mean</code>)</td>
 <td style="text-align: left;">Computed on the behavioral trial table <strong>before</strong> merging with parcel activity so censored or missing fMRI frames in one parcel cannot shift the definition of a participant’s behavioral mean in another parcel.</td>
 </tr>
-<tr class="odd">
-<td style="text-align: left;"><strong><code>contrasts</code> &amp; <code>tr</code></strong></td>
-<td style="text-align: left;">Named list of early/late lag windows + acquisition TR (seconds)</td>
-<td style="text-align: left;">Defines planned scientific window comparisons before inspecting trajectories and supplies reference operator timing if standalone tables lack operator attributes.</td>
+<tr class="even">
+<td style="text-align: left;"><strong><code>contrasts</code>, <code>tr</code>, &amp; <code>brain_mask</code></strong></td>
+<td style="text-align: left;">Named list of early/late lag windows; acquisition TR (s); optional <code>decon</code> / <code>ts</code> object or 3D NIfTI parcellation mask</td>
+<td style="text-align: left;">Defines planned window comparisons upfront, supplies reference operator timing, and provides volumetric NIfTI geometry (<code>voxel_map$atlas_value</code> + <code>geometry</code>) when exporting group maps with <code>backproject_medusa()</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -542,6 +554,25 @@ window.Quarto = {
 </tr>
 </tbody>
 </table>
+</section>
+<section id="from-backproject_medusa-volumetric-nifti-export" class="level3">
+<h3 class="anchored" data-anchor-id="from-backproject_medusa-volumetric-nifti-export">From <code>backproject_medusa()</code> (Volumetric NIfTI Export)</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Output component</th>
+<th style="text-align: left;">Structure &amp; key columns</th>
+<th style="text-align: left;">Why it is set up that way</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Written <code>.nii.gz</code> paths</strong></td>
+<td style="text-align: left;">Character vector of 3D (single-lag) or 4D (multi-lag across <code>evt_time</code> / <code>lag</code>) NIfTI files per <code>&lt;plot_col&gt;_&lt;term&gt;.nii.gz</code></td>
+<td style="text-align: left;">Streams parcel statistics directly to compressed NIfTI in C++ (<code>compression = 2L</code>), auto-detecting <code>parcel</code> (numeric, integer, or numeric-string labels matched to <code>atlas_value</code>), <code>evt_time</code> / <code>lag</code>, and <code>term</code> while accepting <code>brain_mask = decon</code> (or a 3D NIfTI mask path) with <code>fill = NA_real_</code> for clean <code>ggbrain</code> overlays.</td>
+</tr>
+</tbody>
+</table>
 <hr>
 </section>
 </section>
@@ -571,7 +602,31 @@ window.Quarto = {
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  group_models<span class="sc">$</span>coef_df_reml,</span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  term <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"value_within"</span>, <span class="st">"entropy_within"</span>)</span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>focal_tests<span class="sc">$</span>p_by <span class="ot">&lt;-</span> <span class="fu">p.adjust</span>(focal_tests<span class="sc">$</span>p.value, <span class="at">method =</span> <span class="st">"BY"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>focal_tests<span class="sc">$</span>p_by <span class="ot">&lt;-</span> <span class="fu">p.adjust</span>(focal_tests<span class="sc">$</span>p.value, <span class="at">method =</span> <span class="st">"BY"</span>)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Large-cohort alternative: stream directly from Hive-partitioned Parquet on disk</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co"># (`arrow` pushes `split_filter` down and projects only required model columns!)</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="co"># group_models_disk &lt;- mixed_by(</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co">#   data              = "/study/medusa_panels_parquet/",</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">#   external_df       = "/study/trial_behavior_centered.parquet",</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">#   external_merge_by = c("id", "run", "event_index"),</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">#   model_formulae    = list(trial_effects = group_formula),</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co">#   split_on          = c("parcel", "evt_time"),</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co">#   split_filter      = list(evt_time = -1:4),</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co">#   weights           = "precision_weight_cohort",</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co">#   calculate         = "parameter_estimates_reml",</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="co">#   ncores            = 8L</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: backproject parcel estimates &amp; t-statistics to 3D/4D NIfTI volumes</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="co"># (`parcel`, `evt_time`, and `term` are auto-detected; `brain_mask` accepts `decon` or an atlas path)</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co"># nii_files &lt;- backproject_medusa(</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="co">#   coef_df    = focal_tests,</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="co">#   brain_mask = decon,</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co">#   plot_cols  = c("estimate", "statistic"),</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co">#   output_dir = "group_maps",</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="co">#   fill       = NA_real_</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="pathway-b-joint-multi-lag-trajectory-inference-medusa_multilag_infer" class="level3">
@@ -616,9 +671,9 @@ window.Quarto = {
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Upstream <code>demix_within_trial</code></strong></td>
-<td style="text-align: left;"><code>TRUE</code> (in Step 3)</td>
-<td style="text-align: left;"><code>TRUE</code> for <code>mixed_by()</code>; <code>FALSE</code> for <code>medusa_multilag_infer()</code></td>
-<td style="text-align: left;"><code>mixed_by()</code> visits one lag at a time and relies on Step 3’s ridge demixing; <code>medusa_multilag_infer()</code> sees the entire lag profile and performs regularized spectral deblurring (<code>trajectory_mode = "auto"</code>) with full cross-lag covariance propagation, avoiding double-regularization.</td>
+<td style="text-align: left;"><code>FALSE</code> (in Step 3)</td>
+<td style="text-align: left;"><code>FALSE</code> for <code>medusa_multilag_infer()</code>; optional <code>TRUE</code> for single-lag <code>mixed_by()</code></td>
+<td style="text-align: left;">Keeping <code>demix_within_trial = FALSE</code> lets <code>medusa_multilag_infer()</code> see the full lag profile and perform regularized spectral deblurring (<code>trajectory_mode = "auto"</code>) with group-level SNR and cross-lag covariance propagation, avoiding double-regularization. Enable <code>TRUE</code> upstream only when sharpening lag specificity for single-lag <code>mixed_by()</code> models.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>covariates</code> (in <code>medusa_multilag_infer()</code>)</strong></td>
@@ -649,6 +704,18 @@ window.Quarto = {
 <td style="text-align: left;">Within-term (<code>mixed_by</code>) / within-trajectory (<code>multilag</code>)</td>
 <td style="text-align: left;">Explicit <code>"BY"</code> or <code>"holm"</code> across planned family</td>
 <td style="text-align: left;">Built-in <code>p_maxT</code> and <code>p_tfce</code> control familywise error across lags <em>within one <code>(parcel, term)</code> trajectory</em>. When testing multiple parcels or terms, apply Holm or Benjamini–Yekutieli across the planned epoch <code>omnibus_p</code> values or across the planned <code>(parcel, lag, term)</code> table.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Disk-backed scaling (<code>data</code> &amp; <code>split_filter</code> in <code>mixed_by()</code>)</strong></td>
+<td style="text-align: left;">In-memory <code>data.table</code></td>
+<td style="text-align: left;">Partitioned <code>.parquet</code> directory + <code>external_df</code> when panels exceed RAM</td>
+<td style="text-align: left;">Partitioning participant panels by <code>parcel</code> (e.g., <code>arrow::write_dataset(..., partitioning = "parcel")</code>) lets <code>mixed_by()</code> stream one parcel split at a time with minimal memory overhead, projecting only formula columns and pushing <code>split_filter</code> predicates down before R materialization.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Volumetric NIfTI export (<code>backproject_medusa()</code>)</strong></td>
+<td style="text-align: left;"><code>fill = 0</code></td>
+<td style="text-align: left;"><code>brain_mask = decon</code>, <code>fill = NA_real_</code></td>
+<td style="text-align: left;">Using <code>fill = NA_real_</code> distinguishes out-of-mask / unmodeled background voxels cleanly from genuine zero-effect parcels when plotting thresholded or unthresholded maps in <code>ggbrain</code> (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-spatial-recipes">Spatial Graph Pooling</a>).</td>
 </tr>
 </tbody>
 </table>
@@ -681,7 +748,7 @@ Figure&nbsp;7.1: Simulated participant means slope down across people even thoug
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Keep two upstream conventions in mind whenever interpreting participant intercepts or trait covariates: 1. <strong>Run centering removes tonic run baselines:</strong> Step 2 scaling (<code>"noise_sd"</code>, <code>"demean"</code>, <code>"zscore"</code>) centers BOLD within each run, so tonic run-constant neural baselines are not identifiable; between-person predictors (<code>x_mean</code>) explain differences in average <em>event-locked phasic deflections</em> across people, or cross-level interactions (<code>x_within * trait</code>) modulating within-person slopes. 2. <strong>HRF normalization conventions:</strong> Step 1 normalizes candidate HRFs to unit positive-lobe integral (<code>normalize = "area"</code>), so restored BOLD-unit amplitudes reflect the product of phasic neural amplitude and local neurovascular gain.</p>
+<p>Keep two upstream conventions in mind whenever interpreting participant intercepts or trait covariates: 1. <strong>Run centering removes tonic run baselines:</strong> Step 2 scaling (<code>"noise_sd"</code>, <code>"demean"</code>, <code>"zscore"</code>) centers BOLD within each run, so tonic run-constant neural baselines are not identifiable; between-person predictors (<code>x_mean</code>) explain differences in average <em>event-locked phasic deflections</em> across people, or cross-level interactions (<code>x_within * trait</code>) modulating within-person slopes. 2. <strong>HRF normalization conventions:</strong> Under <code>preset = "medusa"</code>, Step 1 normalizes candidate HRFs to unit positive-lobe integral (<code>normalize = "positive_lobe"</code>), so restored BOLD-unit amplitudes reflect the product of phasic neural amplitude and local neurovascular gain.</p>
 </div>
 </div>
 <p>When a predictor drifts across runs (e.g., fatigue or block-level contingencies), centering within each <code>(id, run)</code> isolates pure within-run trial contrasts, while run-mean and person-mean terms can capture run- and person-level shifts separately.</p>
@@ -1386,8 +1453,8 @@ Figure&nbsp;7.9: The smallest within-trajectory Max-|T| and TFCE p-values and th
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="pagination-link" aria-label="Step 6 · Trial-level connectivity and PPI">
-        <span class="nav-page-text"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="pagination-link" aria-label="Step 6: Trial-Level Connectivity and PPI">
+        <span class="nav-page-text"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

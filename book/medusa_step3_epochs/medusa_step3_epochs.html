@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -226,12 +226,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -315,7 +315,7 @@ window.Quarto = {
   <li><a href="#kernel-quadrature-readouts-and-causal-bold-support-gating" id="toc-kernel-quadrature-readouts-and-causal-bold-support-gating" class="nav-link" data-scroll-target="#kernel-quadrature-readouts-and-causal-bold-support-gating"><span class="header-section-number">5.6.1</span> 1. Kernel Quadrature Readouts and Causal BOLD Support Gating</a></li>
   <li><a href="#non-target-subtraction-demix_other_events-target-de-mixing-demix_target_trials" id="toc-non-target-subtraction-demix_other_events-target-de-mixing-demix_target_trials" class="nav-link" data-scroll-target="#non-target-subtraction-demix_other_events-target-de-mixing-demix_target_trials"><span class="header-section-number">5.6.2</span> 2. Non-Target Subtraction (<code>demix_other_events</code>) &amp; Target De-Mixing (<code>demix_target_trials</code>)</a></li>
   <li><a href="#variable-duration-epochs-rate-vs.-time-integrated-activity" id="toc-variable-duration-epochs-rate-vs.-time-integrated-activity" class="nav-link" data-scroll-target="#variable-duration-epochs-rate-vs.-time-integrated-activity"><span class="header-section-number">5.6.3</span> 3. Variable-Duration Epochs: Rate vs.&nbsp;Time-Integrated Activity</a></li>
-  <li><a href="#optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-and-zca" id="toc-optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-and-zca" class="nav-link" data-scroll-target="#optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-and-zca"><span class="header-section-number">5.6.4</span> 4. Optional Cross-Lag De-Mixing, Exact Analytical SEs, Precision Weights, and ZCA</a></li>
+  <li><a href="#optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-bilateral-graph-eb-and-zca" id="toc-optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-bilateral-graph-eb-and-zca" class="nav-link" data-scroll-target="#optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-bilateral-graph-eb-and-zca"><span class="header-section-number">5.6.4</span> 4. Optional Cross-Lag De-Mixing, Exact Analytical SEs, Precision Weights, Bilateral Graph-EB, and ZCA</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -429,6 +429,11 @@ window.Quarto = {
 <td>Logical flags + <code>demix_ridge</code> (<code>0.05</code>) &amp; <code>within_trial_ridge</code> (<code>0.06</code>)</td>
 <td>Separates three distinct sources of blur: non-target event bleed, trial-to-trial target overlap, and within-trial cross-lag spread.</td>
 </tr>
+<tr class="odd">
+<td><code>tau2_shrinkage</code> &amp; <code>spatial_graph</code></td>
+<td><code>tau2_shrinkage = c("auto", "graph_eb", "eb", "none")</code>; optional <code>"medusa_spatial_graph"</code> (or coordinate/sparse matrix)</td>
+<td>Stabilizes per-unit biological trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> and sandwich residual scales without smoothing trial slopes <span class="math inline">\(\hat{\beta}\)</span>. In voxelwise mode (<code>aggregate_by_parcel = FALSE</code>), <code>"auto"</code> resolves to <code>"graph_eb"</code> whenever <code>deconvolution</code> carries a Step 1 CSR graph <em>or</em> <code>voxel_map</code> coordinates (constructing the 26-connected geodesic CSR graph automatically even when Step 1 kept default <code>pooling = "voxel"</code>). In parcel mode (<code>aggregate_by_parcel = TRUE</code>), <code>"auto"</code> defaults to <code>"none"</code>, while setting <code>tau2_shrinkage = "graph_eb"</code> explicitly auto-constructs a precision-weighted 3D parcel-centroid Euclidean graph from <code>deconvolution$voxel_map</code> (useful for dense parcellations such as Schaefer-400/1000).</td>
+</tr>
 </tbody>
 </table>
 <hr>
@@ -452,8 +457,8 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td><code>coefficients</code> &amp; <code>summary</code></td>
-<td>Per-unit × lag × term <code>data.frame</code> (<code>beta_raw</code>, <code>beta_corrected</code>, <code>beta_unweighted</code>, <code>beta_weighted</code>, <code>beta_gls</code>, sandwich SEs, <span class="math inline">\(t\)</span>, <span class="math inline">\(p\)</span>); lag-averaged summary</td>
-<td>Reporting <code>beta_raw</code> alongside <code>beta_unweighted</code>, <code>beta_weighted</code>, and <code>beta_gls</code> under the <em>same</em> Step 2 inverse makes it immediately transparent how much of an effect comes from operator de-mixing versus trial precision weighting or ZCA decorrelation.</td>
+<td>Per-unit × lag × term <code>data.frame</code> (<code>beta_raw</code>, <code>beta_corrected</code>, <code>beta_unweighted</code>, <code>beta_weighted</code>, <code>beta_gls</code>, sandwich SEs, moderated <code>df</code>, <span class="math inline">\(t\)</span>, <span class="math inline">\(p\)</span>); lag-averaged summary</td>
+<td>Reporting <code>beta_raw</code> alongside <code>beta_unweighted</code>, <code>beta_weighted</code>, and <code>beta_gls</code> under the <em>same</em> Step 2 inverse makes it immediately transparent how much of an effect comes from operator de-mixing versus trial precision weighting or ZCA decorrelation. When <code>tau2_shrinkage</code> is <code>"eb"</code> or <code>"graph_eb"</code>, sandwich residual scales (<code>[scale_unw, scale_pw, scale_gls]</code>) and <code>df</code> incorporate Limma/Smyth empirical-Bayes moderation (<code>d0 + df_resid</code>) while keeping slope point estimates strictly unsmoothed.</td>
 </tr>
 <tr class="odd">
 <td><code>lag_resolution</code> &amp; <code>lag_error_cor</code></td>
@@ -489,10 +494,11 @@ window.Quarto = {
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">restore_scale       =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">weighting           =</span> <span class="st">"gls"</span>,</span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_mode           =</span> <span class="st">"auto"</span>,</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_groups       =</span> parcel_ids,      <span class="co"># pre-aggregates parcels (Step 4) in one pass</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">whiten_panel        =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_panel        =</span> <span class="cn">TRUE</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_shrinkage      =</span> <span class="st">"auto"</span>,          <span class="co"># automatic bilateral "graph_eb" in voxelwise NIfTI mode</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_groups       =</span> parcel_ids,      <span class="co"># pre-aggregates parcels (Step 4) in one pass; omit for voxelwise maps</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">whiten_panel        =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_panel        =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -536,9 +542,9 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td><code>tau2_shrinkage</code> (voxelwise mode)</td>
-<td><code>"auto"</code> (resolves to <code>"graph_eb"</code> when a spatial graph is present)</td>
+<td><code>"auto"</code> (resolves to <code>"graph_eb"</code> on NIfTI maps)</td>
 <td><code>"auto"</code></td>
-<td>In voxelwise analyses (<code>aggregate_by_parcel = FALSE</code>), bilateral geodesic Graph-EB shrinks scale-free <span class="math inline">\(\hat{\tau}_{\text{raw}}^2 / s_{\text{obs}}^2\)</span> ratios <em>prior</em> to zero truncation with Isserlis error-correlation discounting and Efron–Morris hotspot protection—eliminating active zero-collapse without smoothing <span class="math inline">\(\hat{\beta}\)</span> (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-step3-grapheb">Spatial Graph Pooling</a>).</td>
+<td>In voxelwise analyses (<code>aggregate_by_parcel = FALSE</code>), bilateral geodesic Graph-EB shrinks scale-free <span class="math inline">\(\hat{\tau}_{\text{raw}}^2 / s_{\text{obs}}^2\)</span> ratios <em>prior</em> to zero truncation with Isserlis error-correlation discounting, <span class="math inline">\(2.5\sigma\)</span> Efron–Morris hotspot protection, and spatial sandwich scale moderation—eliminating active zero-collapse without smoothing <span class="math inline">\(\hat{\beta}\)</span> (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-step3-grapheb">Spatial Graph Pooling</a>).</td>
 </tr>
 </tbody>
 </table>
@@ -776,10 +782,11 @@ Figure&nbsp;5.5: Same simulated constant-rate variable-duration BOLD series anal
 </figure>
 </div>
 </section>
-<section id="optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-and-zca" class="level3" data-number="5.6.4">
-<h3 data-number="5.6.4" class="anchored" data-anchor-id="optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-and-zca"><span class="header-section-number">5.6.4</span> 4. Optional Cross-Lag De-Mixing, Exact Analytical SEs, Precision Weights, and ZCA</h3>
+<section id="optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-bilateral-graph-eb-and-zca" class="level3" data-number="5.6.4">
+<h3 data-number="5.6.4" class="anchored" data-anchor-id="optional-cross-lag-de-mixing-exact-analytical-ses-precision-weights-bilateral-graph-eb-and-zca"><span class="header-section-number">5.6.4</span> 4. Optional Cross-Lag De-Mixing, Exact Analytical SEs, Precision Weights, Bilateral Graph-EB, and ZCA</h3>
 <p>Enabling <code>demix_within_trial = TRUE</code> applies a symmetric 2nd-order Tikhonov inverse across lags, sharpening single-subject lag specificity while increasing conditional lag SEs (<a href="#fig-step3-cross-lag" class="quarto-xref">Figure&nbsp;<span>5.6</span></a>). Across all configurations, MEDuSA’s <span class="math inline">\(O(m_{\text{obs}} p M)\)</span> AR operator factor <code>compute_ar1_operator_factor()</code> reproduces dense matrix covariance <span class="math inline">\(B \Sigma B^\top\)</span> to 6.07e-18 and matches 2,500-draw Monte Carlo noise SDs trial by trial (<a href="#fig-step3-se-check" class="quarto-xref">Figure&nbsp;<span>5.7</span></a>).</p>
 <p>Finally, Step 3 combines per-trial measurement variance <span class="math inline">\(s_{ri}^2 = \text{se\_demixed}_{ri}^2\)</span> with an Empirical-Bayes biological trial variance estimate <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> so <code>precision_weight</code> (<span class="math inline">\(w_{ri} \propto (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>) downweights noisy edge/overlap trials smoothly without letting a single low-SE trial dominate when genuine biological trial variability is large (<a href="#fig-step3-weights" class="quarto-xref">Figure&nbsp;<span>5.8</span></a>), while regularized ZCA (<code>whiten_panel = TRUE</code>) suppresses off-diagonal within-run trial error correlations (<a href="#fig-step3-zca" class="quarto-xref">Figure&nbsp;<span>5.9</span></a>).</p>
+<p>In <strong>voxelwise NIfTI mode</strong> (<code>aggregate_by_parcel = FALSE</code>), single-voxel method-of-moments estimation <span class="math inline">\(\hat{\tau}_{\text{raw}, u}^2 = \hat{\sigma}_{\text{tot}, u}^2 - s_{\text{obs}, u}^2\)</span> has wide sampling variance across 40–80 trials—causing frequent active zero-collapse (<span class="math inline">\(\hat{\tau}_{\text{bio}, u}^2 = 0\)</span>) and positive truncation bias in null cortex. Under <code>tau2_shrinkage = "auto"</code> (<code>"graph_eb"</code>), <code>graph_eb_tau2_csr_cpp()</code> shrinks the <em>untruncated</em> dimensionless ratio <span class="math inline">\(\hat{\theta}_u = \hat{\tau}_{\text{raw}, u}^2 / s_{\text{obs}, u}^2\)</span> across bilateral geodesic neighbors prior to <span class="math inline">\(\max(0, \cdot)\)</span>, discounting neighbor squared-error correlation via Isserlis’ identity (<span class="math inline">\(\operatorname{Corr}(Z_a^2, Z_b^2) = \rho_{ab}^2\)</span>), capping shrinkage at <span class="math inline">\(2.5\sigma_u\)</span> (Efron–Morris limited translation) to protect focal hotspots, moderating sandwich residual scales (<code>moderate_scale_csr_cpp()</code>), and preserving exact covariate invariance under <code>tau2_mode = "marginal"</code>.</p>
 <div id="fig-step3-cross-lag" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Comparison of lag slope profiles and conditional SEs with and without cross-lag de-mixing.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step3-cross-lag-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -829,6 +836,7 @@ Mathematical Reference: Composite Epoch Operator &amp; Covariate Matching
 <li><strong>Non-target subtraction:</strong> Let <span class="math inline">\(S_{r,0}\)</span> read out all events at lag 0 and <span class="math inline">\(G_{r,0}\)</span> be their column-centered forward HRF design. <code>build_other_demix_operator()</code> forms <span class="math inline">\(L_{\text{other}}\)</span> (condition-mean least squares for <code>demix_ridge &gt;= 0.03</code>, or 2nd-order iterated Tikhonov joint inversion for <code>&lt; 0.03</code>), yielding cleaned target readout rows <span class="math inline">\(S_{\text{clean},\tau} = S_\tau - (S_\tau D_r G_{r,0,\text{other}}) L_{\text{other}}\)</span>.</li>
 <li><strong>Target cross-talk &amp; duration baseline invariance:</strong> Given uncentered and column-centered target forward designs <span class="math inline">\((G_{\tau,\text{unc}}, G_\tau)\)</span>, <code>solve_duration_demix_operator()</code> row-normalizes <span class="math inline">\(R_{\text{unc}} = \operatorname{diag}(g_{\text{safe}})^{-1} S_\tau D_r G_{\tau,\text{unc}}\)</span>, solves <span class="math inline">\((R_{\text{unc}}^\top R_{\text{unc}} + \lambda_{\text{demix}} Q_m + 10^{-8} I) W_{\text{unc}} = R_{\text{unc}}^\top \operatorname{diag}(g_{\text{safe}})^{-1}\)</span> (penalizing only centered fluctuations <span class="math inline">\(Q_m = I_m - \frac{1}{m}\mathbf{1}\mathbf{1}^\top\)</span>), applies a Sherman–Morrison rank-1 centering update to obtain <span class="math inline">\(W_\tau\)</span>, and restores centered diagonal gain <span class="math inline">\(\tilde{G}_\tau\)</span>.</li>
 <li><strong>Exact noise propagation &amp; <span class="math inline">\(M_{\text{post}}\)</span> alignment:</strong> The complete linear map from centered run BOLD to de-mixed target trials is <span class="math inline">\(B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r\)</span>, with calibrated centered trial error covariance <span class="math inline">\(\Omega_{r,\tau} = \frac{\sigma_{\text{eff}}^2}{1 - 1/m} Q_m B_{r,\tau} C_{\text{obs}} \Sigma_{\text{AR}}[I_r, I_r] C_{\text{obs}}^\top B_{r,\tau}^\top Q_m\)</span>. Centered covariates <span class="math inline">\(X_{r,c}\)</span> are multiplied by <span class="math inline">\(M_{\text{post}} = Q_m (\tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r G_\tau) Q_m\)</span> prior to regression and ZCA whitening so predictor and response undergo identical off-diagonal target shrinkage.</li>
+<li><strong>Bilateral Graph-EB variance &amp; scale moderation (<code>tau2_shrinkage = "graph_eb"</code>):</strong> Defining untruncated <span class="math inline">\(\hat{\theta}_u = \hat{\tau}_{\text{raw}, u}^2 / s_{\text{obs}, u}^2\)</span> with sampling variance <span class="math inline">\(v_u \approx \frac{2}{\nu_u}(1 + \max(0, \tilde{\theta}_u))^2\)</span>, bilateral weights <span class="math inline">\(\alpha_{uv}\)</span> combine geodesic distance, Cauchy pilot-jump stopping, and orthogonalized residual sign concordance (strictly marginal when <code>tau2_mode = "marginal"</code>). Discounting neighbor squared-error correlation <span class="math inline">\(\rho_{ab}^2\)</span> yields local prior <span class="math inline">\((\mu_{\text{loc}, u}, \tau_{\text{prior}, u}^2)\)</span>, shrinkage <span class="math inline">\(B_u = v_u / (v_u + \tau_{\text{prior}, u}^2)\)</span>, limited-translation posterior <span class="math inline">\(\theta_u^{\text{EM}} = \hat{\theta}_u + \operatorname{clip}(B_u(\mu_{\text{loc}, u} - \hat{\theta}_u), -2.5\sqrt{v_u}, +2.5\sqrt{v_u})\)</span>, and <span class="math inline">\(\hat{\tau}_{\text{bio}, u}^2 = s_{\text{obs}, u}^2 \max(0, \theta_u^{\text{EM}})\)</span>, followed by bilateral Smyth (2004) log-chisq moderation of sandwich residual scales (<code>[scale_unw, scale_pw, scale_gls]</code>) with moderated degrees of freedom <span class="math inline">\(\nu_u^\star = d_{0,u} + \nu_{\text{resid}, u}\)</span>.</li>
 </ol>
 <p><a href="simulate_step3.R">Step 3 simulation script</a> · <a href="figures_step3.R">Figure script</a> · <a href="verification.txt">Verification output</a></p>
 </details>

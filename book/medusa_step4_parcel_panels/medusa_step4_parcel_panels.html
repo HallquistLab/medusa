@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -226,12 +226,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -369,7 +369,7 @@ window.Quarto = {
 <ol type="1">
 <li><strong>Pool voxels using cross-run SNR-optimal weights (<code>parcel_weights</code>):</strong> Weight each parcel’s constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span>, renormalizing automatically if a voxel drops out in one run.</li>
 <li><strong>Propagate true spatial noise correlation without task contamination:</strong> Compute each parcel’s effective observation-noise SD from Step 2’s <strong>task-free whitened <code>noise_innovations</code></strong> (<code>\|Z_r (u \odot \sigma)\|_2</code>), accurately spanning negative, independent, partially shared, and common spatial noise regimes.</li>
-<li><strong>Preserve mixed intra-parcel HRF strata exactly:</strong> Accumulate per-stratum forward/inverse operator contributions weighted by <span class="math inline">\(u_v\)</span> whenever voxels inside a parcel belong to different <code>(HRF, AR)</code> strata, avoiding single-HRF approximation error.</li>
+<li><strong>Preserve mixed intra-parcel <code>(HRF, AR, lambda)</code> strata exactly:</strong> Accumulate per-stratum forward/inverse operator contributions weighted by <span class="math inline">\(u_v\)</span> whenever voxels inside a parcel belong to different <code>(HRF, AR, lambda)</code> strata (for example when Step 1 used <code>pooling = "graph"</code> and Step 2 used <code>lambda_mode = "auto"</code>), avoiding single-HRF or single-whitener approximation error.</li>
 <li><strong>Package a lossless, identity-safe trial panel for Steps 5–6:</strong> Deliver aligned raw, de-mixed, Empirical-Bayes-shrunk, and ZCA-whitened parcel columns alongside cohort-comparable precision weights and cross-parcel shared-error loadings.</li>
 </ol>
 <p><strong>What Step 4 deliberately leaves to Steps 5–6:</strong> Step 4 produces one participant’s parcel panel (and operator summaries). You must attach an explicit participant <code>id</code> column (and <code>session</code> if longitudinal) before stacking participants with <code>data.table::rbindlist()</code> for Step 5–6 population models.</p>
@@ -398,9 +398,9 @@ window.Quarto = {
 <td>Supplies orthonormalized, task-projected AR(<span class="math inline">\(p\)</span>) innovations from Step 2. Without task-free innovations, any empirical spatial correlation across voxel <code>activity</code> series would mistake shared neural responses to the task for shared scanner noise!</td>
 </tr>
 <tr class="odd">
-<td><code>tau2_mode</code></td>
-<td><code>"auto"</code> (default), <code>"marginal"</code>, or <code>"residual"</code></td>
-<td>Controls how latent biological trial-to-trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> is estimated on the high-SNR parcel series to calibrate <code>precision_weight</code>, <code>precision_weight_cohort</code>, and ZCA (<code>"marginal"</code> is covariate-agnostic; <code>"auto"</code> blends residual and marginal MoM when covariates are supplied).</td>
+<td><code>tau2_mode</code> &amp; <code>tau2_shrinkage</code></td>
+<td><code>tau2_mode = c("auto", "marginal", "residual")</code>; <code>tau2_shrinkage = c("auto", "graph_eb", "eb", "none")</code></td>
+<td>Controls how latent biological trial-to-trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> is estimated on the parcel series to calibrate <code>precision_weight</code>, <code>precision_weight_cohort</code>, and ZCA (<code>"marginal"</code> is covariate-agnostic; <code>"auto"</code> blends residual and marginal MoM when covariates are supplied). In parcel mode, <code>tau2_shrinkage = "auto"</code> defaults to <code>"none"</code> because standard parcels already enjoy high multi-voxel SNR; for dense parcellations (e.g., Schaefer-400/1000), setting <code>tau2_shrinkage = "graph_eb"</code> automatically builds a precision-weighted 3D parcel-centroid Euclidean graph from <code>deconvolution$voxel_map</code>.</td>
 </tr>
 <tr class="even">
 <td><code>whiten_panel</code> &amp; <code>restore_scale</code></td>
@@ -1184,8 +1184,8 @@ Mathematical Reference: Innovation Spatial Covariance &amp; Cross-Parcel Loading
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="pagination-link" aria-label="Step 5 · Group and trajectory inference">
-        <span class="nav-page-text"><span class="chapter-title">Step 5 · Group and trajectory inference</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="pagination-link" aria-label="Step 5: Group and Trajectory Inference">
+        <span class="nav-page-text"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

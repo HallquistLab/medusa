@@ -126,7 +126,7 @@ workflows</td>
 files; does not automatically learn cross-run HRFs or de-mix epochs</td>
 </tr>
 <tr class="odd">
-<td>Learn HRFs from other runs and quantify operator-based epoch
+<td>Learn HRFs from other runs and quantify operator-based parcel epoch
 effects</td>
 <td>
 <code><a href="../reference/read_nifti_ts.html">read_nifti_ts()</a></code> → <code><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf()</a></code>
@@ -137,6 +137,20 @@ effects</td>
 explicit event/covariate matching</td>
 </tr>
 <tr class="even">
+<td>Map voxelwise or shifted-border NIfTI trial effects without blurring
+neural time series</td>
+<td>
+<code><a href="../reference/read_nifti_ts.html">read_nifti_ts()</a></code> →
+<code>estimate_crossrun_hrf(..., pooling = "graph")</code> →
+<code>deconvolve_crossrun_hrf(..., lambda_mode = "auto")</code> →
+<code>decon_epoch_regression(..., tau2_shrinkage = "graph_eb")</code> →
+<code><a href="../reference/write_nifti_ts.html">write_nifti_ts()</a></code>
+</td>
+<td>Pools HRF/noise evidence, SNR-stratified penalties, and trial
+variances over a 26-connected geodesic CSR graph while keeping
+<code>activity</code> and <code>beta_*</code> unsmoothed</td>
+</tr>
+<tr class="odd">
 <td>Compare a fixed canonical HRF with a learned HRF under the same
 downstream model</td>
 <td>Use a one-column canonical library and a multi-candidate library in
@@ -1564,6 +1578,75 @@ canonical HRF. The file wrapper can also tune supplied candidates within
 a run, but that is not leave-one-run-out HRF learning.</p>
 </div>
 <div class="section level2">
+<h2 id="voxelwise-and-geodesic-graph-pooled-nifti-maps">Voxelwise and geodesic graph-pooled NIfTI maps<a class="anchor" aria-label="anchor" href="#voxelwise-and-geodesic-graph-pooled-nifti-maps"></a>
+</h2>
+<p><strong>Voxelwise NIfTI map recipe; not executed.</strong> When
+individual functional boundaries may shift across nominal atlas
+borders—or when analyzing an atlas-free ribbon/subcortical mask
+(<code>atlas = NULL</code>)—MEDuSA can share estimation strength across
+local gray-matter neighborhoods without ever smoothing raw BOLD,
+deconvolved <code>activity</code>, or trial regression slopes
+(<code>beta_*</code>). On atlas-free NIfTI bundles,
+<code><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf()</a></code> keeps
+<code>pooling = "voxel"</code> by default unless you opt into
+<code>pooling = "graph"</code>, whereas
+<code>decon_epoch_regression(..., aggregate_by_parcel = FALSE, tau2_shrinkage = "auto")</code>
+automatically builds the 26-connected in-mask geodesic CSR graph from
+<code>decon$voxel_map</code> to stabilize voxelwise biological trial
+variances (<code>"graph_eb"</code>) and sandwich residual scales.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Option A: Atlas-free or shifted-border geodesic bilateral graph pooling</span></span>
+<span><span class="va">ts_ribbon</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/read_nifti_ts.html">read_nifti_ts</a></span><span class="op">(</span></span>
+<span>  niftis <span class="op">=</span> <span class="va">nifti_paths</span>,</span>
+<span>  mask <span class="op">=</span> <span class="st">"/study/sub01/cortical_ribbon_mask.nii.gz"</span>,</span>
+<span>  atlas <span class="op">=</span> <span class="va">atlas_path</span>, <span class="co"># optional; omit (NULL) for atlas-free voxelwise mapping</span></span>
+<span>  tr <span class="op">=</span> <span class="fl">1.0</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Optional explicit CSR graph inspection (built automatically when pooling = "graph")</span></span>
+<span><span class="va">g_geo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_spatial_graph.html">build_spatial_graph</a></span><span class="op">(</span></span>
+<span>  <span class="va">ts_ribbon</span>,</span>
+<span>  spatial_fwhm <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>  parcel_boundary <span class="op">=</span> <span class="st">"soft"</span>, <span class="co"># ignored automatically when atlas = NULL</span></span>
+<span>  metric <span class="op">=</span> <span class="st">"geodesic"</span>       <span class="co"># 26-connected in-mask Dijkstra stops at CSF sulci</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">hrf_vox</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></span><span class="op">(</span></span>
+<span>  <span class="va">ts_ribbon</span>,</span>
+<span>  events <span class="op">=</span> <span class="va">trial_df</span>,</span>
+<span>  nuisance <span class="op">=</span> <span class="va">conf</span>,</span>
+<span>  kernel_grid <span class="op">=</span> <span class="fu"><a href="../reference/hrf_library.html">hrf_library</a></span><span class="op">(</span><span class="va">ts_ribbon</span><span class="op">$</span><span class="va">tr</span>, preset <span class="op">=</span> <span class="st">"medusa"</span><span class="op">)</span>,</span>
+<span>  pooling <span class="op">=</span> <span class="st">"graph"</span>,        <span class="co"># omit to keep single-voxel default on atlas-free NIfTIs</span></span>
+<span>  spatial_graph <span class="op">=</span> <span class="va">g_geo</span>,</span>
+<span>  parcel_boundary <span class="op">=</span> <span class="st">"soft"</span>,</span>
+<span>  amplitude_model <span class="op">=</span> <span class="st">"trial"</span>,</span>
+<span>  selection_mode <span class="op">=</span> <span class="st">"soft_average"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">decon_vox</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></span><span class="op">(</span></span>
+<span>  <span class="va">ts_ribbon</span>,</span>
+<span>  <span class="va">hrf_vox</span>,</span>
+<span>  scaling <span class="op">=</span> <span class="st">"noise_sd"</span>,</span>
+<span>  penalty <span class="op">=</span> <span class="st">"sobolev"</span>,</span>
+<span>  lambda_mode <span class="op">=</span> <span class="st">"auto"</span>      <span class="co"># FDR-gated SNR tiers + monotone PAVA smoothing</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">ep_vox</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/decon_epoch_regression.html">decon_epoch_regression</a></span><span class="op">(</span></span>
+<span>  <span class="va">decon_vox</span>,</span>
+<span>  covariates <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rpe"</span>, <span class="st">"abs_rpe"</span><span class="op">)</span>,</span>
+<span>  target_condition <span class="op">=</span> <span class="st">"feedback"</span>,</span>
+<span>  lags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">3</span>, by <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  restore_scale <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  aggregate_by_parcel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  tau2_shrinkage <span class="op">=</span> <span class="st">"auto"</span>   <span class="co"># resolves to bilateral "graph_eb" via decon_vox$voxel_map</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Export lag = 0 s voxelwise GLS t-map directly using carried NIfTI geometry:</span></span>
+<span><span class="va">lag0_rpe</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">ep_vox</span><span class="op">$</span><span class="va">coefficients</span>, <span class="va">lag</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">&amp;</span> <span class="va">term</span> <span class="op">==</span> <span class="st">"rpe"</span><span class="op">)</span></span>
+<span><span class="va">t_vec</span> <span class="op">&lt;-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">lag0_rpe</span><span class="op">$</span><span class="va">t_gls</span>, <span class="va">lag0_rpe</span><span class="op">$</span><span class="va">voxel</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/write_nifti_ts.html">write_nifti_ts</a></span><span class="op">(</span><span class="va">t_vec</span>, <span class="st">"sub01_feedback_rpe_t_lag0.nii.gz"</span>, reference <span class="op">=</span> <span class="va">decon_vox</span>, fill <span class="op">=</span> <span class="cn">NA_real_</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="settings-and-checks-at-each-handoff">Settings and checks at each handoff<a class="anchor" aria-label="anchor" href="#settings-and-checks-at-each-handoff"></a>
 </h2>
 <table class="table">
@@ -1580,35 +1663,41 @@ a run, but that is not leave-one-run-out HRF learning.</p>
 <tbody>
 <tr class="odd">
 <td>Input to HRF/noise fit</td>
-<td>TR, offsets, masks, candidate library, <code>spatial_groups</code>
-and optional <code>noise_groups</code>
+<td>TR, offsets, masks, candidate library, <code>pooling</code>
+(<code>"voxel"</code>, <code>"parcel"</code>, <code>"graph"</code>),
+<code>spatial_groups</code> / <code>spatial_graph</code>
 </td>
 <td>Confirm clocks, retained acquisition indices, target-run exclusion
-for HRF selection, gap-local
+for HRF selection, geodesic vs. Euclidean neighborhood topology
+(<code>hrf_fit$spatial$graph</code>), gap-local
 AR(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>)
 noise fits, and fallback strata.</td>
 </tr>
 <tr class="even">
 <td>HRF/noise fit to inverse</td>
 <td>
-<code>lambda</code> or tuning grid, penalty, nuisance mode,
-scaling</td>
-<td>In PRs 62 &amp; 64, <code>scaling = "noise_sd"</code> estimates
+<code>lambda</code> / <code>lambda_mode</code> (<code>"auto"</code>,
+<code>"global"</code>, <code>"stratified"</code>), penalty, nuisance
+mode, scaling</td>
+<td>In PRs 62 &amp; 64+, <code>scaling = "noise_sd"</code> estimates
 <strong>marginal observation-noise</strong> SD
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>σ</mi><mtext mathvariant="normal">marg</mtext></msub><annotation encoding="application/x-tex">\sigma_{\text{marg}}</annotation></semantics></math>)
 via leverage-adjusted Winsorized GLS residuals, and
-<code>lambda = NULL</code> pools adaptive GCV across all usable runs.
-Examine estimated scales, fit residuals, and tuning diagnostics.</td>
+<code>lambda = NULL</code> (<code>lambda_mode = "auto"</code>) pools
+FDR-gated, PAVA-monotone GCV across usable runs
+(<code>decon$settings$lambda_strata</code>). Examine estimated scales,
+fit residuals, and tuning diagnostics.</td>
 </tr>
 <tr class="odd">
 <td>Inverse to event measurements</td>
-<td>Source duration and units, readout, demixing, target condition and
-lag grid</td>
+<td>Source duration and units, readout, demixing,
+<code>tau2_shrinkage</code>, target condition and lag grid</td>
 <td>Verify event-row identity, causal BOLD observability
 (<code>obs_frac_tau &gt;= 0.20</code>), matched
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>M</mi><mtext mathvariant="normal">post</mtext></msub><annotation encoding="application/x-tex">M_{\text{post}}</annotation></semantics></math>
-covariate alignment, and rate versus integrated activity for duration
-models.</td>
+covariate alignment, bilateral <code>"graph_eb"</code> variance
+stabilization in voxelwise mode, and rate versus integrated activity for
+duration models.</td>
 </tr>
 <tr class="even">
 <td>Event measurements to parcel panel</td>

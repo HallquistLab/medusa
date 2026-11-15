@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -226,12 +226,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -348,7 +348,7 @@ window.Quarto = {
 <section id="overview" class="level2" data-number="3.1">
 <h2 data-number="3.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">3.1</span> Overview</h2>
 <p>Before MEDuSA can deconvolve a BOLD time series into latent neural activity, it must know two properties of the observation process: <strong>(1) the hemodynamic response function (HRF)</strong> that blurs and delays neural events into BOLD fluctuations, and <strong>(2) the temporal autocorrelation structure</strong> of the scanner and physiological noise. Assuming a single canonical HRF across the brain can shift inferred neural timing by several seconds in fast subcortical or slow association regions, while estimating the HRF on the same run that will later be deconvolved risks tuning the vascular filter to noise or circularly inflating trial effects.</p>
-<p>Step 1 (<code>hrf_library()</code> + <code>estimate_crossrun_hrf()</code>) solves this identification problem through <strong>leave-one-run-out cross-fitting</strong> paired with <strong>two-pass post-selection noise estimation</strong>. For each target run <span class="math inline">\(r\)</span>, MEDuSA scores a physiologically realistic HRF candidate library exclusively on the participant’s <em>other</em> runs (<span class="math inline">\(s \neq r\)</span>), pools shape evidence across voxels within functional parcels without averaging raw BOLD signals, and shrinks weak or inconsistent task regions back to a prespecified canonical fallback. Once each target run receives its frozen out-of-sample HRF, MEDuSA refits a stationary <span class="math inline">\(\text{AR}(p)\)</span> noise cascade on run <span class="math inline">\(r\)</span>’s own task-projected residuals so Step 2 can whiten and invert run <span class="math inline">\(r\)</span> without circularity or HRF-mismatch bias.</p>
+<p>Step 1 (<code>hrf_library()</code> + <code>estimate_crossrun_hrf()</code>) solves this identification problem through <strong>leave-one-run-out cross-fitting</strong> paired with <strong>two-pass post-selection noise estimation</strong>. For each target run <span class="math inline">\(r\)</span>, MEDuSA scores a physiologically realistic HRF candidate library exclusively on the participant’s <em>other</em> runs (<span class="math inline">\(s \neq r\)</span>), pools shape evidence across voxels within functional parcels (<code>pooling = "parcel"</code>) or local geodesic gray-matter neighborhoods (<code>pooling = "graph"</code>) without averaging raw BOLD signals, and shrinks weak or inconsistent task regions back to a prespecified canonical fallback. Once each target run receives its frozen out-of-sample HRF, MEDuSA refits a stationary <span class="math inline">\(\text{AR}(p)\)</span> noise cascade on run <span class="math inline">\(r\)</span>’s own task-projected residuals so Step 2 can whiten and invert run <span class="math inline">\(r\)</span> without circularity or HRF-mismatch bias.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -423,6 +423,11 @@ window.Quarto = {
 <td>Named character/factor vectors mapping <code>voxel_ids</code> to parcels / tissue classes</td>
 <td>Separating <code>spatial_groups</code> (functional parcels sharing vascular timing) from optional <code>noise_groups</code> (e.g., tissue/ROI classes sharing serial autocorrelation) lets Step 1 pool low-SNR voxel evidence without averaging raw BOLD series that may carry opposite neural signs.</td>
 </tr>
+<tr class="even">
+<td><code>pooling</code>, <code>spatial_graph</code>, &amp; <code>parcel_boundary</code></td>
+<td><code>pooling = c("voxel", "parcel", "graph")</code>; optional <code>"medusa_spatial_graph"</code> from <code>build_spatial_graph()</code>; <code>parcel_boundary = c("soft", "hard", "ignore")</code> (<code>parcel_cross_weight = 0.35</code>, <code>max_neighbors = 32L</code>, <code>max_hrf_strata = 48L</code>, <code>max_noise_strata = 10L</code>)</td>
+<td>Controls how out-of-sample HRF evidence and REML noise parameters borrow strength across space. For atlas-free NIfTI inputs (<code>atlas = NULL</code>), <code>pooling</code> defaults to <code>"voxel"</code> to preserve single-voxel specificity unless <code>pooling = "graph"</code> is requested. When <code>pooling = "graph"</code>, <code>build_spatial_graph()</code> constructs a 26-connected in-mask geodesic lattice CSR graph (<code>metric = "geodesic"</code> when <code>voxel_map</code> carries <code>i, j, k</code>, preventing cross-sulcal CSF shortcuts) and pools both HRF candidate profiles and pilot <span class="math inline">\((\hat{\rho}, \log\hat{\sigma})\)</span> noise bilaterally while quantizing prototypes so Step 2 operator caching remains fast.</td>
+</tr>
 </tbody>
 </table>
 <hr>
@@ -469,6 +474,11 @@ window.Quarto = {
 <td>Stored <code>events</code>, <code>nuisance</code>, <code>valid_rows</code>, <code>spatial_groups</code>, <code>tr</code>, <code>kernel_normalize</code></td>
 <td>Freezes the exact forward timing, masks, and normalization convention so <code>deconvolve_crossrun_hrf()</code> and <code>decon_epoch_regression()</code> automatically inherit identical clocks and masks without user book-keeping errors.</td>
 </tr>
+<tr class="odd">
+<td><code>spatial</code>, <code>voxel_map</code>, &amp; <code>geometry</code></td>
+<td>Resolved <code>"medusa_spatial_graph"</code> (<code>$spatial$graph</code>) and prototype strata (<code>pooling = "graph"</code>), plus carried NIfTI coordinate/header metadata</td>
+<td>Passes the sparse CSR neighborhood graph and volumetric NIfTI geometry seamlessly into Step 2 (<code>lambda_mode = "auto"</code> SNR stabilization and <code>write_nifti_ts()</code>) and Step 3 (<code>tau2_shrinkage = "graph_eb"</code> and <code>backproject_medusa()</code>).</td>
+</tr>
 </tbody>
 </table>
 <hr>
@@ -501,18 +511,19 @@ window.Quarto = {
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>candidates <span class="ot">&lt;-</span> <span class="fu">hrf_library</span>(<span class="at">tr =</span> ts<span class="sc">$</span>tr, <span class="at">preset =</span> <span class="st">"medusa"</span>)</span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold            =</span> ts,</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">events          =</span> events,</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">kernel_grid     =</span> candidates,</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance        =</span> conf,</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"parcel"</span>,</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model     =</span> <span class="st">"ar1"</span>,</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">evidence        =</span> <span class="st">"calibrated"</span>,</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_scores   =</span> <span class="cn">TRUE</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co">#    (or pass `bold = ts, pooling = "graph", parcel_boundary = "soft"` directly for geodesic pooling)</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold            =</span> ts,</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">events          =</span> events,</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">kernel_grid     =</span> candidates,</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance        =</span> conf,</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model     =</span> <span class="st">"ar1"</span>,</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">evidence        =</span> <span class="st">"calibrated"</span>,</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_scores   =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -532,9 +543,9 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td><code>pooling</code> &amp; <code>spatial_groups</code></td>
-<td><code>pooling = "graph"</code> (<code>parcel_boundary = "soft"</code>) or <code>pooling = "parcel"</code></td>
+<td><code>pooling = "graph"</code> (<code>parcel_boundary = "soft"</code>) for volumetric NIfTIs; <code>pooling = "parcel"</code> for homogeneous ROIs</td>
 <td><code>pooling = "voxel"</code>, <code>spatial_groups = NULL</code></td>
-<td>For volumetric NIfTI inputs (<code>ts</code>), <code>pooling = "graph"</code> builds a 26-connected in-mask geodesic CSR graph (<code>build_spatial_graph()</code>) and pools out-of-sample HRF evidence and REML noise bilaterally—preventing cross-sulcal bleed, separating pial-vein borders from deep gray matter, and relaxing softly across shifted individual parcel boundaries (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling</a>). <code>pooling = "parcel"</code> pools uniformly within nominal parcels when ROI homogeneity is assumed.</td>
+<td>On volumetric NIfTI inputs (<code>bold = ts</code>), <code>pooling = "graph"</code> builds a 26-connected geodesic CSR graph (<code>build_spatial_graph()</code>) and pools out-of-sample HRF evidence and REML noise bilaterally—preventing cross-sulcal bleed, separating pial-vein borders from interior gray matter, and relaxing softly across shifted individual parcel borders (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling</a>). Default <code>pooling = "voxel"</code> stays single-voxel on atlas-free NIfTIs (or uses <code>"fallback_parcel"</code> on low-SNR voxels when an atlas is attached), while <code>pooling = "parcel"</code> pools uniformly within nominal parcels.</td>
 </tr>
 <tr class="odd">
 <td><code>selection_mode</code></td>
@@ -624,6 +635,7 @@ Figure&nbsp;3.4: Invariance verification: adding strong synthetic oscillations t
 <ul>
 <li><strong>Condition-mean vs.&nbsp;trial-wise training designs (<code>amplitude_model</code>):</strong> When trial responses fluctuate symmetrically around zero (such as a zero-mean reward prediction error), a single condition-mean regressor cancels positive and negative trials and misses the HRF completely (<a href="#fig-step1-signed" class="quarto-xref">Figure&nbsp;<span>3.6</span></a>). Setting <code>amplitude_model = "trial"</code> frees per-event amplitudes (evaluating one condition freed at a time in multi-condition schedules) so unsigned trial variance identifies the vascular shape—still without touching external behavioral predictors.</li>
 <li><strong>Parcel evidence pooling (<code>pooling = "parcel"</code>):</strong> Pooling averages precision-weighted candidate score profiles across voxels in a parcel <em>after</em> squaring voxelwise <span class="math inline">\(t\)</span>/<span class="math inline">\(R^2\)</span> evidence, so voxels with opposite-signed task effects reinforce rather than cancel one another (<a href="#fig-step1-evidence" class="quarto-xref">Figure&nbsp;<span>3.5</span></a>, <a href="#fig-step1-pooling" class="quarto-xref">Figure&nbsp;<span>3.7</span></a>). Regions without calibrated task support (<code>Null</code> in <a href="#fig-step1-evidence" class="quarto-xref">Figure&nbsp;<span>3.5</span></a>) fail the departure gate and fall back cleanly to <code>hrf_1</code>.</li>
+<li><strong>Geodesic bilateral graph pooling (<code>pooling = "graph"</code>):</strong> When individual functional boundaries shift across nominal atlas borders or no parcellation is desired, <code>pooling = "graph"</code> pools out-of-sample candidate score profiles over a sparse 26-connected in-mask geodesic lattice graph (<code>build_spatial_graph()</code>), weighting neighbors by geodesic Gaussian proximity, soft cross-parcel relaxation (<code>parcel_boundary = "soft"</code>, <code>parcel_cross_weight = 0.35</code>), and Spearman-disattenuated cross-run profile concordance while calibrating Stouffer–Cauchy gating for local spatial noise correlation (<span class="math inline">\(v_{\text{quad}}^{(-r)}\)</span>) and quantizing waveforms into at most <code>max_hrf_strata = 48L</code> prototypes (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-bilateral-hrf">Spatial Graph Pooling</a>).</li>
 </ul>
 <div id="fig-step1-evidence" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Heatmaps of out-of-sample adjusted partial R-squared across Fast, Slow, and Null parcels.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -747,7 +759,7 @@ Table&nbsp;3.1: Realized Run 1 selection summary for one representative voxel pe
 <p>To prevent HRF mismatch from corrupting the whitener, <code>estimate_crossrun_hrf()</code> performs a <strong>post-selection two-pass REML noise refit</strong> on each run <span class="math inline">\(r\)</span>:</p>
 <ol type="1">
 <li>Using the cross-fitted HRF <span class="math inline">\(\hat{h}^{(-r)}\)</span>, <code>hrf_build_noise_mean_design()</code> constructs a rich nuisance-and-task projection subspace containing run intercept/trend, user <code>nuisance</code>, DF-adaptive <span class="math inline">\(&lt;1/128\text{ Hz}\)</span> DCT cosines, convolved free-trial columns, and 1st/2nd condition HRF Taylor derivatives (degrading gracefully when residual degrees of freedom are tight).</li>
-<li>Within contiguous unmasked segments of <code>valid_rows[[r]]</code>, MEDuSA pools bias-corrected profile REML across group voxels to select <span class="math inline">\(\hat{\rho} \in [-0.8, 0.9]\)</span> and fits up to <span class="math inline">\(q \le 4\)</span> higher-order innovation-whitened Yule–Walker parameters <span class="math inline">\((\psi_1, \dots, \psi_q)\)</span> representing <span class="math inline">\((1 - \rho B)(1 - \sum_{j=1}^q \psi_j B^j)\varepsilon_t = u_t\)</span>, followed by a second GLS pass so task projection itself uses the learned covariance.</li>
+<li>Within contiguous unmasked segments of <code>valid_rows[[r]]</code>, MEDuSA pools bias-corrected profile REML across group voxels (or, under <code>pooling = "graph"</code>, across a joint bilateral geodesic + <span class="math inline">\((\Delta\hat{\rho}, \Delta\log\hat{\sigma})\)</span> kernel quantized into <code>max_noise_strata = 10L</code> strata so high-<span class="math inline">\(\rho\)</span> pial-vein rim voxels do not contaminate interior gray matter) to select <span class="math inline">\(\hat{\rho} \in [-0.8, 0.9]\)</span> and fits up to <span class="math inline">\(q \le 4\)</span> higher-order innovation-whitened Yule–Walker parameters <span class="math inline">\((\psi_1, \dots, \psi_q)\)</span> representing <span class="math inline">\((1 - \rho B)(1 - \sum_{j=1}^q \psi_j B^j)\varepsilon_t = u_t\)</span>, followed by a second GLS pass so task projection itself uses the learned covariance.</li>
 </ol>
 <p>In our <code>TR = 0.65 s</code> simulation with true <span class="math inline">\(\text{AR}(3)\)</span> parameters <span class="math inline">\((\rho = 0.65, \psi_1 = 0.20, \psi_2 = -0.30)\)</span>, refitting noise under the cross-fitted HRF recovers virtually identical cascade parameters across <code>Fast</code>, <code>Slow</code>, and <code>Null</code> parcels (<a href="#tbl-step1-noise" class="quarto-xref">Table&nbsp;<span>3.2</span></a>) and flattens true error autocorrelation across all lags (<a href="#fig-step1-noise" class="quarto-xref">Figure&nbsp;<span>3.9</span></a>)—whereas a misspecified fixed canonical HRF distorts the <code>Fast</code> parcel’s whitener. See the <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Woolrich autocorrelation assessment</a> for a side-by-side comparison against FILM-style Tukey tapers.</p>
 <div class="cell">

@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -226,12 +226,12 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5 · Group and trajectory inference</span></a>
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6 · Trial-level connectivity and PPI</span></a>
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
       </ul>
@@ -319,7 +319,7 @@ window.Quarto = {
   <li><a href="#core-deconvolution-mechanisms-sensitivity-checks" id="toc-core-deconvolution-mechanisms-sensitivity-checks" class="nav-link" data-scroll-target="#core-deconvolution-mechanisms-sensitivity-checks"><span class="header-section-number">4.7</span> Core Deconvolution Mechanisms &amp; Sensitivity Checks</a>
   <ul class="collapse">
   <li><a href="#why-regularization-is-unavoidableand-how-penalties-shape-hatst" id="toc-why-regularization-is-unavoidableand-how-penalties-shape-hatst" class="nav-link" data-scroll-target="#why-regularization-is-unavoidableand-how-penalties-shape-hatst"><span class="header-section-number">4.7.1</span> 1. Why Regularization Is Unavoidable—and How Penalties Shape <span class="math inline">\(\hat{s}(t)\)</span></a></li>
-  <li><a href="#adaptive-multi-run-gcv-tuning-lambda-null" id="toc-adaptive-multi-run-gcv-tuning-lambda-null" class="nav-link" data-scroll-target="#adaptive-multi-run-gcv-tuning-lambda-null"><span class="header-section-number">4.7.2</span> 2. Adaptive Multi-Run GCV Tuning (<code>lambda = NULL</code>)</a></li>
+  <li><a href="#adaptive-multi-run-snr-stratified-gcv-tuning-lambda-null-lambda_mode-auto" id="toc-adaptive-multi-run-snr-stratified-gcv-tuning-lambda-null-lambda_mode-auto" class="nav-link" data-scroll-target="#adaptive-multi-run-snr-stratified-gcv-tuning-lambda-null-lambda_mode-auto"><span class="header-section-number">4.7.2</span> 2. Adaptive Multi-Run &amp; SNR-Stratified GCV Tuning (<code>lambda = NULL</code>, <code>lambda_mode = "auto"</code>)</a></li>
   <li><a href="#resolution-leakage-and-diagnose_crossrun_recovery" id="toc-resolution-leakage-and-diagnose_crossrun_recovery" class="nav-link" data-scroll-target="#resolution-leakage-and-diagnose_crossrun_recovery"><span class="header-section-number">4.7.3</span> 3. Resolution, Leakage, and <code>diagnose_crossrun_recovery()</code></a></li>
   <li><a href="#nuisance-handling-observation-masks-scaling-and-boundaries" id="toc-nuisance-handling-observation-masks-scaling-and-boundaries" class="nav-link" data-scroll-target="#nuisance-handling-observation-masks-scaling-and-boundaries"><span class="header-section-number">4.7.4</span> 4. Nuisance Handling, Observation Masks, Scaling, and Boundaries</a></li>
   </ul></li>
@@ -405,7 +405,7 @@ window.Quarto = {
 <ol type="1">
 <li><strong>Uncontaminated marginal noise scaling (<code>scaling = "noise_sd"</code>):</strong> Before inverting <span class="math inline">\(H_r\)</span>, <code>hrf_estimate_gls_noise_sd()</code> builds an event-informed design matrix <span class="math inline">\(X_{\text{ev}}\)</span> containing run intercept/trend, user <code>nuisance</code>, <span class="math inline">\(&lt;1/128\text{ Hz}\)</span> DCT drift cosines, <strong>free per-trial convolved event columns</strong> under <span class="math inline">\(\hat{h}^{(-r)}\)</span>, and <strong>1st/2nd condition HRF Taylor derivatives</strong> (absorbing trial-to-trial latency jitter). Projecting <span class="math inline">\(X_{\text{ev}}\)</span> out in unit-marginal AR(<span class="math inline">\(p\)</span>)-whitened space (<span class="math inline">\(e = (I - Q Q^\top) W_{\text{unit}} y\)</span>), dividing by GLS leverage <span class="math inline">\(\sqrt{1 - h_{tt}}\)</span>, and Winsorizing at <span class="math inline">\(3 s_{\text{MAD}}\)</span> isolates pure observation noise <span class="math inline">\(\hat{\sigma}_{\text{marg}}\)</span>—completely invariant to how strongly a voxel responds to the task—and saves the orthonormalized <strong>task-free <code>noise_innovations</code></strong> for Step 4 parcel SEs and Step 6 connectivity!</li>
 <li><strong>Task-envelope-guarded adaptive glitch weighting (<code>rwls = "auto"</code>):</strong> Real fMRI runs contain sub-scrubbing motion micro-jerks and RF spikes (<span class="math inline">\(\text{FD} \approx 0.2\text{--}0.4\text{ mm}\)</span>) that ring through a linear inverse filter. <code>hrf_estimate_rwls_weights()</code> evaluates cross-voxel residual energy orthogonal to the <code>[trial HRF, dHRF/dt]</code> subspace and <strong>expands frame tolerance proportionally to the convolved task-design envelope</strong>. If a run passes a Winsorized-SVD Liu–Tang–Zhang (2009) spatial null gate (<span class="math inline">\(p &lt; 0.01/m\)</span>), MEDuSA downweights genuine non-task scanner glitches—routing isolated impulses to <strong>rank-<span class="math inline">\(k\)</span> Woodbury Sparse Bayesian Learning</strong> (<span class="math inline">\(\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)\)</span>, preventing AR(<span class="math inline">\(p\)</span>) whitening smearing!) and sustained physiological bursts to innovation-space rWLS—while keeping <span class="math inline">\(w_t = 1.0\)</span> on heavy neural bursts!</li>
-<li><strong>Task-SNR-weighted, gain-calibrated GCV (<code>lambda = NULL</code>):</strong> <code>hrf_tune_decon_lambda()</code> restricts tuning to voxels with positive out-of-sample task <span class="math inline">\(R^2\)</span> from Step 1 (<code>selections</code>), pooling across all usable runs in an order-invariant pass and trading prewhitened GCV fit against Stage-3 gain-restored trial level/contrast variance and modulation transfer.</li>
+<li><strong>Task-SNR-weighted, FDR-gated stratified GCV (<code>lambda = NULL</code>, <code>lambda_mode = "auto"</code>):</strong> <code>hrf_tune_decon_lambda()</code> pools prewhitened GCV across all usable runs in an order-invariant pass, trading observation fit against Stage-3 gain-restored trial level/contrast variance and modulation transfer. On volumetric maps passing cross-run Fisher + BH-FDR gating (<span class="math inline">\(q \le 0.10\)</span>), <code>lambda_mode = "auto"</code> stratifies voxels into a quiet background tier and ascending out-of-sample task-<span class="math inline">\(R^2\)</span> tiers (<code>max_lambda_strata = 4L</code>) with weighted PAVA monotonicity (<code>hrf_pava_nonincreasing()</code>)—suppressing inverse noise in silent cortex while preserving sharp impulses in active foci, and collapsing safely to 1 global stratum on pure-null maps.</li>
 <li><strong>Exact linear operator handoff (<code>D_r</code>):</strong> Because <span class="math inline">\(\hat{s}_r = D_r \tilde{y}_{r,o}\)</span> remains strictly linear conditional on its weights, Step 3 (<code>decon_epoch_regression()</code>) can pass the event schedule forward through <span class="math inline">\(D_r H_r\)</span> to de-mix overlapping cues/targets and propagate exact per-trial SEs.</li>
 </ol></li>
 </ul>
@@ -641,9 +641,9 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <td>Bundles out-of-sample <code>selected_kernels</code>, own-run <code>noise</code> cascades, <code>selections</code> task-SNR metrics, <code>events</code>, <code>nuisance</code>, and <code>valid_rows</code> so Step 2 never re-estimates HRFs in-sample or loses timing metadata.</td>
 </tr>
 <tr class="odd">
-<td><code>lambda</code> &amp; <code>lambda_grid</code></td>
-<td><code>NULL</code> (auto-tuned) or positive scalar; numeric candidate vector</td>
-<td>Controls the smoothness-vs-variance trade-off. Passing <code>lambda = NULL</code> activates multi-run task-weighted GCV over <code>lambda_grid = 10^seq(-2, 1, length.out = 16)</code>.</td>
+<td><code>lambda</code>, <code>lambda_mode</code>, &amp; <code>lambda_grid</code></td>
+<td><code>NULL</code> (auto-tuned), positive scalar, or length-<span class="math inline">\(V\)</span> numeric vector; <code>lambda_mode = c("auto", "global", "stratified")</code> (<code>max_lambda_strata = 4L</code>); candidate vector</td>
+<td>Controls the smoothness-vs-variance trade-off. Passing <code>lambda = NULL</code> activates multi-run GCV over <code>lambda_grid = 10^seq(-2, 1, length.out = 16)</code>, either globally (<code>"global"</code>) or across PAVA-monotone out-of-sample task-SNR tiers (<code>"auto"</code> / <code>"stratified"</code>). Supplying a length-<span class="math inline">\(V\)</span> vector assigns custom per-voxel penalties while preserving operator stratum caching.</td>
 </tr>
 <tr class="even">
 <td><code>scaling</code></td>
@@ -688,8 +688,8 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 </tr>
 <tr class="even">
 <td><code>scaling</code></td>
-<td>Named list of per-run <code>data.frame</code>s (<code>voxel</code>, <code>center</code>, <code>scale</code>, <code>noise_sd</code>, <code>status</code>)</td>
-<td>Records both the applied pre-deconvolution divisor (<code>scale</code>) and the estimated marginal observation-noise SD (<code>noise_sd</code>). Separating <code>scale</code> from <code>noise_sd</code> allows Step 3 to multiply <code>activity</code> back into physical BOLD units (<code>restore_scale = TRUE</code>) while still propagating exact observation-noise SEs!</td>
+<td>Named list of per-run <code>data.frame</code>s (<code>voxel</code>, <code>center</code>, <code>scale</code>, <code>noise_sd</code>, <code>lambda</code>, <code>status</code>)</td>
+<td>Records the applied pre-deconvolution divisor (<code>scale</code>), estimated marginal observation-noise SD (<code>noise_sd</code>), and realized per-voxel penalty (<code>lambda</code>). Separating <code>scale</code> from <code>noise_sd</code> allows Step 3 to multiply <code>activity</code> back into physical BOLD units (<code>restore_scale = TRUE</code>) while propagating exact per-voxel regularization and observation-noise SEs!</td>
 </tr>
 <tr class="odd">
 <td><code>noise_innovations</code></td>
@@ -703,8 +703,8 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 </tr>
 <tr class="odd">
 <td><code>hrf_fit</code> &amp; <code>settings</code></td>
-<td>Embedded <code>crossrun_hrf</code> object + resolved inverse settings (including <code>lambda</code> and <code>lambda_tuning</code>)</td>
-<td>Avoids storing gigabytes of dense <span class="math inline">\(n_r \times m_r\)</span> inverse matrices in RAM: because voxels are grouped into <code>(HRF, AR)</code> strata, Step 3 can rebuild each unique stratum operator <span class="math inline">\(D_r\)</span> on the fly in milliseconds using <code>hrf_fit</code>, <code>settings</code>, and <code>frame_weights</code>.</td>
+<td>Embedded <code>crossrun_hrf</code> object + resolved inverse settings (<code>lambda</code>, <code>lambda_mode_used</code>, <code>lambda_strata</code>, <code>lambda_tuning</code>)</td>
+<td>Avoids storing gigabytes of dense <span class="math inline">\(n_r \times m_r\)</span> inverse matrices in RAM: because voxels are grouped into <code>(HRF, AR, lambda)</code> strata (<code>|lam:</code> operator keys when stratified), Steps 3–4 rebuild each unique stratum operator <span class="math inline">\(D_r\)</span> on the fly in milliseconds using <code>hrf_fit</code>, <code>settings</code>, and <code>frame_weights</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -717,20 +717,21 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold             =</span> bold,</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">hrf_fit          =</span> hrf_fit,</span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda           =</span> <span class="cn">NULL</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling          =</span> <span class="st">"noise_sd"</span>,</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">penalty          =</span> <span class="st">"sobolev"</span>,</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">rwls             =</span> <span class="st">"auto"</span>,</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode    =</span> <span class="st">"ignore"</span>,   <span class="co"># use "joint" if bold was NOT detrended/cleaned upstream</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">observation_mask =</span> <span class="st">"fit"</span>,</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">tail_padding     =</span> <span class="dv">0</span>L,</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">backend          =</span> <span class="st">"cpp"</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Always audit conditional gain and cross-talk on your study's event schedule:</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">lags =</span> <span class="dv">0</span>)</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: write 4D deconvolved activity or 3D diagnostic maps back to NIfTI in C++</span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co"># write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda_mode      =</span> <span class="st">"auto"</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling          =</span> <span class="st">"noise_sd"</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">penalty          =</span> <span class="st">"sobolev"</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">rwls             =</span> <span class="st">"auto"</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode    =</span> <span class="st">"ignore"</span>,   <span class="co"># use "joint" if bold was NOT detrended/cleaned upstream</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">observation_mask =</span> <span class="st">"fit"</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">tail_padding     =</span> <span class="dv">0</span>L,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">backend          =</span> <span class="st">"cpp"</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Always audit conditional gain and cross-talk on your study's event schedule:</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">lags =</span> <span class="dv">0</span>)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: write 4D deconvolved activity or 3D diagnostic maps back to NIfTI in C++</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co"># write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -758,7 +759,7 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <td><code>lambda</code> &amp; <code>lambda_mode</code></td>
 <td><code>lambda = NULL</code>, <code>lambda_mode = "auto"</code></td>
 <td><code>NULL</code>, <code>"auto"</code></td>
-<td>Pools task-weighted, gain-calibrated GCV across usable runs. On volumetric maps passing cross-run Fisher + BH-FDR gating, <code>lambda_mode = "auto"</code> stratifies voxels into ascending OOS task-<span class="math inline">\(R^2\)</span> tiers (<code>max_lambda_strata = 4L</code>) with weighted PAVA monotonicity so quiet background cortex receives stronger smoothing without blunting active foci (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-step2-stratified-lambda">Spatial Graph Pooling</a>).</td>
+<td>Pools task-weighted, gain-calibrated GCV across usable runs. On volumetric maps passing cross-run Fisher + BH-FDR gating (<span class="math inline">\(q \le 0.10\)</span>), <code>lambda_mode = "auto"</code> stratifies voxels into ascending OOS task-<span class="math inline">\(R^2\)</span> tiers (<code>max_lambda_strata = 4L</code>) with weighted PAVA monotonicity so quiet background cortex receives stronger smoothing without blunting active foci (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-step2-stratified-lambda">Spatial Graph Pooling</a>). Override with <code>lambda_mode = "global"</code> or a fixed scalar only when matching a single penalty across all voxels.</td>
 </tr>
 <tr class="even">
 <td><code>rwls</code></td>
@@ -885,9 +886,14 @@ Table&nbsp;4.3: Continuous waveform recovery on Run 1 Voxel 1 across the five pe
 </div>
 </div>
 </section>
-<section id="adaptive-multi-run-gcv-tuning-lambda-null" class="level3" data-number="4.7.2">
-<h3 data-number="4.7.2" class="anchored" data-anchor-id="adaptive-multi-run-gcv-tuning-lambda-null"><span class="header-section-number">4.7.2</span> 2. Adaptive Multi-Run GCV Tuning (<code>lambda = NULL</code>)</h3>
-<p>Standard observation-space GCV minimizes BOLD prediction error, which favors stronger smoothing than optimal for estimating sharp trial contrasts. MEDuSA’s <code>hrf_tune_decon_lambda()</code> (<a href="#fig-step2-tuning" class="quarto-xref">Figure&nbsp;<span>4.5</span></a>) evaluates each grid candidate across active voxels/runs and combines prewhitened GCV with Stage-3 <strong>gain-restored level variance (<code>var_level</code>)</strong>, <strong>1-TR contrast variance (<code>var_contrast</code>)</strong>, and <strong>modulation transfer (<code>mtf_rel</code>)</strong> weighted by Step 1’s task SNR.</p>
+<section id="adaptive-multi-run-snr-stratified-gcv-tuning-lambda-null-lambda_mode-auto" class="level3" data-number="4.7.2">
+<h3 data-number="4.7.2" class="anchored" data-anchor-id="adaptive-multi-run-snr-stratified-gcv-tuning-lambda-null-lambda_mode-auto"><span class="header-section-number">4.7.2</span> 2. Adaptive Multi-Run &amp; SNR-Stratified GCV Tuning (<code>lambda = NULL</code>, <code>lambda_mode = "auto"</code>)</h3>
+<p>Standard observation-space GCV minimizes BOLD prediction error, which favors stronger smoothing than optimal for estimating sharp trial contrasts. MEDuSA’s <code>hrf_tune_decon_lambda()</code> (<a href="#fig-step2-tuning" class="quarto-xref">Figure&nbsp;<span>4.5</span></a>) evaluates each grid candidate across usable runs and combines prewhitened GCV with Stage-3 <strong>gain-restored level variance (<code>var_level</code>)</strong>, <strong>1-TR contrast variance (<code>var_contrast</code>)</strong>, and <strong>modulation transfer (<code>mtf_rel</code>)</strong> weighted by Step 1’s out-of-sample task SNR.</p>
+<p>On whole-brain or ribbon maps where most voxels are task-silent while focal areas are strongly engaged, <code>lambda_mode = "auto"</code> (<code>hrf_tune_decon_lambda_stratified()</code>) extends this criterion across up to <code>max_lambda_strata = 4L</code> SNR tiers:</p>
+<ol type="1">
+<li><strong>Null-safe Fisher + BH-FDR gate:</strong> Step 1 per-run task <span class="math inline">\(p\)</span>-values (<code>selected_task_p</code>) are combined across runs via Fisher’s method and BH-FDR-adjusted across voxels. If no voxels pass <span class="math inline">\(q \le 0.10\)</span> (or <span class="math inline">\(V &lt; 12\)</span>), <code>"auto"</code> collapses to a single <code>"global"</code> penalty.</li>
+<li><strong>Graph-stabilized tiers &amp; monotone PAVA:</strong> When focal signal is present, out-of-sample task <span class="math inline">\(R^2\)</span> is stabilized over <code>hrf_fit$spatial$graph</code> (<code>smooth_scalar_csr_cpp</code>), separating a quiet background tier (<span class="math inline">\(q &gt; 0.20\)</span> and <span class="math inline">\(R^2_{\text{stab}} &lt; 0.025\)</span>, tuned on pure prewhitened GCV + level stability so 1-TR step noise never pulls <span class="math inline">\(\lambda\)</span> downward) from ascending active SNR quantiles. Weighted pool-adjacent-violators (<code>hrf_pava_nonincreasing()</code>) enforces <span class="math inline">\(\lambda_{\text{quiet}} \ge \lambda_{\text{low-SNR}} \ge \dots \ge \lambda_{\text{high-SNR}}\)</span> in <span class="math inline">\(\log \lambda\)</span> space (<code>decon$settings$lambda_strata</code>), and each voxel’s realized <span class="math inline">\(\lambda_v\)</span> (<code>decon$scaling[[r]]$lambda</code>) propagates automatically into Step 3–4 operator reconstruction.</li>
+</ol>
 <div id="fig-step2-tuning" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Tuning curves across lambda_grid showing raw GCV, adaptive criterion, level variance, and contrast variance.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step2-tuning-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
