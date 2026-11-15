@@ -978,8 +978,16 @@ all accept either the unified `"medusa_nifti_ts"` / `"crossrun_decon"` /
 `"medusa_confounds"` objects and combined single-participant `events`
 tables (matching BIDS/MEDuSA run labels such as `1`, `"01"`, `"run1"`,
 or `"run-01"`) or explicit run-named lists (`ts$bold`, `nuisance`,
-`valid_rows`). When ingesting `BrainGnomes` postprocessed derivatives
-(`desc = "postproc"`),
+`valid_rows`). For fast-TR multiband fMRI where respiratory B0
+chest-wall pseudomotion inflates raw FD, pass
+`motion_bandstop_bpm = c(12, 18)` (or `motion_lowpass_hz = 0.2`) to
+[`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
+or
+[`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
+to apply zero-phase filtering to the 6 rigid-body motion parameters
+before Power (2012) FD censoring while keeping unfiltered nuisance
+regressors (`motion_filter_target = "fd_only"`). When ingesting
+`BrainGnomes` postprocessed derivatives (`desc = "postproc"`),
 [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
 inspects `<bold>.json` provenance to reject physically scrubbed
 (`scrub_timepoints`) volumes that would break the acquisition clock and

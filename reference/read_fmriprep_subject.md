@@ -51,6 +51,13 @@ read_fmriprep_subject(
   censor = "auto",
   fd_threshold = 0.5,
   fd_col = "auto",
+  head_radius = 50,
+  rot_units = c("rad", "deg"),
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = c("constant", "odd", "even", "zero"),
+  motion_filter_target = c("fd_only", "fd_and_nuisance"),
   dvars_threshold = NULL,
   dvars_col = "std_dvars",
   include_non_steady_state = TRUE,
@@ -184,11 +191,14 @@ read_fmriprep_subject(
   [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
   or `NULL` to ignore `*_censor.1D` sidecars.
 
-- fd_threshold, fd_col, dvars_threshold, dvars_col,
+- fd_threshold, fd_col, head_radius, rot_units, motion_bandstop_bpm,
+  motion_lowpass_hz, motion_filter_order, motion_filter_pad,
+  motion_filter_target, dvars_threshold, dvars_col,
   include_non_steady_state, include_motion_outliers,
   drop_initial_volumes, censor_prev, censor_next, min_segment_length:
 
-  Clock-preserving censoring options forwarded to
+  Clock-preserving censoring and optional respiratory motion filtering
+  options forwarded to
   [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md).
 
 - id_style:

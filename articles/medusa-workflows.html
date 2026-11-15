@@ -1478,7 +1478,15 @@ single call.</p>
 <code>1</code>, <code>"01"</code>, <code>"run1"</code>, or
 <code>"run-01"</code>) or explicit run-named lists
 (<code>ts$bold</code>, <code>nuisance</code>, <code>valid_rows</code>).
-When ingesting <code>BrainGnomes</code> postprocessed derivatives
+For fast-TR multiband fMRI where respiratory B0 chest-wall pseudomotion
+inflates raw FD, pass <code>motion_bandstop_bpm = c(12, 18)</code> (or
+<code>motion_lowpass_hz = 0.2</code>) to
+<code><a href="../reference/read_fmriprep_confounds.html">read_fmriprep_confounds()</a></code> or
+<code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code> to apply zero-phase filtering to
+the 6 rigid-body motion parameters before Power (2012) FD censoring
+while keeping unfiltered nuisance regressors
+(<code>motion_filter_target = "fd_only"</code>). When ingesting
+<code>BrainGnomes</code> postprocessed derivatives
 (<code>desc = "postproc"</code>), <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code>
 inspects <code>&lt;bold&gt;.json</code> provenance to reject physically
 scrubbed (<code>scrub_timepoints</code>) volumes that would break the

@@ -88,6 +88,12 @@ all rows.</p>
 <span>  fd_col <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  head_radius <span class="op">=</span> <span class="fl">50</span>,</span>
 <span>  rot_units <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rad"</span>, <span class="st">"deg"</span><span class="op">)</span>,</span>
+<span>  tr <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_bandstop_bpm <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_lowpass_hz <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_filter_order <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_filter_pad <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"constant"</span>, <span class="st">"odd"</span>, <span class="st">"even"</span>, <span class="st">"zero"</span><span class="op">)</span>,</span>
+<span>  motion_filter_target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fd_only"</span>, <span class="st">"fd_and_nuisance"</span><span class="op">)</span>,</span>
 <span>  dvars_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dvars_col <span class="op">=</span> <span class="st">"std_dvars"</span>,</span>
 <span>  include_non_steady_state <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -215,7 +221,59 @@ Power (2012) framewise displacement from the 6 rigid-body motion columns.</p></d
 
 <dt id="arg-rot-units">rot_units<a class="anchor" aria-label="anchor" href="#arg-rot-units"></a></dt>
 <dd><p>Rotation parameter units (<code>"rad"</code> default for fMRIPrep,
-or <code>"deg"</code>) used only when computing fallback Power FD.</p></dd>
+or <code>"deg"</code>) used when computing Power (2012) FD from the 6 rigid-body
+motion columns.</p></dd>
+
+
+<dt id="arg-tr">tr<a class="anchor" aria-label="anchor" href="#arg-tr"></a></dt>
+<dd><p>Optional repetition time in seconds (scalar or per-run numeric
+vector), required only when <code>motion_bandstop_bpm</code> or
+<code>motion_lowpass_hz</code> is specified and TR cannot be inferred
+automatically from <code>bold</code> or a sibling <code>*_bold.json</code> /
+<code>*_bold.nii(.gz)</code> file.</p></dd>
+
+
+<dt id="arg-motion-bandstop-bpm">motion_bandstop_bpm<a class="anchor" aria-label="anchor" href="#arg-motion-bandstop-bpm"></a></dt>
+<dd><p>Optional length-2 numeric vector
+<code>c(min_bpm, max_bpm)</code> specifying a respiratory band-stop (notch) filter
+in breaths per minute (e.g., <code>c(12, 18)</code> for typical adult breathing
+at 0.2–0.3 Hz, or <code>c(18.58, 25.73)</code> per Fair et al., 2020) applied
+zero-phase via forward-backward biquad filtering to the 6 rigid-body motion
+parameters before recomputing Power (2012) FD. Suppresses fast-TR multiband
+respiratory B0 pseudomotion that would otherwise over-censor clean volumes.
+Mutually exclusive with <code>motion_lowpass_hz</code>. Default <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-motion-lowpass-hz">motion_lowpass_hz<a class="anchor" aria-label="anchor" href="#arg-motion-lowpass-hz"></a></dt>
+<dd><p>Optional numeric scalar specifying a Butterworth
+low-pass cutoff frequency in Hz (e.g., <code>0.2</code> Hz; Gratton et al., 2020)
+applied zero-phase via forward-backward filtering to the 6 rigid-body
+motion parameters before recomputing Power (2012) FD. Mutually exclusive
+with <code>motion_bandstop_bpm</code>. Default <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-motion-filter-order">motion_filter_order<a class="anchor" aria-label="anchor" href="#arg-motion-filter-order"></a></dt>
+<dd><p>Optional integer effective zero-phase filter order
+(default <code>NULL</code>, which uses <code>4L</code>). Must be a positive multiple of
+<code>4</code> for <code>motion_bandstop_bpm</code> (each forward-backward 2nd-order
+biquad pass contributes order 4) or an even integer <code>&gt;= 2</code> for
+<code>motion_lowpass_hz</code> (a forward-backward <code>N</code>-pole Butterworth
+low-pass has effective order <code>2 * N</code>).</p></dd>
+
+
+<dt id="arg-motion-filter-pad">motion_filter_pad<a class="anchor" aria-label="anchor" href="#arg-motion-filter-pad"></a></dt>
+<dd><p>Boundary reflection padding mode for zero-phase
+forward-backward filtering: <code>"constant"</code> (default), <code>"odd"</code>,
+<code>"even"</code>, or <code>"zero"</code>.</p></dd>
+
+
+<dt id="arg-motion-filter-target">motion_filter_target<a class="anchor" aria-label="anchor" href="#arg-motion-filter-target"></a></dt>
+<dd><p>Whether respiratory motion filtering updates only
+Power (2012) FD and censoring (<code>"fd_only"</code>, default; preserves
+unfiltered motion nuisance columns so respiratory B0 variance remaining in
+unfiltered BOLD is still modeled) or also replaces the 6 rigid-body motion
+columns and their Friston-24 derivatives/quadratics in <code>nuisance</code>
+(<code>"fd_and_nuisance"</code>).</p></dd>
 
 
 <dt id="arg-dvars-threshold">dvars_threshold<a class="anchor" aria-label="anchor" href="#arg-dvars-threshold"></a></dt>
@@ -302,8 +360,14 @@ near-zero variance on <code>valid_rows</code> (such as all-zero outlier columns)
       observation masks (<code>TRUE</code> = usable, <code>FALSE</code> = censored).</p></li>
 <li><p><code>summary</code>: Per-run QC <code>data.frame</code> reporting volume
       counts, censored counts/percentages, outlier breakdowns, mean/max FD,
-      and retained nuisance column counts.</p></li>
-<li><p><code>framewise_displacement</code>: Run-named list of numeric FD vectors.</p></li>
+      whether respiratory motion filtering was applied, and retained nuisance
+      column counts.</p></li>
+<li><p><code>framewise_displacement</code>: Run-named list of numeric FD vectors
+      used for QC and censoring (respiratory-filtered when
+      <code>motion_bandstop_bpm</code> or <code>motion_lowpass_hz</code> is active).</p></li>
+<li><p><code>framewise_displacement_raw</code>: Run-named list of unfiltered FD
+      vectors when <code>motion_bandstop_bpm</code> or <code>motion_lowpass_hz</code> is
+      requested (<code>NULL</code> otherwise).</p></li>
 </ul><p>The <code>"medusa_confounds"</code> object can be passed directly as
   <code>nuisance = conf</code> to <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code> (automatically
   supplying both <code>nuisance</code> and <code>valid_rows</code>) or as
@@ -338,11 +402,13 @@ near-zero variance on <code>valid_rows</code> (such as all-zero outlier columns)
 <span class="r-out co"><span class="r-pr">#&gt;</span>    run</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 run1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                file</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 /tmp/Rtmpchf7xw/sub-01_task-mid_run-01_19d740c4ff12_desc-confounds_timeseries.tsv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 /tmp/RtmpKBWFGz/sub-01_task-mid_run-01_19c84cc265aa_desc-confounds_timeseries.tsv</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_volumes n_valid n_censored pct_censored n_fd_outliers n_dvars_outliers</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1         5       3          2           40             1                0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_non_steady_state n_external_censor mean_fd max_fd n_nuisance_cols</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                  1                 0  0.2925   0.92              11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_non_steady_state n_external_censor mean_fd max_fd motion_filtered</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                  1                 0  0.2925   0.92           FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_nuisance_cols</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1              11</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">f_conf</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

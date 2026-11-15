@@ -87,7 +87,10 @@
   [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
   converts `*_desc-confounds_timeseries.tsv` and
   `*_desc-<desc>_confounds.tsv` tables into clock-preserving
-  `valid_rows` masks (`fd_threshold`, `dvars_threshold`,
+  `valid_rows` masks (`fd_threshold`, `dvars_threshold`, optional
+  zero-phase respiratory notch `motion_bandstop_bpm` or Butterworth
+  low-pass `motion_lowpass_hz` filtering of the 6 rigid-body motion
+  parameters prior to Power 2012 FD calculation,
   `framewise_displacement_filtered` / Power 2012 FD fallback, external
   `*_censor.1D` / `*_scrub.tsv` sidecars, `non_steady_state_outlier*`,
   spike dilation, `min_segment_length`) and strictly finite `nuisance`

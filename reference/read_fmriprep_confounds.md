@@ -32,6 +32,12 @@ read_fmriprep_confounds(
   fd_col = "auto",
   head_radius = 50,
   rot_units = c("rad", "deg"),
+  tr = NULL,
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = c("constant", "odd", "even", "zero"),
+  motion_filter_target = c("fd_only", "fd_and_nuisance"),
   dvars_threshold = NULL,
   dvars_col = "std_dvars",
   include_non_steady_state = TRUE,
@@ -163,7 +169,59 @@ read_fmriprep_confounds(
 - rot_units:
 
   Rotation parameter units (`"rad"` default for fMRIPrep, or `"deg"`)
-  used only when computing fallback Power FD.
+  used when computing Power (2012) FD from the 6 rigid-body motion
+  columns.
+
+- tr:
+
+  Optional repetition time in seconds (scalar or per-run numeric
+  vector), required only when `motion_bandstop_bpm` or
+  `motion_lowpass_hz` is specified and TR cannot be inferred
+  automatically from `bold` or a sibling `*_bold.json` /
+  `*_bold.nii(.gz)` file.
+
+- motion_bandstop_bpm:
+
+  Optional length-2 numeric vector `c(min_bpm, max_bpm)` specifying a
+  respiratory band-stop (notch) filter in breaths per minute (e.g.,
+  `c(12, 18)` for typical adult breathing at 0.2–0.3 Hz, or
+  `c(18.58, 25.73)` per Fair et al., 2020) applied zero-phase via
+  forward-backward biquad filtering to the 6 rigid-body motion
+  parameters before recomputing Power (2012) FD. Suppresses fast-TR
+  multiband respiratory B0 pseudomotion that would otherwise over-censor
+  clean volumes. Mutually exclusive with `motion_lowpass_hz`. Default
+  `NULL`.
+
+- motion_lowpass_hz:
+
+  Optional numeric scalar specifying a Butterworth low-pass cutoff
+  frequency in Hz (e.g., `0.2` Hz; Gratton et al., 2020) applied
+  zero-phase via forward-backward filtering to the 6 rigid-body motion
+  parameters before recomputing Power (2012) FD. Mutually exclusive with
+  `motion_bandstop_bpm`. Default `NULL`.
+
+- motion_filter_order:
+
+  Optional integer effective zero-phase filter order (default `NULL`,
+  which uses `4L`). Must be a positive multiple of `4` for
+  `motion_bandstop_bpm` (each forward-backward 2nd-order biquad pass
+  contributes order 4) or an even integer `>= 2` for `motion_lowpass_hz`
+  (a forward-backward `N`-pole Butterworth low-pass has effective order
+  `2 * N`).
+
+- motion_filter_pad:
+
+  Boundary reflection padding mode for zero-phase forward-backward
+  filtering: `"constant"` (default), `"odd"`, `"even"`, or `"zero"`.
+
+- motion_filter_target:
+
+  Whether respiratory motion filtering updates only Power (2012) FD and
+  censoring (`"fd_only"`, default; preserves unfiltered motion nuisance
+  columns so respiratory B0 variance remaining in unfiltered BOLD is
+  still modeled) or also replaces the 6 rigid-body motion columns and
+  their Friston-24 derivatives/quadratics in `nuisance`
+  (`"fd_and_nuisance"`).
 
 - dvars_threshold:
 
@@ -250,10 +308,17 @@ An S3 list of class `"medusa_confounds"` containing:
   (`TRUE` = usable, `FALSE` = censored).
 
 - `summary`: Per-run QC `data.frame` reporting volume counts, censored
-  counts/percentages, outlier breakdowns, mean/max FD, and retained
-  nuisance column counts.
+  counts/percentages, outlier breakdowns, mean/max FD, whether
+  respiratory motion filtering was applied, and retained nuisance column
+  counts.
 
-- `framewise_displacement`: Run-named list of numeric FD vectors.
+- `framewise_displacement`: Run-named list of numeric FD vectors used
+  for QC and censoring (respiratory-filtered when `motion_bandstop_bpm`
+  or `motion_lowpass_hz` is active).
+
+- `framewise_displacement_raw`: Run-named list of unfiltered FD vectors
+  when `motion_bandstop_bpm` or `motion_lowpass_hz` is requested (`NULL`
+  otherwise).
 
 The `"medusa_confounds"` object can be passed directly as
 `nuisance = conf` to
@@ -293,10 +358,12 @@ conf$summary
 #>    run
 #> 1 run1
 #>                                                                                file
-#> 1 /tmp/Rtmpchf7xw/sub-01_task-mid_run-01_19d740c4ff12_desc-confounds_timeseries.tsv
+#> 1 /tmp/RtmpKBWFGz/sub-01_task-mid_run-01_19c84cc265aa_desc-confounds_timeseries.tsv
 #>   n_volumes n_valid n_censored pct_censored n_fd_outliers n_dvars_outliers
 #> 1         5       3          2           40             1                0
-#>   n_non_steady_state n_external_censor mean_fd max_fd n_nuisance_cols
-#> 1                  1                 0  0.2925   0.92              11
+#>   n_non_steady_state n_external_censor mean_fd max_fd motion_filtered
+#> 1                  1                 0  0.2925   0.92           FALSE
+#>   n_nuisance_cols
+#> 1              11
 unlink(f_conf)
 ```

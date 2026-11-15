@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -348,7 +348,7 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 1 · NIfTI/BIDS I/O, Censoring, HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
 <td style="text-align: left;"><code>read_fmriprep_subject()</code>, <code>read_fmriprep_confounds()</code>, <code>read_bids_events()</code>, <code>read_nifti_ts()</code>, <code>build_spatial_graph()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
-<td style="text-align: left;">Streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction, BIDS/fMRIPrep/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code>, 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and geodesic bilateral graph pooling (<code>pooling = "graph"</code>), and 2-pass REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
+<td style="text-align: left;">Streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction, BIDS/fMRIPrep/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code> and zero-phase respiratory motion filtering (<code>motion_bandstop_bpm</code> / <code>motion_lowpass_hz</code>), 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and geodesic bilateral graph pooling (<code>pooling = "graph"</code>), and 2-pass REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 2 · Event-informed continuous deconvolution</strong></td>
@@ -441,6 +441,9 @@ Show full simulation and figure regeneration commands
 <li>Kuznetsova, A., Brockhoff, P. B., &amp; Christensen, R. H. B. (2017). <code>lmerTest</code> package: tests in linear mixed effects models. <em>Journal of Statistical Software</em>, 82(13), 1–26. <a href="https://www.jstatsoft.org/article/view/v082i13">Article</a></li>
 <li>Benjamini, Y., &amp; Yekutieli, D. (2001). The control of the false discovery rate in multiple testing under dependency. <em>Annals of Statistics</em>, 29(4), 1165–1188. <a href="https://doi.org/10.1214/aos/1013699998">Article</a></li>
 <li>Cole, M. W., Ito, T., Schultz, D., Mill, R., Chen, R., &amp; Cocuzza, C. (2019). Task activations produce spurious but systematic inflation of task functional connectivity estimates. <em>NeuroImage</em>, 189, 1–18. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/">Article</a></li>
+<li>Power, J. D., Barnes, K. A., Snyder, A. Z., Schlaggar, B. L., &amp; Petersen, S. E. (2012). Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. <em>NeuroImage</em>, 59(3), 2142–2154. <a href="https://doi.org/10.1016/j.neuroimage.2011.10.018">DOI</a></li>
+<li>Fair, D. A., Miranda-Dominguez, O., Snyder, A. Z., Perrone, A., Earl, E. A., Van, A. N., … &amp; Dosenbach, N. U. F. (2020). Correction of respiratory artifacts in MRI head motion estimates. <em>NeuroImage</em>, 208, 116400. <a href="https://doi.org/10.1016/j.neuroimage.2019.116400">DOI</a></li>
+<li>Gratton, C., Dworetsky, A., Coalson, R. S., Adeyemo, B., Laumann, T. O., Wig, G. S., … &amp; Campbell, M. C. (2020). Removal of high frequency contamination from motion estimates in single-band fMRI saves data without biasing functional connectivity. <em>NeuroImage</em>, 217, 116866. <a href="https://doi.org/10.1016/j.neuroimage.2020.116866">DOI</a></li>
 </ul>
 
 

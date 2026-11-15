@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -316,6 +316,7 @@ window.Quarto = {
   <li><a href="#leave-one-run-out-cross-fitting-and-single-run-block-splitting" id="toc-leave-one-run-out-cross-fitting-and-single-run-block-splitting" class="nav-link" data-scroll-target="#leave-one-run-out-cross-fitting-and-single-run-block-splitting"><span class="header-section-number">3.6.2</span> 2. Leave-One-Run-Out Cross-Fitting (and Single-Run Block Splitting)</a></li>
   <li><a href="#calibrated-evidence-scoring-amplitude-models-and-spatial-pooling" id="toc-calibrated-evidence-scoring-amplitude-models-and-spatial-pooling" class="nav-link" data-scroll-target="#calibrated-evidence-scoring-amplitude-models-and-spatial-pooling"><span class="header-section-number">3.6.3</span> 3. Calibrated Evidence Scoring, Amplitude Models, and Spatial Pooling</a></li>
   <li><a href="#two-pass-post-selection-textarp-noise-refitting" id="toc-two-pass-post-selection-textarp-noise-refitting" class="nav-link" data-scroll-target="#two-pass-post-selection-textarp-noise-refitting"><span class="header-section-number">3.6.4</span> 4. Two-Pass Post-Selection <span class="math inline">\(\text{AR}(p)\)</span> Noise Refitting</a></li>
+  <li><a href="#sec-respiratory-fd-filter" id="toc-sec-respiratory-fd-filter" class="nav-link" data-scroll-target="#sec-respiratory-fd-filter"><span class="header-section-number">3.6.5</span> 5. Respiratory Motion Filtering for Fast-TR Censoring</a></li>
   </ul></li>
   <li><a href="#diagnostic-checklist-before-proceeding-to-step-2" id="toc-diagnostic-checklist-before-proceeding-to-step-2" class="nav-link" data-scroll-target="#diagnostic-checklist-before-proceeding-to-step-2"><span class="header-section-number">3.7</span> Diagnostic Checklist Before Proceeding to Step 2</a></li>
   </ul>
@@ -409,13 +410,13 @@ window.Quarto = {
 </tr>
 <tr class="odd">
 <td><code>valid_rows</code></td>
-<td>Optional named list of logical vectors (<code>length == nrow(bold[[r]])</code>)</td>
-<td><strong>Never delete censored TRs before Step 1.</strong> Deleting rows compresses the clock, corrupting causal HRF convolution tails after a scrub gap and pretending separated volumes are lag-1 neighbors. Logical <code>valid_rows</code> keeps the physical time grid intact while excluding bad frames from regression and likelihood scoring.</td>
+<td>Optional named list of logical vectors (<code>length == nrow(bold[[r]])</code>), or supplied automatically via <code>nuisance = conf</code> from <code>read_fmriprep_confounds()</code> / <code>read_fmriprep_subject()</code></td>
+<td><strong>Never delete censored TRs before Step 1.</strong> Deleting rows compresses the clock, corrupting causal HRF convolution tails after a scrub gap and pretending separated volumes are lag-1 neighbors. Logical <code>valid_rows</code> keeps the physical time grid intact while excluding bad frames from regression and likelihood scoring. At fast multiband TRs (<span class="math inline">\(\text{TR} \lesssim 1.0\text{ s}\)</span>), filter the 6 rigid-body motion parameters before computing FD (<code>motion_bandstop_bpm</code> or <code>motion_lowpass_hz</code>) so chest-wall breathing pseudomotion does not fragment <code>valid_rows</code> (see <a href="#sec-respiratory-fd-filter" class="quarto-xref"><span>Section 3.6.5</span></a>).</td>
 </tr>
 <tr class="even">
 <td><code>nuisance</code></td>
-<td>Optional named list of numeric matrices (<code>nrow == nrow(bold[[r]])</code>)</td>
-<td>Motion parameters, physiological regressors, or tissue comps supplied here are combined with an automatic run intercept and linear trend so slow scanner drift does not masquerade as broad HRFs or <span class="math inline">\(\rho \to 1\)</span> autocorrelation.</td>
+<td>Optional named list of numeric matrices (<code>nrow == nrow(bold[[r]])</code>), or a <code>"medusa_confounds"</code> object</td>
+<td>Motion parameters (<code>24p</code>/<code>36p</code>), CompCor components, or physiological regressors supplied here are combined with an automatic run intercept and linear trend so slow scanner drift and respiratory <span class="math inline">\(B_0\)</span> variance do not masquerade as broad HRFs or <span class="math inline">\(\rho \to 1\)</span> autocorrelation.</td>
 </tr>
 <tr class="odd">
 <td><code>spatial_groups</code> &amp; <code>noise_groups</code></td>
@@ -477,35 +478,41 @@ window.Quarto = {
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 0. Stream preprocessed 4D NIfTI runs + mask + atlas into T x V matrices in C++</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>ts <span class="ot">&lt;-</span> <span class="fu">read_nifti_ts</span>(</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">niftis =</span> <span class="fu">c</span>(<span class="at">run1 =</span> <span class="st">"sub01_run1.nii.gz"</span>, <span class="at">run2 =</span> <span class="st">"sub01_run2.nii.gz"</span>, <span class="at">run3 =</span> <span class="st">"sub01_run3.nii.gz"</span>),</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">mask   =</span> <span class="st">"sub01_mask.nii.gz"</span>,</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">atlas  =</span> <span class="st">"schaefer200.nii.gz"</span>,</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr     =</span> tr</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>bold <span class="ot">&lt;-</span> ts<span class="sc">$</span>bold</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>parcel_ids <span class="ot">&lt;-</span> ts<span class="sc">$</span>parcel_ids</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>candidates <span class="ot">&lt;-</span> <span class="fu">hrf_library</span>(<span class="at">tr =</span> tr, <span class="at">preset =</span> <span class="st">"medusa"</span>)</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold            =</span> bold,</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">events          =</span> events,</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr              =</span> tr,</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">kernel_grid     =</span> candidates,</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance        =</span> nuisance,</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">valid_rows      =</span> valid_rows,</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">spatial_groups  =</span> parcel_ids,</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"parcel"</span>,</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model     =</span> <span class="st">"ar1"</span>,</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">evidence        =</span> <span class="st">"calibrated"</span>,</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_scores   =</span> <span class="cn">TRUE</span></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 0. Stream preprocessed 4D NIfTI runs + fMRIPrep confounds &amp; BIDS events</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#    (or call read_fmriprep_subject() to discover BOLD, masks, confounds, and events in one step)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>ts <span class="ot">&lt;-</span> <span class="fu">read_nifti_ts</span>(</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">niftis =</span> <span class="fu">c</span>(<span class="at">run1 =</span> <span class="st">"sub01_run1.nii.gz"</span>, <span class="at">run2 =</span> <span class="st">"sub01_run2.nii.gz"</span>, <span class="at">run3 =</span> <span class="st">"sub01_run3.nii.gz"</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mask   =</span> <span class="st">"sub01_mask.nii.gz"</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">atlas  =</span> <span class="st">"schaefer200.nii.gz"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr     =</span> tr</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>conf <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_confounds</span>(</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"sub01_run1_desc-confounds_timeseries.tsv"</span>,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"sub01_run2_desc-confounds_timeseries.tsv"</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"sub01_run3_desc-confounds_timeseries.tsv"</span>),</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold                 =</span> ts,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">strategy             =</span> <span class="st">"24p"</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">fd_threshold         =</span> <span class="fl">0.3</span>,</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">motion_bandstop_bpm  =</span> <span class="fu">c</span>(<span class="dv">12</span>, <span class="dv">20</span>),   <span class="co"># recommended at fast multiband TRs (TR &lt;= 1.0 s)</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">motion_filter_target =</span> <span class="st">"fd_only"</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>candidates <span class="ot">&lt;-</span> <span class="fu">hrf_library</span>(<span class="at">tr =</span> ts<span class="sc">$</span>tr, <span class="at">preset =</span> <span class="st">"medusa"</span>)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold            =</span> ts,</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">events          =</span> events,</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">kernel_grid     =</span> candidates,</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance        =</span> conf,</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model     =</span> <span class="st">"ar1"</span>,</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">evidence        =</span> <span class="st">"calibrated"</span>,</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_scores   =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -546,6 +553,12 @@ window.Quarto = {
 <td><code>"ar1"</code> &amp; <code>"calibrated"</code></td>
 <td><code>"ar1"</code> &amp; <code>"calibrated"</code></td>
 <td>Keep both defaults. Note that <code>noise_model = "ar1"</code> actually fits a <strong>stationary <span class="math inline">\(\text{AR}(1) \times \text{AR}(q)\)</span> cascade</strong> (up to <span class="math inline">\(\text{AR}(5)\)</span> at fast multiband TRs) via pooled two-pass REML, not just a single-parameter <span class="math inline">\(\text{AR}(1)\)</span>! <code>"calibrated"</code> enforces <span class="math inline">\(F\)</span>-test task gates and cross-run compatibility.</td>
+</tr>
+<tr class="even">
+<td><code>motion_bandstop_bpm</code> &amp; <code>motion_filter_target</code> (in <code>read_fmriprep_confounds</code>)</td>
+<td><code>c(12, 20)</code> &amp; <code>"fd_only"</code> when <span class="math inline">\(\text{TR} \lesssim 1.0\text{ s}\)</span></td>
+<td><code>NULL</code> &amp; <code>"fd_only"</code></td>
+<td>At fast multiband TRs, zero-phase notch filtering of the 6 rigid-body realignment parameters removes chest-wall <span class="math inline">\(B_0\)</span> breathing pseudomotion before computing Power (2012) FD while keeping unfiltered <code>24p</code> columns in <code>nuisance</code> (<code>"fd_only"</code>) so respiratory variance in unfiltered BOLD remains modeled. Leave <code>NULL</code> at slow TRs (<span class="math inline">\(\text{TR} \ge 2.0\text{ s}\)</span>) unless targeting a known aliased band.</td>
 </tr>
 </tbody>
 </table>
@@ -814,6 +827,155 @@ Figure&nbsp;3.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 </figcaption>
 </figure>
 </div>
+</section>
+<section id="sec-respiratory-fd-filter" class="level3" data-number="3.6.5">
+<h3 data-number="3.6.5" class="anchored" data-anchor-id="sec-respiratory-fd-filter"><span class="header-section-number">3.6.5</span> 5. Respiratory Motion Filtering for Fast-TR Censoring</h3>
+<p>At legacy single-band repetition times (<span class="math inline">\(\text{TR} = 2.0\text{--}2.5\text{ s}\)</span>, Nyquist <span class="math inline">\(0.20\text{--}0.25\text{ Hz}\)</span>), normal adult breathing (<span class="math inline">\(12\text{--}20\text{ breaths/min} \approx 0.20\text{--}0.33\text{ Hz}\)</span>) aliases into slower frequencies across interleaved slices. In modern <strong>fast-TR multiband fMRI</strong> (<span class="math inline">\(\text{TR} = 0.60\text{--}1.0\text{ s}\)</span>, such as HCP, ABCD, and contemporary 3T/7T cognitive tasks), rigid-body volume realignment resolves every breath directly: chest-wall expansion perturbs the main <span class="math inline">\(B_0\)</span> magnetic field along the phase-encoding axis (<code>trans_y</code>) and induces coupled apparent pitch (<code>rot_x</code>), generating continuous <span class="math inline">\(0.25\text{--}0.45\text{ mm}\)</span> step-to-step shifts in Power (2012) framewise displacement (FD) <em>even when the participant’s head is physically still</em> (Fair et al., 2020; Gratton et al., 2020).</p>
+<p>In MEDuSA, censoring raw fast-TR FD at a standard <span class="math inline">\(0.25\text{--}0.35\text{ mm}\)</span> cutoff triggers <strong>three compounding failures across Steps 1–3</strong>:</p>
+<ol type="1">
+<li><strong>Step 1 (<code>estimate_crossrun_hrf</code>) — Segment fragmentation:</strong> Because a <span class="math inline">\(16\text{ BPM}\)</span> (<span class="math inline">\(3.75\text{ s}\)</span>) breathing wave crosses the FD threshold every <span class="math inline">\(2\text{--}3\text{ TRs}\)</span>, combining spike dilation (<code>censor_next = 1L</code>) with <code>min_segment_length</code> shreds <code>valid_rows</code> into short, disconnected islands—depleting out-of-sample HRF degrees of freedom and starving the contiguous unmasked lag pairs needed to estimate higher-order <span class="math inline">\(\text{AR}(p)\)</span> parameters (<span class="math inline">\(\psi_1, \dots, \psi_4\)</span>).</li>
+<li><strong>Step 2 (<code>deconvolve_crossrun_hrf</code>) — Loss of causal BOLD anchors vs.&nbsp;unmodeled <span class="math inline">\(B_0\)</span> variance:</strong> Under <code>observation_mask = "fit"</code>, scrubbing clean breathing frames removes observation anchors from <span class="math inline">\(M_{r,o} H_r s\)</span>. Conversely, simply raising <code>fd_threshold</code> to <span class="math inline">\(0.60\text{ mm}\)</span> lets genuine sub-millimeter head jerks (<span class="math inline">\(0.40\text{--}0.55\text{ mm}\)</span>) and their spin-history BOLD transients slip into the inverse unfiltered!</li>
+<li><strong>Step 3 (<code>decon_epoch_regression</code>) — Observability drop-outs and inflated trial SEs:</strong> When breathing scrubs <span class="math inline">\(35\text{--}60\%\)</span> of frames around task events, trial-lag readouts fail Step 3’s causal BOLD observability gate (<code>obs_frac_tau &lt; 0.20</code> <span class="math inline">\(\to\)</span> <code>NA</code>) and suffer bloated propagated <code>se_demixed</code>.</li>
+</ol>
+<p><code>read_fmriprep_confounds()</code> (and <code>read_fmriprep_subject()</code>) resolves this tradeoff directly via <strong>zero-phase forward-backward IIR filtering</strong> of the 6 rigid-body realignment columns (<code>rot_x</code>, <code>rot_y</code>, <code>rot_z</code>, <code>trans_x</code>, <code>trans_y</code>, <code>trans_z</code>) prior to Power (2012) FD calculation, controlled by three design choices:</p>
+<ul>
+<li><strong>Narrowband notch (<code>motion_bandstop_bpm = c(12, 20)</code>) vs.&nbsp;Butterworth low-pass (<code>motion_lowpass_hz = 0.20</code>):</strong> <code>motion_bandstop_bpm</code> applies a zero-phase 2nd-order RBJ biquad notch (<code>filtfilt</code>, effective order 4) that excises the respiratory band while preserving broadband sharp step transitions on their original millimeter FD scale (so standard <code>fd_threshold = 0.30</code> still catches <span class="math inline">\(0.45\text{ mm}\)</span> head jerks). <code>motion_lowpass_hz</code> applies a zero-phase Butterworth low-pass filter; because low-pass smoothing also attenuates the 1-TR edge of genuine sudden jerks, pair <code>motion_lowpass_hz = 0.20</code> with a proportionally lowered cutoff (<code>fd_threshold = 0.15</code>–<code>0.20</code>, following Gratton et al., 2020).</li>
+<li><strong>Why <code>motion_filter_target = "fd_only"</code> is the default:</strong> Standard <code>fMRIPrep</code> BOLD time series (<code>*_desc-preproc_bold.nii.gz</code>) have <em>not</em> been temporally notch-filtered—they still contain real respiratory <span class="math inline">\(B_0\)</span> signal fluctuations. Keeping <code>motion_filter_target = "fd_only"</code> uses the filtered motion parameters <strong>only</strong> to compute <code>$framewise_displacement</code> and <code>valid_rows</code>, while leaving the <code>24p</code>/<code>36p</code> columns in <code>$nuisance</code> <em>unfiltered</em> so Step 1 and Step 2 (<code>nuisance_mode = "joint"</code>) project respiratory <span class="math inline">\(B_0\)</span> variance cleanly out of BOLD! Setting <code>"fd_and_nuisance"</code> on unfiltered BOLD strips the breathing frequency out of <code>$nuisance</code>, leaving respiratory <span class="math inline">\(B_0\)</span> oscillations unmodeled in the residual error.</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Nyquist Handling &amp; <code>BrainGnomes</code> Interoperability
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>When <code>tr</code> is slower (e.g., <span class="math inline">\(\text{TR} = 2.0\text{ s}\)</span>, Nyquist <span class="math inline">\(= 15\text{ BPM}\)</span>), <code>read_fmriprep_confounds()</code> automatically detects whether <code>motion_bandstop_bpm</code> sits inside a single higher Nyquist zone (folding to the exact aliased stopband with an informative warning) or straddles the Nyquist boundary (warning and falling back safely to unfiltered FD). When ingesting <code>BrainGnomes</code> postprocessed confounds that already contain <code>framewise_displacement_filtered</code>, <code>fd_col = "auto"</code> uses that column automatically and skips duplicate filtering.</p>
+</div>
+</div>
+<p>To see all five regimes side by side on the Step 1 multiband clock (<span class="math inline">\(\text{TR} = 0.65\text{ s}\)</span>, 3 runs <span class="math inline">\(\times\)</span> 360 volumes, 24 RPE-modulated feedback trials per run, true observation <span class="math inline">\(\sigma = 0.035\)</span>, true lag-0 RPE slope <span class="math inline">\(\beta = 0.50\)</span>), <code>simulate_step1.R</code> injects realistic <span class="math inline">\(\sim 16\text{ BPM}\)</span> (<span class="math inline">\(0.267\text{ Hz}\)</span>) respiratory <span class="math inline">\(B_0\)</span> pseudomotion plus two genuine posture-step head jerks per run (<span class="math inline">\(0.47\text{ mm}\)</span> at <span class="math inline">\(69.6\text{ s}\)</span> and <span class="math inline">\(1.18\text{ mm}\)</span> at <span class="math inline">\(111.2\text{ s}\)</span> in Run 1) and carries each <code>read_fmriprep_confounds()</code> output through <code>estimate_crossrun_hrf()</code>, <code>deconvolve_crossrun_hrf(..., nuisance_mode = "joint")</code>, and <code>decon_epoch_regression()</code> (<a href="#fig-step1-respiratory-fd" class="quarto-xref">Figure&nbsp;<span>3.10</span></a>, <a href="#fig-step1-respiratory-impact" class="quarto-xref">Figure&nbsp;<span>3.11</span></a>, and <a href="#tbl-step1-respiratory-fd" class="quarto-xref">Table&nbsp;<span>3.3</span></a>):</p>
+<ul>
+<li><strong>Unfiltered <code>FD &gt; 0.30 mm</code></strong> scrubs <strong>35.4%</strong> of volumes across clean breathing cycles (Panel B of <a href="#fig-step1-respiratory-fd" class="quarto-xref">Figure&nbsp;<span>3.10</span></a>), wiping out <strong>25%</strong> of feedback trials at Step 3’s observability gate and inflating lag-0 RPE slope SE by <strong>+38%</strong> (<code>0.0260</code> vs.&nbsp;<code>0.0188</code>).</li>
+<li><strong>Raising the unfiltered cutoff to <code>0.60 mm</code></strong> retains clean breathing frames, <em>but</em> misses the genuine <span class="math inline">\(0.47\text{ mm}\)</span> head jerk at <span class="math inline">\(69.6\text{ s}\)</span>—allowing its spin-history transient to distort the surrounding epoch (Panel C) and inflating lag-0 RPE slope SE by <strong>+88%</strong> (<code>0.0354</code>).</li>
+<li><strong>Filtering both FD and nuisance (<code>fd_and_nuisance</code>)</strong> censors only the two true head jerks (<code>98.8%</code> TRs retained), <em>but</em> leaves respiratory <span class="math inline">\(B_0\)</span> modulation unmodeled in BOLD—nearly <strong>doubling</strong> Step 2’s estimated <code>noise_sd</code> (<code>0.0676</code> vs.&nbsp;<code>0.0350</code> truth) and <strong>doubling</strong> Step 3’s propagated per-trial <code>se_demixed</code> (<code>0.167</code> vs.&nbsp;<code>0.084</code>).</li>
+<li><strong>Zero-phase notch (<code>12–20 BPM</code>, <code>&gt; 0.30 mm</code>, <code>fd_only</code>)</strong> and <strong>Butterworth low-pass (<code>0.20 Hz</code>, <code>&gt; 0.15 mm</code>, <code>fd_only</code>)</strong> both suppress breathing pseudomotion while censoring both true head jerks—retaining <strong>98–99%</strong> of volumes and <strong>100%</strong> of trials, recovering true observation noise (<code>0.0356</code>), and achieving the tightest downstream slope precision.</li>
+</ul>
+<div id="fig-step1-respiratory-fd" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Three-panel plot comparing unfiltered, low-pass, and notch-filtered FD, resulting valid_rows masks, and Step 2 deconvolved parcel activity.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step1-respiratory-fd-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/10-respiratory-fd.png" class="img-fluid figure-img" style="width:100.0%" alt="Three-panel plot comparing unfiltered, low-pass, and notch-filtered FD, resulting valid_rows masks, and Step 2 deconvolved parcel activity.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step1-respiratory-fd-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3.10: Fast-TR (<span class="math inline">\(\text{TR} = 0.65\text{ s}\)</span>) respiratory motion filtering in Run 1 (<code>48–122 s</code>): (A) Unfiltered Power FD vs.&nbsp;zero-phase Butterworth low-pass (<code>0.20 Hz</code>) and RBJ notch (<code>12–20 BPM</code>) FD across continuous <span class="math inline">\(\sim 16\text{ BPM}\)</span> breathing and two genuine head jerks; (B) resulting clock-preserving <code>valid_rows</code> masks; (C) Step 2 recovered parcel activity showing spin-history distortion when the <span class="math inline">\(0.47\text{ mm}\)</span> jerk slips under a raised <code>0.60 mm</code> cutoff and <span class="math inline">\(B_0\)</span> leakage under <code>fd_and_nuisance</code>.
+</figcaption>
+</figure>
+</div>
+<div id="fig-step1-respiratory-impact" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Four-panel dot-and-stem chart comparing retained volumes, estimated noise_sd, retained trials, and lag-0 RPE slope SE across five FD censoring regimes.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step1-respiratory-impact-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/11-respiratory-pipeline-impact.png" class="img-fluid figure-img" style="width:100.0%" alt="Four-panel dot-and-stem chart comparing retained volumes, estimated noise_sd, retained trials, and lag-0 RPE slope SE across five FD censoring regimes.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step1-respiratory-impact-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3.11: End-to-end Steps 1–3 pipeline impact across the five fast-TR censoring regimes (<code>respiratory_fd_metrics.csv</code>): retained acquisition volumes, Step 2 observation <code>noise_sd</code> recovery against generating truth (<code>0.035</code>), Step 3 trial retention after causal BOLD observability gating, and Step 3 lag-0 RPE slope standard error.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  resp_tbl[, <span class="fu">c</span>(<span class="st">"regime"</span>, <span class="st">"pct_retained_trs"</span>, <span class="st">"median_segment_trs"</span>, <span class="st">"mean_fd_mm"</span>, <span class="st">"est_noise_sd"</span>, <span class="st">"pct_trials_retained"</span>, <span class="st">"median_trial_se"</span>, <span class="st">"rpe_beta_lag0"</span>, <span class="st">"rpe_se_lag0"</span>)],</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Censoring Regime"</span>, <span class="st">"Retained TRs (%)"</span>, <span class="st">"Med. Seg. (TRs)"</span>, <span class="st">"Mean FD (mm)"</span>, <span class="st">"Est. noise_sd"</span>, <span class="st">"Retained Trials (%)"</span>, <span class="st">"Med. Trial SE"</span>, <span class="st">"Lag-0 Beta"</span>, <span class="st">"Lag-0 SE"</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">4</span>),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-step1-respiratory-fd" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step1-respiratory-fd-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;3.3: End-to-end Steps 1–3 metrics across fast-TR (<code>TR = 0.65 s</code>) FD censoring regimes (generating observation noise SD = 0.0350; generating lag-0 RPE slope = 0.500).
+</figcaption>
+<div aria-describedby="tbl-step1-respiratory-fd-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Censoring Regime</th>
+<th style="text-align: right;">Retained TRs (%)</th>
+<th style="text-align: right;">Med. Seg. (TRs)</th>
+<th style="text-align: right;">Mean FD (mm)</th>
+<th style="text-align: right;">Est. noise_sd</th>
+<th style="text-align: right;">Retained Trials (%)</th>
+<th style="text-align: right;">Med. Trial SE</th>
+<th style="text-align: right;">Lag-0 Beta</th>
+<th style="text-align: right;">Lag-0 SE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Unfiltered FD &gt; 0.30 mm</td>
+<td style="text-align: right;">64.6</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">0.165</td>
+<td style="text-align: right;">0.0377</td>
+<td style="text-align: right;">75</td>
+<td style="text-align: right;">0.105</td>
+<td style="text-align: right;">0.553</td>
+<td style="text-align: right;">0.0260</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Unfiltered FD &gt; 0.60 mm (ad-hoc raised cutoff)</td>
+<td style="text-align: right;">99.4</td>
+<td style="text-align: right;">179</td>
+<td style="text-align: right;">0.165</td>
+<td style="text-align: right;">0.0355</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">0.083</td>
+<td style="text-align: right;">0.559</td>
+<td style="text-align: right;">0.0354</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Notch 12-20 BPM &gt; 0.30 mm (fd_and_nuisance)</td>
+<td style="text-align: right;">98.8</td>
+<td style="text-align: right;">111</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.0676</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">0.167</td>
+<td style="text-align: right;">0.507</td>
+<td style="text-align: right;">0.0189</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Low-pass 0.20 Hz &gt; 0.15 mm (fd_only; Gratton 2020)</td>
+<td style="text-align: right;">98.1</td>
+<td style="text-align: right;">142</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">0.0357</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">0.084</td>
+<td style="text-align: right;">0.475</td>
+<td style="text-align: right;">0.0213</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Notch 12-20 BPM &gt; 0.30 mm (fd_only; recommended)</td>
+<td style="text-align: right;">98.8</td>
+<td style="text-align: right;">111</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.0356</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">0.084</td>
+<td style="text-align: right;">0.512</td>
+<td style="text-align: right;">0.0188</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
 <hr>
 </section>
 </section>
@@ -823,6 +985,7 @@ Figure&nbsp;3.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 <li><strong>Verify target-run exclusion:</strong> Check <code>hrf_fit$training_runs</code> to confirm every run’s HRF was trained strictly on <span class="math inline">\(s \neq r\)</span> (or sub-block cross-fit if <span class="math inline">\(R = 1\)</span>) and inspect <code>hrf_fit$signal_status</code> for dropped or zero-event runs.</li>
 <li><strong>Inspect realized composite waveforms, not just <code>kernel_index</code>:</strong> Plot <code>hrf_fit$selected_kernels</code> for key parcels to check physiological plausibility and fallback rates (<code>status == "fallback_prespecified"</code>).</li>
 <li><strong>Audit <code>hrf_fit$noise</code>:</strong> Check for widespread boundary hits (<code>rho == 0.90</code> or <code>-0.80</code>), which usually signal unmodeled drift, motion spikes, or unrecorded task events missing from <code>events</code> or <code>nuisance</code>.</li>
+<li><strong>Compare raw vs.&nbsp;filtered FD at fast multiband TRs (<span class="math inline">\(\text{TR} \lesssim 1.0\text{ s}\)</span>):</strong> Inspect <code>conf$summary</code> (<code>pct_censored</code>, <code>mean_fd</code>, <code>motion_filtered</code>) and plot <code>conf$framewise_displacement_raw[[r]]</code> against <code>conf$framewise_displacement[[r]]</code> to verify that rhythmic chest-wall <span class="math inline">\(B_0\)</span> oscillations are not over-censoring clean volumes while genuine head jerks remain masked.</li>
 </ol>
 <details>
 <summary>
@@ -832,8 +995,9 @@ Mathematical Details &amp; Edge-Case Rules
 <li><strong>Cross-fitted evidence pooling:</strong> For candidate <span class="math inline">\(m\)</span> on training run <span class="math inline">\(s \neq r\)</span>, whitened nuisance-orthogonalized BOLD <span class="math inline">\(y_{s,\perp}\)</span> is regressed onto whitened candidate design <span class="math inline">\(X_{s,m,\perp}\)</span> (rank <span class="math inline">\(d_{s,m}\)</span> over <span class="math inline">\(n_s\)</span> valid rows), yielding adjusted partial <span class="math inline">\(R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{n_s - p_Z}{n_s - p_Z - d_{s,m}}\)</span>. Across training runs, scores are weighted by effective degrees of freedom and checked for sign/peak compatibility (<code>stability</code>).</li>
 <li><strong>Soft-average shrinkage:</strong> Compatible candidates within <code>score_margin</code> receive Boltzmann weights <span class="math inline">\(w_m \propto \exp(\Delta R^2_m / \tau_{\text{SE}})\)</span> blended with column 1 (<code>(1 - \eta) e_1 + \eta w</code>), where Empirical-Bayes shrinkage <span class="math inline">\(\eta \in [0, 1]\)</span> approaches 0 as calibrated task <span class="math inline">\(F\)</span>-statistics weaken toward the <code>evidence_alpha</code> threshold.</li>
 <li><strong>Exact gapped covariance:</strong> When <code>valid_rows[[r]]</code> masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2’s whitener <span class="math inline">\(W_r\)</span> inverts the exact stationary Toeplitz submatrix <span class="math inline">\(\Sigma_{\text{AR}}[I_r, I_r]\)</span> on retained timestamps <span class="math inline">\(I_r\)</span> so multi-TR scrub gaps decay correlation by <span class="math inline">\(\gamma(|t_a - t_b|)\)</span> rather than treating across-gap neighbors as 1 TR apart.</li>
+<li><strong>Zero-phase respiratory IIR filtering:</strong> For sampling rate <span class="math inline">\(f_s = 1/\text{TR}\)</span> and stopband <span class="math inline">\([f_1, f_2] = \text{BPM}/60\)</span> (<span class="math inline">\(f_0 = (f_1 + f_2)/2\)</span>, <span class="math inline">\(\Delta f = f_2 - f_1\)</span>, <span class="math inline">\(Q = f_0/\Delta f\)</span>, <span class="math inline">\(\omega_0 = 2\pi f_0/f_s\)</span>, <span class="math inline">\(\alpha = \sin\omega_0/(2Q)\)</span>), <code>read_fmriprep_confounds()</code> designs the exact RBJ biquad notch transfer function <span class="math inline">\(H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}\)</span> (or bilinear-warped Butterworth poles for <code>motion_lowpass_hz</code>) and applies forward-backward Direct Form II Transposed filtering (<code>filtfilt</code>) with steady-state companion-matrix initial conditions (<code>zi</code>) and boundary reflection padding (<code>motion_filter_pad = "constant"</code>) to all 6 realignment parameters before computing <span class="math inline">\(\text{FD}_t = \sum_{d \in \{x,y,z\}} |\Delta \text{trans}_{d,t}| + R_{\text{head}} \sum_{d \in \{x,y,z\}} |\Delta \text{rot}_{d,t}|\)</span>.</li>
 </ul>
-<p><a href="simulate_step1.R">Step 1 simulation script</a> · <a href="figures_step1.R">Figure script</a> · <a href="selections.csv">Selection table</a> · <a href="noise.csv">Noise table</a></p>
+<p><a href="simulate_step1.R">Step 1 simulation script</a> · <a href="figures_step1.R">Figure script</a> · <a href="selections.csv">Selection table</a> · <a href="noise.csv">Noise table</a> · <a href="respiratory_fd_metrics.csv">Respiratory FD table</a></p>
 </details>
 
 

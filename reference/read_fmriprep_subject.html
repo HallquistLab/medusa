@@ -112,6 +112,13 @@ directly into <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</
 <span>  censor <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  fd_threshold <span class="op">=</span> <span class="fl">0.5</span>,</span>
 <span>  fd_col <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  head_radius <span class="op">=</span> <span class="fl">50</span>,</span>
+<span>  rot_units <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rad"</span>, <span class="st">"deg"</span><span class="op">)</span>,</span>
+<span>  motion_bandstop_bpm <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_lowpass_hz <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_filter_order <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  motion_filter_pad <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"constant"</span>, <span class="st">"odd"</span>, <span class="st">"even"</span>, <span class="st">"zero"</span><span class="op">)</span>,</span>
+<span>  motion_filter_target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fd_only"</span>, <span class="st">"fd_and_nuisance"</span><span class="op">)</span>,</span>
 <span>  dvars_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dvars_col <span class="op">=</span> <span class="st">"std_dvars"</span>,</span>
 <span>  include_non_steady_state <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -245,9 +252,9 @@ censor file paths / vectors forwarded to <code><a href="read_fmriprep_confounds.
 or <code>NULL</code> to ignore <code>*_censor.1D</code> sidecars.</p></dd>
 
 
-<dt id="arg-fd-threshold-fd-col-dvars-threshold-dvars-col-include-non-steady-state-include-motion-outliers-drop-initial-volumes-censor-prev-censor-next-min-segment-length">fd_threshold, fd_col, dvars_threshold, dvars_col, include_non_steady_state, include_motion_outliers, drop_initial_volumes, censor_prev, censor_next, min_segment_length<a class="anchor" aria-label="anchor" href="#arg-fd-threshold-fd-col-dvars-threshold-dvars-col-include-non-steady-state-include-motion-outliers-drop-initial-volumes-censor-prev-censor-next-min-segment-length"></a></dt>
-<dd><p>Clock-preserving censoring options forwarded to
-<code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>.</p></dd>
+<dt id="arg-fd-threshold-fd-col-head-radius-rot-units-motion-bandstop-bpm-motion-lowpass-hz-motion-filter-order-motion-filter-pad-motion-filter-target-dvars-threshold-dvars-col-include-non-steady-state-include-motion-outliers-drop-initial-volumes-censor-prev-censor-next-min-segment-length">fd_threshold, fd_col, head_radius, rot_units, motion_bandstop_bpm, motion_lowpass_hz, motion_filter_order, motion_filter_pad, motion_filter_target, dvars_threshold, dvars_col, include_non_steady_state, include_motion_outliers, drop_initial_volumes, censor_prev, censor_next, min_segment_length<a class="anchor" aria-label="anchor" href="#arg-fd-threshold-fd-col-head-radius-rot-units-motion-bandstop-bpm-motion-lowpass-hz-motion-filter-order-motion-filter-pad-motion-filter-target-dvars-threshold-dvars-col-include-non-steady-state-include-motion-outliers-drop-initial-volumes-censor-prev-censor-next-min-segment-length"></a></dt>
+<dd><p>Clock-preserving censoring and optional respiratory motion filtering
+options forwarded to <code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>.</p></dd>
 
 
 <dt id="arg-id-style">id_style<a class="anchor" aria-label="anchor" href="#arg-id-style"></a></dt>
