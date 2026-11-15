@@ -80,7 +80,8 @@ extract_bold_run_context <- function(bold = NULL, run_names = NULL) {
     return(list(
       run_names = run_names,
       n_time = NULL,
-      bold_files = NULL
+      bold_files = NULL,
+      tr = NULL
     ))
   }
   if (inherits(bold, "medusa_nifti_ts")) {
@@ -93,10 +94,15 @@ extract_bold_run_context <- function(bold = NULL, run_names = NULL) {
     } else {
       NULL
     }
+    b_tr <- if (is.numeric(bold$tr) && length(bold$tr) == 1L && is.finite(bold$tr) && bold$tr > 0) {
+      as.double(bold$tr)
+    } else {
+      NULL
+    }
     if (!is.null(run_names) && !identical(run_names, b_runs)) {
       stop("run_names does not match names(bold$bold).", call. = FALSE)
     }
-    return(list(run_names = b_runs, n_time = n_t, bold_files = b_files))
+    return(list(run_names = b_runs, n_time = n_t, bold_files = b_files, tr = b_tr))
   }
   if (is.matrix(bold)) {
     orient <- attr(bold, "orientation", exact = TRUE)
@@ -114,11 +120,20 @@ extract_bold_run_context <- function(bold = NULL, run_names = NULL) {
     } else {
       NULL
     }
-    return(list(run_names = r_nm, n_time = stats::setNames(as.integer(n_t), r_nm), bold_files = b_file))
+    attr_tr <- attr(bold, "tr", exact = TRUE)
+    b_tr <- if (is.numeric(attr_tr) && length(attr_tr) == 1L && is.finite(attr_tr) && attr_tr > 0) {
+      as.double(attr_tr)
+    } else if (is.list(geom) && is.numeric(geom$header_tr) && length(geom$header_tr) == 1L &&
+               is.finite(geom$header_tr) && geom$header_tr > 0) {
+      as.double(geom$header_tr)
+    } else {
+      NULL
+    }
+    return(list(run_names = r_nm, n_time = stats::setNames(as.integer(n_t), r_nm), bold_files = b_file, tr = b_tr))
   }
   if (is.character(bold) && is.null(run_names)) {
     checkmate::assert_character(bold, min.len = 1L, any.missing = FALSE, min.chars = 1L, unique = TRUE)
-    return(list(run_names = bold, n_time = NULL, bold_files = NULL))
+    return(list(run_names = bold, n_time = NULL, bold_files = NULL, tr = NULL))
   }
   if (is.list(bold) && !is.data.frame(bold) && length(bold) >= 1L &&
       all(vapply(bold, is.matrix, logical(1L)))) {
@@ -136,7 +151,18 @@ extract_bold_run_context <- function(bold = NULL, run_names = NULL) {
       stop("run_names does not match names(bold).", call. = FALSE)
     }
     n_t <- stats::setNames(vapply(bold, nrow, integer(1L)), b_runs)
-    return(list(run_names = b_runs, n_time = n_t, bold_files = NULL))
+    m1 <- bold[[1L]]
+    attr_tr <- attr(m1, "tr", exact = TRUE)
+    geom1 <- attr(m1, "geometry", exact = TRUE)
+    b_tr <- if (is.numeric(attr_tr) && length(attr_tr) == 1L && is.finite(attr_tr) && attr_tr > 0) {
+      as.double(attr_tr)
+    } else if (is.list(geom1) && is.numeric(geom1$header_tr) && length(geom1$header_tr) == 1L &&
+               is.finite(geom1$header_tr) && geom1$header_tr > 0) {
+      as.double(geom1$header_tr)
+    } else {
+      NULL
+    }
+    return(list(run_names = b_runs, n_time = n_t, bold_files = NULL, tr = b_tr))
   }
   stop(
     "'bold' must be NULL, a 'medusa_nifti_ts' object, a numeric matrix, a named list of run matrices, or a character vector of run names.",
@@ -914,6 +940,317 @@ expand_fmriprep_column <- function(df, col_name, run_label) {
   stop(sprintf("Required confound column '%s' not found in %s.", col_name, run_label), call. = FALSE)
 }
 
+design_iir_notch <- function(f0, bandwidth, fs) {
+  Q <- f0 / bandwidth
+  w0 <- 2 * pi * (f0 / fs)
+  cw <- cos(w0)
+  sw <- sin(w0)
+  alpha <- sw / (2 * Q)
+  b <- c(1, -2 * cw, 1) / (1 + alpha)
+  a <- c(1, -2 * cw / (1 + alpha), (1 - alpha) / (1 + alpha))
+  list(b = as.double(b), a = as.double(a))
+}
+
+design_butterworth_lowpass <- function(order_n, cutoff_hz, fs) {
+  nyq <- fs / 2
+  wn <- cutoff_hz / nyq
+  v <- tan(pi * wn / 2)
+  k <- seq_len(order_n)
+  s_poles <- v * exp(1i * pi * (2 * k + order_n - 1) / (2 * order_n))
+  z_poles <- (1 + s_poles) / (1 - s_poles)
+  poly_a <- c(1 + 0i)
+  for (zp in z_poles) {
+    poly_a <- c(poly_a, 0i) - zp * c(0i, poly_a)
+  }
+  a <- Re(poly_a)
+  b_unscaled <- choose(order_n, 0:order_n)
+  b <- b_unscaled * (sum(a) / sum(b_unscaled))
+  list(b = as.double(b / a[1L]), a = as.double(a / a[1L]))
+}
+
+lfilter_zi_r <- function(b, a) {
+  k <- max(length(b), length(a))
+  if (length(b) < k) b <- c(b, rep(0, k - length(b)))
+  if (length(a) < k) a <- c(a, rep(0, k - length(a)))
+  m <- k - 1L
+  if (m <= 0L) return(numeric(0L))
+  A_mat <- matrix(0, nrow = m, ncol = m)
+  A_mat[, 1L] <- -a[2:k]
+  if (m > 1L) {
+    for (j in seq_len(m - 1L)) A_mat[j, j + 1L] <- 1
+  }
+  rhs <- b[2:k] - a[2:k] * b[1L]
+  as.double(solve(diag(m) - A_mat, rhs))
+}
+
+lfilter_df2t_r <- function(x, b, a, zi = NULL) {
+  k <- max(length(b), length(a))
+  if (length(b) < k) b <- c(b, rep(0, k - length(b)))
+  if (length(a) < k) a <- c(a, rep(0, k - length(a)))
+  m <- k - 1L
+  n <- length(x)
+  if (n == 0L) return(numeric(0L))
+  if (m == 0L) return(as.double(b[1L] * x))
+  z <- if (is.null(zi)) numeric(m) else as.double(zi)
+  y <- numeric(n)
+  b1 <- b[1L]
+  b_tail <- b[2:k]
+  a_tail <- a[2:k]
+  for (t in seq_len(n)) {
+    xt <- x[t]
+    yt <- b1 * xt + z[1L]
+    y[t] <- yt
+    if (m > 1L) {
+      z[1:(m - 1L)] <- b_tail[1:(m - 1L)] * xt - a_tail[1:(m - 1L)] * yt + z[2:m]
+    }
+    z[m] <- b_tail[m] * xt - a_tail[m] * yt
+  }
+  y
+}
+
+filtfilt_1d <- function(x, b, a, padlen = NULL, padtype = c("constant", "odd", "even", "zero"), use_zi = TRUE) {
+  padtype <- match.arg(padtype)
+  x <- as.double(x)
+  n <- length(x)
+  b <- as.double(b) / a[1L]
+  a <- as.double(a) / a[1L]
+  k <- max(length(b), length(a))
+  if (n <= 1L || k <= 1L) return(b[1L]^2 * x)
+  if (is.null(padlen) || padlen < 0L) {
+    padlen <- 3L * k
+  }
+  padlen <- as.integer(min(padlen, n - 1L))
+  if (padlen > 0L) {
+    left_pad <- switch(
+      padtype,
+      constant = rep(x[1L], padlen),
+      odd = 2 * x[1L] - x[(padlen + 1L):2L],
+      even = x[(padlen + 1L):2L],
+      zero = numeric(padlen)
+    )
+    right_pad <- switch(
+      padtype,
+      constant = rep(x[n], padlen),
+      odd = 2 * x[n] - x[(n - 1L):(n - padlen)],
+      even = x[(n - 1L):(n - padlen)],
+      zero = numeric(padlen)
+    )
+    x_ext <- c(left_pad, x, right_pad)
+  } else {
+    x_ext <- x
+  }
+  zi <- if (isTRUE(use_zi)) lfilter_zi_r(b, a) else NULL
+  y_fwd <- lfilter_df2t_r(x_ext, b, a, zi = if (!is.null(zi)) zi * x_ext[1L] else NULL)
+  y_rev <- rev(y_fwd)
+  y_bwd <- lfilter_df2t_r(y_rev, b, a, zi = if (!is.null(zi)) zi * y_rev[1L] else NULL)
+  y_out <- rev(y_bwd)
+  if (padlen > 0L) y_out[(padlen + 1L):(padlen + n)] else y_out
+}
+
+infer_tr_from_confound_sidecar <- function(conf_path, bold_file = NULL) {
+  if (is.character(bold_file) && length(bold_file) == 1L && !is.na(bold_file) && file.exists(bold_file)) {
+    json_b <- sub("\\.nii(\\.gz)?$", ".json", bold_file, ignore.case = TRUE)
+    j_tr <- parse_json_numeric_field(json_b, "RepetitionTime")
+    if (is.finite(j_tr) && j_tr > 0) return(as.double(j_tr))
+    geom <- tryCatch(resolve_nifti_spatial_geometry(bold_file, label = basename(bold_file)), error = function(e) NULL)
+    if (is.list(geom) && is.finite(geom$header_tr) && geom$header_tr > 0) return(as.double(geom$header_tr))
+  }
+  if (!is.character(conf_path) || length(conf_path) != 1L || is.na(conf_path) || !file.exists(conf_path)) {
+    return(NULL)
+  }
+  d <- dirname(conf_path)
+  conf_row <- parse_bids_entity_table(conf_path)
+  json_cands <- list.files(d, pattern = "_bold\\.json$", full.names = TRUE, ignore.case = TRUE)
+  if (length(json_cands)) {
+    j_tbl <- parse_bids_entity_table(json_cands)
+    # Match on non-spatial entities (sub, ses, task, run, acq, dir) since confounds omit space-
+    hit <- find_matching_bids_sidecar(conf_row, j_tbl, require_space = FALSE, allow_optional_space = FALSE)
+    if (is.na(hit)) {
+      # When multiple template spaces exist for the same run, RepetitionTime is identical across spaces
+      same_run <- rep(TRUE, nrow(j_tbl))
+      for (f in c("sub", "ses", "task", "acq", "ce", "rec", "dir", "echo")) {
+        cv <- conf_row[[f]]
+        jv <- j_tbl[[f]]
+        if (!is.na(cv) && nzchar(cv)) {
+          same_run <- same_run & !is.na(jv) & tolower(jv) == tolower(cv)
+        } else {
+          same_run <- same_run & (is.na(jv) | !nzchar(jv))
+        }
+      }
+      cr <- canonical_run_key(conf_row$run)
+      jr <- canonical_run_key(j_tbl$run)
+      same_run <- if (!is.na(cr)) same_run & !is.na(jr) & jr == cr else same_run & (is.na(jr) | !nzchar(jr))
+      if (any(same_run)) hit <- j_tbl$file[which(same_run)[1L]]
+    }
+    if (!is.na(hit)) {
+      j_tr <- parse_json_numeric_field(hit, "RepetitionTime")
+      if (is.finite(j_tr) && j_tr > 0) return(as.double(j_tr))
+    }
+  }
+  nii_cands <- list.files(d, pattern = "_bold\\.nii(\\.gz)?$", full.names = TRUE, ignore.case = TRUE)
+  if (length(nii_cands)) {
+    n_tbl <- parse_bids_entity_table(nii_cands)
+    same_run <- rep(TRUE, nrow(n_tbl))
+    for (f in c("sub", "ses", "task", "acq", "ce", "rec", "dir", "echo")) {
+      cv <- conf_row[[f]]
+      nv <- n_tbl[[f]]
+      if (!is.na(cv) && nzchar(cv)) {
+        same_run <- same_run & !is.na(nv) & tolower(nv) == tolower(cv)
+      } else {
+        same_run <- same_run & (is.na(nv) | !nzchar(nv))
+      }
+    }
+    cr <- canonical_run_key(conf_row$run)
+    nr <- canonical_run_key(n_tbl$run)
+    same_run <- if (!is.na(cr)) same_run & !is.na(nr) & nr == cr else same_run & (is.na(nr) | !nzchar(nr))
+    if (any(same_run)) {
+      geom <- tryCatch(resolve_nifti_spatial_geometry(n_tbl$file[which(same_run)[1L]], label = "bold"), error = function(e) NULL)
+      if (is.list(geom) && is.finite(geom$header_tr) && geom$header_tr > 0) return(as.double(geom$header_tr))
+    }
+  }
+  NULL
+}
+
+filter_motion_parameters_for_fd <- function(
+  df,
+  tr,
+  run_label,
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = "constant"
+) {
+  mot_cols <- c("rot_x", "rot_y", "rot_z", "trans_x", "trans_y", "trans_z")
+  miss <- setdiff(mot_cols, names(df))
+  if (length(miss) > 0L) {
+    stop(
+      sprintf(
+        "Cannot apply respiratory motion filter in %s: missing required rigid-body column(s): %s",
+        run_label, paste(miss, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  n_vol <- nrow(df)
+  if (n_vol <= 2L) {
+    warning(
+      sprintf("Skipping respiratory motion filter in %s because run has only %d volume(s).", run_label, n_vol),
+      call. = FALSE
+    )
+    return(list(applied = FALSE, reason = "too_few_volumes", df = df))
+  }
+
+  fs <- 1 / tr
+  nyquist <- fs / 2
+  nyquist_bpm <- nyquist * 60
+
+  if (!is.null(motion_bandstop_bpm)) {
+    order_eff <- if (is.null(motion_filter_order)) 4L else as.integer(motion_filter_order)
+    n_passes <- order_eff %/% 4L
+    b_min <- motion_bandstop_bpm[1L]
+    b_max <- motion_bandstop_bpm[2L]
+    stop_hz <- c(b_min, b_max) / 60
+
+    if (stop_hz[2L] < nyquist) {
+      eff_hz <- stop_hz
+      aliased <- FALSE
+    } else {
+      # Check whether both bounds lie strictly inside the same Nyquist zone (k * nyq, (k + 1) * nyq)
+      near_mult <- abs(stop_hz / nyquist - round(stop_hz / nyquist)) < 1e-9
+      zone_idx <- floor(stop_hz / nyquist)
+      if (any(near_mult) || zone_idx[1L] != zone_idx[2L]) {
+        warning(
+          sprintf(
+            "motion_bandstop_bpm (%g-%g BPM) straddles the Nyquist frequency (%.2f BPM for TR = %.4g s) in %s; skipping motion filter and using unfiltered FD.",
+            b_min, b_max, nyquist_bpm, tr, run_label
+          ),
+          call. = FALSE
+        )
+        return(list(applied = FALSE, reason = "straddles_nyquist", df = df))
+      }
+      eff_hz <- sort(abs(stop_hz - floor((stop_hz + nyquist) / fs) * fs))
+      if (eff_hz[1L] <= 0 || eff_hz[2L] >= nyquist || (eff_hz[2L] - eff_hz[1L]) <= 1e-9) {
+        warning(
+          sprintf(
+            "Aliased motion_bandstop_bpm (%g-%g BPM) is invalid for Nyquist %.2f BPM (TR = %.4g s) in %s; skipping motion filter and using unfiltered FD.",
+            b_min, b_max, nyquist_bpm, tr, run_label
+          ),
+          call. = FALSE
+        )
+        return(list(applied = FALSE, reason = "invalid_aliased_band", df = df))
+      }
+      aliased <- TRUE
+      warning(
+        sprintf(
+          "motion_bandstop_bpm (%g-%g BPM) exceeds Nyquist (%.2f BPM for TR = %.4g s) in %s; folding to aliased stopband %.2f-%.2f BPM.",
+          b_min, b_max, nyquist_bpm, tr, run_label, eff_hz[1L] * 60, eff_hz[2L] * 60
+        ),
+        call. = FALSE
+      )
+    }
+
+    f0 <- mean(eff_hz)
+    bw <- eff_hz[2L] - eff_hz[1L]
+    coeffs <- design_iir_notch(f0 = f0, bandwidth = bw, fs = fs)
+    ftype <- "notch"
+  } else {
+    order_eff <- if (is.null(motion_filter_order)) 4L else as.integer(motion_filter_order)
+    order_1way <- order_eff %/% 2L
+    n_passes <- 1L
+    if (motion_lowpass_hz >= nyquist) {
+      warning(
+        sprintf(
+          "motion_lowpass_hz (%.4g Hz) >= Nyquist frequency (%.4g Hz for TR = %.4g s) in %s; skipping motion filter and using unfiltered FD.",
+          motion_lowpass_hz, nyquist, tr, run_label
+        ),
+        call. = FALSE
+      )
+      return(list(applied = FALSE, reason = "above_nyquist", df = df))
+    }
+    coeffs <- design_butterworth_lowpass(order_n = order_1way, cutoff_hz = motion_lowpass_hz, fs = fs)
+    ftype <- "lowpass"
+    aliased <- FALSE
+    eff_hz <- c(0, motion_lowpass_hz)
+  }
+
+  df_out <- df
+  for (cn in mot_cols) {
+    v <- coerce_bids_numeric_col(df[[cn]], cn, run_label)
+    if (any(!is.finite(v))) {
+      fin_idx <- which(is.finite(v))
+      if (length(fin_idx) == 0L) {
+        v <- numeric(length(v))
+      } else if (length(fin_idx) == 1L) {
+        v[!is.finite(v)] <- v[fin_idx]
+      } else {
+        v <- stats::approx(x = fin_idx, y = v[fin_idx], xout = seq_along(v), method = "linear", rule = 2)$y
+      }
+    }
+    vf <- v
+    for (p in seq_len(n_passes)) {
+      vf <- filtfilt_1d(vf, b = coeffs$b, a = coeffs$a, padtype = motion_filter_pad, use_zi = TRUE)
+    }
+    df_out[[cn]] <- vf
+    d1 <- c(0, diff(vf))
+    c_d1 <- paste0(cn, "_derivative1")
+    c_p2 <- paste0(cn, "_power2")
+    c_d1p2 <- paste0(cn, "_derivative1_power2")
+    if (c_d1 %in% names(df_out)) df_out[[c_d1]] <- d1
+    if (c_p2 %in% names(df_out)) df_out[[c_p2]] <- vf^2
+    if (c_d1p2 %in% names(df_out)) df_out[[c_d1p2]] <- d1^2
+  }
+
+  list(
+    applied = TRUE,
+    type = ftype,
+    order = order_eff,
+    tr = tr,
+    aliased = aliased,
+    effective_hz = eff_hz,
+    df = df_out
+  )
+}
+
 compute_power_fd <- function(df, run_label, head_radius = 50, rot_units = c("rad", "deg")) {
   rot_units <- match.arg(rot_units)
   rot_cols <- c("rot_x", "rot_y", "rot_z")
@@ -1156,7 +1493,41 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
 #' @param head_radius Head radius in mm (default \code{50}) used when computing
 #'   Power (2012) framewise displacement from the 6 rigid-body motion columns.
 #' @param rot_units Rotation parameter units (\code{"rad"} default for fMRIPrep,
-#'   or \code{"deg"}) used only when computing fallback Power FD.
+#'   or \code{"deg"}) used when computing Power (2012) FD from the 6 rigid-body
+#'   motion columns.
+#' @param tr Optional repetition time in seconds (scalar or per-run numeric
+#'   vector), required only when \code{motion_bandstop_bpm} or
+#'   \code{motion_lowpass_hz} is specified and TR cannot be inferred
+#'   automatically from \code{bold} or a sibling \code{*_bold.json} /
+#'   \code{*_bold.nii(.gz)} file.
+#' @param motion_bandstop_bpm Optional length-2 numeric vector
+#'   \code{c(min_bpm, max_bpm)} specifying a respiratory band-stop (notch) filter
+#'   in breaths per minute (e.g., \code{c(12, 18)} for typical adult breathing
+#'   at 0.2--0.3 Hz, or \code{c(18.58, 25.73)} per Fair et al., 2020) applied
+#'   zero-phase via forward-backward biquad filtering to the 6 rigid-body motion
+#'   parameters before recomputing Power (2012) FD. Suppresses fast-TR multiband
+#'   respiratory B0 pseudomotion that would otherwise over-censor clean volumes.
+#'   Mutually exclusive with \code{motion_lowpass_hz}. Default \code{NULL}.
+#' @param motion_lowpass_hz Optional numeric scalar specifying a Butterworth
+#'   low-pass cutoff frequency in Hz (e.g., \code{0.2} Hz; Gratton et al., 2020)
+#'   applied zero-phase via forward-backward filtering to the 6 rigid-body
+#'   motion parameters before recomputing Power (2012) FD. Mutually exclusive
+#'   with \code{motion_bandstop_bpm}. Default \code{NULL}.
+#' @param motion_filter_order Optional integer effective zero-phase filter order
+#'   (default \code{NULL}, which uses \code{4L}). Must be a positive multiple of
+#'   \code{4} for \code{motion_bandstop_bpm} (each forward-backward 2nd-order
+#'   biquad pass contributes order 4) or an even integer \code{>= 2} for
+#'   \code{motion_lowpass_hz} (a forward-backward \code{N}-pole Butterworth
+#'   low-pass has effective order \code{2 * N}).
+#' @param motion_filter_pad Boundary reflection padding mode for zero-phase
+#'   forward-backward filtering: \code{"constant"} (default), \code{"odd"},
+#'   \code{"even"}, or \code{"zero"}.
+#' @param motion_filter_target Whether respiratory motion filtering updates only
+#'   Power (2012) FD and censoring (\code{"fd_only"}, default; preserves
+#'   unfiltered motion nuisance columns so respiratory B0 variance remaining in
+#'   unfiltered BOLD is still modeled) or also replaces the 6 rigid-body motion
+#'   columns and their Friston-24 derivatives/quadratics in \code{nuisance}
+#'   (\code{"fd_and_nuisance"}).
 #' @param dvars_threshold Optional DVARS censoring cutoff (e.g., \code{1.5} on
 #'   \code{std_dvars}). Default \code{NULL} (disabled).
 #' @param dvars_col Column name supplying DVARS when \code{dvars_threshold} is
@@ -1200,8 +1571,14 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
 #'       observation masks (\code{TRUE} = usable, \code{FALSE} = censored).
 #'     \item \code{summary}: Per-run QC \code{data.frame} reporting volume
 #'       counts, censored counts/percentages, outlier breakdowns, mean/max FD,
-#'       and retained nuisance column counts.
-#'     \item \code{framewise_displacement}: Run-named list of numeric FD vectors.
+#'       whether respiratory motion filtering was applied, and retained nuisance
+#'       column counts.
+#'     \item \code{framewise_displacement}: Run-named list of numeric FD vectors
+#'       used for QC and censoring (respiratory-filtered when
+#'       \code{motion_bandstop_bpm} or \code{motion_lowpass_hz} is active).
+#'     \item \code{framewise_displacement_raw}: Run-named list of unfiltered FD
+#'       vectors when \code{motion_bandstop_bpm} or \code{motion_lowpass_hz} is
+#'       requested (\code{NULL} otherwise).
 #'   }
 #'   The \code{"medusa_confounds"} object can be passed directly as
 #'   \code{nuisance = conf} to \code{\link{estimate_crossrun_hrf}} (automatically
@@ -1247,6 +1624,12 @@ read_fmriprep_confounds <- function(
   fd_col = "auto",
   head_radius = 50,
   rot_units = c("rad", "deg"),
+  tr = NULL,
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = c("constant", "odd", "even", "zero"),
+  motion_filter_target = c("fd_only", "fd_and_nuisance"),
   dvars_threshold = NULL,
   dvars_col = "std_dvars",
   include_non_steady_state = TRUE,
@@ -1266,6 +1649,8 @@ read_fmriprep_confounds <- function(
   strategy <- match.arg(strategy)
   compcor_type <- match.arg(compcor_type)
   rot_units <- match.arg(rot_units)
+  motion_filter_pad <- match.arg(motion_filter_pad)
+  motion_filter_target <- match.arg(motion_filter_target)
   impute <- match.arg(impute)
   checkmate::assert_character(columns, min.chars = 1L, any.missing = FALSE, null.ok = TRUE)
   checkmate::assert_string(column_pattern, min.chars = 1L, null.ok = TRUE)
@@ -1287,6 +1672,61 @@ read_fmriprep_confounds <- function(
   }
   checkmate::assert_string(fd_col, min.chars = 1L)
   checkmate::assert_number(head_radius, lower = 1, finite = TRUE)
+  if (!is.null(tr)) {
+    checkmate::assert_numeric(tr, lower = 0.01, finite = TRUE, min.len = 1L, any.missing = FALSE)
+    tr_names <- names(tr)
+    tr <- as.double(tr)
+    names(tr) <- tr_names
+  }
+  if (!is.null(motion_bandstop_bpm) && !is.null(motion_lowpass_hz)) {
+    stop("Specify at most one of 'motion_bandstop_bpm' or 'motion_lowpass_hz', not both.", call. = FALSE)
+  }
+  if (!is.null(motion_bandstop_bpm)) {
+    checkmate::assert_numeric(motion_bandstop_bpm, lower = 1e-6, finite = TRUE, len = 2L, any.missing = FALSE)
+    motion_bandstop_bpm <- as.double(motion_bandstop_bpm)
+    if (abs(motion_bandstop_bpm[2L] - motion_bandstop_bpm[1L]) <= 1e-9) {
+      stop("'motion_bandstop_bpm' lower and upper bounds must be distinct.", call. = FALSE)
+    }
+    if (motion_bandstop_bpm[2L] < motion_bandstop_bpm[1L]) {
+      warning(
+        sprintf(
+          "'motion_bandstop_bpm' bounds (%g, %g) are reversed; reordering to c(%g, %g).",
+          motion_bandstop_bpm[1L], motion_bandstop_bpm[2L],
+          motion_bandstop_bpm[2L], motion_bandstop_bpm[1L]
+        ),
+        call. = FALSE
+      )
+      motion_bandstop_bpm <- rev(motion_bandstop_bpm)
+    }
+    if (!is.null(motion_filter_order)) {
+      checkmate::assert_integerish(motion_filter_order, lower = 4L, len = 1L, any.missing = FALSE)
+      motion_filter_order <- as.integer(motion_filter_order)
+      if (motion_filter_order %% 4L != 0L) {
+        stop(
+          "For band-stop notch filtering ('motion_bandstop_bpm'), 'motion_filter_order' must be a positive multiple of 4 (e.g., 4 or 8).",
+          call. = FALSE
+        )
+      }
+    }
+  } else if (!is.null(motion_lowpass_hz)) {
+    checkmate::assert_number(motion_lowpass_hz, lower = 1e-4, finite = TRUE)
+    motion_lowpass_hz <- as.double(motion_lowpass_hz)
+    if (!is.null(motion_filter_order)) {
+      checkmate::assert_integerish(motion_filter_order, lower = 2L, len = 1L, any.missing = FALSE)
+      motion_filter_order <- as.integer(motion_filter_order)
+      if (motion_filter_order %% 2L != 0L) {
+        stop(
+          "For zero-phase Butterworth low-pass filtering ('motion_lowpass_hz'), 'motion_filter_order' must be an even integer >= 2 (e.g., 2, 4, or 8).",
+          call. = FALSE
+        )
+      }
+    }
+  } else if (!is.null(motion_filter_order)) {
+    checkmate::assert_integerish(motion_filter_order, lower = 2L, len = 1L, any.missing = FALSE)
+    motion_filter_order <- as.integer(motion_filter_order)
+  }
+  wants_motion_filter <- !is.null(motion_bandstop_bpm) || !is.null(motion_lowpass_hz)
+
   if (!is.null(dvars_threshold) && !(is.numeric(dvars_threshold) && length(dvars_threshold) == 1L && is.infinite(dvars_threshold) && dvars_threshold > 0)) {
     checkmate::assert_number(dvars_threshold, lower = 0, finite = TRUE)
   } else {
@@ -1350,7 +1790,7 @@ read_fmriprep_confounds <- function(
   strategy_cols <- confound_strategy_columns(strategy)
 
   n_runs <- length(resolved_runs)
-  nuis_list <- valid_list <- fd_list <- stats::setNames(vector("list", n_runs), resolved_runs)
+  nuis_list <- valid_list <- fd_list <- fd_raw_list <- stats::setNames(vector("list", n_runs), resolved_runs)
   sum_rows <- vector("list", n_runs)
 
   for (r in seq_len(n_runs)) {
@@ -1427,7 +1867,7 @@ read_fmriprep_confounds <- function(
       fd_fb <- compute_power_fd(df, run_label, head_radius = head_radius, rot_units = rot_units)
       if (!is.null(fd_fb)) {
         fd_vec <- fd_fb
-      } else if (!is.null(fd_threshold)) {
+      } else if (!is.null(fd_threshold) && !wants_motion_filter) {
         stop(
           sprintf(
             "Neither '%s' nor the 6 rigid-body motion columns found in %s; set fd_threshold = NULL to disable FD censoring or specify fd_col.",
@@ -1436,7 +1876,7 @@ read_fmriprep_confounds <- function(
           call. = FALSE
         )
       }
-    } else if (!is.null(fd_threshold)) {
+    } else if (!is.null(fd_threshold) && !wants_motion_filter) {
       stop(
         sprintf(
           "Column '%s' not found in %s; set fd_threshold = NULL to disable FD censoring or specify fd_col.",
@@ -1445,6 +1885,110 @@ read_fmriprep_confounds <- function(
         call. = FALSE
       )
     }
+
+    # Optional respiratory notch / low-pass filtering of the 6 rigid-body motion parameters prior to Power FD
+    mf_applied <- FALSE
+    df_nuis <- df
+    fd_raw_r <- fd_vec
+    if (wants_motion_filter) {
+      has_unfilt_fd <- FALSE
+      if ("framewise_displacement" %in% names(df)) {
+        fd_unfilt <- coerce_bids_numeric_col(df[["framewise_displacement"]], "framewise_displacement", run_label)
+        if (n_vol >= 1L && is.na(fd_unfilt[1L])) fd_unfilt[1L] <- 0
+        if (!all(is.na(if (n_vol >= 2L) fd_unfilt[-1L] else fd_unfilt))) {
+          fd_raw_r <- fd_unfilt
+          has_unfilt_fd <- TRUE
+        }
+      }
+      if (!has_unfilt_fd) {
+        fd_fb_raw <- compute_power_fd(df, run_label, head_radius = head_radius, rot_units = rot_units)
+        if (!is.null(fd_fb_raw)) {
+          fd_raw_r <- fd_fb_raw
+          has_unfilt_fd <- TRUE
+        }
+      }
+      if ("framewise_displacement_filtered" %in% names(df) &&
+          fd_col %in% c("auto", "framewise_displacement_filtered")) {
+        warning(
+          sprintf(
+            "%s already contains 'framewise_displacement_filtered'; skipping duplicate respiratory motion filter and using existing filtered FD.",
+            run_label
+          ),
+          call. = FALSE
+        )
+      } else {
+        if (!(fd_col %in% c("auto", "framewise_displacement", "framewise_displacement_filtered"))) {
+          warning(
+            sprintf(
+              "Respiratory motion filter requested in %s; recomputing Power (2012) FD from filtered motion parameters instead of fd_col = '%s'.",
+              run_label, fd_col
+            ),
+            call. = FALSE
+          )
+        }
+        bold_file_r <- if (!is.null(ctx$bold_files) && rname %in% names(ctx$bold_files)) ctx$bold_files[[rname]] else NULL
+        tr_r <- if (!is.null(tr)) {
+          if (length(tr) == 1L) {
+            tr[1L]
+          } else if (!is.null(names(tr)) && rname %in% names(tr)) {
+            tr[[rname]]
+          } else if (length(tr) == n_runs) {
+            tr[r]
+          } else {
+            stop(
+              sprintf("Length of 'tr' (%d) must be 1 or match number of runs (%d).", length(tr), n_runs),
+              call. = FALSE
+            )
+          }
+        } else if (!is.null(ctx$tr)) {
+          ctx$tr
+        } else {
+          infer_tr_from_confound_sidecar(src_files[r], bold_file = bold_file_r)
+        }
+        if (is.null(tr_r) || !is.finite(tr_r) || tr_r <= 0) {
+          stop(
+            sprintf(
+              "Sampling interval 'tr' (in seconds) is required when 'motion_bandstop_bpm' or 'motion_lowpass_hz' is set (could not infer TR for %s); supply 'tr' or pass a 'medusa_nifti_ts' object to 'bold'.",
+              run_label
+            ),
+            call. = FALSE
+          )
+        }
+        mf_res <- filter_motion_parameters_for_fd(
+          df = df,
+          tr = tr_r,
+          run_label = run_label,
+          motion_bandstop_bpm = motion_bandstop_bpm,
+          motion_lowpass_hz = motion_lowpass_hz,
+          motion_filter_order = motion_filter_order,
+          motion_filter_pad = motion_filter_pad
+        )
+        if (isTRUE(mf_res$applied)) {
+          fd_vec <- compute_power_fd(mf_res$df, run_label, head_radius = head_radius, rot_units = rot_units)
+          mf_applied <- TRUE
+          if (identical(motion_filter_target, "fd_and_nuisance")) {
+            df_nuis <- mf_res$df
+            if ("framewise_displacement" %in% names(df_nuis)) {
+              df_nuis[["framewise_displacement"]] <- fd_vec
+            }
+          }
+        } else {
+          non_row1_na <- (n_vol > 0L) && all(is.na(if (n_vol >= 2L) fd_vec[-1L] else fd_vec))
+          if (non_row1_na && has_unfilt_fd) {
+            fd_vec <- fd_raw_r
+          } else if (non_row1_na && !is.null(fd_threshold)) {
+            stop(
+              sprintf(
+                "Column '%s' and the 6 rigid-body motion columns are unavailable for fallback FD censoring in %s; set fd_threshold = NULL to disable FD censoring.",
+                fd_col, run_label
+              ),
+              call. = FALSE
+            )
+          }
+        }
+      }
+    }
+    fd_raw_list[[r]] <- fd_raw_r
 
     censor_fd <- if (!is.null(fd_threshold) && n_vol > 0L) {
       !is.finite(fd_vec) | (fd_vec > fd_threshold)
@@ -1475,6 +2019,15 @@ read_fmriprep_confounds <- function(
         v_mo <- coerce_bids_numeric_col(df[[mc]], mc, run_label)
         censor_mo <- censor_mo | (is.finite(v_mo) & v_mo != 0)
       }
+      if (mf_applied && any(censor_mo & !censor_fd)) {
+        warning(
+          sprintf(
+            "include_motion_outliers = TRUE in %s censored %d additional volume(s) from precomputed 'motion_outlier*' columns (typically derived from unfiltered FD/DVARS); set include_motion_outliers = FALSE to rely on respiratory-filtered FD.",
+            run_label, sum(censor_mo & !censor_fd)
+          ),
+          call. = FALSE
+        )
+      }
     }
 
     spike_censor <- dilate_censor_mask(censor_fd | censor_dvars | censor_mo, censor_prev, censor_next)
@@ -1487,14 +2040,14 @@ read_fmriprep_confounds <- function(
     if (identical(strategy, "none") && is.null(columns) && is.null(column_pattern) && n_compcor == 0L) {
       z_mat <- matrix(numeric(0L), nrow = n_vol, ncol = 0L)
     } else {
-      cc_cols <- select_compcor_columns(names(df), n_compcor, compcor_type)
+      cc_cols <- select_compcor_columns(names(df_nuis), n_compcor, compcor_type)
       if (identical(strategy, "compcor") && n_compcor > 0L && length(cc_cols) == 0L) {
         stop(sprintf("No CompCor columns matching compcor_type = '%s' found in %s.", compcor_type, run_label), call. = FALSE)
       }
-      pat_cols <- if (!is.null(column_pattern)) grep(column_pattern, names(df), value = TRUE) else character(0L)
-      exp_columns <- expand_confound_column_specs(columns, names(df))
+      pat_cols <- if (!is.null(column_pattern)) grep(column_pattern, names(df_nuis), value = TRUE) else character(0L)
+      exp_columns <- expand_confound_column_specs(columns, names(df_nuis))
       if (length(exp_columns)) {
-        resolvable <- vapply(exp_columns, can_resolve_confound_column, logical(1L), avail_names = names(df))
+        resolvable <- vapply(exp_columns, can_resolve_confound_column, logical(1L), avail_names = names(df_nuis))
         if (any(!resolvable)) {
           stop(
             sprintf(
@@ -1512,7 +2065,7 @@ read_fmriprep_confounds <- function(
         isTRUE(include_cosines)
       }
       if (use_cos) {
-        cos_cols <- grep("^cosine[0-9]+$", names(df), value = TRUE)
+        cos_cols <- grep("^cosine[0-9]+$", names(df_nuis), value = TRUE)
         if (length(cos_cols)) {
           cos_idx <- as.integer(sub("^cosine", "", cos_cols))
           cos_cols <- cos_cols[order(cos_idx)]
@@ -1523,7 +2076,7 @@ read_fmriprep_confounds <- function(
       if (length(req_cols) == 0L) {
         z_mat <- matrix(numeric(0L), nrow = n_vol, ncol = 0L)
       } else {
-        col_vecs <- lapply(req_cols, function(cn) expand_fmriprep_column(df, cn, run_label))
+        col_vecs <- lapply(req_cols, function(cn) expand_fmriprep_column(df_nuis, cn, run_label))
         z_mat <- do.call(cbind, col_vecs)
         colnames(z_mat) <- req_cols
         storage.mode(z_mat) <- "double"
@@ -1581,6 +2134,7 @@ read_fmriprep_confounds <- function(
       n_external_censor = as.integer(sum(censor_ext)),
       mean_fd = if (length(fd_step)) mean(fd_step) else NA_real_,
       max_fd = if (length(fd_fin)) max(fd_fin) else NA_real_,
+      motion_filtered = mf_applied,
       n_nuisance_cols = as.integer(ncol(z_mat)),
       stringsAsFactors = FALSE
     )
@@ -1589,12 +2143,26 @@ read_fmriprep_confounds <- function(
   summary_df <- do.call(rbind, sum_rows)
   rownames(summary_df) <- NULL
 
+  motion_filter_meta <- if (wants_motion_filter) {
+    list(
+      type = if (!is.null(motion_bandstop_bpm)) "notch" else "lowpass",
+      bandstop_bpm = motion_bandstop_bpm,
+      lowpass_hz = motion_lowpass_hz,
+      order = if (is.null(motion_filter_order)) 4L else motion_filter_order,
+      pad = motion_filter_pad,
+      target = motion_filter_target
+    )
+  } else {
+    NULL
+  }
+
   structure(
     list(
       nuisance = nuis_list,
       valid_rows = valid_list,
       summary = summary_df,
       framewise_displacement = fd_list,
+      framewise_displacement_raw = if (wants_motion_filter) fd_raw_list else NULL,
       settings = list(
         strategy = strategy,
         fd_threshold = fd_threshold,
@@ -1606,7 +2174,8 @@ read_fmriprep_confounds <- function(
         drop_initial_volumes = drop_initial_volumes,
         censor_prev = censor_prev,
         censor_next = censor_next,
-        min_segment_length = min_segment_length
+        min_segment_length = min_segment_length,
+        motion_filter = motion_filter_meta
       )
     ),
     class = "medusa_confounds"
@@ -1623,12 +2192,23 @@ print.medusa_confounds <- function(x, ...) {
   } else {
     "none"
   }
+  mf <- x$settings$motion_filter
+  mf_lbl <- if (!is.null(mf)) {
+    if (identical(mf$type, "notch")) {
+      sprintf(" | fd_filter: notch %g-%g BPM", mf$bandstop_bpm[1L], mf$bandstop_bpm[2L])
+    } else {
+      sprintf(" | fd_filter: lowpass %g Hz", mf$lowpass_hz)
+    }
+  } else {
+    ""
+  }
   cat(sprintf(
-    "<medusa_confounds> %d run%s | strategy: %s | fd_threshold: %s\n",
+    "<medusa_confounds> %d run%s | strategy: %s | fd_threshold: %s%s\n",
     n_runs,
     if (n_runs == 1L) "" else "s",
     x$settings$strategy,
-    fd_lbl
+    fd_lbl,
+    mf_lbl
   ))
   if (!is.null(x$summary) && nrow(x$summary) > 0L) {
     disp <- x$summary[, c("run", "n_volumes", "n_valid", "n_censored", "pct_censored", "mean_fd", "max_fd", "n_nuisance_cols"), drop = FALSE]
@@ -1897,9 +2477,9 @@ combine_fmriprep_masks <- function(mask_files, mode = c("intersection", "union",
 #'   \code{*_censor.1D} sidecars when present for postprocessed outputs), explicit
 #'   censor file paths / vectors forwarded to \code{\link{read_fmriprep_confounds}},
 #'   or \code{NULL} to ignore \code{*_censor.1D} sidecars.
-#' @param fd_threshold,fd_col,dvars_threshold,dvars_col,include_non_steady_state,include_motion_outliers,drop_initial_volumes,censor_prev,censor_next,min_segment_length
-#'   Clock-preserving censoring options forwarded to
-#'   \code{\link{read_fmriprep_confounds}}.
+#' @param fd_threshold,fd_col,head_radius,rot_units,motion_bandstop_bpm,motion_lowpass_hz,motion_filter_order,motion_filter_pad,motion_filter_target,dvars_threshold,dvars_col,include_non_steady_state,include_motion_outliers,drop_initial_volumes,censor_prev,censor_next,min_segment_length
+#'   Clock-preserving censoring and optional respiratory motion filtering
+#'   options forwarded to \code{\link{read_fmriprep_confounds}}.
 #' @param id_style Voxel ID convention forwarded to \code{\link{read_nifti_ts}}
 #'   (\code{"ijk"} or \code{"vnum"}).
 #' @param ncpus Number of parallel workers forwarded to \code{\link{read_nifti_ts}}.
@@ -1998,6 +2578,13 @@ read_fmriprep_subject <- function(
   censor = "auto",
   fd_threshold = 0.5,
   fd_col = "auto",
+  head_radius = 50,
+  rot_units = c("rad", "deg"),
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = c("constant", "odd", "even", "zero"),
+  motion_filter_target = c("fd_only", "fd_and_nuisance"),
   dvars_threshold = NULL,
   dvars_col = "std_dvars",
   include_non_steady_state = TRUE,
@@ -2014,6 +2601,9 @@ read_fmriprep_subject <- function(
   mask_mode <- match.arg(mask_mode)
   strategy <- match.arg(strategy)
   compcor_type <- match.arg(compcor_type)
+  rot_units <- match.arg(rot_units)
+  motion_filter_pad <- match.arg(motion_filter_pad)
+  motion_filter_target <- match.arg(motion_filter_target)
   id_style <- match.arg(id_style)
   checkmate::assert_string(sub, min.chars = 1L)
   sub_id <- sub("^sub-", "", trimws(sub))
@@ -2325,7 +2915,8 @@ read_fmriprep_subject <- function(
     is.null(columns) && is.null(column_pattern) &&
     (is.null(n_compcor) || n_compcor == 0L) &&
     is.null(fd_threshold_use) && is.null(dvars_threshold) &&
-    !isTRUE(include_motion_outliers)
+    !isTRUE(include_motion_outliers) &&
+    is.null(motion_bandstop_bpm) && is.null(motion_lowpass_hz)
 
   if (anyNA(conf_files)) {
     if (can_build_without_conf_tsv) {
@@ -2360,6 +2951,14 @@ read_fmriprep_subject <- function(
     censor = censor_resolved,
     fd_threshold = fd_threshold_use,
     fd_col = fd_col,
+    head_radius = head_radius,
+    rot_units = rot_units,
+    tr = tr,
+    motion_bandstop_bpm = motion_bandstop_bpm,
+    motion_lowpass_hz = motion_lowpass_hz,
+    motion_filter_order = motion_filter_order,
+    motion_filter_pad = motion_filter_pad,
+    motion_filter_target = motion_filter_target,
     dvars_threshold = dvars_threshold,
     dvars_col = dvars_col,
     include_non_steady_state = include_non_steady_state,

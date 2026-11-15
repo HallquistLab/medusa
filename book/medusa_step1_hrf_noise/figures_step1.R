@@ -196,3 +196,180 @@ savep(
   h = 4.2
 )
 write.csv(aout, "whitening_acf.csv", row.names = FALSE)
+
+# 10. Fast-TR respiratory motion filtering: FD traces, valid_rows masks, and Step 2 parcel activity.
+if (!is.null(d$resp_demo)) {
+  rd <- d$resp_demo
+  t_min <- 48
+  t_max <- 122
+  keep_w <- rd$time >= t_min & rd$time <= t_max
+
+  fd_df <- rbind(
+    data.frame(time = rd$time[keep_w], fd = rd$fd_raw[keep_w], series = "Unfiltered Power FD"),
+    data.frame(time = rd$time[keep_w], fd = rd$fd_lowpass[keep_w], series = "Low-pass FD (0.20 Hz)"),
+    data.frame(time = rd$time[keep_w], fd = rd$fd_notch[keep_w], series = "Notch FD (12-20 BPM)")
+  )
+  fd_df$series <- factor(fd_df$series, levels = c("Unfiltered Power FD", "Low-pass FD (0.20 Hz)", "Notch FD (12-20 BPM)"))
+
+  jerk_annot <- data.frame(
+    time = rd$jerk_times_r1,
+    label = c("Moderate jerk\n(0.47 mm raw)", "Large jerk\n(1.18 mm raw)"),
+    y = c(0.95, 1.12)
+  )
+
+  x_lims <- c(t_min - tr * 0.55, t_max + tr * 0.55)
+
+  pA <- ggplot(fd_df, aes(time, fd, color = series, linetype = series)) +
+    geom_hline(yintercept = 0.30, linetype = "dashed", color = "#8C3B00", linewidth = 0.55) +
+    geom_vline(xintercept = rd$jerk_times_r1, linetype = "dotted", color = "grey45", linewidth = 0.6) +
+    geom_line(linewidth = 0.85) +
+    geom_text(
+      data = jerk_annot,
+      aes(x = time - 1.0, y = y, label = label),
+      inherit.aes = FALSE, hjust = 1, size = 3.3, color = "grey25", fontface = "italic"
+    ) +
+    annotate("text", x = 88.0, y = 0.38, label = "Standard FD cutoff (0.30 mm)", hjust = 0.5, size = 3.3, color = "#8C3B00", fontface = "bold") +
+    scale_color_manual(values = c("Unfiltered Power FD" = "#B35806", "Low-pass FD (0.20 Hz)" = "#2A7F62", "Notch FD (12-20 BPM)" = "#2166AC")) +
+    scale_linetype_manual(values = c("Unfiltered Power FD" = "solid", "Low-pass FD (0.20 Hz)" = "longdash", "Notch FD (12-20 BPM)" = "solid")) +
+    scale_x_continuous(limits = x_lims, expand = c(0.005, 0)) +
+    scale_y_continuous(expand = expansion(mult = c(0.03, 0.12))) +
+    labs(
+      x = NULL,
+      y = "FD (mm)",
+      color = NULL,
+      linetype = NULL,
+      title = "Zero-phase respiratory filtering separates chest-wall B0 pseudomotion from head jerks",
+      subtitle = "A. Run 1 framewise displacement at fast multiband TR = 0.65 s (~16 BPM breathing + two true posture jerks)"
+    ) +
+    theme(
+      plot.subtitle = element_text(face = "bold", size = 11.5, color = "grey20"),
+      axis.text.x = element_blank(),
+      legend.text = element_text(margin = margin(r = 12)),
+      plot.margin = margin(10, 18, 2, 12)
+    )
+
+  mask_levels <- c(
+    "Notch 12-20 BPM (> 0.30 mm)",
+    "Low-pass 0.20 Hz (> 0.15 mm)",
+    "Unfiltered (> 0.60 mm cutoff)",
+    "Unfiltered (> 0.30 mm cutoff)"
+  )
+  mask_df <- rbind(
+    data.frame(time = rd$time[keep_w], valid = rd$valid_raw_030[keep_w], regime = "Unfiltered (> 0.30 mm cutoff)"),
+    data.frame(time = rd$time[keep_w], valid = rd$valid_raw_060[keep_w], regime = "Unfiltered (> 0.60 mm cutoff)"),
+    data.frame(time = rd$time[keep_w], valid = rd$valid_lp[keep_w], regime = "Low-pass 0.20 Hz (> 0.15 mm)"),
+    data.frame(time = rd$time[keep_w], valid = rd$valid_notch[keep_w], regime = "Notch 12-20 BPM (> 0.30 mm)")
+  )
+  mask_df$regime <- factor(mask_df$regime, levels = mask_levels)
+  mask_df$state <- ifelse(mask_df$valid, "Usable volume (valid_rows = TRUE)", "Censored volume (valid_rows = FALSE)")
+
+  pB <- ggplot(mask_df, aes(time, regime, fill = state)) +
+    geom_tile(width = tr * 0.96, height = 0.72) +
+    geom_vline(xintercept = rd$jerk_times_r1, linetype = "dotted", color = "grey20", linewidth = 0.6) +
+    scale_fill_manual(values = c(
+      "Usable volume (valid_rows = TRUE)" = "#D4E4F2",
+      "Censored volume (valid_rows = FALSE)" = "#C7521A"
+    )) +
+    scale_x_continuous(limits = x_lims, expand = c(0.005, 0)) +
+    labs(
+      x = NULL,
+      y = NULL,
+      fill = NULL,
+      subtitle = "B. Resulting clock-preserving valid_rows masks (censor_next = 1, min_segment_length = 4)"
+    ) +
+    theme(
+      plot.subtitle = element_text(face = "bold", size = 11.5, color = "grey20"),
+      panel.grid.major.y = element_blank(),
+      axis.text.x = element_blank(),
+      legend.text = element_text(margin = margin(r = 14)),
+      plot.margin = margin(4, 18, 2, 12)
+    )
+
+  act_df <- rbind(
+    data.frame(time = rd$time[keep_w], val = rd$act_raw_060[keep_w], series = "Unfiltered > 0.60 mm (0.47 mm jerk leaks)"),
+    data.frame(time = rd$time[keep_w], val = rd$act_notch_both[keep_w], series = "Notch fd_and_nuisance (B0 breathing leaks)"),
+    data.frame(time = rd$time[keep_w], val = rd$act_notch_fd_only[keep_w], series = "Notch fd_only > 0.30 mm (recommended)")
+  )
+  act_df$series <- factor(act_df$series, levels = c(
+    "Notch fd_only > 0.30 mm (recommended)",
+    "Unfiltered > 0.60 mm (0.47 mm jerk leaks)",
+    "Notch fd_and_nuisance (B0 breathing leaks)"
+  ))
+  ev_sub <- data.frame(onset = rd$onsets_run1[rd$onsets_run1 >= t_min & rd$onsets_run1 <= t_max])
+
+  pC <- ggplot(act_df, aes(time, val, color = series, linetype = series)) +
+    geom_hline(yintercept = 0, color = "grey80") +
+    geom_vline(data = ev_sub, aes(xintercept = onset), inherit.aes = FALSE, color = "#9BB8CD", alpha = 0.45, linewidth = 0.5) +
+    geom_vline(xintercept = rd$jerk_times_r1, linetype = "dotted", color = "grey45", linewidth = 0.6) +
+    geom_line(linewidth = 0.85) +
+    annotate("text", x = rd$jerk_times_r1[1L] - 1.5, y = 0.21, label = "Uncensored jerk\ndistorts epoch", hjust = 1, size = 3.1, color = "#8C3B00", fontface = "italic") +
+    scale_color_manual(values = c(
+      "Notch fd_only > 0.30 mm (recommended)" = "#2166AC",
+      "Unfiltered > 0.60 mm (0.47 mm jerk leaks)" = "#B35806",
+      "Notch fd_and_nuisance (B0 breathing leaks)" = "#7A5195"
+    )) +
+    scale_linetype_manual(values = c(
+      "Notch fd_only > 0.30 mm (recommended)" = "solid",
+      "Unfiltered > 0.60 mm (0.47 mm jerk leaks)" = "dotdash",
+      "Notch fd_and_nuisance (B0 breathing leaks)" = "longdash"
+    )) +
+    scale_x_continuous(limits = x_lims, expand = c(0.005, 0)) +
+    scale_y_continuous(expand = expansion(mult = c(0.06, 0.20))) +
+    labs(
+      x = "Acquisition time in Run 1 (s)",
+      y = "Parcel activity",
+      color = NULL,
+      linetype = NULL,
+      subtitle = "C. Step 2 recovered parcel activity (vertical blue bars = feedback events; dotted lines = head jerks)"
+    ) +
+    guides(color = guide_legend(nrow = 2, byrow = TRUE), linetype = guide_legend(nrow = 2, byrow = TRUE)) +
+    theme(
+      plot.subtitle = element_text(face = "bold", size = 11.5, color = "grey20"),
+      legend.text = element_text(margin = margin(r = 14)),
+      plot.margin = margin(4, 18, 10, 12)
+    )
+
+  gA <- ggplotGrob(pA)
+  gB <- ggplotGrob(pB)
+  gC <- ggplotGrob(pC)
+  max_widths <- grid::unit.pmax(gA$widths, gB$widths, gC$widths)
+  gA$widths <- gB$widths <- gC$widths <- max_widths
+  g10 <- rbind(gA, gB, gC, size = "last")
+  ggsave("figures/10-respiratory-fd.png", g10, width = 11.5, height = 9.0, dpi = 170, bg = "white")
+
+  # 11. End-to-end Steps 1-3 quantitative impact across regimes.
+  m_df <- rd$metrics
+  reg_ord <- rev(m_df$short_label)
+  m_long <- rbind(
+    data.frame(regime = m_df$short_label, value = m_df$pct_retained_trs, ref = NA_real_, panel = "Step 1: Retained volumes (%)"),
+    data.frame(regime = m_df$short_label, value = m_df$est_noise_sd, ref = rd$true_noise_sd, panel = "Step 2: Estimated noise_sd (dashed = truth)"),
+    data.frame(regime = m_df$short_label, value = m_df$pct_trials_retained, ref = 100, panel = "Step 3: Retained trials (%)"),
+    data.frame(regime = m_df$short_label, value = m_df$rpe_se_lag0, ref = NA_real_, panel = "Step 3: Lag-0 RPE slope SE (lower = tighter)")
+  )
+  m_long$regime <- factor(m_long$regime, levels = reg_ord)
+  m_long$panel <- factor(m_long$panel, levels = unique(m_long$panel))
+  m_long$highlight <- ifelse(
+    grepl("fd_only", m_long$regime),
+    "Filtered FD + unfiltered nuisance (fd_only)",
+    ifelse(grepl("fd_and_nuisance", m_long$regime), "Filtered FD + filtered nuisance", "Unfiltered FD")
+  )
+
+  p11 <- ggplot(m_long, aes(value, regime, color = highlight)) +
+    geom_vline(data = subset(m_long, is.finite(ref)), aes(xintercept = ref), linetype = "dashed", color = "grey45") +
+    geom_segment(aes(x = 0, xend = value, yend = regime), linewidth = 0.85, alpha = 0.65) +
+    geom_point(size = 3.4) +
+    facet_wrap(~panel, ncol = 2, scales = "free_x") +
+    scale_color_manual(values = c(
+      "Filtered FD + unfiltered nuisance (fd_only)" = "#2166AC",
+      "Filtered FD + filtered nuisance" = "#7A5195",
+      "Unfiltered FD" = "#B35806"
+    )) +
+    labs(
+      x = NULL,
+      y = NULL,
+      color = NULL,
+      title = "Filtering FD (with fd_only) preserves trial support, accurate noise scaling, and slope precision"
+    ) +
+    theme(legend.text = element_text(margin = margin(r = 14)))
+  savep("11-respiratory-pipeline-impact", p11, w = 11.2, h = 5.6)
+}

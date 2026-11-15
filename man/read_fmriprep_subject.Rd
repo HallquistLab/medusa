@@ -38,6 +38,13 @@ read_fmriprep_subject(
   censor = "auto",
   fd_threshold = 0.5,
   fd_col = "auto",
+  head_radius = 50,
+  rot_units = c("rad", "deg"),
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = c("constant", "odd", "even", "zero"),
+  motion_filter_target = c("fd_only", "fd_and_nuisance"),
   dvars_threshold = NULL,
   dvars_col = "std_dvars",
   include_non_steady_state = TRUE,
@@ -125,8 +132,8 @@ double-regressing unfiltered confounds.}
 censor file paths / vectors forwarded to \code{\link{read_fmriprep_confounds}},
 or \code{NULL} to ignore \code{*_censor.1D} sidecars.}
 
-\item{fd_threshold, fd_col, dvars_threshold, dvars_col, include_non_steady_state, include_motion_outliers, drop_initial_volumes, censor_prev, censor_next, min_segment_length}{Clock-preserving censoring options forwarded to
-\code{\link{read_fmriprep_confounds}}.}
+\item{fd_threshold, fd_col, head_radius, rot_units, motion_bandstop_bpm, motion_lowpass_hz, motion_filter_order, motion_filter_pad, motion_filter_target, dvars_threshold, dvars_col, include_non_steady_state, include_motion_outliers, drop_initial_volumes, censor_prev, censor_next, min_segment_length}{Clock-preserving censoring and optional respiratory motion filtering
+options forwarded to \code{\link{read_fmriprep_confounds}}.}
 
 \item{id_style}{Voxel ID convention forwarded to \code{\link{read_nifti_ts}}
 (\code{"ijk"} or \code{"vnum"}).}

@@ -45,8 +45,8 @@ Every input to `estimate_crossrun_hrf()` is structured to preserve exact acquisi
 | `events` | Named list of `data.frame`s (`onset`, optional `duration`, `condition`) matching `names(bold)` | HRF shape cannot be identified blindly without anchor timestamps (shifting $h$ forward and neural timing backward yields identical BOLD). Supplying *all* modeled task events—without behavioral covariates—anchors vascular lag while keeping behavioral hypotheses blind. Zero-row `events[[r]]` (e.g., resting-state runs) are permitted and receive canonical fallback HRFs plus pure-nuisance noise fits. |
 | `tr` & `time_offset` | Positive scalar TR (s); scalar or per-run start time (s) | Maps continuous event times (in seconds) onto discrete acquisition bins via fractional bracket interpolation or sub-bin boxcar occupancy, ensuring off-TR jitter is represented accurately. |
 | `kernel_grid` | Numeric matrix (`L_hrf × K`) from `hrf_library()`, with column 1 as canonical fallback | Pre-discretizing normalized candidate waveforms onto the `tr` grid lets C++ evaluate all $K$ candidates in batched BLAS sweeps and guarantees a known reference shape (`fallback_kernel = 1L`) when task SNR is absent. |
-| `valid_rows` | Optional named list of logical vectors (`length == nrow(bold[[r]])`) | **Never delete censored TRs before Step 1.** Deleting rows compresses the clock, corrupting causal HRF convolution tails after a scrub gap and pretending separated volumes are lag-1 neighbors. Logical `valid_rows` keeps the physical time grid intact while excluding bad frames from regression and likelihood scoring. |
-| `nuisance` | Optional named list of numeric matrices (`nrow == nrow(bold[[r]])`) | Motion parameters, physiological regressors, or tissue comps supplied here are combined with an automatic run intercept and linear trend so slow scanner drift does not masquerade as broad HRFs or $\rho \to 1$ autocorrelation. |
+| `valid_rows` | Optional named list of logical vectors (`length == nrow(bold[[r]])`), or supplied automatically via `nuisance = conf` from `read_fmriprep_confounds()` / `read_fmriprep_subject()` | **Never delete censored TRs before Step 1.** Deleting rows compresses the clock, corrupting causal HRF convolution tails after a scrub gap and pretending separated volumes are lag-1 neighbors. Logical `valid_rows` keeps the physical time grid intact while excluding bad frames from regression and likelihood scoring. At fast multiband TRs ($\text{TR} \lesssim 1.0\text{ s}$), filter the 6 rigid-body motion parameters before computing FD (`motion_bandstop_bpm` or `motion_lowpass_hz`) so chest-wall breathing pseudomotion does not fragment `valid_rows` (see @sec-respiratory-fd-filter). |
+| `nuisance` | Optional named list of numeric matrices (`nrow == nrow(bold[[r]])`), or a `"medusa_confounds"` object | Motion parameters (`24p`/`36p`), CompCor components, or physiological regressors supplied here are combined with an automatic run intercept and linear trend so slow scanner drift and respiratory $B_0$ variance do not masquerade as broad HRFs or $\rho \to 1$ autocorrelation. |
 | `spatial_groups` & `noise_groups` | Named character/factor vectors mapping `voxel_ids` to parcels / tissue classes | Separating `spatial_groups` (functional parcels sharing vascular timing) from optional `noise_groups` (e.g., tissue/ROI classes sharing serial autocorrelation) lets Step 1 pool low-SNR voxel evidence without averaging raw BOLD series that may carry opposite neural signs. |
 
 ---
@@ -73,28 +73,34 @@ Every input to `estimate_crossrun_hrf()` is structured to preserve exact acquisi
 #| code-fold: false
 library(medusa)
 
-# 0. Stream preprocessed 4D NIfTI runs + mask + atlas into T x V matrices in C++
+# 0. Stream preprocessed 4D NIfTI runs + fMRIPrep confounds & BIDS events
+#    (or call read_fmriprep_subject() to discover BOLD, masks, confounds, and events in one step)
 ts <- read_nifti_ts(
   niftis = c(run1 = "sub01_run1.nii.gz", run2 = "sub01_run2.nii.gz", run3 = "sub01_run3.nii.gz"),
   mask   = "sub01_mask.nii.gz",
   atlas  = "schaefer200.nii.gz",
   tr     = tr
 )
-bold <- ts$bold
-parcel_ids <- ts$parcel_ids
+conf <- read_fmriprep_confounds(
+  c("sub01_run1_desc-confounds_timeseries.tsv",
+    "sub01_run2_desc-confounds_timeseries.tsv",
+    "sub01_run3_desc-confounds_timeseries.tsv"),
+  bold                 = ts,
+  strategy             = "24p",
+  fd_threshold         = 0.3,
+  motion_bandstop_bpm  = c(12, 20),   # recommended at fast multiband TRs (TR <= 1.0 s)
+  motion_filter_target = "fd_only"
+)
 
 # 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)
-candidates <- hrf_library(tr = tr, preset = "medusa")
+candidates <- hrf_library(tr = ts$tr, preset = "medusa")
 
 # 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise
 hrf_fit <- estimate_crossrun_hrf(
-  bold            = bold,
+  bold            = ts,
   events          = events,
-  tr              = tr,
   kernel_grid     = candidates,
-  nuisance        = nuisance,
-  valid_rows      = valid_rows,
-  spatial_groups  = parcel_ids,
+  nuisance        = conf,
   pooling         = "parcel",
   amplitude_model = "trial",
   noise_model     = "ar1",
@@ -111,6 +117,7 @@ hrf_fit <- estimate_crossrun_hrf(
 | `selection_mode` | `"soft_average"` | `"hard"` | `"soft_average"` forms a Boltzmann-weighted composite HRF across compatible candidates, shrunk toward `fallback_kernel` by parcel departure confidence. Across sub-grid vascular delays and Windkessel–Balloon simulations, `"soft_average"` reduces HRF RMSE by 8–22% and neural latency bias by 20–35% relative to discrete `"hard"` grid snapping. |
 | `amplitude_model` | `"trial"` (for cognitive modulation) or `"condition"` | `"condition"` | `"condition"` fits one amplitude per condition per run and is fast when events evoke a consistent mean response. Switch to `"trial"` whenever trial-by-trial effects can take both positive and negative signs around zero (e.g., signed prediction errors), where a condition mean cancels out! In multi-condition tasks, `"trial"` automatically compares per-condition trial designs to avoid collinearity. |
 | `noise_model` & `evidence` | `"ar1"` & `"calibrated"` | `"ar1"` & `"calibrated"` | Keep both defaults. Note that `noise_model = "ar1"` actually fits a **stationary $\text{AR}(1) \times \text{AR}(q)$ cascade** (up to $\text{AR}(5)$ at fast multiband TRs) via pooled two-pass REML, not just a single-parameter $\text{AR}(1)$! `"calibrated"` enforces $F$-test task gates and cross-run compatibility. |
+| `motion_bandstop_bpm` & `motion_filter_target` (in `read_fmriprep_confounds`) | `c(12, 20)` & `"fd_only"` when $\text{TR} \lesssim 1.0\text{ s}$ | `NULL` & `"fd_only"` | At fast multiband TRs, zero-phase notch filtering of the 6 rigid-body realignment parameters removes chest-wall $B_0$ breathing pseudomotion before computing Power (2012) FD while keeping unfiltered `24p` columns in `nuisance` (`"fd_only"`) so respiratory variance in unfiltered BOLD remains modeled. Leave `NULL` at slow TRs ($\text{TR} \ge 2.0\text{ s}$) unless targeting a known aliased band. |
 
 ---
 
@@ -121,6 +128,7 @@ hrf_fit <- estimate_crossrun_hrf(
 sel <- read.csv("selections.csv")
 noise_tbl <- read.csv("noise.csv")
 acf_tbl <- read.csv("whitening_acf.csv")
+resp_tbl <- read.csv("respiratory_fd_metrics.csv")
 ex <- readRDS("step1_examples.rds")
 ```
 
@@ -205,6 +213,48 @@ knitr::kable(
 
 ![Mean autocorrelation of known simulation errors in Run 1 (`Fast` vs. `Null` parcels) before whitening, after whitening under a misspecified fixed canonical HRF, and after MEDuSA's post-selection $\text{AR}(p)$ refit.](figures/08-noise.png){#fig-step1-noise width="100%" fig-alt="Error autocorrelation curves comparing unwhitened, fixed-canonical-HRF whitened, and MEDuSA post-selection refit whitened errors."}
 
+### 5. Respiratory Motion Filtering for Fast-TR Censoring {#sec-respiratory-fd-filter}
+
+At legacy single-band repetition times ($\text{TR} = 2.0\text{--}2.5\text{ s}$, Nyquist $0.20\text{--}0.25\text{ Hz}$), normal adult breathing ($12\text{--}20\text{ breaths/min} \approx 0.20\text{--}0.33\text{ Hz}$) aliases into slower frequencies across interleaved slices. In modern **fast-TR multiband fMRI** ($\text{TR} = 0.60\text{--}1.0\text{ s}$, such as HCP, ABCD, and contemporary 3T/7T cognitive tasks), rigid-body volume realignment resolves every breath directly: chest-wall expansion perturbs the main $B_0$ magnetic field along the phase-encoding axis (`trans_y`) and induces coupled apparent pitch (`rot_x`), generating continuous $0.25\text{--}0.45\text{ mm}$ step-to-step shifts in Power (2012) framewise displacement (FD) *even when the participant's head is physically still* (Fair et al., 2020; Gratton et al., 2020).
+
+In MEDuSA, censoring raw fast-TR FD at a standard $0.25\text{--}0.35\text{ mm}$ cutoff triggers **three compounding failures across Steps 1–3**:
+
+1. **Step 1 (`estimate_crossrun_hrf`) — Segment fragmentation:** Because a $16\text{ BPM}$ ($3.75\text{ s}$) breathing wave crosses the FD threshold every $2\text{--}3\text{ TRs}$, combining spike dilation (`censor_next = 1L`) with `min_segment_length` shreds `valid_rows` into short, disconnected islands—depleting out-of-sample HRF degrees of freedom and starving the contiguous unmasked lag pairs needed to estimate higher-order $\text{AR}(p)$ parameters ($\psi_1, \dots, \psi_4$).
+2. **Step 2 (`deconvolve_crossrun_hrf`) — Loss of causal BOLD anchors vs. unmodeled $B_0$ variance:** Under `observation_mask = "fit"`, scrubbing clean breathing frames removes observation anchors from $M_{r,o} H_r s$. Conversely, simply raising `fd_threshold` to $0.60\text{ mm}$ lets genuine sub-millimeter head jerks ($0.40\text{--}0.55\text{ mm}$) and their spin-history BOLD transients slip into the inverse unfiltered!
+3. **Step 3 (`decon_epoch_regression`) — Observability drop-outs and inflated trial SEs:** When breathing scrubs $35\text{--}60\%$ of frames around task events, trial-lag readouts fail Step 3's causal BOLD observability gate (`obs_frac_tau < 0.20` $\to$ `NA`) and suffer bloated propagated `se_demixed`.
+
+`read_fmriprep_confounds()` (and `read_fmriprep_subject()`) resolves this tradeoff directly via **zero-phase forward-backward IIR filtering** of the 6 rigid-body realignment columns (`rot_x`, `rot_y`, `rot_z`, `trans_x`, `trans_y`, `trans_z`) prior to Power (2012) FD calculation, controlled by three design choices:
+
+- **Narrowband notch (`motion_bandstop_bpm = c(12, 20)`) vs. Butterworth low-pass (`motion_lowpass_hz = 0.20`):** `motion_bandstop_bpm` applies a zero-phase 2nd-order RBJ biquad notch (`filtfilt`, effective order 4) that excises the respiratory band while preserving broadband sharp step transitions on their original millimeter FD scale (so standard `fd_threshold = 0.30` still catches $0.45\text{ mm}$ head jerks). `motion_lowpass_hz` applies a zero-phase Butterworth low-pass filter; because low-pass smoothing also attenuates the 1-TR edge of genuine sudden jerks, pair `motion_lowpass_hz = 0.20` with a proportionally lowered cutoff (`fd_threshold = 0.15`–`0.20`, following Gratton et al., 2020).
+- **Why `motion_filter_target = "fd_only"` is the default:** Standard `fMRIPrep` BOLD time series (`*_desc-preproc_bold.nii.gz`) have *not* been temporally notch-filtered—they still contain real respiratory $B_0$ signal fluctuations. Keeping `motion_filter_target = "fd_only"` uses the filtered motion parameters **only** to compute `$framewise_displacement` and `valid_rows`, while leaving the `24p`/`36p` columns in `$nuisance` *unfiltered* so Step 1 and Step 2 (`nuisance_mode = "joint"`) project respiratory $B_0$ variance cleanly out of BOLD! Setting `"fd_and_nuisance"` on unfiltered BOLD strips the breathing frequency out of `$nuisance`, leaving respiratory $B_0$ oscillations unmodeled in the residual error.
+
+::: {.callout-tip}
+### Nyquist Handling & `BrainGnomes` Interoperability
+When `tr` is slower (e.g., $\text{TR} = 2.0\text{ s}$, Nyquist $= 15\text{ BPM}$), `read_fmriprep_confounds()` automatically detects whether `motion_bandstop_bpm` sits inside a single higher Nyquist zone (folding to the exact aliased stopband with an informative warning) or straddles the Nyquist boundary (warning and falling back safely to unfiltered FD). When ingesting `BrainGnomes` postprocessed confounds that already contain `framewise_displacement_filtered`, `fd_col = "auto"` uses that column automatically and skips duplicate filtering.
+:::
+
+To see all five regimes side by side on the Step 1 multiband clock ($\text{TR} = 0.65\text{ s}$, 3 runs $\times$ 360 volumes, 24 RPE-modulated feedback trials per run, true observation $\sigma = 0.035$, true lag-0 RPE slope $\beta = 0.50$), `simulate_step1.R` injects realistic $\sim 16\text{ BPM}$ ($0.267\text{ Hz}$) respiratory $B_0$ pseudomotion plus two genuine posture-step head jerks per run ($0.47\text{ mm}$ at $69.6\text{ s}$ and $1.18\text{ mm}$ at $111.2\text{ s}$ in Run 1) and carries each `read_fmriprep_confounds()` output through `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf(..., nuisance_mode = "joint")`, and `decon_epoch_regression()` (@fig-step1-respiratory-fd, @fig-step1-respiratory-impact, and @tbl-step1-respiratory-fd):
+
+- **Unfiltered `FD > 0.30 mm`** scrubs **35.4%** of volumes across clean breathing cycles (Panel B of @fig-step1-respiratory-fd), wiping out **25%** of feedback trials at Step 3's observability gate and inflating lag-0 RPE slope SE by **+38%** (`0.0260` vs. `0.0188`).
+- **Raising the unfiltered cutoff to `0.60 mm`** retains clean breathing frames, *but* misses the genuine $0.47\text{ mm}$ head jerk at $69.6\text{ s}$—allowing its spin-history transient to distort the surrounding epoch (Panel C) and inflating lag-0 RPE slope SE by **+88%** (`0.0354`).
+- **Filtering both FD and nuisance (`fd_and_nuisance`)** censors only the two true head jerks (`98.8%` TRs retained), *but* leaves respiratory $B_0$ modulation unmodeled in BOLD—nearly **doubling** Step 2's estimated `noise_sd` (`0.0676` vs. `0.0350` truth) and **doubling** Step 3's propagated per-trial `se_demixed` (`0.167` vs. `0.084`).
+- **Zero-phase notch (`12–20 BPM`, `> 0.30 mm`, `fd_only`)** and **Butterworth low-pass (`0.20 Hz`, `> 0.15 mm`, `fd_only`)** both suppress breathing pseudomotion while censoring both true head jerks—retaining **98–99%** of volumes and **100%** of trials, recovering true observation noise (`0.0356`), and achieving the tightest downstream slope precision.
+
+![Fast-TR ($\text{TR} = 0.65\text{ s}$) respiratory motion filtering in Run 1 (`48–122 s`): (A) Unfiltered Power FD vs. zero-phase Butterworth low-pass (`0.20 Hz`) and RBJ notch (`12–20 BPM`) FD across continuous $\sim 16\text{ BPM}$ breathing and two genuine head jerks; (B) resulting clock-preserving `valid_rows` masks; (C) Step 2 recovered parcel activity showing spin-history distortion when the $0.47\text{ mm}$ jerk slips under a raised `0.60 mm` cutoff and $B_0$ leakage under `fd_and_nuisance`.](figures/10-respiratory-fd.png){#fig-step1-respiratory-fd width="100%" fig-alt="Three-panel plot comparing unfiltered, low-pass, and notch-filtered FD, resulting valid_rows masks, and Step 2 deconvolved parcel activity."}
+
+![End-to-end Steps 1–3 pipeline impact across the five fast-TR censoring regimes (`respiratory_fd_metrics.csv`): retained acquisition volumes, Step 2 observation `noise_sd` recovery against generating truth (`0.035`), Step 3 trial retention after causal BOLD observability gating, and Step 3 lag-0 RPE slope standard error.](figures/11-respiratory-pipeline-impact.png){#fig-step1-respiratory-impact width="100%" fig-alt="Four-panel dot-and-stem chart comparing retained volumes, estimated noise_sd, retained trials, and lag-0 RPE slope SE across five FD censoring regimes."}
+
+```{r}
+#| label: tbl-step1-respiratory-fd
+#| tbl-cap: "End-to-end Steps 1–3 metrics across fast-TR (`TR = 0.65 s`) FD censoring regimes (generating observation noise SD = 0.0350; generating lag-0 RPE slope = 0.500)."
+knitr::kable(
+  resp_tbl[, c("regime", "pct_retained_trs", "median_segment_trs", "mean_fd_mm", "est_noise_sd", "pct_trials_retained", "median_trial_se", "rpe_beta_lag0", "rpe_se_lag0")],
+  col.names = c("Censoring Regime", "Retained TRs (%)", "Med. Seg. (TRs)", "Mean FD (mm)", "Est. noise_sd", "Retained Trials (%)", "Med. Trial SE", "Lag-0 Beta", "Lag-0 SE"),
+  digits = c(0, 1, 0, 3, 4, 1, 3, 3, 4),
+  row.names = FALSE
+)
+```
+
 ---
 
 ## Diagnostic Checklist Before Proceeding to Step 2
@@ -212,6 +262,7 @@ knitr::kable(
 1. **Verify target-run exclusion:** Check `hrf_fit$training_runs` to confirm every run's HRF was trained strictly on $s \neq r$ (or sub-block cross-fit if $R = 1$) and inspect `hrf_fit$signal_status` for dropped or zero-event runs.
 2. **Inspect realized composite waveforms, not just `kernel_index`:** Plot `hrf_fit$selected_kernels` for key parcels to check physiological plausibility and fallback rates (`status == "fallback_prespecified"`).
 3. **Audit `hrf_fit$noise`:** Check for widespread boundary hits (`rho == 0.90` or `-0.80`), which usually signal unmodeled drift, motion spikes, or unrecorded task events missing from `events` or `nuisance`.
+4. **Compare raw vs. filtered FD at fast multiband TRs ($\text{TR} \lesssim 1.0\text{ s}$):** Inspect `conf$summary` (`pct_censored`, `mean_fd`, `motion_filtered`) and plot `conf$framewise_displacement_raw[[r]]` against `conf$framewise_displacement[[r]]` to verify that rhythmic chest-wall $B_0$ oscillations are not over-censoring clean volumes while genuine head jerks remain masked.
 
 <details>
 <summary>Mathematical Details & Edge-Case Rules</summary>
@@ -219,7 +270,8 @@ knitr::kable(
 - **Cross-fitted evidence pooling:** For candidate $m$ on training run $s \neq r$, whitened nuisance-orthogonalized BOLD $y_{s,\perp}$ is regressed onto whitened candidate design $X_{s,m,\perp}$ (rank $d_{s,m}$ over $n_s$ valid rows), yielding adjusted partial $R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{n_s - p_Z}{n_s - p_Z - d_{s,m}}$. Across training runs, scores are weighted by effective degrees of freedom and checked for sign/peak compatibility (`stability`).
 - **Soft-average shrinkage:** Compatible candidates within `score_margin` receive Boltzmann weights $w_m \propto \exp(\Delta R^2_m / \tau_{\text{SE}})$ blended with column 1 (`(1 - \eta) e_1 + \eta w`), where Empirical-Bayes shrinkage $\eta \in [0, 1]$ approaches 0 as calibrated task $F$-statistics weaken toward the `evidence_alpha` threshold.
 - **Exact gapped covariance:** When `valid_rows[[r]]` masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2's whitener $W_r$ inverts the exact stationary Toeplitz submatrix $\Sigma_{\text{AR}}[I_r, I_r]$ on retained timestamps $I_r$ so multi-TR scrub gaps decay correlation by $\gamma(|t_a - t_b|)$ rather than treating across-gap neighbors as 1 TR apart.
+- **Zero-phase respiratory IIR filtering:** For sampling rate $f_s = 1/\text{TR}$ and stopband $[f_1, f_2] = \text{BPM}/60$ ($f_0 = (f_1 + f_2)/2$, $\Delta f = f_2 - f_1$, $Q = f_0/\Delta f$, $\omega_0 = 2\pi f_0/f_s$, $\alpha = \sin\omega_0/(2Q)$), `read_fmriprep_confounds()` designs the exact RBJ biquad notch transfer function $H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}$ (or bilinear-warped Butterworth poles for `motion_lowpass_hz`) and applies forward-backward Direct Form II Transposed filtering (`filtfilt`) with steady-state companion-matrix initial conditions (`zi`) and boundary reflection padding (`motion_filter_pad = "constant"`) to all 6 realignment parameters before computing $\text{FD}_t = \sum_{d \in \{x,y,z\}} |\Delta \text{trans}_{d,t}| + R_{\text{head}} \sum_{d \in \{x,y,z\}} |\Delta \text{rot}_{d,t}|$.
 
-[Step 1 simulation script](simulate_step1.R) · [Figure script](figures_step1.R) · [Selection table](selections.csv) · [Noise table](noise.csv)
+[Step 1 simulation script](simulate_step1.R) · [Figure script](figures_step1.R) · [Selection table](selections.csv) · [Noise table](noise.csv) · [Respiratory FD table](respiratory_fd_metrics.csv)
 
 </details>
