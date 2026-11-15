@@ -207,3 +207,31 @@ sigmoid <- function(x, beta = 1) {
     .Call(`_medusa_sigmoid`, x, beta)
 }
 
+estimate_median_nn_dist_cpp <- function(coords) {
+    .Call(`_medusa_estimate_median_nn_dist_cpp`, coords)
+}
+
+build_lattice_geodesic_graph_cpp <- function(ijk, spacing, max_radius, max_neighbors, group_ids, hard_boundary) {
+    .Call(`_medusa_build_lattice_geodesic_graph_cpp`, ijk, spacing, max_radius, max_neighbors, group_ids, hard_boundary)
+}
+
+build_coords_knn_graph_cpp <- function(coords, max_radius, max_neighbors, group_ids, hard_boundary) {
+    .Call(`_medusa_build_coords_knn_graph_cpp`, coords, max_radius, max_neighbors, group_ids, hard_boundary)
+}
+
+csr_bilateral_noise_smooth_cpp <- function(profiles, ind_rhos, raw_lsd, usable, row_ptr, col_idx, dist, group_ids, sigma_sp, cross_weight, rho_scale, lsd_scale) {
+    .Call(`_medusa_csr_bilateral_noise_smooth_cpp`, profiles, ind_rhos, raw_lsd, usable, row_ptr, col_idx, dist, group_ids, sigma_sp, cross_weight, rho_scale, lsd_scale)
+}
+
+csr_cluster_member_weights_cpp <- function(cluster_id, n_clusters, usable, row_ptr, col_idx, edge_weights) {
+    .Call(`_medusa_csr_cluster_member_weights_cpp`, cluster_id, n_clusters, usable, row_ptr, col_idx, edge_weights)
+}
+
+csr_quad_cor_cpp <- function(Z_unit, d_res, row_ptr, col_idx, dist, group_ids, rho_vec, lsd_vec, usable_col, sigma_sp, cross_weight, rho_scale, lsd_scale) {
+    .Call(`_medusa_csr_quad_cor_cpp`, Z_unit, d_res, row_ptr, col_idx, dist, group_ids, rho_vec, lsd_vec, usable_col, sigma_sp, cross_weight, rho_scale, lsd_scale)
+}
+
+csr_hrf_graph_pool_cpp <- function(scores, train_scores_list, has_gate, task_p_raw, shape_p_raw, compatible, task_supported, supported, eff_task, eff_shape, counts, min_training_runs, row_ptr, col_idx, dist, group_ids, boundary_mode, cross_weight, sigma_sp, rho_train, lsd_train, v_quad_fold, kernel_cos, dist_fb, fallback_kernel, evidence_alpha, min_r2, canonical_strength, soft_average) {
+    .Call(`_medusa_csr_hrf_graph_pool_cpp`, scores, train_scores_list, has_gate, task_p_raw, shape_p_raw, compatible, task_supported, supported, eff_task, eff_shape, counts, min_training_runs, row_ptr, col_idx, dist, group_ids, boundary_mode, cross_weight, sigma_sp, rho_train, lsd_train, v_quad_fold, kernel_cos, dist_fb, fallback_kernel, evidence_alpha, min_r2, canonical_strength, soft_average)
+}
+

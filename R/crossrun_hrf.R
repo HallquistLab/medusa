@@ -742,7 +742,12 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   read with an \code{atlas}. Labels must be nonmissing and nonempty. Parcels
 #'   must be defined independently of target-run responses; no implicit whole-brain
 #'   parcel is constructed.
-#' @param pooling Select HRFs per voxel or share one HRF per supplied parcel.
+#' @param pooling HRF spatial pooling strategy: \code{"voxel"} (default, even for
+#'   atlas-free NIfTI inputs; selects HRFs per voxel with optional parcel anchor
+#'   regularization), \code{"parcel"} (shares one HRF per supplied parcel), or
+#'   \code{"graph"} (sparse bilateral spatial-graph pooling across local in-mask
+#'   geodesic or coordinate neighborhoods, respecting noise borders and optional
+#'   soft/hard parcel priors without \eqn{O(V^2)} dense matrices).
 #' @param spatial_strength Nonnegative fixed penalty on voxel candidate distance
 #'   from the training-derived parcel HRF; requires spatial_groups. Zero disables
 #'   the soft penalty. Only used with voxel pooling; not automatically tuned.
@@ -774,11 +779,14 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #' @param canonical_strength Fixed shape-distance penalty toward fallback_kernel
 #'   in calibrated mode, default 0.01. Zero removes this additional shrinkage.
 #' @param spatial_coords Optional numeric matrix of 3D voxel coordinates (N x 3)
-#'   used for local Gaussian-weighted anchor pooling. Automatically populated from
-#'   \code{bold$voxel_map[, c("x", "y", "z")]} when \code{bold} is a
-#'   \code{"medusa_nifti_ts"} object and \code{spatial_fwhm} is specified.
+#'   used for local Gaussian-weighted anchor or graph pooling. Automatically
+#'   populated from \code{bold$voxel_map[, c("x", "y", "z")]} when \code{bold} is
+#'   a \code{"medusa_nifti_ts"} object and \code{spatial_fwhm} is specified or
+#'   \code{pooling = "graph"}.
 #' @param spatial_fwhm Optional numeric spatial Gaussian FWHM (in coordinate
-#'   units) for local anchor pooling.
+#'   units) for local anchor or graph pooling. When \code{NULL} under
+#'   \code{pooling = "graph"}, defaults to \code{2.5 * median(spacing)} on
+#'   volumetric lattices or \code{2.5} times the median nearest-neighbor distance.
 #' @param selection_mode Candidate selection rule: `"hard"` (default) selects a
 #'   single discrete winning HRF column index per voxel/parcel; `"soft_average"`
 #'   constructs a continuous Empirical-Bayes / Boltzmann evidence-weighted
@@ -786,10 +794,31 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   the prespecified fallback kernel.
 #' @param noise_groups Optional voxel labels defining noise covariance pooling
 #'   neighborhoods, in voxel column order. Defaults to \code{spatial_groups} when
-#'   omitted. Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
-#'   groups) to differ from HRF selection parcels.
+#'   omitted (except under \code{pooling = "graph"} with \code{parcel_boundary}
+#'   set to \code{"soft"} or \code{"ignore"}, where noise covariance is pooled
+#'   bilaterally over the sparse graph).
 #' @param run_col Column name in \code{events} identifying runs when \code{events}
 #'   is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.
+#' @param spatial_graph Optional prebuilt \code{"medusa_spatial_graph"} (from
+#'   \code{\link{build_spatial_graph}}), sparse adjacency matrix, or edge
+#'   \code{data.frame} (e.g., cortical surface mesh) used when
+#'   \code{pooling = "graph"}.
+#' @param parcel_boundary Boundary handling when \code{spatial_groups} is present
+#'   with \code{pooling = "graph"}: \code{"soft"} (default; applies prior factor
+#'   \code{parcel_cross_weight} across borders, modulated upward when cross-run
+#'   HRF concordance agrees and suppressed to zero when active profiles disagree),
+#'   \code{"hard"} (strictly blocks cross-parcel edges), or \code{"ignore"}.
+#' @param parcel_cross_weight Baseline cross-parcel prior factor in \code{[0, 1]}
+#'   when \code{pooling = "graph"} and \code{parcel_boundary = "soft"} (default
+#'   \code{0.35}).
+#' @param max_neighbors Maximum non-self spatial neighbors per voxel in
+#'   \code{pooling = "graph"} (default \code{32L}).
+#' @param max_hrf_strata Maximum quantized composite HRF waveform prototypes per
+#'   run in \code{pooling = "graph"} with \code{selection_mode = "soft_average"}
+#'   so Step-2 inverse operator caching remains compact at whole-brain scale
+#'   (default \code{48L}). Continuous weights are preserved in \code{kernel_weights}.
+#' @param max_noise_strata Maximum bilateral REML noise strata per run when
+#'   \code{pooling = "graph"} (default \code{10L}).
 #' @return An object of class crossrun_hrf with normalized kernels, per-target-run
 #'   selections and training manifests, parcel anchors, run status/design summaries,
 #'   optional candidate scores, voxel/run IDs, and frozen settings (including
@@ -841,7 +870,7 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #' @export
 estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = NULL, nuisance = NULL,
     valid_rows = NULL, time_offset = 0, spatial_groups = NULL,
-    pooling = c("voxel", "parcel"), spatial_strength = 0, fallback_kernel = 1L,
+    pooling = c("voxel", "parcel", "graph"), spatial_strength = 0, fallback_kernel = 1L,
     min_r2 = 0.01, min_training_runs = 1L, min_parcel_voxels = 5L,
     batch_size = 2048L, return_scores = FALSE, amplitude_model = c("condition", "trial"),
     noise_model = c("ar1", "ols"), noise_rho = NULL,
@@ -849,7 +878,10 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     evidence_alpha = 0.05, canonical_strength = 0.01,
     spatial_coords = NULL, spatial_fwhm = NULL,
     selection_mode = c("hard", "soft_average"),
-    noise_groups = NULL, run_col = "run") {
+    noise_groups = NULL, run_col = "run",
+    spatial_graph = NULL, parcel_boundary = c("soft", "hard", "ignore"),
+    parcel_cross_weight = 0.35, max_neighbors = 32L,
+    max_hrf_strata = 48L, max_noise_strata = 10L) {
   nuisance_missing <- missing(nuisance)
   valid_rows_missing <- missing(valid_rows)
   bold_unpacked <- hrf_unpack_bold_input(bold)
@@ -876,12 +908,17 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     valid_rows <- bold_unpacked$valid_rows
   }
   pooling <- match.arg(pooling)
+  parcel_boundary <- match.arg(parcel_boundary)
   amplitude_model <- match.arg(amplitude_model)
   noise_model <- match.arg(noise_model)
   evidence <- match.arg(evidence)
   selection_mode <- match.arg(selection_mode)
   checkmate::assert_number(evidence_alpha, lower = .Machine$double.eps, upper = 0.5, finite = TRUE)
   checkmate::assert_number(canonical_strength, lower = 0, finite = TRUE)
+  checkmate::assert_number(parcel_cross_weight, lower = 0, upper = 1, finite = TRUE)
+  checkmate::assert_integerish(max_neighbors, lower = 1L, len = 1L, any.missing = FALSE)
+  checkmate::assert_integerish(max_hrf_strata, lower = 2L, len = 1L, any.missing = FALSE)
+  checkmate::assert_integerish(max_noise_strata, lower = 1L, len = 1L, any.missing = FALSE)
   checkmate::assert_numeric(noise_grid, lower = -0.95, upper = 0.95, min.len = 2L,
     any.missing = FALSE, finite = TRUE, unique = TRUE, sorted = TRUE)
   if (noise_model == "ols" && !is.null(noise_rho)) stop("noise_rho requires noise_model = 'ar1'")
@@ -936,7 +973,8 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
   }
   if (!is.null(spatial_fwhm))
     checkmate::assert_number(spatial_fwhm, lower = .Machine$double.eps, finite = TRUE)
-  if (is.null(spatial_coords) && !is.null(spatial_fwhm) && !is.null(bold_unpacked$voxel_map) &&
+  if (is.null(spatial_coords) && (!is.null(spatial_fwhm) || pooling == "graph") &&
+      !is.null(bold_unpacked$voxel_map) &&
       all(c("x", "y", "z") %in% names(bold_unpacked$voxel_map)) &&
       nrow(bold_unpacked$voxel_map) == length(voxel_ids)) {
     sc_auto <- as.matrix(bold_unpacked$voxel_map[, c("x", "y", "z"), drop = FALSE])
@@ -954,7 +992,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     if (any(!is.finite(spatial_coords))) stop("spatial_coords must be finite")
     if (!is.null(rownames(spatial_coords)) && !identical(rownames(spatial_coords), voxel_ids))
       stop("spatial_coords rownames must match voxel column order")
-    if (is.null(spatial_groups))
+    if (is.null(spatial_groups) && pooling != "graph")
       spatial_groups <- stats::setNames(rep("volume", length(voxel_ids)), voxel_ids)
   }
   if (!is.null(spatial_groups)) {
@@ -963,10 +1001,10 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         anyNA(spatial_groups) || any(!nzchar(as.character(spatial_groups))))
       stop("spatial_groups must be named nonmissing labels in voxel column order")
     spatial_groups <- as.character(spatial_groups)
-  } else if (pooling == "parcel" || spatial_strength > 0) {
+  } else if (pooling == "parcel" || (pooling == "voxel" && spatial_strength > 0)) {
     stop("Parcel pooling/spatial regularization requires explicit spatial_groups")
   }
-  if (pooling == "parcel" && spatial_strength != 0)
+  if (pooling != "voxel" && spatial_strength != 0)
     stop("spatial_strength applies only to voxel pooling")
   if (!is.null(noise_groups)) {
     if (!is.atomic(noise_groups) || length(noise_groups) != length(voxel_ids) ||
@@ -975,7 +1013,59 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
       stop("noise_groups must be nonmissing labels in voxel column order")
     noise_groups <- stats::setNames(as.character(noise_groups), voxel_ids)
   }
-  spatial_weights <- hrf_compute_spatial_weights(spatial_coords, spatial_groups, spatial_fwhm)
+  spatial_graph_obj <- NULL
+  if (pooling == "graph" || !is.null(spatial_graph)) {
+    if (!is.null(spatial_graph)) {
+      spatial_graph_obj <- build_spatial_graph(
+        spatial_graph,
+        spatial_fwhm = spatial_fwhm,
+        max_neighbors = max_neighbors,
+        spatial_groups = spatial_groups,
+        parcel_boundary = parcel_boundary,
+        n_voxels = length(voxel_ids),
+        voxel_ids = voxel_ids
+      )
+    } else if (!is.null(bold_unpacked$voxel_map) && nrow(bold_unpacked$voxel_map) == length(voxel_ids)) {
+      spatial_graph_obj <- build_spatial_graph(
+        list(voxel_map = bold_unpacked$voxel_map, geometry = bold_unpacked$geometry),
+        spatial_fwhm = spatial_fwhm,
+        max_neighbors = max_neighbors,
+        spatial_groups = spatial_groups,
+        parcel_boundary = parcel_boundary,
+        voxel_ids = voxel_ids
+      )
+    } else if (!is.null(spatial_coords)) {
+      spatial_graph_obj <- build_spatial_graph(
+        spatial_coords,
+        spatial_fwhm = spatial_fwhm,
+        max_neighbors = max_neighbors,
+        spatial_groups = spatial_groups,
+        parcel_boundary = parcel_boundary,
+        voxel_ids = voxel_ids
+      )
+    } else {
+      stop(
+        "pooling = 'graph' requires spatial geometry (a 'medusa_nifti_ts' object, 'spatial_coords', or 'spatial_graph').",
+        call. = FALSE
+      )
+    }
+  }
+  voxel_csr_graph <- NULL
+  if (pooling != "graph" && !is.null(spatial_coords) && length(voxel_ids) > 2500L) {
+    med_nn_v <- estimate_median_nn_dist_cpp(spatial_coords)
+    fwhm_v <- if (is.null(spatial_fwhm)) 1.5 * med_nn_v * sqrt(8.0 * log(2.0)) else spatial_fwhm
+    voxel_csr_graph <- build_spatial_graph(
+      spatial_coords,
+      spatial_fwhm = fwhm_v,
+      max_neighbors = max_neighbors,
+      spatial_groups = spatial_groups,
+      parcel_boundary = "hard",
+      voxel_ids = voxel_ids
+    )
+  }
+  spatial_weights <- if (pooling != "graph" && is.null(voxel_csr_graph)) {
+    hrf_compute_spatial_weights(spatial_coords, spatial_groups, spatial_fwhm)
+  } else NULL
   offsets <- hrf_run_numeric(time_offset, bold, "time_offset")
   events <- hrf_resolve_events_input(events, bold, run_col = run_col, allow_empty_runs = TRUE)
   nuisance <- hrf_resolve_nuisance_input(nuisance, bold)
@@ -983,7 +1073,20 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
   per_run <- run_results <- noise <- design_manifest <- event_manifest <- vector("list", length(bold))
   names(per_run) <- names(run_results) <- names(noise) <- names(design_manifest) <- names(event_manifest) <- names(bold)
   if (!is.null(spatial_groups)) names(spatial_groups) <- voxel_ids
-  eff_noise_groups <- if (!is.null(noise_groups)) noise_groups else spatial_groups
+  eff_noise_groups <- if (!is.null(noise_groups)) {
+    noise_groups
+  } else if (pooling == "graph" && parcel_boundary != "hard") {
+    NULL
+  } else {
+    spatial_groups
+  }
+  noise_graph_use <- if (pooling == "graph") spatial_graph_obj else voxel_csr_graph
+  noise_graph_groups <- if (pooling == "graph" && parcel_boundary == "soft") spatial_groups else eff_noise_groups
+  noise_cross_w <- if (pooling == "graph") {
+    if (is.null(spatial_groups) || parcel_boundary == "ignore") 1.0 else
+      if (parcel_boundary == "soft") parcel_cross_weight else 0.0
+  } else 0.0
+  noise_max_k <- if (pooling == "graph") as.integer(max_noise_strata) else 3L
   if (!any(vapply(events, function(e) is.data.frame(e) && nrow(e) >= 1L, logical(1L))))
     stop("At least one run must contain >= 1 event")
   for (r in seq_along(bold)) {
@@ -1005,7 +1108,10 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     noise[[r]] <- hrf_estimate_noise(y, ev, tr, offsets[r], kernels, fallback_kernel,
       z, mask, eff_noise_groups, noise_grid, batch_size,
       if (noise_model == "ols") 0 else if (!is.null(noise_rho)) noise_rho[r] else NULL,
-      spatial_coords = spatial_coords, spatial_fwhm = spatial_fwhm)
+      spatial_coords = spatial_coords, spatial_fwhm = spatial_fwhm,
+      spatial_graph = noise_graph_use, graph_groups = noise_graph_groups,
+      graph_cross_weight = noise_cross_w, max_noise_strata = noise_max_k,
+      return_v_quad = (pooling == "graph" && evidence == "calibrated"))
     rho_ref <- if (any(is.finite(noise[[r]]$rho))) stats::median(noise[[r]]$rho, na.rm = TRUE) else 0
     if (nrow(ev) == 0L) {
       result <- list(scores = matrix(NA_real_, ncol(kernels), ncol(y)),
@@ -1013,7 +1119,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
       if (evidence == "calibrated") for (field in c("task_p", "fallback_p", "incompatible_p"))
         result[[field]] <- matrix(NA_real_, ncol(kernels), ncol(y))
       z_obs <- z[mask, , drop = FALSE]
-      sv_z <- if (nrow(z_obs) > 0L && ncol(z_obs) > 0L) svd(z_obs, nv = 0)$d else numeric(0L)
+      sv_z <- if (nrow(z_obs) > 0L && ncol(z_obs) > 0L) hrf_safe_svd(z_obs, nu = 0, nv = 0)$d else numeric(0L)
       rk_z <- if (length(sv_z) && sv_z[1L] > 0) sum(sv_z > 1e-8 * sv_z[1L]) else 0L
       run_results[[r]] <- result
       per_run[[r]] <- result$scores
@@ -1102,10 +1208,22 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
   h_norm <- sweep(kernels, 2L, k_norms, "/")
   kernel_cos <- crossprod(h_norm)
   selections <- anchors <- candidate_scores <- vector("list", length(bold))
-  kernel_weights <- selected_kernels <- vector("list", length(bold))
+  kernel_weights <- selected_kernels <- hrf_strata <- vector("list", length(bold))
   training_runs <- vector("list", length(bold))
   names(selections) <- names(anchors) <- names(candidate_scores) <- names(training_runs) <- names(bold)
-  names(kernel_weights) <- names(selected_kernels) <- names(bold)
+  names(kernel_weights) <- names(selected_kernels) <- names(hrf_strata) <- names(bold)
+  graph_group_int <- if (pooling == "graph" && !is.null(spatial_groups) && parcel_boundary != "ignore") {
+    hrf_encode_group_ids(spatial_groups, length(voxel_ids))
+  } else {
+    integer(0L)
+  }
+  graph_bnd_mode <- if (pooling != "graph" || is.null(spatial_groups) || parcel_boundary == "ignore") {
+    0L
+  } else if (parcel_boundary == "soft") {
+    1L
+  } else {
+    2L
+  }
   for (target in seq_along(bold)) {
     if (is_single_run) {
       fold_results <- subblock_fit$results
@@ -1139,56 +1257,61 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     w_fold <- matrix(0, ncol(kernels), length(voxel_ids), dimnames = list(candidate_ids, voxel_ids))
     w_fold[fallback_kernel, ] <- 1.0
     w_parcel_map <- list()
-    if (!is.null(spatial_groups)) for (g in unique(spatial_groups)) {
-      voxels <- which(spatial_groups == g)
-      eligible <- voxels[counts[voxels] >= min_training_runs]
-      pooled <- if (length(eligible)) rowMeans(scores[, eligible, drop = FALSE]) else rep(NA_real_, ncol(kernels))
-      p_ev <- hrf_parcel_pooled_evidence(gate, scores, eligible, fallback_kernel,
-        evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
-        distance[, fallback_kernel], canonical_strength)
-      admissible <- p_ev$admissible
-      pooled_objective <- pooled
-      if (!is.null(gate)) pooled_objective <- pooled_objective - canonical_strength * distance[, fallback_kernel]
-      pooled_objective[!admissible] <- -Inf
-      best <- if (any(is.finite(pooled_objective))) which.max(pooled_objective) else NA_integer_
-      reliable <- length(eligible) >= min_parcel_voxels && !is.na(best) && pooled[best] >= min_r2
-      if (reliable) anchor[voxels] <- best
-      w_p <- rep(0, ncol(kernels))
-      w_p[if (reliable) best else fallback_kernel] <- 1.0
-      if (selection_mode == "soft_average" && length(eligible) >= min_parcel_voxels &&
-          any(is.finite(pooled)) && max(pooled, na.rm = TRUE) >= min_r2) {
-        omega_p <- if (is.null(gate)) 1.0 else if (reliable && best != fallback_kernel)
-          max(0.85, p_ev$omega) else p_ev$omega
-        w_p <- hrf_soft_boltzmann_weights(
-          scores_vec = pooled,
-          kernel_cos = kernel_cos,
-          dist_fb = distance[, fallback_kernel],
-          fallback_kernel = fallback_kernel,
-          comp_ok = p_ev$comp_ok,
-          omega = omega_p,
-          canonical_strength = canonical_strength
-        )
+    if (!is.null(spatial_groups) && (pooling != "graph" || length(unique(spatial_groups)) <= 2048L)) {
+      for (g in unique(spatial_groups)) {
+        voxels <- which(spatial_groups == g)
+        eligible <- voxels[counts[voxels] >= min_training_runs]
+        pooled <- if (length(eligible)) rowMeans(scores[, eligible, drop = FALSE]) else rep(NA_real_, ncol(kernels))
+        p_ev <- hrf_parcel_pooled_evidence(gate, scores, eligible, fallback_kernel,
+          evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
+          distance[, fallback_kernel], canonical_strength)
+        admissible <- p_ev$admissible
+        pooled_objective <- pooled
+        if (!is.null(gate)) pooled_objective <- pooled_objective - canonical_strength * distance[, fallback_kernel]
+        pooled_objective[!admissible] <- -Inf
+        best <- if (any(is.finite(pooled_objective))) which.max(pooled_objective) else NA_integer_
+        reliable <- length(eligible) >= min_parcel_voxels && !is.na(best) && pooled[best] >= min_r2
+        if (reliable) anchor[voxels] <- best
+        w_p <- rep(0, ncol(kernels))
+        w_p[if (reliable) best else fallback_kernel] <- 1.0
+        if (selection_mode == "soft_average" && length(eligible) >= min_parcel_voxels &&
+            any(is.finite(pooled)) && max(pooled, na.rm = TRUE) >= min_r2) {
+          omega_p <- if (is.null(gate)) 1.0 else if (reliable && best != fallback_kernel)
+            max(0.85, p_ev$omega) else p_ev$omega
+          w_p <- hrf_soft_boltzmann_weights(
+            scores_vec = pooled,
+            kernel_cos = kernel_cos,
+            dist_fb = distance[, fallback_kernel],
+            fallback_kernel = fallback_kernel,
+            comp_ok = p_ev$comp_ok,
+            omega = omega_p,
+            canonical_strength = canonical_strength
+          )
+        }
+        w_parcel_map[[g]] <- w_p
+        if (pooling == "parcel") {
+          w_fold[, voxels] <- w_p
+        }
+        if (pooling != "graph") parcel_n[voxels] <- length(eligible)
+        parcel_rows[[length(parcel_rows) + 1L]] <- data.frame(target_run = names(bold)[target],
+          parcel = g, n_voxels = length(eligible), kernel_index = if (reliable) best else fallback_kernel,
+          adjusted_partial_r2 = if (!is.na(best)) pooled[best] else NA_real_,
+          status = if (reliable) "supported" else "fallback_prespecified")
       }
-      w_parcel_map[[g]] <- w_p
-      if (pooling == "parcel") {
-        w_fold[, voxels] <- w_p
-      }
-      parcel_n[voxels] <- length(eligible)
-      parcel_rows[[length(parcel_rows) + 1L]] <- data.frame(target_run = names(bold)[target],
-        parcel = g, n_voxels = length(eligible), kernel_index = if (reliable) best else fallback_kernel,
-        adjusted_partial_r2 = if (!is.na(best)) pooled[best] else NA_real_,
-        status = if (reliable) "supported" else "fallback_prespecified")
     }
     anchors[[target]] <- if (length(parcel_rows)) do.call(rbind, parcel_rows) else data.frame()
     chosen <- rep(as.integer(fallback_kernel), length(voxel_ids))
     reason <- rep("fallback_prespecified", length(voxel_ids))
     best <- rep(NA_integer_, length(voxel_ids)); margin <- rep(NA_real_, length(voxel_ids))
     selected_score <- best_score <- rep(NA_real_, length(voxel_ids))
-    supported <- which(!is.na(anchor))
-    if (!is.null(gate) && length(supported)) supported <- supported[
-      gate$compatible[cbind(anchor[supported], supported)]]
-    chosen[supported] <- anchor[supported]
-    reason[supported] <- if (pooling == "parcel") "pooled_parcel" else "fallback_parcel"
+    supported <- integer(0L)
+    if (pooling != "graph") {
+      supported <- which(!is.na(anchor))
+      if (!is.null(gate) && length(supported)) supported <- supported[
+        gate$compatible[cbind(anchor[supported], supported)]]
+      chosen[supported] <- anchor[supported]
+      reason[supported] <- if (pooling == "parcel") "pooled_parcel" else "fallback_parcel"
+    }
     eligible <- which(counts >= min_training_runs)
     if (length(eligible)) {
       best[eligible] <- max.col(t(scores[, eligible, drop = FALSE]), ties.method = "first")
@@ -1199,7 +1322,77 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
           second <- pmax(second, ifelse(best[eligible] == k, -Inf, scores[k, eligible]))
         margin[eligible] <- best_score[eligible] - second
       }
-      if (pooling == "voxel") {
+      if (pooling == "graph") {
+        # Compute training-only noise summary (rho, log(noise_sd), and v_quad) with strict target exclusion
+        if (is_single_run) {
+          rho_tr <- as.numeric(noise[[1L]]$rho)
+          lsd_tr <- log(pmax(as.numeric(noise[[1L]]$noise_sd), 1e-12))
+          vq_tr <- attr(noise[[1L]], "v_quad", exact = TRUE)
+          if (is.null(vq_tr)) vq_tr <- rep(0.50, length(voxel_ids))
+        } else {
+          rho_acc <- rep(0.0, length(voxel_ids))
+          lsd_acc <- rep(0.0, length(voxel_ids))
+          vq_acc <- rep(0.0, length(voxel_ids))
+          cnt_nr <- integer(length(voxel_ids))
+          cnt_vq <- integer(length(voxel_ids))
+          for (s_tr in train) {
+            nr_s <- noise[[s_tr]]
+            if (!is.null(nr_s)) {
+              ok_n <- is.finite(nr_s$rho) & is.finite(nr_s$noise_sd)
+              rho_acc[ok_n] <- rho_acc[ok_n] + nr_s$rho[ok_n]
+              lsd_acc[ok_n] <- lsd_acc[ok_n] + log(pmax(nr_s$noise_sd[ok_n], 1e-12))
+              cnt_nr[ok_n] <- cnt_nr[ok_n] + 1L
+              vq_s <- attr(nr_s, "v_quad", exact = TRUE)
+              if (!is.null(vq_s) && length(vq_s) == length(voxel_ids)) {
+                ok_v <- is.finite(vq_s)
+                vq_acc[ok_v] <- vq_acc[ok_v] + vq_s[ok_v]
+                cnt_vq[ok_v] <- cnt_vq[ok_v] + 1L
+              }
+            }
+          }
+          rho_tr <- ifelse(cnt_nr > 0L, rho_acc / pmax(cnt_nr, 1L), NA_real_)
+          lsd_tr <- ifelse(cnt_nr > 0L, lsd_acc / pmax(cnt_nr, 1L), NA_real_)
+          vq_tr <- ifelse(cnt_vq > 0L, vq_acc / pmax(cnt_vq, 1L), 0.50)
+        }
+        empty_k_v <- matrix(0.0, 0L, 0L)
+        empty_l_v <- matrix(FALSE, 0L, 0L)
+        gp_res <- csr_hrf_graph_pool_cpp(
+          scores = scores,
+          train_scores_list = unname(fold_scores[train]),
+          has_gate = !is.null(gate),
+          task_p_raw = if (!is.null(gate)) gate$task_p_raw else empty_k_v,
+          shape_p_raw = if (!is.null(gate)) gate$shape_p_raw else empty_k_v,
+          compatible = if (!is.null(gate)) gate$compatible else empty_l_v,
+          task_supported = if (!is.null(gate)) gate$task_supported else empty_l_v,
+          supported = if (!is.null(gate)) gate$supported else empty_l_v,
+          eff_task = if (!is.null(gate)) as.numeric(gate$eff_task) else ncol(kernels),
+          eff_shape = if (!is.null(gate)) as.numeric(gate$eff_shape) else max(1.0, ncol(kernels) - 1.0),
+          counts = as.integer(counts),
+          min_training_runs = as.integer(min_training_runs),
+          row_ptr = spatial_graph_obj$row_ptr,
+          col_idx = spatial_graph_obj$col_idx,
+          dist = spatial_graph_obj$dist,
+          group_ids = graph_group_int,
+          boundary_mode = as.integer(graph_bnd_mode),
+          cross_weight = as.numeric(parcel_cross_weight),
+          sigma_sp = as.numeric(spatial_graph_obj$sigma),
+          rho_train = as.numeric(rho_tr),
+          lsd_train = as.numeric(lsd_tr),
+          v_quad_fold = as.numeric(vq_tr),
+          kernel_cos = kernel_cos,
+          dist_fb = as.numeric(distance[, fallback_kernel]),
+          fallback_kernel = as.integer(fallback_kernel),
+          evidence_alpha = as.numeric(evidence_alpha),
+          min_r2 = as.numeric(min_r2),
+          canonical_strength = as.numeric(canonical_strength),
+          soft_average = (selection_mode == "soft_average")
+        )
+        w_fold <- gp_res$w_fold
+        dimnames(w_fold) <- list(candidate_ids, voxel_ids)
+        chosen <- as.integer(gp_res$chosen)
+        reason <- as.character(gp_res$status)
+        parcel_n <- as.integer(round(gp_res$eff_n))
+      } else if (pooling == "voxel") {
         objective <- scores[, eligible, drop = FALSE]
         eff_anchor <- anchor[eligible]
         neigh_scores <- objective
@@ -1213,24 +1406,38 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         # spatial_coords / spatial_fwhm). Shrinkage weight scales with c_v^2 so
         # discordant focal voxels retain their own supported HRF while noisy but
         # concordant voxels borrow strength from the parcel neighborhood.
-        use_eb_spatial <- spatial_strength > 0 && (!is.null(gate) || !is.null(spatial_weights)) &&
+        use_eb_spatial <- spatial_strength > 0 &&
+          (!is.null(gate) || !is.null(spatial_weights) || !is.null(voxel_csr_graph)) &&
           !is.null(spatial_groups)
         if (use_eb_spatial) {
+          elig_rev <- integer(length(voxel_ids))
+          elig_rev[eligible] <- seq_along(eligible)
           for (idx_e in seq_along(eligible)) {
             v <- eligible[idx_e]
             same_p <- which(spatial_groups[eligible] == spatial_groups[v])
             others_e <- setdiff(same_p, idx_e)
-            if (!is.null(spatial_weights) && length(others_e) >= 1L) {
-              w_vec <- spatial_weights[v, eligible[others_e]]
-              if (sum(w_vec) > 1e-12) {
+            if ((!is.null(spatial_weights) || !is.null(voxel_csr_graph)) && length(others_e) >= 1L) {
+              if (!is.null(spatial_weights)) {
+                o_use <- others_e
+                w_vec <- spatial_weights[v, eligible[o_use]]
+              } else {
+                p_s <- voxel_csr_graph$row_ptr[v]
+                p_e <- voxel_csr_graph$row_ptr[v + 1L] - 1L
+                nb_v <- voxel_csr_graph$col_idx[p_s:p_e]
+                ds_v <- voxel_csr_graph$dist[p_s:p_e]
+                keep_nb <- (nb_v != v) & (elig_rev[nb_v] > 0L)
+                o_use <- elig_rev[nb_v[keep_nb]]
+                w_vec <- exp(-(ds_v[keep_nb]^2) / (2.0 * voxel_csr_graph$sigma^2))
+              }
+              if (length(o_use) >= 1L && sum(w_vec) > 1e-12) {
                 w_norm <- w_vec / sum(w_vec)
-                nv <- as.numeric(objective[, others_e, drop = FALSE] %*% w_norm)
+                nv <- as.numeric(objective[, o_use, drop = FALSE] %*% w_norm)
                 neigh_scores[, idx_e] <- nv
                 # Local coordinate-weighted anchor within parcel
                 if (length(same_p) >= min_parcel_voxels) {
                   loc_obj <- nv
                   if (!is.null(gate)) {
-                    loc_sup <- as.numeric(gate$supported[, eligible[others_e], drop = FALSE] %*% w_norm) >= 0.35
+                    loc_sup <- as.numeric(gate$supported[, eligible[o_use], drop = FALSE] %*% w_norm) >= 0.35
                     loc_obj <- loc_obj - canonical_strength * distance[, fallback_kernel]
                     loc_obj[!loc_sup] <- -Inf
                   }
@@ -1432,6 +1639,18 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
       k_divs[bad_sum] <- 1.0
     }
     k_mat <- sweep(k_mat, 2L, k_divs, "/")
+    if (pooling == "graph" && selection_mode == "soft_average") {
+      q_proto <- hrf_quantize_prototypes(
+        k_mat = k_mat,
+        fallback_vec = kernels[, fallback_kernel],
+        kernel_normalize = kernel_normalize,
+        max_strata = as.integer(max_hrf_strata)
+      )
+      k_mat <- q_proto$kernels
+      hrf_strata[[target]] <- q_proto$stratum_id
+    } else if (selection_mode == "hard") {
+      hrf_strata[[target]] <- as.integer(chosen)
+    }
     colnames(k_mat) <- voxel_ids
     kernel_weights[[target]] <- w_fold
     selected_kernels[[target]] <- k_mat
@@ -1461,6 +1680,10 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     }
     if (return_scores) candidate_scores[[target]] <- scores
   }
+  # Strip temporary Pass-1 v_quad attributes from noise tables so fit$noise stays clean
+  for (r in seq_along(noise)) {
+    if (!is.null(noise[[r]])) attr(noise[[r]], "v_quad") <- NULL
+  }
   # Post-selection target-excluded noise refit:
   # All HRF selections, weights, parcel anchors, and evidence scores are now
   # strictly frozen from training runs (j != r). Refitting each run's noise model
@@ -1479,10 +1702,14 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     noise[[r]] <- hrf_estimate_noise(bold[[r]], events[[r]], tr, offsets[r],
       kernels, fallback_kernel, z_r, mask_r, eff_noise_groups, noise_grid, batch_size,
       fixed_r, selected_kernels = sel_k_r,
-      spatial_coords = spatial_coords, spatial_fwhm = spatial_fwhm)
+      spatial_coords = spatial_coords, spatial_fwhm = spatial_fwhm,
+      spatial_graph = noise_graph_use, graph_groups = noise_graph_groups,
+      graph_cross_weight = noise_cross_w, max_noise_strata = noise_max_k,
+      kernel_strata = hrf_strata[[r]], return_v_quad = FALSE)
   }
   structure(list(kernels = kernels, parameters = parameters, selections = selections,
     kernel_weights = kernel_weights, selected_kernels = selected_kernels,
+    hrf_strata = if (any(!vapply(hrf_strata, is.null, logical(1L)))) hrf_strata else NULL,
     parcels = anchors, training_runs = training_runs,
     signal_status = do.call(rbind, event_manifest), designs = do.call(rbind, design_manifest),
     scores = if (return_scores) candidate_scores else NULL,
@@ -1491,9 +1718,15 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     voxel_ids = voxel_ids, n_time = vapply(bold, nrow, integer(1)),
     specification = list(events = events, nuisance = nuisance, valid_rows = valid_rows,
       spatial_groups = spatial_groups, noise_groups = eff_noise_groups,
-      spatial_coords = spatial_coords),
+      spatial_coords = spatial_coords, spatial_graph = spatial_graph_obj),
     settings = list(tr = tr, time_offset = offsets, pooling = pooling, amplitude_model = amplitude_model,
-      spatial_strength = spatial_strength, spatial_fwhm = spatial_fwhm,
+      spatial_strength = spatial_strength,
+      spatial_fwhm = if (!is.null(spatial_graph_obj)) spatial_graph_obj$spatial_fwhm else spatial_fwhm,
+      parcel_boundary = if (pooling == "graph") parcel_boundary else NULL,
+      parcel_cross_weight = if (pooling == "graph") parcel_cross_weight else NULL,
+      max_neighbors = if (pooling == "graph") as.integer(max_neighbors) else NULL,
+      max_hrf_strata = if (pooling == "graph") as.integer(max_hrf_strata) else NULL,
+      max_noise_strata = if (pooling == "graph") as.integer(max_noise_strata) else NULL,
       fallback_kernel = as.integer(fallback_kernel),
       min_r2 = min_r2, min_training_runs = min_training_runs, min_parcel_voxels = min_parcel_voxels,
       batch_size = as.integer(batch_size), score = "mean_adjusted_partial_r2",
@@ -1502,11 +1735,13 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
       kernel_normalize = kernel_normalize,
       noise_grid = noise_grid,
       noise_pooling = if (!is.null(noise_groups)) "supplied_noise_groups" else
+        if (pooling == "graph" && parcel_boundary != "hard") "sparse_bilateral_graph" else
         if (is.null(spatial_groups)) "run" else "supplied_parcel",
       nuisance = "run_specific_intercept_linear_trend_and_supplied", noise_model = noise_model,
       selection = if (is_single_run) "within_run_subblock_pooled" else "leave_target_run_out",
-      parcel_fallback = !is.null(spatial_groups),
-      spatial_regularization = if (pooling == "parcel") "shared_parcel_hrf" else
+      parcel_fallback = !is.null(spatial_groups) && pooling != "graph",
+      spatial_regularization = if (pooling == "graph") "sparse_bilateral_graph" else
+        if (pooling == "parcel") "shared_parcel_hrf" else
         if (spatial_strength > 0) "discrete_parcel_shape_penalty" else "none"),
     voxel_map = bold_unpacked$voxel_map,
     geometry = bold_unpacked$geometry),
@@ -1527,7 +1762,15 @@ print.crossrun_hrf <- function(x, ...) {
     x$settings$noise_model,
     x$settings$selection_mode
   ))
-  if (!is.null(x$specification$spatial_groups)) {
+  if (identical(x$settings$pooling, "graph") && !is.null(x$specification$spatial_graph)) {
+    sg <- x$specification$spatial_graph
+    grp_txt <- if (!is.null(x$specification$spatial_groups)) {
+      sprintf(" | %d parcel(s) (%s)", length(unique(x$specification$spatial_groups)), x$settings$parcel_boundary)
+    } else {
+      " | parcel-free"
+    }
+    cat(sprintf("  Graph pooling: %s (FWHM = %.3g)%s\n", sg$metric, sg$spatial_fwhm, grp_txt))
+  } else if (!is.null(x$specification$spatial_groups)) {
     cat(sprintf("  Spatial groups: %d parcel(s) | pooling: %s\n",
                 length(unique(x$specification$spatial_groups)), x$settings$pooling))
   }

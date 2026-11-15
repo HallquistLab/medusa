@@ -1,6 +1,50 @@
 # Helpers for the cross-run interface. Covariance parameters may use their own
 # run's observations; shape selection and its evidence use OTHER runs only.
 
+# Drop-in SVD wrapper guarding against LAPACK divide-and-conquer `dgesdd`
+# secular-equation non-convergence (`error code 1`) on macOS Accelerate / OpenBLAS
+# when multi-trial convolved design matrices have near-degenerate singular values.
+hrf_safe_svd <- function(x, nu = min(nrow(x), ncol(x)), nv = min(nrow(x), ncol(x))) {
+  res <- tryCatch(base::svd(x, nu = nu, nv = nv), error = function(e) NULL)
+  if (!is.null(res)) return(res)
+
+  nr <- nrow(x)
+  nc <- ncol(x)
+  r_min <- min(nr, nc)
+  if (r_min == 0L) {
+    return(list(
+      d = numeric(0L),
+      u = if (nu > 0L) matrix(0.0, nr, 0L) else NULL,
+      v = if (nv > 0L) matrix(0.0, nc, 0L) else NULL
+    ))
+  }
+  if (nr >= nc) {
+    eg <- eigen(crossprod(x), symmetric = TRUE)
+    d_all <- sqrt(pmax(eg$values, 0.0))
+    v_all <- eg$vectors
+    u_out <- NULL
+    if (nu > 0L) {
+      nu_use <- min(as.integer(nu), r_min)
+      d_max <- max(d_all[1L], .Machine$double.eps)
+      pos <- which(d_all > 1e-12 * d_max)
+      u_mat <- matrix(0.0, nr, nu_use)
+      if (length(pos)) {
+        k_p <- min(length(pos), nu_use)
+        u_raw <- x %*% sweep(v_all[, seq_len(k_p), drop = FALSE], 2L, d_all[seq_len(k_p)], "/")
+        s_u <- eigen(crossprod(u_raw), symmetric = TRUE)
+        inv_sqrt <- s_u$vectors %*% sweep(t(s_u$vectors), 1L, 1.0 / sqrt(pmax(s_u$values, 1e-14)), "*")
+        u_mat[, seq_len(k_p)] <- u_raw %*% inv_sqrt
+      }
+      u_out <- u_mat
+    }
+    v_out <- if (nv > 0L) v_all[, seq_len(min(as.integer(nv), nc)), drop = FALSE] else NULL
+    list(d = d_all[seq_len(r_min)], u = u_out, v = v_out)
+  } else {
+    tr_svd <- Recall(t(x), nu = nv, nv = nu)
+    list(d = tr_svd$d, u = tr_svd$v, v = tr_svd$u)
+  }
+}
+
 # Convert cascaded AR parameters c(rho1, psi_1, ..., psi_q) representing
 # (1 - rho1 L)(1 - sum_{j=1}^q psi_j L^j) = 1 - sum_{k=1}^p phi_k L^k
 # into stationary causal AR(p) coefficients, unit-marginal ACF, and exact
@@ -64,7 +108,7 @@ hrf_build_noise_mean_design <- function(n_obs, events, tr, offset, kernel_col, z
     if (ncol(a) == 0L || n_mask == 0L) return(0L)
     a <- a[mask, , drop = FALSE]
     norm <- sqrt(colSums(a^2)); norm[norm == 0] <- 1
-    s <- svd(sweep(a, 2L, norm, "/"), nu = 0, nv = 0)$d
+    s <- hrf_safe_svd(sweep(a, 2L, norm, "/"), nu = 0, nv = 0)$d
     if (length(s) && s[1L] > 0) sum(s > 1e-8 * s[1L]) else 0L
   }
   if (is.null(events) || nrow(events) == 0L) {
@@ -237,7 +281,7 @@ hrf_estimate_gls_noise_sd <- function(y_rows, x_rows, rows, ar_vec, fallback_d2_
       if (!is.null(w_bundle$wy)) w_bundle$wy <- sweep(w_bundle$wy, 1L, sw, "*")
       if (!is.null(w_bundle$wt)) w_bundle$wt <- sweep(w_bundle$wt, 1L, sw, "*")
     } else if (!is.null(w_bundle$we) && ncol(w_bundle$we) > 0L) {
-      sv_we <- svd(w_bundle$we, nv = 0L)
+      sv_we <- hrf_safe_svd(w_bundle$we, nv = 0L)
       pos_we <- sv_we$d > 1e-8
       if (any(pos_we)) {
         u_we <- sv_we$u[, pos_we, drop = FALSE]
@@ -254,7 +298,7 @@ hrf_estimate_gls_noise_sd <- function(y_rows, x_rows, rows, ar_vec, fallback_d2_
   }
   wx <- w_bundle$wx
   nrm <- sqrt(colSums(wx^2)); nrm[nrm == 0] <- 1.0
-  sv <- svd(sweep(wx, 2L, nrm, "/"), nv = if (isTRUE(return_raw_innovations)) ncol(wx) else 0L)
+  sv <- hrf_safe_svd(sweep(wx, 2L, nrm, "/"), nv = if (isTRUE(return_raw_innovations)) ncol(wx) else 0L)
   rk <- if (length(sv$d) && sv$d[1L] > 0) sum(sv$d > 1e-8 * sv$d[1L]) else 0L
   df_res <- m - rk
   if (df_res < 16L) {
@@ -304,8 +348,8 @@ hrf_estimate_gls_noise_sd <- function(y_rows, x_rows, rows, ar_vec, fallback_d2_
     nrm_t <- sqrt(colSums(wt^2))
     pos_t <- nrm_t > 1e-8
     if (any(pos_t)) {
-      sv_t <- svd(sweep(wt[, pos_t, drop = FALSE], 2L, nrm_t[pos_t], "/"),
-                  nv = if (isTRUE(return_raw_innovations)) sum(pos_t) else 0L)
+      sv_t <- hrf_safe_svd(sweep(wt[, pos_t, drop = FALSE], 2L, nrm_t[pos_t], "/"),
+                           nv = if (isTRUE(return_raw_innovations)) sum(pos_t) else 0L)
       rk_max <- max(0L, df_res - 24L)
       rk_t <- if (length(sv_t$d) && sv_t$d[1L] > 0) min(rk_max, sum(sv_t$d > 0.06 * sv_t$d[1L])) else 0L
       if (rk_t > 0L) {
@@ -399,7 +443,9 @@ hrf_estimate_gls_noise_sd <- function(y_rows, x_rows, rows, ar_vec, fallback_d2_
 
 hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask,
     groups, rho_grid, batch_size, fixed_rho = NULL, selected_kernels = NULL,
-    spatial_coords = NULL, spatial_fwhm = NULL) {
+    spatial_coords = NULL, spatial_fwhm = NULL,
+    spatial_graph = NULL, graph_groups = NULL, graph_cross_weight = 1.0,
+    max_noise_strata = 3L, kernel_strata = NULL, return_v_quad = FALSE) {
   ids <- colnames(y)
   n_vox <- ncol(y)
   labels <- if (is.null(groups)) rep("run", n_vox) else unname(as.character(groups))
@@ -407,27 +453,76 @@ hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask
   rows <- which(mask)
   n_mask <- length(rows)
 
+  attach_v_quad <- function(out_df, z_mat, df_res_est) {
+    if (!isTRUE(return_v_quad) || is.null(spatial_graph) || is.null(z_mat) ||
+        nrow(z_mat) < 4L || df_res_est <= 2.0) {
+      return(out_df)
+    }
+    ok_z <- colSums(z_mat^2) > 0.5 & is.finite(out_df$rho) & is.finite(out_df$noise_sd)
+    lsd_v <- log(pmax(out_df$noise_sd, 1e-12))
+    sd_l <- if (sum(ok_z) > 2L) max(0.50, stats::sd(lsd_v[ok_z], na.rm = TRUE)) else 0.50
+    g_int <- if (!is.null(graph_groups) && length(graph_groups) == n_vox) {
+      hrf_encode_group_ids(graph_groups, n_vox)
+    } else {
+      integer(0L)
+    }
+    vq <- csr_quad_cor_cpp(
+      Z_unit = z_mat,
+      d_res = as.numeric(df_res_est),
+      row_ptr = spatial_graph$row_ptr,
+      col_idx = spatial_graph$col_idx,
+      dist = spatial_graph$dist,
+      group_ids = g_int,
+      rho_vec = as.numeric(out_df$rho),
+      lsd_vec = as.numeric(lsd_v),
+      usable_col = ok_z,
+      sigma_sp = as.numeric(spatial_graph$sigma),
+      cross_weight = as.numeric(graph_cross_weight),
+      rho_scale = 0.25,
+      lsd_scale = as.numeric(sd_l)
+    )
+    attr(out_df, "v_quad") <- as.numeric(vq)
+    out_df
+  }
+
   if (!is.null(fixed_rho)) {
     r_fix <- unname(fixed_rho)
     nsd_fix <- rep(NA_real_, n_vox)
+    z_fix <- if (isTRUE(return_v_quad) && !is.null(spatial_graph) && n_mask >= 16L) matrix(0.0, n_mask, n_vox) else NULL
+    df_fix <- max(1.0, n_mask - ncol(z))
     if (n_mask >= 4L) {
       if (is.null(selected_kernels)) {
         md_info <- hrf_build_noise_mean_design(n_obs, events, tr, offset, kernels[, fallback], z, mask)
         x_r <- if (md_info$df_nominal >= 16L) md_info$design[rows, , drop = FALSE] else NULL
-        nsd_fix <- hrf_estimate_gls_noise_sd(y[rows, , drop = FALSE], x_r, rows, r_fix)
+        df_fix <- if (md_info$df_nominal >= 16L) md_info$df_nominal else max(1.0, n_mask - ncol(z))
+        gls_f <- hrf_estimate_gls_noise_sd(y[rows, , drop = FALSE], x_r, rows, r_fix,
+          return_innovations = !is.null(z_fix))
+        nsd_fix <- if (is.list(gls_f)) gls_f$sd else gls_f
+        if (is.list(gls_f) && !is.null(gls_f$z_unit)) z_fix <- gls_f$z_unit
       } else {
-        k_sigs <- apply(round(selected_kernels, 4L), 2L, paste, collapse = ",")
+        k_sigs <- if (!is.null(kernel_strata) && length(kernel_strata) == n_vox) {
+          paste0("p", kernel_strata)
+        } else {
+          hrf_fast_col_keys(selected_kernels, digits = 4L)
+        }
+        df_vec <- numeric(0L)
         for (sg in unique(k_sigs)) {
           idx_s <- which(k_sigs == sg)
           md_info <- hrf_build_noise_mean_design(n_obs, events, tr, offset, selected_kernels[, idx_s[1L]], z, mask)
           x_r <- if (md_info$df_nominal >= 16L) md_info$design[rows, , drop = FALSE] else NULL
-          nsd_fix[idx_s] <- hrf_estimate_gls_noise_sd(y[rows, idx_s, drop = FALSE], x_r, rows, r_fix)
+          df_vec <- c(df_vec, if (md_info$df_nominal >= 16L) md_info$df_nominal else max(1.0, n_mask - ncol(z)))
+          gls_f <- hrf_estimate_gls_noise_sd(y[rows, idx_s, drop = FALSE], x_r, rows, r_fix,
+            return_innovations = !is.null(z_fix))
+          nsd_fix[idx_s] <- if (is.list(gls_f)) gls_f$sd else gls_f
+          if (is.list(gls_f) && !is.null(gls_f$z_unit)) z_fix[, idx_s] <- gls_f$z_unit
         }
+        if (length(df_vec)) df_fix <- mean(df_vec)
       }
     }
-    return(data.frame(voxel = ids, group = labels,
+    out_fix <- data.frame(voxel = ids, group = labels,
       rho = rep(r_fix, n_vox), psi1 = 0, psi2 = 0, psi3 = 0, psi4 = 0,
-      noise_sd = nsd_fix, method = "supplied", n_voxels = NA_integer_))
+      noise_sd = nsd_fix, method = "supplied", n_voxels = NA_integer_)
+    return(attach_v_quad(out_fix, z_fix, df_fix))
   }
   if (n_mask < 12L) return(data.frame(voxel = ids, group = labels,
     rho = 0, psi1 = 0, psi2 = 0, psi3 = 0, psi4 = 0, noise_sd = NA_real_,
@@ -440,7 +535,11 @@ hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask
     k_sigs <- rep("fb", n_vox)
     k_list <- list(fb = kernels[, fallback])
   } else {
-    k_sigs <- apply(round(selected_kernels, 4L), 2L, paste, collapse = ",")
+    k_sigs <- if (!is.null(kernel_strata) && length(kernel_strata) == n_vox) {
+      paste0("p", kernel_strata)
+    } else {
+      hrf_fast_col_keys(selected_kernels, digits = 4L)
+    }
     u_sigs <- unique(k_sigs)
     k_list <- lapply(u_sigs, function(sg) selected_kernels[, which(k_sigs == sg)[1L]])
     names(k_list) <- u_sigs
@@ -516,7 +615,7 @@ hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask
       sub_w <- vox_weights[sub_pos]
       wz <- w_psi_list[[2L * si - 1L]]
       norm_z <- sqrt(colSums(wz^2)); norm_z[norm_z == 0] <- 1
-      sv <- svd(sweep(wz, 2L, norm_z, "/"), nv = 0)
+      sv <- hrf_safe_svd(sweep(wz, 2L, norm_z, "/"), nv = 0)
       rk <- if (length(sv$d) && sv$d[1L] > 0) sum(sv$d > 1e-8 * sv$d[1L]) else 0L
       df_res <- n_mask - rk
       if (df_res < 20L) next
@@ -665,19 +764,42 @@ hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask
     list(rho = rho_hat, psi = psi_hat, boundary = best_idx %in% c(1L, length(rho_grid)))
   }
 
-  spatial_w <- if (!is.null(spatial_coords)) {
+  if (is.null(spatial_graph) && !is.null(spatial_coords) && n_vox > 2500L) {
+    spatial_graph <- build_spatial_graph(
+      spatial_coords,
+      spatial_fwhm = spatial_fwhm,
+      spatial_groups = labels,
+      parcel_boundary = "hard",
+      metric = "euclidean"
+    )
+    graph_groups <- labels
+    graph_cross_weight <- 0.0
+  }
+  spatial_w <- if (is.null(spatial_graph) && !is.null(spatial_coords)) {
     hrf_compute_spatial_weights(spatial_coords, labels, spatial_fwhm)
   } else NULL
 
   # Deterministic 1D quantization into at most K clusters (never touches .Random.seed)
-  cluster_1d_det <- function(x, max_k = 3L) {
+  cluster_1d_det <- function(x, max_k = 3L, include_tails = FALSE) {
     ux <- sort(unique(round(x, 2L)))
-    k <- min(as.integer(max_k), length(ux))
+    k_cap <- as.integer(max_k)
+    if (isTRUE(include_tails) && length(x) > 1L) {
+      rng_x <- max(x) - min(x)
+      k_cap <- min(k_cap, max(2L, as.integer(ceiling(rng_x / 0.05)) + 1L))
+    }
+    k <- min(k_cap, length(ux))
     if (k <= 1L) return(rep(1L, length(x)))
-    probs <- seq(0.15, 0.85, length.out = k)
+    probs <- if (isTRUE(include_tails)) {
+      seq(0.02, 0.98, length.out = k)
+    } else {
+      seq(0.15, 0.85, length.out = k)
+    }
     ctrs <- unique(as.numeric(stats::quantile(x, probs = probs, names = FALSE)))
+    if (isTRUE(include_tails) && length(ctrs) < k) {
+      ctrs <- unique(round(seq(min(x), max(x), length.out = k), 4L))
+    }
     if (length(ctrs) <= 1L) return(rep(1L, length(x)))
-    for (iter in 1:10) {
+    for (iter in 1:12) {
       d_mat <- abs(outer(x, ctrs, "-"))
       cl <- max.col(-d_mat, ties.method = "first")
       new_ctrs <- vapply(seq_along(ctrs), function(ci) {
@@ -690,101 +812,214 @@ hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask
     as.integer(factor(cl))
   }
 
+  compute_gapfree_lsd <- function(vox_cols) {
+    tri_idx <- if (n_mask >= 3L) which((rows[3:n_mask] - rows[1:(n_mask - 2L)]) == 2L) else integer(0)
+    if (length(tri_idx) >= 8L) {
+      d2_u <- y[rows[tri_idx + 2L], vox_cols, drop = FALSE] -
+        2 * y[rows[tri_idx + 1L], vox_cols, drop = FALSE] +
+        y[rows[tri_idx], vox_cols, drop = FALSE]
+    } else {
+      pair_idx <- if (n_mask >= 2L) which((rows[2:n_mask] - rows[1:(n_mask - 1L)]) == 1L) else integer(0)
+      if (length(pair_idx) >= 6L) {
+        d2_u <- y[rows[pair_idx + 1L], vox_cols, drop = FALSE] -
+          y[rows[pair_idx], vox_cols, drop = FALSE]
+      } else {
+        d2_u <- y[rows[3:n_mask], vox_cols, drop = FALSE] -
+          2 * y[rows[2:(n_mask - 1L)], vox_cols, drop = FALSE] +
+          y[rows[1:(n_mask - 2L)], vox_cols, drop = FALSE]
+      }
+    }
+    log(pmax(apply(d2_u, 2L, stats::mad, center = 0), 1e-12))
+  }
+
+  z_innov_all <- if (isTRUE(return_v_quad) && !is.null(spatial_graph) && n_mask >= 16L) {
+    matrix(0.0, n_mask, n_vox)
+  } else NULL
+  df_res_accum <- numeric(0L)
+
+  g_int_graph <- if (!is.null(spatial_graph) && !is.null(graph_groups) && length(graph_groups) == n_vox) {
+    hrf_encode_group_ids(graph_groups, n_vox)
+  } else {
+    integer(0L)
+  }
+
   for (g in unique(labels)) {
     index <- which(labels == g)
     usable <- index[colSums(is.finite(profiles[, index, drop = FALSE])) == length(rho_grid)]
     if (!length(usable)) next
 
-    # Pool likelihood PROFILES across concordant voxels, not BOLD signals.
-    # Woolrich (2001) SUSAN principle: when a parcel mixes distinct noise regimes
-    # (e.g., GM core vs CSF/pial-vein or WM partial-volume border voxels) whose
-    # 10-90% profile-argmin spread exceeds homogeneous sampling noise, weight each
-    # voxel's neighborhood by bilateral similarity + spatial affinity and quantize
-    # into <= 3 strata so operator caching remains compact.
-    use_susan_g <- FALSE
-    if (length(usable) >= 10L && n_mask >= 36L) {
-      ind_rhos <- vapply(usable, function(v) interp_rho(profiles[, v])$rho, numeric(1))
+    if (!is.null(spatial_graph) && length(usable) >= 6L && n_mask >= 36L) {
+      ind_rhos_u <- vapply(usable, function(v) interp_rho(profiles[, v])$rho, numeric(1))
       df_est <- max(20.0, mean(vapply(md_list, `[[`, integer(1), "df_nominal")))
-      r_med <- stats::median(ind_rhos)
+      r_med <- stats::median(ind_rhos_u)
       exp_sd <- sqrt(max(0.05, 1.0 - r_med * r_med) / df_est)
-      q90_10 <- as.numeric(diff(stats::quantile(ind_rhos, probs = c(0.10, 0.90), names = FALSE)))
-      if (is.finite(q90_10) && q90_10 > max(0.22, 3.8 * exp_sd)) {
-        use_susan_g <- TRUE
-      }
-    }
+      raw_lsd_u <- compute_gapfree_lsd(usable)
+      lsd_scale <- max(stats::sd(raw_lsd_u), 0.25)
+      rho_scale <- max(0.12, 0.50 * stats::sd(ind_rhos_u))
 
-    if (!use_susan_g) {
-      fit_g <- refine_ar_fit(usable, rep(1.0, length(usable)))
-      out$rho[index] <- fit_g$rho
-      out$psi1[index] <- fit_g$psi[1L]
-      out$psi2[index] <- fit_g$psi[2L]
-      out$psi3[index] <- fit_g$psi[3L]
-      out$psi4[index] <- fit_g$psi[4L]
-      out$method[index] <- if (fit_g$boundary) "pooled_reml_grid_boundary" else "pooled_reml"
-      out$n_voxels[index] <- length(usable)
-    } else {
-      # Restrict SUSAN's auxiliary second-difference scale feature to gap-free
-      # contiguous triplets on the acquisition clock so drift/task jumps across
-      # censored motion segments never contaminate `raw_lsd`.
-      tri_idx <- if (n_mask >= 3L) which((rows[3:n_mask] - rows[1:(n_mask - 2L)]) == 2L) else integer(0)
-      if (length(tri_idx) >= 8L) {
-        d2_u <- y[rows[tri_idx + 2L], usable, drop = FALSE] -
-          2 * y[rows[tri_idx + 1L], usable, drop = FALSE] +
-          y[rows[tri_idx], usable, drop = FALSE]
+      usable_flag <- rep(FALSE, n_vox)
+      usable_flag[usable] <- TRUE
+      ind_rhos_full <- rep(0.0, n_vox)
+      ind_rhos_full[usable] <- ind_rhos_u
+      raw_lsd_full <- rep(0.0, n_vox)
+      raw_lsd_full[usable] <- raw_lsd_u
+
+      # If labels partition discrete groups, keep smoothing strictly inside `index` unless single "run" group
+      grp_vec_use <- if (length(unique(labels)) > 1L) {
+        hrf_encode_group_ids(labels, n_vox)
       } else {
-        pair_idx <- if (n_mask >= 2L) which((rows[2:n_mask] - rows[1:(n_mask - 1L)]) == 1L) else integer(0)
-        if (length(pair_idx) >= 6L) {
-          d2_u <- y[rows[pair_idx + 1L], usable, drop = FALSE] -
-            y[rows[pair_idx], usable, drop = FALSE]
-        } else {
-          d2_u <- y[rows[3:n_mask], usable, drop = FALSE] -
-            2 * y[rows[2:(n_mask - 1L)], usable, drop = FALSE] +
-            y[rows[1:(n_mask - 2L)], usable, drop = FALSE]
+        g_int_graph
+      }
+      cw_use <- if (length(unique(labels)) > 1L) 0.0 else as.numeric(graph_cross_weight)
+
+      sm_res <- csr_bilateral_noise_smooth_cpp(
+        profiles = profiles,
+        ind_rhos = ind_rhos_full,
+        raw_lsd = raw_lsd_full,
+        usable = usable_flag,
+        row_ptr = spatial_graph$row_ptr,
+        col_idx = spatial_graph$col_idx,
+        dist = spatial_graph$dist,
+        group_ids = grp_vec_use,
+        sigma_sp = as.numeric(spatial_graph$sigma),
+        cross_weight = cw_use,
+        rho_scale = rho_scale,
+        lsd_scale = lsd_scale
+      )
+      smooth_rhos <- vapply(usable, function(v) interp_rho(sm_res$smooth_profiles[, v])$rho, numeric(1))
+      med_eff <- max(1.0, stats::median(sm_res$eff_n[usable], na.rm = TRUE))
+      sp_98 <- as.numeric(diff(stats::quantile(smooth_rhos, probs = c(0.02, 0.98), names = FALSE)))
+      sp_rng <- max(smooth_rhos) - min(smooth_rhos)
+      thr_sp <- max(0.12, 2.6 * exp_sd / sqrt(max(1.0, 0.5 * med_eff)))
+
+      if (is.finite(sp_98) && (sp_98 > thr_sp || sp_rng > max(0.18, 1.5 * thr_sp))) {
+        cl <- cluster_1d_det(smooth_rhos, max_k = max_noise_strata, include_tails = TRUE)
+        n_cl <- max(cl)
+        cl_full <- integer(n_vox)
+        cl_full[usable] <- cl
+        w_cl_mat <- csr_cluster_member_weights_cpp(
+          cluster_id = cl_full,
+          n_clusters = n_cl,
+          usable = usable_flag,
+          row_ptr = spatial_graph$row_ptr,
+          col_idx = spatial_graph$col_idx,
+          edge_weights = sm_res$edge_weights
+        )
+        susan_pfx <- if (n_cl > 1L) "susan_" else ""
+        for (cid in seq_len(n_cl)) {
+          m_pos <- which(cl == cid)
+          if (!length(m_pos)) next
+          w_vec_c <- w_cl_mat[usable, cid]
+          pos_w <- which(w_vec_c >= max(1e-6, 0.01 * max(w_vec_c)))
+          fit_c <- if (length(pos_w)) {
+            refine_ar_fit(usable[pos_w], w_vec_c[pos_w])
+          } else {
+            refine_ar_fit(usable[m_pos], rep(1.0, length(m_pos)))
+          }
+          v_target <- usable[m_pos]
+          out$rho[v_target] <- fit_c$rho
+          out$psi1[v_target] <- fit_c$psi[1L]
+          out$psi2[v_target] <- fit_c$psi[2L]
+          out$psi3[v_target] <- fit_c$psi[3L]
+          out$psi4[v_target] <- fit_c$psi[4L]
+          out$method[v_target] <- paste0(susan_pfx, if (fit_c$boundary) "pooled_reml_grid_boundary" else "pooled_reml")
+          out$n_voxels[v_target] <- length(m_pos)
+        }
+        missing_v <- setdiff(index, usable)
+        if (length(missing_v)) {
+          maj_cid <- as.integer(names(which.max(table(cl))))
+          ref_v <- usable[which(cl == maj_cid)[1L]]
+          out$rho[missing_v] <- out$rho[ref_v]
+          out$psi1[missing_v] <- out$psi1[ref_v]
+          out$psi2[missing_v] <- out$psi2[ref_v]
+          out$psi3[missing_v] <- out$psi3[ref_v]
+          out$psi4[missing_v] <- out$psi4[ref_v]
+          out$method[missing_v] <- out$method[ref_v]
+          out$n_voxels[missing_v] <- out$n_voxels[ref_v]
+        }
+      } else {
+        fit_g <- refine_ar_fit(usable, rep(1.0, length(usable)))
+        out$rho[index] <- fit_g$rho
+        out$psi1[index] <- fit_g$psi[1L]
+        out$psi2[index] <- fit_g$psi[2L]
+        out$psi3[index] <- fit_g$psi[3L]
+        out$psi4[index] <- fit_g$psi[4L]
+        out$method[index] <- if (fit_g$boundary) "pooled_reml_grid_boundary" else "pooled_reml"
+        out$n_voxels[index] <- length(usable)
+      }
+    } else {
+      # Pool likelihood PROFILES across concordant voxels, not BOLD signals.
+      # Woolrich (2001) SUSAN principle: when a parcel mixes distinct noise regimes
+      # (e.g., GM core vs CSF/pial-vein or WM partial-volume border voxels) whose
+      # 10-90% profile-argmin spread exceeds homogeneous sampling noise, weight each
+      # voxel's neighborhood by bilateral similarity + spatial affinity and quantize
+      # into <= 3 strata so operator caching remains compact.
+      use_susan_g <- FALSE
+      if (length(usable) >= 10L && n_mask >= 36L) {
+        ind_rhos <- vapply(usable, function(v) interp_rho(profiles[, v])$rho, numeric(1))
+        df_est <- max(20.0, mean(vapply(md_list, `[[`, integer(1), "df_nominal")))
+        r_med <- stats::median(ind_rhos)
+        exp_sd <- sqrt(max(0.05, 1.0 - r_med * r_med) / df_est)
+        q90_10 <- as.numeric(diff(stats::quantile(ind_rhos, probs = c(0.10, 0.90), names = FALSE)))
+        if (is.finite(q90_10) && q90_10 > max(0.22, 3.8 * exp_sd)) {
+          use_susan_g <- TRUE
         }
       }
-      raw_lsd <- log(pmax(apply(d2_u, 2L, stats::mad, center = 0), 1e-12))
-      lsd_scale <- max(stats::sd(raw_lsd), 0.25)
-      rho_scale <- max(0.12, 0.50 * stats::sd(ind_rhos))
-      n_u <- length(usable)
-      aff_mat <- matrix(0.0, n_u, n_u)
-      smooth_rhos <- numeric(n_u)
-      for (ii in seq_len(n_u)) {
-        d_rho <- (ind_rhos - ind_rhos[ii]) / rho_scale
-        d_lsd <- (raw_lsd - raw_lsd[ii]) / lsd_scale
-        w_sim <- exp(-0.5 * (d_rho * d_rho + 0.5 * d_lsd * d_lsd))
-        if (!is.null(spatial_w)) {
-          w_sim <- w_sim * (0.25 + 0.75 * spatial_w[usable[ii], usable])
+
+      if (!use_susan_g) {
+        fit_g <- refine_ar_fit(usable, rep(1.0, length(usable)))
+        out$rho[index] <- fit_g$rho
+        out$psi1[index] <- fit_g$psi[1L]
+        out$psi2[index] <- fit_g$psi[2L]
+        out$psi3[index] <- fit_g$psi[3L]
+        out$psi4[index] <- fit_g$psi[4L]
+        out$method[index] <- if (fit_g$boundary) "pooled_reml_grid_boundary" else "pooled_reml"
+        out$n_voxels[index] <- length(usable)
+      } else {
+        raw_lsd <- compute_gapfree_lsd(usable)
+        lsd_scale <- max(stats::sd(raw_lsd), 0.25)
+        rho_scale <- max(0.12, 0.50 * stats::sd(ind_rhos))
+        n_u <- length(usable)
+        aff_mat <- matrix(0.0, n_u, n_u)
+        smooth_rhos <- numeric(n_u)
+        for (ii in seq_len(n_u)) {
+          d_rho <- (ind_rhos - ind_rhos[ii]) / rho_scale
+          d_lsd <- (raw_lsd - raw_lsd[ii]) / lsd_scale
+          w_sim <- exp(-0.5 * (d_rho * d_rho + 0.5 * d_lsd * d_lsd))
+          if (!is.null(spatial_w)) {
+            w_sim <- w_sim * (0.25 + 0.75 * spatial_w[usable[ii], usable])
+          }
+          if (sum(w_sim) <= 1e-12) w_sim[ii] <- 1.0
+          aff_mat[ii, ] <- w_sim / sum(w_sim)
+          smooth_rhos[ii] <- interp_rho(as.numeric(profiles[, usable, drop = FALSE] %*% aff_mat[ii, ]))$rho
         }
-        if (sum(w_sim) <= 1e-12) w_sim[ii] <- 1.0
-        aff_mat[ii, ] <- w_sim / sum(w_sim)
-        smooth_rhos[ii] <- interp_rho(as.numeric(profiles[, usable, drop = FALSE] %*% aff_mat[ii, ]))$rho
-      }
-      cl <- cluster_1d_det(smooth_rhos, max_k = 3L)
-      susan_pfx <- if (length(unique(cl)) > 1L) "susan_" else ""
-      for (cid in unique(cl)) {
-        m_pos <- which(cl == cid)
-        w_cl <- colMeans(aff_mat[m_pos, , drop = FALSE])
-        fit_c <- refine_ar_fit(usable, w_cl)
-        v_target <- usable[m_pos]
-        out$rho[v_target] <- fit_c$rho
-        out$psi1[v_target] <- fit_c$psi[1L]
-        out$psi2[v_target] <- fit_c$psi[2L]
-        out$psi3[v_target] <- fit_c$psi[3L]
-        out$psi4[v_target] <- fit_c$psi[4L]
-        out$method[v_target] <- paste0(susan_pfx, if (fit_c$boundary) "pooled_reml_grid_boundary" else "pooled_reml")
-        out$n_voxels[v_target] <- length(m_pos)
-      }
-      missing_v <- setdiff(index, usable)
-      if (length(missing_v)) {
-        maj_cid <- as.integer(names(which.max(table(cl))))
-        ref_v <- usable[which(cl == maj_cid)[1L]]
-        out$rho[missing_v] <- out$rho[ref_v]
-        out$psi1[missing_v] <- out$psi1[ref_v]
-        out$psi2[missing_v] <- out$psi2[ref_v]
-        out$psi3[missing_v] <- out$psi3[ref_v]
-        out$psi4[missing_v] <- out$psi4[ref_v]
-        out$method[missing_v] <- out$method[ref_v]
-        out$n_voxels[missing_v] <- out$n_voxels[ref_v]
+        cl <- cluster_1d_det(smooth_rhos, max_k = max_noise_strata)
+        susan_pfx <- if (length(unique(cl)) > 1L) "susan_" else ""
+        for (cid in unique(cl)) {
+          m_pos <- which(cl == cid)
+          w_cl <- colMeans(aff_mat[m_pos, , drop = FALSE])
+          fit_c <- refine_ar_fit(usable, w_cl)
+          v_target <- usable[m_pos]
+          out$rho[v_target] <- fit_c$rho
+          out$psi1[v_target] <- fit_c$psi[1L]
+          out$psi2[v_target] <- fit_c$psi[2L]
+          out$psi3[v_target] <- fit_c$psi[3L]
+          out$psi4[v_target] <- fit_c$psi[4L]
+          out$method[v_target] <- paste0(susan_pfx, if (fit_c$boundary) "pooled_reml_grid_boundary" else "pooled_reml")
+          out$n_voxels[v_target] <- length(m_pos)
+        }
+        missing_v <- setdiff(index, usable)
+        if (length(missing_v)) {
+          maj_cid <- as.integer(names(which.max(table(cl))))
+          ref_v <- usable[which(cl == maj_cid)[1L]]
+          out$rho[missing_v] <- out$rho[ref_v]
+          out$psi1[missing_v] <- out$psi1[ref_v]
+          out$psi2[missing_v] <- out$psi2[ref_v]
+          out$psi3[missing_v] <- out$psi3[ref_v]
+          out$psi4[missing_v] <- out$psi4[ref_v]
+          out$method[missing_v] <- out$method[ref_v]
+          out$n_voxels[missing_v] <- out$n_voxels[ref_v]
+        }
       }
     }
 
@@ -795,15 +1030,23 @@ hrf_estimate_noise <- function(y, events, tr, offset, kernels, fallback, z, mask
       sub_v <- index[g_keys == gk]
       v1 <- sub_v[1L]
       ar_v <- c(out$rho[v1], out$psi1[v1], out$psi2[v1], out$psi3[v1], out$psi4[v1])
-      out$noise_sd[sub_v] <- hrf_estimate_gls_noise_sd(
+      df_nom <- md_list[[k_sigs[v1]]]$df_nominal
+      df_res_accum <- c(df_res_accum, max(1.0, as.numeric(df_nom)))
+      gls_g <- hrf_estimate_gls_noise_sd(
         y[rows, sub_v, drop = FALSE],
         des_list[[k_sigs[v1]]][rows, , drop = FALSE],
         rows,
-        ar_v
+        ar_v,
+        return_innovations = !is.null(z_innov_all)
       )
+      out$noise_sd[sub_v] <- if (is.list(gls_g)) gls_g$sd else gls_g
+      if (!is.null(z_innov_all) && is.list(gls_g) && !is.null(gls_g$z_unit)) {
+        z_innov_all[, sub_v] <- gls_g$z_unit
+      }
     }
   }
-  out
+  df_use <- if (length(df_res_accum)) mean(df_res_accum) else max(1.0, n_mask - ncol(z))
+  attach_v_quad(out, z_innov_all, df_use)
 }
 
 # Estimate the effective number of independent candidate tests across the HRF
@@ -1120,12 +1363,17 @@ hrf_stratum_kernels <- function(hrf_fit, r) {
       selected = selected, is_soft = FALSE, get_kernel = get_kernel, get_ar = get_ar
     ))
   }
-  w_mat <- if (!is.null(hrf_fit$kernel_weights) && !is.null(hrf_fit$kernel_weights[[r]])) {
-    hrf_fit$kernel_weights[[r]]
+  w_sig <- if (!is.null(hrf_fit$hrf_strata) && !is.null(hrf_fit$hrf_strata[[r]]) &&
+               length(hrf_fit$hrf_strata[[r]]) == length(selected)) {
+    paste0("p", hrf_fit$hrf_strata[[r]])
   } else {
-    hrf_fit$selected_kernels[[r]]
+    w_mat <- if (!is.null(hrf_fit$kernel_weights) && !is.null(hrf_fit$kernel_weights[[r]])) {
+      hrf_fit$kernel_weights[[r]]
+    } else {
+      hrf_fit$selected_kernels[[r]]
+    }
+    hrf_fast_col_keys(w_mat, digits = 4L)
   }
-  w_sig <- apply(round(w_mat, 4L), 2L, paste, collapse = ",")
   keys <- paste0(paste(w_sig, sprintf("%.17g", rho), sep = ":"), psi_sfx)
   sel_k_mat <- hrf_fit$selected_kernels[[r]]
   get_kernel <- function(voxel_idx) {
@@ -1508,7 +1756,7 @@ hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_w
   rhs <- w[, seq_len(measured), drop = FALSE]
   if (ncol(z)) {
     norm <- sqrt(colSums(z^2)); norm[norm == 0] <- 1
-    fit <- svd(sweep(z, 2L, norm, "/"), nv = 0)
+    fit <- hrf_safe_svd(sweep(z, 2L, norm, "/"), nv = 0)
     rank <- sum(fit$d > 1e-8 * fit$d[1L])
     if (rank) {
       q <- fit$u[, seq_len(rank), drop = FALSE]
@@ -1750,7 +1998,7 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
       z_j <- cbind(1, seq(-1, 1, length.out = n_t), nuis_j)[rows_t, , drop = FALSE]
       z_jw <- if (has_w_rt) sweep(z_j, 1L, sqrt(pmax(w_rt, 1e-4)), "*") else z_j
       nrm_j <- sqrt(colSums(z_jw^2)); nrm_j[nrm_j == 0] <- 1
-      sv_j <- svd(sweep(z_jw, 2L, nrm_j, "/"), nv = 0)
+      sv_j <- hrf_safe_svd(sweep(z_jw, 2L, nrm_j, "/"), nv = 0)
       rk_j <- if (length(sv_j$d) && sv_j$d[1L] > 0) sum(sv_j$d > 1e-8 * sv_j$d[1L]) else 0L
       if (rk_j > 0L && length(rows_t) - rk_j >= 8L) {
         qj <- sv_j$u[, seq_len(rk_j), drop = FALSE]

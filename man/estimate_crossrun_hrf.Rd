@@ -13,7 +13,7 @@ estimate_crossrun_hrf(
   valid_rows = NULL,
   time_offset = 0,
   spatial_groups = NULL,
-  pooling = c("voxel", "parcel"),
+  pooling = c("voxel", "parcel", "graph"),
   spatial_strength = 0,
   fallback_kernel = 1L,
   min_r2 = 0.01,
@@ -32,7 +32,13 @@ estimate_crossrun_hrf(
   spatial_fwhm = NULL,
   selection_mode = c("hard", "soft_average"),
   noise_groups = NULL,
-  run_col = "run"
+  run_col = "run",
+  spatial_graph = NULL,
+  parcel_boundary = c("soft", "hard", "ignore"),
+  parcel_cross_weight = 0.35,
+  max_neighbors = 32L,
+  max_hrf_strata = 48L,
+  max_noise_strata = 10L
 )
 }
 \arguments{
@@ -85,7 +91,12 @@ read with an \code{atlas}. Labels must be nonmissing and nonempty. Parcels
 must be defined independently of target-run responses; no implicit whole-brain
 parcel is constructed.}
 
-\item{pooling}{Select HRFs per voxel or share one HRF per supplied parcel.}
+\item{pooling}{HRF spatial pooling strategy: \code{"voxel"} (default, even for
+atlas-free NIfTI inputs; selects HRFs per voxel with optional parcel anchor
+regularization), \code{"parcel"} (shares one HRF per supplied parcel), or
+\code{"graph"} (sparse bilateral spatial-graph pooling across local in-mask
+geodesic or coordinate neighborhoods, respecting noise borders and optional
+soft/hard parcel priors without \eqn{O(V^2)} dense matrices).}
 
 \item{spatial_strength}{Nonnegative fixed penalty on voxel candidate distance
 from the training-derived parcel HRF; requires spatial_groups. Zero disables
@@ -132,12 +143,15 @@ multiple testing across the brain. Not a posterior probability.}
 in calibrated mode, default 0.01. Zero removes this additional shrinkage.}
 
 \item{spatial_coords}{Optional numeric matrix of 3D voxel coordinates (N x 3)
-used for local Gaussian-weighted anchor pooling. Automatically populated from
-\code{bold$voxel_map[, c("x", "y", "z")]} when \code{bold} is a
-\code{"medusa_nifti_ts"} object and \code{spatial_fwhm} is specified.}
+used for local Gaussian-weighted anchor or graph pooling. Automatically
+populated from \code{bold$voxel_map[, c("x", "y", "z")]} when \code{bold} is
+a \code{"medusa_nifti_ts"} object and \code{spatial_fwhm} is specified or
+\code{pooling = "graph"}.}
 
 \item{spatial_fwhm}{Optional numeric spatial Gaussian FWHM (in coordinate
-units) for local anchor pooling.}
+units) for local anchor or graph pooling. When \code{NULL} under
+\code{pooling = "graph"}, defaults to \code{2.5 * median(spacing)} on
+volumetric lattices or \code{2.5} times the median nearest-neighbor distance.}
 
 \item{selection_mode}{Candidate selection rule: `"hard"` (default) selects a
 single discrete winning HRF column index per voxel/parcel; `"soft_average"`
@@ -147,11 +161,38 @@ the prespecified fallback kernel.}
 
 \item{noise_groups}{Optional voxel labels defining noise covariance pooling
 neighborhoods, in voxel column order. Defaults to \code{spatial_groups} when
-omitted. Allows noise neighborhoods (e.g., tissue- or sub-parcel-informed
-groups) to differ from HRF selection parcels.}
+omitted (except under \code{pooling = "graph"} with \code{parcel_boundary}
+set to \code{"soft"} or \code{"ignore"}, where noise covariance is pooled
+bilaterally over the sparse graph).}
 
 \item{run_col}{Column name in \code{events} identifying runs when \code{events}
 is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.}
+
+\item{spatial_graph}{Optional prebuilt \code{"medusa_spatial_graph"} (from
+\code{\link{build_spatial_graph}}), sparse adjacency matrix, or edge
+\code{data.frame} (e.g., cortical surface mesh) used when
+\code{pooling = "graph"}.}
+
+\item{parcel_boundary}{Boundary handling when \code{spatial_groups} is present
+with \code{pooling = "graph"}: \code{"soft"} (default; applies prior factor
+\code{parcel_cross_weight} across borders, modulated upward when cross-run
+HRF concordance agrees and suppressed to zero when active profiles disagree),
+\code{"hard"} (strictly blocks cross-parcel edges), or \code{"ignore"}.}
+
+\item{parcel_cross_weight}{Baseline cross-parcel prior factor in \code{[0, 1]}
+when \code{pooling = "graph"} and \code{parcel_boundary = "soft"} (default
+\code{0.35}).}
+
+\item{max_neighbors}{Maximum non-self spatial neighbors per voxel in
+\code{pooling = "graph"} (default \code{32L}).}
+
+\item{max_hrf_strata}{Maximum quantized composite HRF waveform prototypes per
+run in \code{pooling = "graph"} with \code{selection_mode = "soft_average"}
+so Step-2 inverse operator caching remains compact at whole-brain scale
+(default \code{48L}). Continuous weights are preserved in \code{kernel_weights}.}
+
+\item{max_noise_strata}{Maximum bilateral REML noise strata per run when
+\code{pooling = "graph"} (default \code{10L}).}
 }
 \value{
 An object of class crossrun_hrf with normalized kernels, per-target-run
