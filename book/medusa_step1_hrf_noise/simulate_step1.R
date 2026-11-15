@@ -126,6 +126,204 @@ noise <- do.call(rbind, lapply(names(soft$noise), function(r) {
 }))
 write.csv(noise, "noise.csv", row.names = FALSE)
 
+message("Fast-TR respiratory motion filtering demonstration (Steps 1-3)")
+set.seed(20261115)
+v_resp <- ids[1:8]
+p_resp <- setNames(rep("Fast", 8L), v_resp)
+conf_dfs <- bold_resp <- ev_resp <- cov_resp <- truth_resp <- list()
+jerk_times_r1 <- numeric(2L)
+
+for (r in 1:3) {
+  rn <- paste0("run", r)
+  onsets <- seq(10, 215, length.out = 24L) + runif(24L, -0.8, 0.8)
+  j1 <- 108L + (r - 1L) * 4L # ~69.55 s in run1 (moderate sub-0.60 mm jerk)
+  j2 <- 172L + (r - 1L) * 5L # ~111.15 s in run1 (large >0.90 mm jerk)
+  onsets[8L] <- (j1 - 1L) * tr + 0.35
+  if (r == 1L) jerk_times_r1 <- (c(j1, j2) - 1L) * tr
+
+  rpe <- as.numeric(scale(rnorm(24L)))
+  amps <- 0.80 + 0.50 * rpe
+  ev <- data.frame(onset = onsets, duration = 0, condition = "feedback")
+
+  X_ev <- medusa:::hrf_event_design_cpp(n, tr, 0, ev$onset, ev$duration, 1:24, 24L, K[, true_idx["Fast"], drop = FALSE])[[1L]]
+  sig_bold <- as.numeric(X_ev %*% amps)
+
+  s_grid <- numeric(n)
+  for (i in 1:24) {
+    idx_lo <- floor(ev$onset[i] / tr) + 1L
+    frac <- ev$onset[i] / tr - (idx_lo - 1L)
+    if (idx_lo >= 1L && idx_lo <= n) s_grid[idx_lo] <- s_grid[idx_lo] + amps[i] * (1 - frac)
+    if (idx_lo + 1L <= n) s_grid[idx_lo + 1L] <- s_grid[idx_lo + 1L] + amps[i] * frac
+  }
+
+  # Waxing/waning ~16 BPM (0.267 Hz) respiratory chest-wall B0 pseudomotion + 2 genuine posture-step jerks
+  breath_env <- 0.72 + 0.38 * sin(2 * pi * 0.018 * tt + 0.7 * r)
+  resp_phase <- 2 * pi * 0.267 * tt + 0.20 * sin(2 * pi * 0.012 * tt + r)
+  tx <- 0.015 * sin(2 * pi * 0.011 * tt + r)
+  ty <- 0.22 * breath_env * sin(resp_phase) + 0.02 * cos(2 * pi * 0.007 * tt)
+  tz <- 0.020 * sin(2 * pi * 0.009 * tt)
+  rx <- 0.0022 * breath_env * sin(resp_phase)
+  ry <- 0.0003 * cos(2 * pi * 0.013 * tt)
+  rz <- -0.0003 * sin(2 * pi * 0.010 * tt)
+
+  step1 <- as.numeric(seq_len(n) >= j1)
+  step2 <- as.numeric(seq_len(n) >= j2)
+  tz <- tz + 0.36 * step1 - 0.68 * step2
+  ry <- ry + 0.0022 * step1 - 0.0046 * step2
+  ty[j1] <- ty[j1 - 1L]
+  rx[j1] <- rx[j1 - 1L]
+
+  mk_d1 <- function(v) c(NA_real_, diff(v))
+  mk_dp2 <- function(v) c(NA_real_, diff(v)^2)
+  mot_m <- cbind(rx, ry, rz, tx, ty, tz)
+  dm <- rbind(rep(0, 6L), diff(mot_m))
+  raw_fd <- rowSums(abs(dm[, 1:3, drop = FALSE])) * 50 + rowSums(abs(dm[, 4:6, drop = FALSE]))
+
+  conf_dfs[[rn]] <- data.frame(
+    trans_x = tx, trans_x_derivative1 = mk_d1(tx), trans_x_power2 = tx^2, trans_x_derivative1_power2 = mk_dp2(tx),
+    trans_y = ty, trans_y_derivative1 = mk_d1(ty), trans_y_power2 = ty^2, trans_y_derivative1_power2 = mk_dp2(ty),
+    trans_z = tz, trans_z_derivative1 = mk_d1(tz), trans_z_power2 = tz^2, trans_z_derivative1_power2 = mk_dp2(tz),
+    rot_x = rx, rot_x_derivative1 = mk_d1(rx), rot_x_power2 = rx^2, rot_x_derivative1_power2 = mk_dp2(rx),
+    rot_y = ry, rot_y_derivative1 = mk_d1(ry), rot_y_power2 = ry^2, rot_y_derivative1_power2 = mk_dp2(ry),
+    rot_z = rz, rot_z_derivative1 = mk_d1(rz), rot_z_power2 = rz^2, rot_z_derivative1_power2 = mk_dp2(rz),
+    framewise_displacement = c(NA_real_, raw_fd[-1L])
+  )
+
+  # Unfiltered BOLD includes neural*HRF + continuous respiratory B0 modulation + spin-history transients at jerks + AR(3) noise
+  d_ty <- c(0, diff(ty))
+  resp_b0_bold <- 0.34 * ty + 0.15 * d_ty
+  jerk_bold <- numeric(n)
+  jerk_bold[j1] <- 0.68
+  jerk_bold[j1 + 1L] <- -0.32
+  jerk_bold[j2] <- 1.05
+  jerk_bold[j2 + 1L] <- -0.45
+
+  Y <- matrix(0, n, 8L, dimnames = list(NULL, v_resp))
+  for (v in 1:8) {
+    e <- as.numeric(arima.sim(list(ar = phi), n = n, n.start = 500))
+    gamma0 <- 1 / (1 - sum(phi * as.numeric(ARMAacf(ar = phi, lag.max = 3))[-1]))
+    e <- e / sqrt(gamma0) * 0.035
+    Y[, v] <- sig_bold + resp_b0_bold * (0.9 + 0.03 * v) + jerk_bold + e
+  }
+  bold_resp[[rn]] <- Y
+  ev_resp[[rn]] <- ev
+  cov_resp[[rn]] <- data.frame(rpe = rpe)
+  truth_resp[[rn]] <- s_grid
+}
+
+run_resp_regime <- function(short_label, table_label, fd_thr, bandstop = NULL, lowpass = NULL, target = "fd_only") {
+  cf <- read_fmriprep_confounds(
+    conf_dfs,
+    bold = bold_resp,
+    strategy = "24p",
+    fd_threshold = fd_thr,
+    tr = tr,
+    motion_bandstop_bpm = bandstop,
+    motion_lowpass_hz = lowpass,
+    motion_filter_target = target,
+    censor_next = 1L,
+    min_segment_length = 4L,
+    include_non_steady_state = FALSE
+  )
+  hf <- estimate_crossrun_hrf(
+    bold = bold_resp, events = ev_resp, tr = tr, kernel_grid = K,
+    nuisance = cf, spatial_groups = p_resp,
+    pooling = "parcel", amplitude_model = "trial", selection_mode = "soft_average"
+  )
+  dc <- deconvolve_crossrun_hrf(
+    bold = bold_resp, hrf_fit = hf, lambda = 0.08,
+    scaling = "noise_sd", penalty = "sobolev", rwls = "none",
+    nuisance_mode = "joint", observation_mask = "fit"
+  )
+  ep <- decon_epoch_regression(
+    dc, covariates = cov_resp, target_condition = "feedback",
+    lags = -1:4, parcel_groups = p_resp, restore_scale = TRUE, return_panel = TRUE
+  )
+
+  seg_lens <- unlist(lapply(cf$valid_rows, function(vr) {
+    rl <- rle(vr)
+    rl$lengths[rl$values]
+  }))
+  mean_noise_sd <- mean(unlist(lapply(dc$scaling, function(s) s$noise_sd)))
+  p_df <- as.data.frame(ep$panel)
+  p0 <- p_df[abs(p_df$evt_time - 0) < 1e-9, , drop = FALSE]
+  c_df <- as.data.frame(ep$coefficients)
+  c0 <- c_df[c_df$term == "rpe" & abs(c_df$lag - 0) < 1e-9, , drop = FALSE]
+  r1_act <- rowMeans(dc$activity$run1) * mean(dc$scaling$run1$scale)
+
+  list(
+    short_label = short_label,
+    fd_run1 = cf$framewise_displacement$run1,
+    valid_run1 = cf$valid_rows$run1,
+    act_run1 = r1_act,
+    row = data.frame(
+      regime = table_label,
+      short_label = short_label,
+      pct_retained_trs = 100 * mean(unlist(cf$valid_rows)),
+      median_segment_trs = if (length(seg_lens)) median(seg_lens) else 0,
+      mean_fd_mm = mean(cf$summary$mean_fd),
+      est_noise_sd = mean_noise_sd,
+      pct_trials_retained = 100 * mean(is.finite(p0$decon_demixed)),
+      median_trial_se = stats::median(p0$se_demixed, na.rm = TRUE),
+      rpe_beta_lag0 = c0$beta_gls[1L],
+      rpe_se_lag0 = c0$se_gls[1L],
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+resp_regimes <- list(
+  raw_030 = run_resp_regime(
+    "Unfiltered FD > 0.30 mm",
+    "Unfiltered FD > 0.30 mm",
+    fd_thr = 0.30
+  ),
+  raw_060 = run_resp_regime(
+    "Unfiltered FD > 0.60 mm (raised cutoff)",
+    "Unfiltered FD > 0.60 mm (ad-hoc raised cutoff)",
+    fd_thr = 0.60
+  ),
+  notch_both = run_resp_regime(
+    "Notch 12-20 BPM > 0.30 mm (fd_and_nuisance)",
+    "Notch 12-20 BPM > 0.30 mm (fd_and_nuisance)",
+    fd_thr = 0.30, bandstop = c(12, 20), target = "fd_and_nuisance"
+  ),
+  lp_fd = run_resp_regime(
+    "Low-pass 0.20 Hz > 0.15 mm (fd_only)",
+    "Low-pass 0.20 Hz > 0.15 mm (fd_only; Gratton 2020)",
+    fd_thr = 0.15, lowpass = 0.20, target = "fd_only"
+  ),
+  notch_fd = run_resp_regime(
+    "Notch 12-20 BPM > 0.30 mm (fd_only)",
+    "Notch 12-20 BPM > 0.30 mm (fd_only; recommended)",
+    fd_thr = 0.30, bandstop = c(12, 20), target = "fd_only"
+  )
+)
+
+resp_metrics <- do.call(rbind, lapply(resp_regimes, `[[`, "row"))
+rownames(resp_metrics) <- NULL
+write.csv(resp_metrics, "respiratory_fd_metrics.csv", row.names = FALSE)
+
+resp_demo <- list(
+  time = tt,
+  jerk_times_r1 = jerk_times_r1,
+  truth_run1 = truth_resp$run1,
+  onsets_run1 = ev_resp$run1$onset,
+  fd_raw = resp_regimes$raw_030$fd_run1,
+  fd_notch = resp_regimes$notch_fd$fd_run1,
+  fd_lowpass = resp_regimes$lp_fd$fd_run1,
+  valid_raw_030 = resp_regimes$raw_030$valid_run1,
+  valid_raw_060 = resp_regimes$raw_060$valid_run1,
+  valid_lp = resp_regimes$lp_fd$valid_run1,
+  valid_notch = resp_regimes$notch_fd$valid_run1,
+  act_notch_fd_only = resp_regimes$notch_fd$act_run1,
+  act_raw_060 = resp_regimes$raw_060$act_run1,
+  act_notch_both = resp_regimes$notch_both$act_run1,
+  metrics = resp_metrics,
+  true_noise_sd = 0.035,
+  true_rpe_beta = 0.50
+)
+
 saveRDS(
   list(
     tr = tr, n = n, tt = tt, K = K, pars = pars, K_medusa = K_medusa, pars_medusa = pars_medusa,
@@ -133,7 +331,8 @@ saveRDS(
     bold = bold, events = events, nuisance = nuisance, errors = errors, amplitudes = amplitudes,
     soft = soft, hard = hard, voxel = voxel, canonical_only = canonical_only, perturbed = perturbed,
     signed_condition = signed_condition, signed_trial = signed_trial, signed_y = signed_y,
-    acf_df = acf_df, weight_difference = weight_difference, kernel_difference = kernel_difference
+    acf_df = acf_df, weight_difference = weight_difference, kernel_difference = kernel_difference,
+    resp_demo = resp_demo
   ),
   "step1_examples.rds"
 )

@@ -808,3 +808,315 @@ test_that("BrainGnomes postprocessing handoff: censor.1D, scrub.tsv, filtered FD
     "scrub_timepoints"
   )
 })
+
+test_that("Respiratory motion filtering for FD suppresses fast-TR breathing pseudomotion while preserving head-jerk censoring", {
+  # Simulate fast-TR multiband acquisition (TR = 0.8 s, N = 120 volumes, Nyquist = 0.625 Hz = 37.5 BPM)
+  # with in-phase 15 BPM (0.25 Hz) breathing oscillation in trans_y (0.30 mm) and rot_x (0.003 rad = 0.15 mm on 50 mm sphere)
+  # plus a true sharp head-jerk step (+0.85 mm in trans_z) starting at volume 60.
+  tr_fast <- 0.8
+  n_vol <- 120L
+  t_sec <- (seq_len(n_vol) - 1L) * tr_fast
+
+  tx <- 0.01 * sin(2 * pi * 0.03 * t_sec)
+  ty <- 0.30 * sin(2 * pi * 0.25 * t_sec)
+  tz <- ifelse(seq_len(n_vol) >= 60L, 0.85, 0.0)
+  rx <- 0.003 * sin(2 * pi * 0.25 * t_sec)
+  ry <- 0.0002 * sin(2 * pi * 0.04 * t_sec)
+  rz <- -0.0002 * cos(2 * pi * 0.02 * t_sec)
+
+  mk_d1 <- function(v) c(NA_real_, diff(v))
+  mk_dp2 <- function(v) c(NA_real_, diff(v)^2)
+
+  mot_mat <- cbind(rx, ry, rz, tx, ty, tz)
+  d_mot <- rbind(rep(0, 6L), diff(mot_mat))
+  raw_fd <- rowSums(abs(d_mot[, 1:3, drop = FALSE])) * 50 + rowSums(abs(d_mot[, 4:6, drop = FALSE]))
+  raw_fd_col <- c(NA_real_, raw_fd[-1L])
+
+  resp_df <- data.frame(
+    trans_x = tx, trans_x_derivative1 = mk_d1(tx), trans_x_power2 = tx^2, trans_x_derivative1_power2 = mk_dp2(tx),
+    trans_y = ty, trans_y_derivative1 = mk_d1(ty), trans_y_power2 = ty^2, trans_y_derivative1_power2 = mk_dp2(ty),
+    trans_z = tz, trans_z_derivative1 = mk_d1(tz), trans_z_power2 = tz^2, trans_z_derivative1_power2 = mk_dp2(tz),
+    rot_x = rx, rot_x_derivative1 = mk_d1(rx), rot_x_power2 = rx^2, rot_x_derivative1_power2 = mk_dp2(rx),
+    rot_y = ry, rot_y_derivative1 = mk_d1(ry), rot_y_power2 = ry^2, rot_y_derivative1_power2 = mk_dp2(ry),
+    rot_z = rz, rot_z_derivative1 = mk_d1(rz), rot_z_power2 = rz^2, rot_z_derivative1_power2 = mk_dp2(rz),
+    framewise_displacement = raw_fd_col
+  )
+
+  # 1. Unfiltered FD at 0.30 mm severely over-censors clean breathing frames
+  conf_raw <- read_fmriprep_confounds(
+    resp_df,
+    strategy = "24p",
+    fd_threshold = 0.30,
+    include_non_steady_state = FALSE,
+    impute_censored = FALSE,
+    center = FALSE
+  )
+  expect_null(conf_raw$framewise_displacement_raw)
+  expect_false(conf_raw$summary$motion_filtered)
+  expect_gt(sum(!conf_raw$valid_rows$run1), 40L)
+  expect_gt(conf_raw$summary$mean_fd, 0.25)
+
+  # 2. Band-stop notch filter (12-18 BPM) suppresses 15 BPM breathing while still censoring the true jerk at vol 60!
+  conf_notch <- read_fmriprep_confounds(
+    resp_df,
+    strategy = "24p",
+    fd_threshold = 0.30,
+    tr = tr_fast,
+    motion_bandstop_bpm = c(12, 18),
+    motion_filter_target = "fd_only",
+    include_non_steady_state = FALSE,
+    impute_censored = FALSE,
+    center = FALSE
+  )
+  expect_true(conf_notch$summary$motion_filtered)
+  expect_lt(conf_notch$summary$mean_fd, 0.05)
+  expect_false(conf_notch$valid_rows$run1[60L]) # true step jerk at vol 60 is still censored!
+  expect_true(all(conf_notch$valid_rows$run1[15:50])) # steady-state breathing volumes stay usable!
+  expect_true(all(conf_notch$valid_rows$run1[70:110]))
+  expect_equal(conf_notch$framewise_displacement_raw$run1, conf_raw$framewise_displacement$run1, tolerance = 1e-12)
+  expect_match(paste(capture.output(print(conf_notch)), collapse = "\n"), "fd_filter: notch 12-18 BPM")
+
+  # Default motion_filter_target = "fd_only" leaves all 24 Friston nuisance columns untouched!
+  expect_equal(conf_notch$nuisance$run1, conf_raw$nuisance$run1, tolerance = 1e-12)
+
+  # 3. motion_filter_target = "fd_and_nuisance" updates all 24 Friston motion columns (base + deriv + quadratics)
+  conf_notch_nuis <- read_fmriprep_confounds(
+    resp_df,
+    strategy = "24p",
+    fd_threshold = 0.30,
+    tr = tr_fast,
+    motion_bandstop_bpm = c(12, 18),
+    motion_filter_target = "fd_and_nuisance",
+    include_non_steady_state = FALSE,
+    impute_censored = FALSE,
+    center = FALSE
+  )
+  expect_identical(conf_notch_nuis$valid_rows$run1, conf_notch$valid_rows$run1)
+  expect_equal(conf_notch_nuis$framewise_displacement$run1, conf_notch$framewise_displacement$run1, tolerance = 1e-12)
+  expect_lt(stats::sd(conf_notch_nuis$nuisance$run1[20:50, "trans_y"]), 0.01)
+  expect_lt(stats::sd(conf_notch_nuis$nuisance$run1[20:50, "trans_y_derivative1"]), 0.01)
+  expect_lt(stats::sd(conf_notch_nuis$nuisance$run1[20:50, "trans_y_power2"]), 0.001)
+  expect_lt(stats::sd(conf_notch_nuis$nuisance$run1[20:50, "trans_y_derivative1_power2"]), 0.001)
+
+  # Ensure column_pattern on a 6-DOF-only table does not pick up surprise synthesized columns under fd_and_nuisance
+  df_6dof <- resp_df[, c("trans_x", "trans_y", "trans_z", "rot_x", "rot_y", "rot_z")]
+  conf_pat <- read_fmriprep_confounds(
+    df_6dof,
+    strategy = "custom",
+    column_pattern = "^trans_",
+    tr = tr_fast,
+    motion_bandstop_bpm = c(12, 18),
+    motion_filter_target = "fd_and_nuisance",
+    drop_constant = FALSE
+  )
+  expect_identical(colnames(conf_pat$nuisance$run1), c("trans_x", "trans_y", "trans_z"))
+
+  # 4. Butterworth low-pass filter (0.20 Hz) also suppresses 0.25 Hz breathing while catching the step jerk at vol 60
+  conf_lp <- read_fmriprep_confounds(
+    resp_df,
+    strategy = "6p",
+    fd_threshold = 0.30,
+    tr = tr_fast,
+    motion_lowpass_hz = 0.20,
+    include_non_steady_state = FALSE
+  )
+  expect_true(conf_lp$summary$motion_filtered)
+  expect_lt(conf_lp$summary$mean_fd, 0.12)
+  expect_false(conf_lp$valid_rows$run1[60L])
+  expect_true(all(conf_lp$valid_rows$run1[15:50]))
+  expect_match(paste(capture.output(print(conf_lp)), collapse = "\n"), "fd_filter: lowpass 0.2 Hz")
+
+  # Order 8 cascaded notch + alternate padding modes + reversed bandstop bounds warning
+  conf_ord8 <- read_fmriprep_confounds(
+    resp_df, strategy = "none", fd_threshold = 0.30, tr = tr_fast,
+    motion_bandstop_bpm = c(12, 18), motion_filter_order = 8L, motion_filter_pad = "odd",
+    include_non_steady_state = FALSE
+  )
+  expect_true(conf_ord8$summary$motion_filtered)
+  expect_warning(
+    conf_rev <- read_fmriprep_confounds(
+      resp_df, strategy = "none", fd_threshold = 0.30, tr = tr_fast,
+      motion_bandstop_bpm = c(18, 12), include_non_steady_state = FALSE
+    ),
+    "reversed"
+  )
+  expect_equal(conf_rev$framewise_displacement$run1, conf_notch$framewise_displacement$run1, tolerance = 1e-12)
+})
+
+test_that("Respiratory motion filter handles TR inference, Nyquist edge cases, validation guards, and DSP parity", {
+  # 1. Validation & Nyquist edge cases
+  n_v <- 80L
+  t2 <- (seq_len(n_v) - 1L) * 2.0 # TR = 2.0 s -> fs = 0.5 Hz, Nyquist = 0.25 Hz (15 BPM)
+  # Signal at 0.35 Hz (21 BPM) aliases under TR = 2.0 s to |0.35 - 0.50| = 0.15 Hz (9 BPM)
+  df_slow <- data.frame(
+    trans_x = rep(0, n_v),
+    trans_y = 0.25 * sin(2 * pi * 0.35 * t2),
+    trans_z = rep(0, n_v),
+    rot_x = rep(0, n_v),
+    rot_y = rep(0, n_v),
+    rot_z = rep(0, n_v)
+  )
+
+  # Missing TR on in-memory data.frame -> clear error
+  expect_error(
+    read_fmriprep_confounds(df_slow, motion_bandstop_bpm = c(12, 18)),
+    "Sampling interval 'tr'"
+  )
+  # Mutual exclusivity of notch and lowpass
+  expect_error(
+    read_fmriprep_confounds(df_slow, tr = 0.8, motion_bandstop_bpm = c(12, 18), motion_lowpass_hz = 0.2),
+    "at most one"
+  )
+  # Distinct bounds & valid filter orders
+  expect_error(
+    read_fmriprep_confounds(df_slow, tr = 0.8, motion_bandstop_bpm = c(15, 15)),
+    "distinct"
+  )
+  expect_error(
+    read_fmriprep_confounds(df_slow, tr = 0.8, motion_bandstop_bpm = c(12, 18), motion_filter_order = 6L),
+    "multiple of 4"
+  )
+  expect_error(
+    read_fmriprep_confounds(df_slow, tr = 0.8, motion_lowpass_hz = 0.2, motion_filter_order = 3L),
+    "even integer"
+  )
+
+  # Straddling Nyquist (12-18 BPM across 15 BPM Nyquist at TR = 2.0 s) -> warns and falls back to unfiltered FD
+  raw_slow <- read_fmriprep_confounds(df_slow, strategy = "none", fd_threshold = 0.30)
+  expect_warning(
+    strad <- read_fmriprep_confounds(df_slow, strategy = "none", fd_threshold = 0.30, tr = 2.0, motion_bandstop_bpm = c(12, 18)),
+    "straddles the Nyquist frequency"
+  )
+  expect_false(strad$summary$motion_filtered)
+  expect_equal(strad$framewise_displacement$run1, raw_slow$framewise_displacement$run1, tolerance = 1e-12)
+
+  # Second Nyquist zone (18-24 BPM strictly inside (15, 30) BPM at TR = 2.0 s) -> folds to 6-12 BPM and attenuates 21 BPM!
+  expect_warning(
+    folded <- read_fmriprep_confounds(df_slow, strategy = "none", fd_threshold = 0.30, tr = 2.0, motion_bandstop_bpm = c(18, 24)),
+    "folding to aliased stopband 6.00-12.00 BPM"
+  )
+  expect_true(folded$summary$motion_filtered)
+  expect_lt(folded$summary$mean_fd, 0.05 * raw_slow$summary$mean_fd)
+
+  # Low-pass cutoff >= Nyquist (0.30 Hz >= 0.25 Hz at TR = 2.0 s) -> warns and falls back to unfiltered FD
+  expect_warning(
+    lp_hi <- read_fmriprep_confounds(df_slow, strategy = "none", fd_threshold = 0.30, tr = 2.0, motion_lowpass_hz = 0.30),
+    ">= Nyquist frequency"
+  )
+  expect_false(lp_hi$summary$motion_filtered)
+  expect_equal(lp_hi$framewise_displacement$run1, raw_slow$framewise_displacement$run1, tolerance = 1e-12)
+
+  # Pre-existing framewise_displacement_filtered column -> skips duplicate filtering with warning
+  # and still records true unfiltered Power FD in framewise_displacement_raw!
+  df_already <- df_slow
+  df_already$framewise_displacement_filtered <- rep(0.05, n_v)
+  expect_warning(
+    dup_filt <- read_fmriprep_confounds(df_already, strategy = "none", tr = 0.8, motion_bandstop_bpm = c(12, 18)),
+    "skipping duplicate respiratory motion filter"
+  )
+  expect_false(dup_filt$summary$motion_filtered)
+  expect_equal(dup_filt$framewise_displacement$run1, rep(0.05, n_v))
+  expect_equal(dup_filt$framewise_displacement_raw$run1, raw_slow$framewise_displacement$run1, tolerance = 1e-12)
+
+  # Custom missing fd_col + Nyquist-straddling filter falls back to unfiltered Power FD instead of NA-censoring all rows
+  expect_warning(
+    expect_warning(
+      fb_custom <- read_fmriprep_confounds(
+        df_slow, strategy = "none", fd_col = "missing_custom_fd", fd_threshold = 0.60,
+        tr = 2.0, motion_bandstop_bpm = c(12, 18)
+      ),
+      "recomputing Power"
+    ),
+    "straddles the Nyquist frequency"
+  )
+  expect_true(all(fb_custom$valid_rows$run1))
+  expect_equal(fb_custom$framewise_displacement$run1, raw_slow$framewise_displacement$run1, tolerance = 1e-12)
+
+  # Isolated NA in a drifted rigid-body column interpolates smoothly instead of injecting a step spike to 0
+  t_fast <- (seq_len(n_v) - 1L) * 0.8
+  df_drift_na <- data.frame(
+    trans_x = rep(0, n_v),
+    trans_y = 3.0 + 0.25 * sin(2 * pi * 0.25 * t_fast),
+    trans_z = rep(0, n_v),
+    rot_x = rep(0, n_v),
+    rot_y = rep(0, n_v),
+    rot_z = rep(0, n_v)
+  )
+  df_drift_na$trans_y[40L] <- NA_real_
+  cf_drift_na <- read_fmriprep_confounds(
+    df_drift_na, strategy = "none", fd_threshold = 0.30, tr = 0.8,
+    motion_bandstop_bpm = c(12, 18), include_non_steady_state = FALSE
+  )
+  expect_true(all(cf_drift_na$valid_rows$run1[15:65]))
+
+  # Explicit include_motion_outliers = TRUE warns when raw motion_outlier* re-censors filtered breathing frames
+  df_with_mo <- df_drift_na
+  df_with_mo$trans_y[40L] <- 3.0 + 0.25 * sin(2 * pi * 0.25 * t_fast[40L])
+  df_with_mo$motion_outlier00 <- as.integer(seq_len(n_v) == 30L)
+  expect_warning(
+    cf_mo <- read_fmriprep_confounds(
+      df_with_mo, strategy = "none", fd_threshold = 0.30, tr = 0.8,
+      motion_bandstop_bpm = c(12, 18), include_motion_outliers = TRUE
+    ),
+    "include_motion_outliers = TRUE"
+  )
+  expect_false(cf_mo$valid_rows$run1[30L])
+
+  # Automatic TR inference from a named list of BOLD matrices carrying attr(, "tr") and per-run TR vectors
+  m_r1 <- matrix(0, nrow = n_v, ncol = 2L)
+  attr(m_r1, "tr") <- 0.8
+  cf_list_tr <- read_fmriprep_confounds(
+    list(run1 = df_with_mo[, 1:6], run2 = df_with_mo[, 1:6]),
+    bold = list(run1 = m_r1, run2 = m_r1),
+    strategy = "none",
+    motion_bandstop_bpm = c(12, 18)
+  )
+  expect_true(all(cf_list_tr$summary$motion_filtered))
+  cf_vec_tr <- read_fmriprep_confounds(
+    list(run1 = df_with_mo[, 1:6], run2 = df_with_mo[, 1:6]),
+    tr = c(run1 = 0.8, run2 = 0.8),
+    strategy = "none",
+    motion_bandstop_bpm = c(12, 18)
+  )
+  expect_true(all(cf_vec_tr$summary$motion_filtered))
+
+  # 2. Automatic TR inference from sibling *_bold.json and from read_fmriprep_subject(..., motion_bandstop_bpm = ...)
+  fix <- make_synthetic_bids_fmriprep_tree(tempfile("fd_filt_subj_"), n_time = 40L, tr = 0.8, use_json_tr = TRUE)
+  on.exit(unlink(dirname(fix$bids_dir), recursive = TRUE), add = TRUE)
+
+  # Standalone confound file path infers RepetitionTime = 0.8 from sibling *_bold.json without 'bold' or 'tr'!
+  conf_sidecar_tr <- read_fmriprep_confounds(fix$conf_files[1L], strategy = "6p", motion_bandstop_bpm = c(12, 18))
+  expect_true(conf_sidecar_tr$summary$motion_filtered)
+
+  sub_filt <- read_fmriprep_subject(
+    fmriprep_dir = fix$fmriprep_dir,
+    bids_dir = fix$bids_dir,
+    sub = "01",
+    task = "mid",
+    strategy = "24p",
+    motion_bandstop_bpm = c(12, 18),
+    fd_threshold = 0.5
+  )
+  expect_true(all(sub_filt$confounds$summary$motion_filtered))
+  expect_equal(length(sub_filt$confounds$framewise_displacement_raw), 2L)
+
+  # 3. Exact numerical parity against signal::butter and BrainGnomes::filtfilt_cpp when installed
+  if (requireNamespace("signal", quietly = TRUE)) {
+    for (ord in 1:4) {
+      bw_medusa <- medusa:::design_butterworth_lowpass(ord, cutoff_hz = 0.2, fs = 1.25)
+      bw_sig <- signal::butter(ord, 0.2 / 0.625, type = "low")
+      expect_equal(bw_medusa$b, as.double(bw_sig$b), tolerance = 1e-13)
+      expect_equal(bw_medusa$a, as.double(bw_sig$a), tolerance = 1e-13)
+    }
+  }
+  if (requireNamespace("BrainGnomes", quietly = TRUE)) {
+    set.seed(99L)
+    x_test <- cumsum(rnorm(150L, sd = 0.05)) + 0.2 * sin(2 * pi * 0.25 * seq(0, by = 0.8, length.out = 150L))
+    notch_c <- medusa:::design_iir_notch(f0 = 0.25, bandwidth = 0.10, fs = 1.25)
+    for (pt in c("constant", "odd", "even", "zero")) {
+      y_med <- medusa:::filtfilt_1d(x_test, b = notch_c$b, a = notch_c$a, padtype = pt, use_zi = TRUE)
+      y_bg <- as.double(BrainGnomes:::filtfilt_cpp(x_test, b = notch_c$b, a = notch_c$a, padtype = pt, use_zi = TRUE))
+      expect_equal(y_med, y_bg, tolerance = 1e-13)
+    }
+  }
+})

@@ -20,6 +20,12 @@ read_fmriprep_confounds(
   fd_col = "auto",
   head_radius = 50,
   rot_units = c("rad", "deg"),
+  tr = NULL,
+  motion_bandstop_bpm = NULL,
+  motion_lowpass_hz = NULL,
+  motion_filter_order = NULL,
+  motion_filter_pad = c("constant", "odd", "even", "zero"),
+  motion_filter_target = c("fd_only", "fd_and_nuisance"),
   dvars_threshold = NULL,
   dvars_col = "std_dvars",
   include_non_steady_state = TRUE,
@@ -118,7 +124,47 @@ Power (2012) FD from the 6 rigid-body motion parameters when missing or all
 Power (2012) framewise displacement from the 6 rigid-body motion columns.}
 
 \item{rot_units}{Rotation parameter units (\code{"rad"} default for fMRIPrep,
-or \code{"deg"}) used only when computing fallback Power FD.}
+or \code{"deg"}) used when computing Power (2012) FD from the 6 rigid-body
+motion columns.}
+
+\item{tr}{Optional repetition time in seconds (scalar or per-run numeric
+vector), required only when \code{motion_bandstop_bpm} or
+\code{motion_lowpass_hz} is specified and TR cannot be inferred
+automatically from \code{bold} or a sibling \code{*_bold.json} /
+\code{*_bold.nii(.gz)} file.}
+
+\item{motion_bandstop_bpm}{Optional length-2 numeric vector
+\code{c(min_bpm, max_bpm)} specifying a respiratory band-stop (notch) filter
+in breaths per minute (e.g., \code{c(12, 18)} for typical adult breathing
+at 0.2--0.3 Hz, or \code{c(18.58, 25.73)} per Fair et al., 2020) applied
+zero-phase via forward-backward biquad filtering to the 6 rigid-body motion
+parameters before recomputing Power (2012) FD. Suppresses fast-TR multiband
+respiratory B0 pseudomotion that would otherwise over-censor clean volumes.
+Mutually exclusive with \code{motion_lowpass_hz}. Default \code{NULL}.}
+
+\item{motion_lowpass_hz}{Optional numeric scalar specifying a Butterworth
+low-pass cutoff frequency in Hz (e.g., \code{0.2} Hz; Gratton et al., 2020)
+applied zero-phase via forward-backward filtering to the 6 rigid-body
+motion parameters before recomputing Power (2012) FD. Mutually exclusive
+with \code{motion_bandstop_bpm}. Default \code{NULL}.}
+
+\item{motion_filter_order}{Optional integer effective zero-phase filter order
+(default \code{NULL}, which uses \code{4L}). Must be a positive multiple of
+\code{4} for \code{motion_bandstop_bpm} (each forward-backward 2nd-order
+biquad pass contributes order 4) or an even integer \code{>= 2} for
+\code{motion_lowpass_hz} (a forward-backward \code{N}-pole Butterworth
+low-pass has effective order \code{2 * N}).}
+
+\item{motion_filter_pad}{Boundary reflection padding mode for zero-phase
+forward-backward filtering: \code{"constant"} (default), \code{"odd"},
+\code{"even"}, or \code{"zero"}.}
+
+\item{motion_filter_target}{Whether respiratory motion filtering updates only
+Power (2012) FD and censoring (\code{"fd_only"}, default; preserves
+unfiltered motion nuisance columns so respiratory B0 variance remaining in
+unfiltered BOLD is still modeled) or also replaces the 6 rigid-body motion
+columns and their Friston-24 derivatives/quadratics in \code{nuisance}
+(\code{"fd_and_nuisance"}).}
 
 \item{dvars_threshold}{Optional DVARS censoring cutoff (e.g., \code{1.5} on
 \code{std_dvars}). Default \code{NULL} (disabled).}
@@ -177,8 +223,14 @@ An S3 list of class \code{"medusa_confounds"} containing:
       observation masks (\code{TRUE} = usable, \code{FALSE} = censored).
     \item \code{summary}: Per-run QC \code{data.frame} reporting volume
       counts, censored counts/percentages, outlier breakdowns, mean/max FD,
-      and retained nuisance column counts.
-    \item \code{framewise_displacement}: Run-named list of numeric FD vectors.
+      whether respiratory motion filtering was applied, and retained nuisance
+      column counts.
+    \item \code{framewise_displacement}: Run-named list of numeric FD vectors
+      used for QC and censoring (respiratory-filtered when
+      \code{motion_bandstop_bpm} or \code{motion_lowpass_hz} is active).
+    \item \code{framewise_displacement_raw}: Run-named list of unfiltered FD
+      vectors when \code{motion_bandstop_bpm} or \code{motion_lowpass_hz} is
+      requested (\code{NULL} otherwise).
   }
   The \code{"medusa_confounds"} object can be passed directly as
   \code{nuisance = conf} to \code{\link{estimate_crossrun_hrf}} (automatically

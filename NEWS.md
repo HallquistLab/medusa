@@ -50,9 +50,12 @@
   ordering matched to `bold`); `read_fmriprep_confounds()` converts
   `*_desc-confounds_timeseries.tsv` and `*_desc-<desc>_confounds.tsv` tables
   into clock-preserving `valid_rows` masks (`fd_threshold`, `dvars_threshold`,
-  `framewise_displacement_filtered` / Power 2012 FD fallback, external
-  `*_censor.1D` / `*_scrub.tsv` sidecars, `non_steady_state_outlier*`, spike
-  dilation, `min_segment_length`) and strictly finite `nuisance` matrices
+  optional zero-phase respiratory notch `motion_bandstop_bpm` or Butterworth
+  low-pass `motion_lowpass_hz` filtering of the 6 rigid-body motion parameters
+  prior to Power 2012 FD calculation, `framewise_displacement_filtered` / Power
+  2012 FD fallback, external `*_censor.1D` / `*_scrub.tsv` sidecars,
+  `non_steady_state_outlier*`, spike dilation, `min_segment_length`) and
+  strictly finite `nuisance` matrices
   (`"24p"`, `"12p"`, `"6p"`, `"24p_csf_wm"`, `"27p"`, `"36p"`, `"compcor"`,
   `"custom"` with `<0-k>` range/shorthand expansion, `"none"`) without deleting
   censored TRs; and `read_fmriprep_subject()` discovers raw fMRIPrep (`desc = "preproc"`)
