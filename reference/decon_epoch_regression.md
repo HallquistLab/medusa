@@ -215,12 +215,15 @@ decon_epoch_regression(
   scale factors: `"auto"` (default; enables bilateral `"graph_eb"`
   automatically for voxelwise/vertexwise map workflows with \\\ge 6\\
   units whenever spatial coordinates, `voxel_map`, or `spatial_graph`
-  are available, and uses `"none"` otherwise), `"graph_eb"` (2-pass
+  are available, and uses `"none"` for parcel-level runs unless
+  `spatial_graph` is supplied explicitly), `"graph_eb"` (2-pass
   bilateral Empirical Bayes over a sparse spatial neighborhood graph
   with Isserlis spatial-correlation accounting and Efron-Morris limited
-  translation), `"eb"` (non-spatial global Empirical Bayes across units
-  with residual-correlation accounting), or `"none"` (independent
-  single-unit method-of-moments estimates).
+  translation; for `aggregate_by_parcel = TRUE`, automatically
+  constructs a precision-weighted 3D parcel-centroid Euclidean graph
+  when `spatial_graph` is `NULL`), `"eb"` (non-spatial global Empirical
+  Bayes across units with residual-correlation accounting), or `"none"`
+  (independent single-unit method-of-moments estimates).
 
 - spatial_graph:
 
@@ -231,7 +234,9 @@ decon_epoch_regression(
   used when `tau2_shrinkage` resolves to `"graph_eb"`. When `NULL`,
   inferred automatically from
   `deconvolution$hrf_fit$specification$spatial_graph`,
-  `deconvolution$voxel_map`, or `spatial_coords` when present.
+  `deconvolution$voxel_map`, or `spatial_coords` when present (using
+  precision-weighted 3D parcel centroids when
+  `aggregate_by_parcel = TRUE`).
 
 - aggregate_by_parcel:
 

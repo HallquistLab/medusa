@@ -60,7 +60,8 @@ pooling = &quot;graph&quot;."></head><body>
 <span>  parcel_boundary <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"soft"</span>, <span class="st">"hard"</span>, <span class="st">"ignore"</span><span class="op">)</span>,</span>
 <span>  metric <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"geodesic"</span>, <span class="st">"euclidean"</span><span class="op">)</span>,</span>
 <span>  n_voxels <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  voxel_ids <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  voxel_ids <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  x_type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"coords"</span>, <span class="st">"distance"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -74,16 +75,18 @@ pooling = &quot;graph&quot;."></head><body>
 <code>data.frame</code> with lattice columns <code>i, j, k</code> (or world coordinates
 <code>x, y, z</code>), a numeric \(V \times D\) coordinate matrix, an edge
 <code>data.frame</code> with columns <code>from</code>, <code>to</code> (and optional positive
-<code>dist</code> together with <code>n_voxels</code>), a square numeric/sparse distance
-matrix (nonzero off-diagonal entries giving neighbor distances), or an
-existing <code>"medusa_spatial_graph"</code>.</p></dd>
+<code>dist</code> together with <code>n_voxels</code>), a <code><a href="https://rdrr.io/r/stats/dist.html" class="external-link">dist</a></code>
+object, a square numeric or sparse/dense <code>Matrix</code> distance matrix
+(positive finite off-diagonal entries giving neighbor distances; <code>0</code>
+or <code>Inf</code> denoting disconnected pairs), or an existing
+<code>"medusa_spatial_graph"</code>.</p></dd>
 
 
 <dt id="arg-spatial-fwhm">spatial_fwhm<a class="anchor" aria-label="anchor" href="#arg-spatial-fwhm"></a></dt>
 <dd><p>Optional positive numeric Gaussian spatial kernel FWHM (in
 mm or coordinate units). Defaults to <code>2.5 * median(spacing)</code> for lattice
 inputs and <code>2.5</code> times the median nearest-neighbor distance for
-coordinate matrices.</p></dd>
+coordinate and distance matrices.</p></dd>
 
 
 <dt id="arg-max-neighbors">max_neighbors<a class="anchor" aria-label="anchor" href="#arg-max-neighbors"></a></dt>
@@ -127,6 +130,18 @@ otherwise), <code>"geodesic"</code>, or <code>"euclidean"</code>.</p></dd>
 
 <dt id="arg-voxel-ids">voxel_ids<a class="anchor" aria-label="anchor" href="#arg-voxel-ids"></a></dt>
 <dd><p>Optional character vector of node IDs of length \(V\).</p></dd>
+
+
+<dt id="arg-x-type">x_type<a class="anchor" aria-label="anchor" href="#arg-x-type"></a></dt>
+<dd><p>Disambiguation for matrix inputs <code>x</code>: <code>"auto"</code>
+(default; treats <code>dist</code> and <code>Matrix</code> inputs, as well as square
+\(V \times V\) numeric matrices with \(V &gt; 3\), zero diagonal, and
+nonnegative entries as pairwise distance matrices, and other numeric
+matrices as \(V \times D\) coordinate matrices), <code>"coords"</code> (force
+interpretation as a \(V \times D\) coordinate matrix), or
+<code>"distance"</code> (force interpretation as a square \(V \times V\)
+distance matrix, including small \(2 \times 2\) or \(3 \times 3\)
+distance matrices).</p></dd>
 
 </dl></div>
     <div class="section level2">

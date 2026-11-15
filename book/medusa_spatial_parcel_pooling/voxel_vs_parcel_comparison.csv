@@ -1,0 +1,9 @@
+regime,pathway,rmse_beta,mean_abs_t,detect_fdr05
+Aligned parcel (L Calcarine & L mPFC),Voxelwise (Graph + Stratified + Graph-EB),0.168484408167539,3.57330985434204,0.678787878787879
+Aligned parcel (L Calcarine & L mPFC),Parcel-wise (Step 4 multi-stratum panel),0.0139654326039524,11.9001378628677,1
+Shifted border parcel (L Temp 78),Voxelwise (Graph + Stratified + Graph-EB),0.229826751680394,3.54544038210303,0.623287671232877
+Shifted border parcel (L Temp 78),Parcel-wise (Step 4 multi-stratum panel),0.671233303318285,6.07256993471871,0.472602739726027
+Sub-parcel hotspot (R Insula core),Voxelwise (Graph + Stratified + Graph-EB),0.252706436439104,4.74678253053632,0.9
+Sub-parcel hotspot (R Insula core),Parcel-wise (Step 4 multi-stratum panel),0.504326664138699,9.16011841846291,1
+Null cortex (55 background parcels),Voxelwise (Graph + Stratified + Graph-EB),0.158729117469052,0.851852090522052,0.00802407221664995
+Null cortex (55 background parcels),Parcel-wise (Step 4 multi-stratum panel),0.0362739597560578,0.778407874854935,0

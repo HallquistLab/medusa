@@ -239,9 +239,22 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Spatial and volumetric workflows</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
@@ -271,10 +284,10 @@ window.Quarto = {
   </li>
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
-      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
@@ -742,10 +755,10 @@ Table&nbsp;4.2: Continuous waveform recovery on physical input units (<code>blin
 <td><code>"diff2"</code> (<span class="math inline">\(D_2^\top D_2\)</span>) leaves linear ramps unpenalized, allowing boundary drift or slow baseline swings under weak <span class="math inline">\(\lambda\)</span>. <code>"sobolev"</code> (<span class="math inline">\(0.10 D_1^\top D_1 + 0.90 D_2^\top D_2\)</span>) penalizes both slope and curvature, yielding cleaner baselines and sharper event transitions.</td>
 </tr>
 <tr class="odd">
-<td><code>lambda</code></td>
-<td><code>NULL</code> (auto-tuned)</td>
-<td><code>NULL</code></td>
-<td>Pools task-weighted, gain-calibrated GCV across all usable runs and active voxels. Override with a fixed scalar (e.g., sensitivity check at <code>0.5 * lambda</code> and <code>2 * lambda</code>) only when comparing alternative HRF libraries under strictly matched regularization.</td>
+<td><code>lambda</code> &amp; <code>lambda_mode</code></td>
+<td><code>lambda = NULL</code>, <code>lambda_mode = "auto"</code></td>
+<td><code>NULL</code>, <code>"auto"</code></td>
+<td>Pools task-weighted, gain-calibrated GCV across usable runs. On volumetric maps passing cross-run Fisher + BH-FDR gating, <code>lambda_mode = "auto"</code> stratifies voxels into ascending OOS task-<span class="math inline">\(R^2\)</span> tiers (<code>max_lambda_strata = 4L</code>) with weighted PAVA monotonicity so quiet background cortex receives stronger smoothing without blunting active foci (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-step2-stratified-lambda">Spatial Graph Pooling</a>).</td>
 </tr>
 <tr class="even">
 <td><code>rwls</code></td>

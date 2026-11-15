@@ -133,9 +133,13 @@ deconvolve_crossrun_hrf(
 
 An S3 list of class `"crossrun_decon"` with `activity` matrices, per-run
 `scaling`/status tables (including per-voxel `lambda`), the `hrf_fit`,
-frozen inverse `settings`, standardized `noise_innovations`, per-run
-observation `frame_weights`, and optional NIfTI `voxel_map` and
-`geometry` metadata (enabling direct
+frozen inverse `settings` (including scalar reference `settings$lambda`,
+the named per-voxel penalty vector `settings$lambda_by_voxel` ready for
+1-line 3D NIfTI export via
+[`write_nifti_ts`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md),
+and SNR tier summary table `settings$lambda_strata` when stratified),
+standardized `noise_innovations`, per-run observation `frame_weights`,
+and optional NIfTI `voxel_map` and `geometry` metadata (enabling direct
 [`write_nifti_ts`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md)
 export without an external reference file). Activity matrices retain
 voxel IDs and carry `tr`, `time_offset`, and `observation_mask`

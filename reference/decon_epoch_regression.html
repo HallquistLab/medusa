@@ -257,12 +257,15 @@ biological trial variance \(\hat{\tau}^2_{\mathrm{bio},v}\) and sandwich
 residual scale factors: <code>"auto"</code> (default; enables bilateral
 <code>"graph_eb"</code> automatically for voxelwise/vertexwise map workflows with
 \(\ge 6\) units whenever spatial coordinates, <code>voxel_map</code>, or
-<code>spatial_graph</code> are available, and uses <code>"none"</code> otherwise),
+<code>spatial_graph</code> are available, and uses <code>"none"</code> for parcel-level
+runs unless <code>spatial_graph</code> is supplied explicitly),
 <code>"graph_eb"</code> (2-pass bilateral Empirical Bayes over a sparse spatial
 neighborhood graph with Isserlis spatial-correlation accounting and
-Efron-Morris limited translation), <code>"eb"</code> (non-spatial global Empirical
-Bayes across units with residual-correlation accounting), or <code>"none"</code>
-(independent single-unit method-of-moments estimates).</p></dd>
+Efron-Morris limited translation; for <code>aggregate_by_parcel = TRUE</code>,
+automatically constructs a precision-weighted 3D parcel-centroid Euclidean
+graph when <code>spatial_graph</code> is <code>NULL</code>), <code>"eb"</code> (non-spatial
+global Empirical Bayes across units with residual-correlation accounting),
+or <code>"none"</code> (independent single-unit method-of-moments estimates).</p></dd>
 
 
 <dt id="arg-spatial-graph">spatial_graph<a class="anchor" aria-label="anchor" href="#arg-spatial-graph"></a></dt>
@@ -271,7 +274,9 @@ Bayes across units with residual-correlation accounting), or <code>"none"</code>
 <code><a href="build_spatial_graph.html">build_spatial_graph</a></code> used when <code>tau2_shrinkage</code> resolves
 to <code>"graph_eb"</code>. When <code>NULL</code>, inferred automatically from
 <code>deconvolution$hrf_fit$specification$spatial_graph</code>,
-<code>deconvolution$voxel_map</code>, or <code>spatial_coords</code> when present.</p></dd>
+<code>deconvolution$voxel_map</code>, or <code>spatial_coords</code> when present
+(using precision-weighted 3D parcel centroids when
+<code>aggregate_by_parcel = TRUE</code>).</p></dd>
 
 
 <dt id="arg-aggregate-by-parcel">aggregate_by_parcel<a class="anchor" aria-label="anchor" href="#arg-aggregate-by-parcel"></a></dt>

@@ -238,9 +238,22 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-2-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Spatial and volumetric workflows</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
@@ -270,10 +283,10 @@ window.Quarto = {
   </li>
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
-      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./reference.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
@@ -333,19 +346,19 @@ window.Quarto = {
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;"><strong>Step 1 · NIfTI matrix I/O, HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
-<td style="text-align: left;"><code>read_nifti_ts()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
-<td style="text-align: left;">Streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction with pre-flight geometry checks, 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample cross-run evidence pooling, 2-pass target-excluding REML AR(<span class="math inline">\(p\)</span>) noise refit, Winsorized GLS marginal <code>noise_sd</code>, and task-free <code>noise_innovations</code>.</td>
+<td style="text-align: left;"><strong>Step 1 · NIfTI/BIDS I/O, Censoring, HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
+<td style="text-align: left;"><code>read_fmriprep_subject()</code>, <code>read_fmriprep_confounds()</code>, <code>read_bids_events()</code>, <code>read_nifti_ts()</code>, <code>build_spatial_graph()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
+<td style="text-align: left;">Streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction, BIDS/fMRIPrep/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code>, 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and geodesic bilateral graph pooling (<code>pooling = "graph"</code>), and 2-pass REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 2 · Event-informed continuous deconvolution</strong></td>
 <td style="text-align: left;"><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code>, <code>deconvolve_reglin()</code>, <code>deconvolve_nlreg()</code></td>
-<td style="text-align: left;">Continuous neural source recovery with event-supported <code>lambda</code> tuning, adaptive kurtosis/tail-triggered <code>rwls = "auto"</code> glitch downweighting, <code>"noise_sd"</code> scaling, explicit <code>hrf_inverse_operator()</code> strata, and streaming C++ 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler 2011 comparator).</td>
+<td style="text-align: left;">Continuous neural source recovery with FDR-gated SNR-stratified PAVA <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>), adaptive kurtosis/tail-triggered <code>rwls = "auto"</code> glitch downweighting, <code>"noise_sd"</code> scaling, explicit <code>hrf_inverse_operator()</code> strata, and streaming C++ 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler 2011 comparator).</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 3 · Trial-epoch readout, alignment &amp; demixing</strong></td>
 <td style="text-align: left;"><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code>, <code>evt_align_decon_files()</code></td>
-<td style="text-align: left;">Kernel quadrature onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), post-readout ridge target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, exact Toeplitz error propagation (<code>se_demixed</code>), and fast C++ matrix-native descriptive alignment (<code>align_medusa_ts()</code>).</td>
+<td style="text-align: left;">Kernel quadrature onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), post-readout ridge target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, pre-truncation bilateral Graph-EB trial variance (<code>tau2_shrinkage = "graph_eb"</code>), exact Toeplitz error propagation (<code>se_demixed</code>), and fast C++ matrix-native descriptive alignment (<code>align_medusa_ts()</code>).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 4 · Parcel panels &amp; cohort weights</strong></td>
@@ -368,7 +381,7 @@ window.Quarto = {
 </section>
 <section id="reproducing-all-simulations-figures-and-the-book" class="level2">
 <h2 class="anchored" data-anchor-id="reproducing-all-simulations-figures-and-the-book">Reproducing All Simulations, Figures, and the Book</h2>
-<p>With <code>medusa</code> and its plotting/reporting dependencies (<code>ggplot2</code>, <code>data.table</code>, <code>lmerTest</code>, <code>knitr</code>, <code>rmarkdown</code>) installed in R, render the book from <code>book/</code>:</p>
+<p>With <code>medusa</code> and its plotting/reporting dependencies (<code>ggplot2</code>, <code>ggbrain</code>, <code>patchwork</code>, <code>RNifti</code>, <code>data.table</code>, <code>lmerTest</code>, <code>knitr</code>, <code>rmarkdown</code>) installed in R, render the book from <code>book/</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Because <code>quarto render</code> reads the saved <code>.rds</code> and <code>.csv</code> outputs generated by each chapter’s standalone scripts, rendering completes in seconds. To regenerate every simulation, diagnostic table, and figure from scratch against the installed <code>medusa</code> package, run the chapter scripts below from <code>book/</code>:</p>
 <details>
@@ -404,8 +417,11 @@ Show full simulation and figure regeneration commands
 <span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step6_connectivity <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures.R<span class="kw">)</span></span>
 <span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_connectivity_inference <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> prepare_figures.R<span class="kw">)</span></span>
 <span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Render full Quarto HTML book to _book/</span></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Volumetric spatial &amp; parcel pooling benchmark + ggbrain maps</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_spatial_parcel_pooling <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_spatial_pooling.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_spatial_pooling.R<span class="kw">)</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co"># Render full Quarto HTML book to _book/</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </section>
 <section id="companion-archives-library" class="level2">

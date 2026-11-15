@@ -17,7 +17,8 @@ build_spatial_graph(
   parcel_boundary = c("soft", "hard", "ignore"),
   metric = c("auto", "geodesic", "euclidean"),
   n_voxels = NULL,
-  voxel_ids = NULL
+  voxel_ids = NULL,
+  x_type = c("auto", "coords", "distance")
 )
 ```
 
@@ -30,15 +31,17 @@ build_spatial_graph(
   lattice columns `i, j, k` (or world coordinates `x, y, z`), a numeric
   \\V \times D\\ coordinate matrix, an edge `data.frame` with columns
   `from`, `to` (and optional positive `dist` together with `n_voxels`),
-  a square numeric/sparse distance matrix (nonzero off-diagonal entries
-  giving neighbor distances), or an existing `"medusa_spatial_graph"`.
+  a [`dist`](https://rdrr.io/r/stats/dist.html) object, a square numeric
+  or sparse/dense `Matrix` distance matrix (positive finite off-diagonal
+  entries giving neighbor distances; `0` or `Inf` denoting disconnected
+  pairs), or an existing `"medusa_spatial_graph"`.
 
 - spatial_fwhm:
 
   Optional positive numeric Gaussian spatial kernel FWHM (in mm or
   coordinate units). Defaults to `2.5 * median(spacing)` for lattice
   inputs and `2.5` times the median nearest-neighbor distance for
-  coordinate matrices.
+  coordinate and distance matrices.
 
 - max_neighbors:
 
@@ -82,6 +85,17 @@ build_spatial_graph(
 - voxel_ids:
 
   Optional character vector of node IDs of length \\V\\.
+
+- x_type:
+
+  Disambiguation for matrix inputs `x`: `"auto"` (default; treats `dist`
+  and `Matrix` inputs, as well as square \\V \times V\\ numeric matrices
+  with \\V \> 3\\, zero diagonal, and nonnegative entries as pairwise
+  distance matrices, and other numeric matrices as \\V \times D\\
+  coordinate matrices), `"coords"` (force interpretation as a \\V \times
+  D\\ coordinate matrix), or `"distance"` (force interpretation as a
+  square \\V \times V\\ distance matrix, including small \\2 \times 2\\
+  or \\3 \times 3\\ distance matrices).
 
 ## Value
 

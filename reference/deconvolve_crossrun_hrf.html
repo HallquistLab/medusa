@@ -175,13 +175,17 @@ Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An S3 list of class <code>"crossrun_decon"</code> with <code>activity</code>
   matrices, per-run <code>scaling</code>/status tables (including per-voxel
-  <code>lambda</code>), the <code>hrf_fit</code>, frozen inverse <code>settings</code>,
-  standardized <code>noise_innovations</code>, per-run observation
-  <code>frame_weights</code>, and optional NIfTI <code>voxel_map</code> and
-  <code>geometry</code> metadata (enabling direct <code><a href="write_nifti_ts.html">write_nifti_ts</a></code>
-  export without an external reference file). Activity matrices retain voxel
-  IDs and carry <code>tr</code>, <code>time_offset</code>, and <code>observation_mask</code>
-  attributes for subsequent event alignment.</p>
+  <code>lambda</code>), the <code>hrf_fit</code>, frozen inverse <code>settings</code>
+  (including scalar reference <code>settings$lambda</code>, the named per-voxel
+  penalty vector <code>settings$lambda_by_voxel</code> ready for 1-line 3D NIfTI
+  export via <code><a href="write_nifti_ts.html">write_nifti_ts</a></code>, and SNR tier summary table
+  <code>settings$lambda_strata</code> when stratified), standardized
+  <code>noise_innovations</code>, per-run observation <code>frame_weights</code>, and
+  optional NIfTI <code>voxel_map</code> and <code>geometry</code> metadata (enabling
+  direct <code><a href="write_nifti_ts.html">write_nifti_ts</a></code> export without an external reference
+  file). Activity matrices retain voxel IDs and carry <code>tr</code>,
+  <code>time_offset</code>, and <code>observation_mask</code> attributes for subsequent
+  event alignment.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
