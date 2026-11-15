@@ -24,6 +24,8 @@ decon_epoch_regression(
   duration_scale = c("rate", "integral"),
   weighting = c("precision", "gls", "none"),
   tau2_mode = c("auto", "residual", "marginal"),
+  tau2_shrinkage = c("auto", "graph_eb", "eb", "none"),
+  spatial_graph = NULL,
   aggregate_by_parcel = FALSE,
   parcel_groups = NULL,
   whiten_panel = FALSE,
@@ -156,6 +158,25 @@ residuals minus projected operator variance \eqn{\mathrm{tr}((\mathbf{I}-\mathbf
 or \code{"marginal"} (covariate-agnostic estimator combining run-centered
 marginal variance, lag-1 trial difference variance, and robust MAD scale
 minus analytical operator variance expectations).}
+
+\item{tau2_shrinkage}{Empirical-Bayes shrinkage across analysis units for
+biological trial variance \eqn{\hat{\tau}^2_{\mathrm{bio},v}} and sandwich
+residual scale factors: \code{"auto"} (default; enables bilateral
+\code{"graph_eb"} automatically for voxelwise/vertexwise map workflows with
+\eqn{\ge 6} units whenever spatial coordinates, \code{voxel_map}, or
+\code{spatial_graph} are available, and uses \code{"none"} otherwise),
+\code{"graph_eb"} (2-pass bilateral Empirical Bayes over a sparse spatial
+neighborhood graph with Isserlis spatial-correlation accounting and
+Efron-Morris limited translation), \code{"eb"} (non-spatial global Empirical
+Bayes across units with residual-correlation accounting), or \code{"none"}
+(independent single-unit method-of-moments estimates).}
+
+\item{spatial_graph}{Optional \code{"medusa_spatial_graph"} object (from
+\code{\link{build_spatial_graph}}) or spatial input accepted by
+\code{\link{build_spatial_graph}} used when \code{tau2_shrinkage} resolves
+to \code{"graph_eb"}. When \code{NULL}, inferred automatically from
+\code{deconvolution$hrf_fit$specification$spatial_graph},
+\code{deconvolution$voxel_map}, or \code{spatial_coords} when present.}
 
 \item{aggregate_by_parcel}{Logical; if \code{TRUE}, aggregates deconvolved
 signals across voxels within each spatial parcel (using inverse-variance

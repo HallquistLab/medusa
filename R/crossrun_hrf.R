@@ -271,6 +271,9 @@ hrf_unpack_bold_input <- function(bold) {
     ))
   }
   tr_val <- NULL
+  vm_list <- NULL
+  p_ids_list <- NULL
+  geom_list <- NULL
   if (is.list(bold) && length(bold) > 0L && is.matrix(bold[[1L]])) {
     run_trs <- lapply(bold, attr, which = "tr", exact = TRUE)
     has_all_tr <- all(vapply(run_trs, function(v) is.numeric(v) && length(v) == 1L && is.finite(v) && v > 0, logical(1L)))
@@ -278,13 +281,30 @@ hrf_unpack_bold_input <- function(bold) {
       tr_vec <- unlist(run_trs, use.names = FALSE)
       if (max(abs(tr_vec - tr_vec[1L])) <= 1e-6) tr_val <- as.numeric(tr_vec[1L])
     }
+    vm_1 <- attr(bold[[1L]], "voxel_map", exact = TRUE)
+    geom_1 <- attr(bold[[1L]], "geometry", exact = TRUE)
+    p_ids_1 <- attr(bold[[1L]], "parcel_ids", exact = TRUE)
+    if (!is.null(vm_1) || !is.null(geom_1)) {
+      bold <- lapply(bold, function(m) {
+        if (!is.matrix(m)) return(m)
+        orient_m <- attr(m, "orientation", exact = TRUE)
+        out_m <- if (identical(orient_m, "voxel_by_time")) t(m) else m
+        for (at in c("voxel_map", "parcel_ids", "tr", "geometry", "orientation")) {
+          attr(out_m, at) <- NULL
+        }
+        out_m
+      })
+      vm_list <- vm_1
+      geom_list <- geom_1
+      p_ids_list <- p_ids_1
+    }
   }
   list(
     bold = bold,
-    voxel_map = NULL,
-    parcel_ids = NULL,
+    voxel_map = vm_list,
+    parcel_ids = p_ids_list,
     tr = tr_val,
-    geometry = NULL,
+    geometry = geom_list,
     events = NULL,
     nuisance = NULL,
     valid_rows = NULL
@@ -1784,10 +1804,12 @@ print.crossrun_hrf <- function(x, ...) {
 #'   IDs/order/dimensions matching the HRF fit. These should be the same
 #'   preprocessed BOLD used for estimation.
 #' @param hrf_fit Object returned by estimate_crossrun_hrf().
-#' @param lambda Nonnegative regularization strength. If \code{NULL} (the
-#'   default for modern \code{ar1}/\code{calibrated} fits), selected
+#' @param lambda Nonnegative regularization strength (either a scalar or a
+#'   per-voxel numeric vector of length \code{ncol(bold[[1]])}). If \code{NULL}
+#'   (the default for modern \code{ar1}/\code{calibrated} fits), selected
 #'   automatically from \code{lambda_grid} by gain-calibrated, task-weighted
-#'   adaptive prewhitened generalized cross-validation using \code{gcv_rule}.
+#'   adaptive prewhitened generalized cross-validation using \code{gcv_rule}
+#'   and \code{lambda_mode}.
 #' @param scaling Input scaling: zscore (default), noise_sd, demean, none, or psc.
 #' @param penalty Quadratic penalty: diff2, diff1, ridge, matern1, or sobolev.
 #' @param backend Fixed linear inverse backend: cpp, r, or scalar wiener.
@@ -1809,6 +1831,16 @@ print.crossrun_hrf <- function(x, ...) {
 #'   \code{lambda = NULL}.
 #' @param gcv_rule Selection rule (\code{"min"} or \code{"1se"}) used when
 #'   \code{lambda = NULL}.
+#' @param lambda_mode Spatial regularization tuning mode when \code{lambda = NULL}:
+#'   \code{"auto"} (default; stratifies \code{lambda} across out-of-sample
+#'   task-informativeness tiers when the map exhibits SNR heterogeneity across
+#'   active and background cortex, and falls back to \code{"global"} on
+#'   homogeneous maps), \code{"global"} (single scalar \code{lambda} for all
+#'   voxels), or \code{"stratified"} (monotone SNR-tier \code{lambda} up to
+#'   \code{max_lambda_strata} strata).
+#' @param max_lambda_strata Maximum number of SNR regularization strata when
+#'   \code{lambda = NULL} and \code{lambda_mode} is \code{"auto"} or
+#'   \code{"stratified"} (default \code{4L}).
 #' @param rwls Robust weighted least-squares frame weighting mode for transient
 #'   temporal artifacts (e.g., sub-censoring-threshold motion glitches or RF spikes):
 #'   \code{"auto"} (default; enables \code{"woodbury"} on modern AR/calibrated fits and
@@ -1818,16 +1850,18 @@ print.crossrun_hrf <- function(x, ...) {
 #'   Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 #'   \code{"innovation"} (Diedrichsen-style innovation-space downweighting).
 #' @return An S3 list of class \code{"crossrun_decon"} with \code{activity}
-#'   matrices, per-run \code{scaling}/status tables, the \code{hrf_fit}, frozen
-#'   inverse \code{settings}, standardized \code{noise_innovations}, per-run
-#'   observation \code{frame_weights}, and optional NIfTI \code{voxel_map} and
+#'   matrices, per-run \code{scaling}/status tables (including per-voxel
+#'   \code{lambda}), the \code{hrf_fit}, frozen inverse \code{settings},
+#'   standardized \code{noise_innovations}, per-run observation
+#'   \code{frame_weights}, and optional NIfTI \code{voxel_map} and
 #'   \code{geometry} metadata (enabling direct \code{\link{write_nifti_ts}}
 #'   export without an external reference file). Activity matrices retain voxel
 #'   IDs and carry \code{tr}, \code{time_offset}, and \code{observation_mask}
 #'   attributes for subsequent event alignment.
-#' @details One inverse operator is constructed per selected HRF/run length,
-#'   cached for consecutive runs with identical masks/nuisance designs, and applied using block
-#'   matrix products for cpp/r. Scalar Wiener uses direct block FFT fits.
+#' @details One inverse operator is constructed per selected HRF/noise/lambda
+#'   stratum and run length, cached for consecutive runs with identical
+#'   masks/nuisance designs, and applied using block matrix products for cpp/r.
+#'   Scalar Wiener uses direct block FFT fits.
 #'   HRFs are frozen; no voxelwise factorization or R fitting loop is required.
 #'   AR/calibrated fits use a masked GLS inverse with the frozen run-specific
 #'   noise covariance. A gap of d acquisitions uses rho^d and the corresponding
@@ -1846,6 +1880,7 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     batch_size = 2048L, tail_padding = 0L, ridge_floor = 1e-8, operator_cache_mb = 128,
     nuisance_mode = NULL, observation_mask = NULL,
     lambda_grid = 10^seq(-2, 1.0, length.out = 16), gcv_rule = c("min", "1se"),
+    lambda_mode = c("auto", "global", "stratified"), max_lambda_strata = 4L,
     rwls = "auto") {
   bold_unpacked <- hrf_unpack_bold_input(bold)
   bold <- bold_unpacked$bold
@@ -1863,8 +1898,17 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
   geometry <- if (!is.null(bold_unpacked$geometry)) bold_unpacked$geometry else hrf_fit$geometry
   modern <- identical(hrf_fit$settings$noise_model, "ar1") || identical(hrf_fit$settings$evidence, "calibrated")
   if (missing(lambda) && !modern) stop("Specify lambda explicitly (or pass lambda = NULL for GCV tuning)")
-  checkmate::assert_number(lambda, lower = 0, finite = TRUE, null.ok = TRUE)
+  n_vox_total <- ncol(bold[[1L]])
+  if (!is.null(lambda)) {
+    checkmate::assert_numeric(lambda, lower = 0, finite = TRUE, any.missing = FALSE, min.len = 1L)
+    if (!(length(lambda) %in% c(1L, n_vox_total))) {
+      stop("lambda must be NULL, a single nonnegative number, or a vector of length ncol(bold[[1]])")
+    }
+  }
   gcv_rule <- match.arg(gcv_rule)
+  lambda_mode <- match.arg(lambda_mode)
+  checkmate::assert_integerish(max_lambda_strata, lower = 1L, upper = 16L, len = 1L, any.missing = FALSE)
+  max_lambda_strata <- as.integer(max_lambda_strata)
   scaling <- match.arg(scaling, c("zscore", "demean", "none", "psc", "noise_sd"))
   penalty <- match.arg(penalty); backend <- match.arg(backend)
   checkmate::assert_integerish(batch_size, lower = 1, len = 1L)
@@ -2106,6 +2150,7 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
 
   # Automatic gain-calibrated, task-weighted prewhitened GCV tuning when lambda = NULL:
   lambda_tuning <- NULL
+  lambda_strata <- NULL
   if (is.null(lambda)) {
     checkmate::assert_numeric(lambda_grid, lower = 0, any.missing = FALSE, min.len = 1L, finite = TRUE)
     lambda_grid <- sort(unique(as.numeric(lambda_grid)))
@@ -2122,13 +2167,38 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
       backend = backend,
       gcv_rule = gcv_rule,
       frame_weights = frame_weights,
-      precomputed_nsd = precomputed_nsd
+      precomputed_nsd = precomputed_nsd,
+      lambda_mode = lambda_mode,
+      max_lambda_strata = max_lambda_strata,
+      voxel_map = voxel_map,
+      geometry = geometry
     )
-    lambda <- tuned$lambda
+    lambda_scalar <- as.numeric(tuned$lambda)[1L]
     lambda_tuning <- tuned$tuning
+    lambda_by_voxel <- if (!is.null(tuned$lambda_by_voxel) && length(tuned$lambda_by_voxel) == n_vox_total) {
+      as.numeric(tuned$lambda_by_voxel)
+    } else {
+      rep(lambda_scalar, n_vox_total)
+    }
+    lambda_strata <- tuned$lambda_strata
+    lambda_mode_req <- lambda_mode
+    lambda_mode_used <- if (!is.null(tuned$lambda_mode_used)) tuned$lambda_mode_used else "global"
+  } else if (length(lambda) == 1L) {
+    lambda_scalar <- as.numeric(lambda)[1L]
+    lambda_by_voxel <- rep(lambda_scalar, n_vox_total)
+    lambda_mode_req <- "fixed"
+    lambda_mode_used <- "fixed"
+  } else {
+    lambda_by_voxel <- as.numeric(lambda)
+    lambda_scalar <- stats::median(lambda_by_voxel)
+    lambda_mode_req <- "voxel_vector"
+    lambda_mode_used <- if (length(unique(lambda_by_voxel)) > 1L) "voxel_vector" else "fixed"
   }
 
-  settings <- list(lambda = lambda, lambda_tuning = lambda_tuning, scaling = scaling, penalty = penalty,
+  settings <- list(lambda = lambda_scalar, lambda_tuning = lambda_tuning,
+    lambda_mode = lambda_mode_req, lambda_mode_used = lambda_mode_used,
+    lambda_strata = lambda_strata, max_lambda_strata = max_lambda_strata,
+    scaling = scaling, penalty = penalty,
     backend = backend, tail_padding = as.integer(tail_padding), ridge_floor = ridge_floor,
     batch_size = as.integer(batch_size), operator_cache_mb = operator_cache_mb,
     hrf_selection = "frozen_crossrun", nuisance_mode = nuisance_mode,
@@ -2139,6 +2209,7 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
   operators <- new.env(parent = emptyenv())
   cached_design <- NULL
   cache_keys <- character(); cache_bytes <- 0
+  has_multi_lam <- length(unique(lambda_by_voxel)) > 1L
   for (r in seq_along(bold)) {
     y <- bold[[r]]; n <- nrow(y)
     prep_r <- run_prep[[r]]
@@ -2162,13 +2233,17 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     }
     out <- matrix(NA_real_, n, ncol(y), dimnames = dimnames(y))
     centers <- divisors <- noise_sds <- rep(NA_real_, ncol(y))
-    # Group voxels into strata that share the exact same (kernel / weight vector, rho) pair.
+    # Group voxels into strata that share the exact same (kernel / weight vector, rho, lambda) tuple.
     # Because the regularized GLS inverse operator M = (H' W' Q_Z W H + lambda P)^-1 H' W' Q_Z W
     # depends only on (n, kernel, valid_rows, rho, nuisance, lambda, penalty, obs_weights),
     # all voxels in a stratum share a single n x m_obs inverse operator matrix,
     # turning voxelwise deconvolution into fast BLAS matrix multiplication (M %*% Y_block)
     # and caching operators across runs when observation masks, nuisance, and weights match.
-    strata <- strat$keys
+    strata <- if (has_multi_lam) {
+      paste(strat$keys, sprintf("%.12g", lambda_by_voxel), sep = "|lam:")
+    } else {
+      strat$keys
+    }
     for (key in unique(strata[status == "ok"])) {
       columns <- which(strata == key & status == "ok")
       ar <- rho[columns[1L]]
@@ -2178,9 +2253,10 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
       ar_psi3 <- if (!is.null(strat$psi3)) strat$psi3[columns[1L]] else 0.0
       ar_psi4 <- if (!is.null(strat$psi4)) strat$psi4[columns[1L]] else 0.0
       k_vec <- as.numeric(strat$get_kernel(columns[1L]))
+      lam_k <- lambda_by_voxel[columns[1L]]
       if (backend != "wiener") {
         if (exists(key, envir = operators, inherits = FALSE)) operator <- get(key, envir = operators) else {
-          operator <- hrf_inverse_operator(n, k_vec, rows, ar_op, z, settings, obs_weights = w_op)
+          operator <- hrf_inverse_operator(n, k_vec, rows, ar_op, z, settings, obs_weights = w_op, lambda = lam_k)
           bytes <- as.numeric(utils::object.size(operator))
           if (bytes <= operator_cache_mb * 1024^2) {
             while (length(cache_keys) && cache_bytes + bytes > operator_cache_mb * 1024^2) {
@@ -2209,7 +2285,7 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
         )
         out[, indices] <- if (backend == "wiener") {
           fit_input <- rbind(scaled$y, matrix(0, tail_padding, length(indices)))
-          deconvolve_reglin(fit_input, k_vec, lambda = lambda,
+          deconvolve_reglin(fit_input, k_vec, lambda = lam_k,
             scaling = "none", backend = "wiener",
             kernel_normalize = if (!is.null(hrf_fit$settings$kernel_normalize)) hrf_fit$settings$kernel_normalize else "signed_sum")[seq_len(n), , drop = FALSE]
         } else operator %*% scaled$y
@@ -2226,7 +2302,7 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     noise_innovations[[r]] <- z_innov_r
     scaling_tables[[r]] <- data.frame(run = names(bold)[r], voxel = colnames(y),
       status = status, center = centers, scale = divisors, noise_sd = noise_sds,
-      scaling = scaling, noise_rho = rho, n_observations = length(rows))
+      scaling = scaling, noise_rho = rho, lambda = lambda_by_voxel, n_observations = length(rows))
   }
   structure(
     list(
@@ -2247,13 +2323,21 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
 print.crossrun_decon <- function(x, ...) {
   n_runs <- length(x$activity)
   n_vox <- if (n_runs > 0L) ncol(x$activity[[1L]]) else 0L
+  lam_str <- if (!is.null(x$settings$lambda_strata) && is.data.frame(x$settings$lambda_strata) &&
+                 nrow(x$settings$lambda_strata) > 1L &&
+                 length(unique(x$settings$lambda_strata$lambda)) > 1L) {
+    ls_v <- x$settings$lambda_strata$lambda
+    sprintf("%.4g..%.4g (%d SNR strata, ref %.4g)", min(ls_v), max(ls_v), nrow(x$settings$lambda_strata), x$settings$lambda)
+  } else {
+    sprintf("%.4g", x$settings$lambda)
+  }
   cat(sprintf(
-    "<crossrun_decon> %d run%s | %d voxel%s | scaling: %s | penalty: %s | lambda: %.4g | rwls: %s\n",
+    "<crossrun_decon> %d run%s | %d voxel%s | scaling: %s | penalty: %s | lambda: %s | rwls: %s\n",
     n_runs, if (n_runs == 1L) "" else "s",
     n_vox, if (n_vox == 1L) "" else "s",
     x$settings$scaling,
     x$settings$penalty,
-    x$settings$lambda,
+    lam_str,
     x$settings$rwls
   ))
   if (!is.null(x$geometry)) {

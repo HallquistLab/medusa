@@ -19,6 +19,8 @@ deconvolve_crossrun_hrf(
   observation_mask = NULL,
   lambda_grid = 10^seq(-2, 1, length.out = 16),
   gcv_rule = c("min", "1se"),
+  lambda_mode = c("auto", "global", "stratified"),
+  max_lambda_strata = 4L,
   rwls = "auto"
 )
 }
@@ -30,10 +32,12 @@ preprocessed BOLD used for estimation.}
 
 \item{hrf_fit}{Object returned by estimate_crossrun_hrf().}
 
-\item{lambda}{Nonnegative regularization strength. If \code{NULL} (the
-default for modern \code{ar1}/\code{calibrated} fits), selected
+\item{lambda}{Nonnegative regularization strength (either a scalar or a
+per-voxel numeric vector of length \code{ncol(bold[[1]])}). If \code{NULL}
+(the default for modern \code{ar1}/\code{calibrated} fits), selected
 automatically from \code{lambda_grid} by gain-calibrated, task-weighted
-adaptive prewhitened generalized cross-validation using \code{gcv_rule}.}
+adaptive prewhitened generalized cross-validation using \code{gcv_rule}
+and \code{lambda_mode}.}
 
 \item{scaling}{Input scaling: zscore (default), noise_sd, demean, none, or psc.}
 
@@ -67,6 +71,18 @@ observations (all). Defaults to fit for AR/calibrated, all for OLS/legacy.}
 \item{gcv_rule}{Selection rule (\code{"min"} or \code{"1se"}) used when
 \code{lambda = NULL}.}
 
+\item{lambda_mode}{Spatial regularization tuning mode when \code{lambda = NULL}:
+\code{"auto"} (default; stratifies \code{lambda} across out-of-sample
+task-informativeness tiers when the map exhibits SNR heterogeneity across
+active and background cortex, and falls back to \code{"global"} on
+homogeneous maps), \code{"global"} (single scalar \code{lambda} for all
+voxels), or \code{"stratified"} (monotone SNR-tier \code{lambda} up to
+\code{max_lambda_strata} strata).}
+
+\item{max_lambda_strata}{Maximum number of SNR regularization strata when
+\code{lambda = NULL} and \code{lambda_mode} is \code{"auto"} or
+\code{"stratified"} (default \code{4L}).}
+
 \item{rwls}{Robust weighted least-squares frame weighting mode for transient
 temporal artifacts (e.g., sub-censoring-threshold motion glitches or RF spikes):
 \code{"auto"} (default; enables \code{"woodbury"} on modern AR/calibrated fits and
@@ -78,9 +94,10 @@ Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 }
 \value{
 An S3 list of class \code{"crossrun_decon"} with \code{activity}
-  matrices, per-run \code{scaling}/status tables, the \code{hrf_fit}, frozen
-  inverse \code{settings}, standardized \code{noise_innovations}, per-run
-  observation \code{frame_weights}, and optional NIfTI \code{voxel_map} and
+  matrices, per-run \code{scaling}/status tables (including per-voxel
+  \code{lambda}), the \code{hrf_fit}, frozen inverse \code{settings},
+  standardized \code{noise_innovations}, per-run observation
+  \code{frame_weights}, and optional NIfTI \code{voxel_map} and
   \code{geometry} metadata (enabling direct \code{\link{write_nifti_ts}}
   export without an external reference file). Activity matrices retain voxel
   IDs and carry \code{tr}, \code{time_offset}, and \code{observation_mask}
@@ -90,9 +107,10 @@ An S3 list of class \code{"crossrun_decon"} with \code{activity}
 Deconvolve runs using frozen HRFs learned from other runs
 }
 \details{
-One inverse operator is constructed per selected HRF/run length,
-  cached for consecutive runs with identical masks/nuisance designs, and applied using block
-  matrix products for cpp/r. Scalar Wiener uses direct block FFT fits.
+One inverse operator is constructed per selected HRF/noise/lambda
+  stratum and run length, cached for consecutive runs with identical
+  masks/nuisance designs, and applied using block matrix products for cpp/r.
+  Scalar Wiener uses direct block FFT fits.
   HRFs are frozen; no voxelwise factorization or R fitting loop is required.
   AR/calibrated fits use a masked GLS inverse with the frozen run-specific
   noise covariance. A gap of d acquisitions uses rho^d and the corresponding

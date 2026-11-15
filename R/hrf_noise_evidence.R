@@ -1696,8 +1696,9 @@ hrf_estimate_rwls_weights <- function(z_raw, r_obs = NULL, rows, ar_vec = 0.0,
   w_wood
 }
 
-hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_weights = NULL) {
+hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_weights = NULL, lambda = NULL) {
   measured <- length(rows)
+  lam_use <- if (is.null(lambda)) as.numeric(settings$lambda)[1L] else as.numeric(lambda)[1L]
   w_space <- if (!is.null(obs_weights) && !is.null(attr(obs_weights, "weight_space"))) {
     as.character(attr(obs_weights, "weight_space"))[1L]
   } else if (!is.null(settings$rwls_space)) {
@@ -1712,7 +1713,7 @@ hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_w
   if (settings$backend == "cpp") {
     if (!has_psi) {
       return(hrf_inverse_operator_cpp(as.integer(n), kernel,
-        rows, rho[1L], nuisance, settings$lambda, settings$penalty, settings$ridge_floor,
+        rows, rho[1L], nuisance, lam_use, settings$penalty, settings$ridge_floor,
         as.integer(settings$tail_padding),
         obs_weights = w_arg, weight_space = w_space))
     }
@@ -1722,12 +1723,12 @@ hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_w
     info <- hrf_ar_cascade_info(rho, max_lag = lag_span)
     if (!length(info$phi)) {
       return(hrf_inverse_operator_cpp(as.integer(n), kernel,
-        rows, 0.0, nuisance, settings$lambda, settings$penalty, settings$ridge_floor,
+        rows, 0.0, nuisance, lam_use, settings$penalty, settings$ridge_floor,
         as.integer(settings$tail_padding),
         obs_weights = w_arg, weight_space = w_space))
     }
     return(hrf_inverse_operator_cpp(as.integer(n), kernel,
-      rows, 0.0, nuisance, settings$lambda, settings$penalty, settings$ridge_floor,
+      rows, 0.0, nuisance, lam_use, settings$penalty, settings$ridge_floor,
       as.integer(settings$tail_padding),
       ar_phi = info$phi, ar_acf = info$acf, sig_u2 = info$sig_u2,
       obs_weights = w_arg, weight_space = w_space))
@@ -1763,9 +1764,44 @@ hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_w
       h <- h - q %*% crossprod(q, h); rhs <- rhs - q %*% crossprod(q, rhs)
     }
   }
-  lhs <- crossprod(h) + settings$lambda * decon_penalty_crossprod(ncol(h), settings$penalty)
+  lhs <- crossprod(h) + lam_use * decon_penalty_crossprod(ncol(h), settings$penalty)
   diag(lhs) <- diag(lhs) + settings$ridge_floor
   solve(lhs, crossprod(h, rhs))[length(kernel) - 1L + seq_len(n), , drop = FALSE]
+}
+
+# Weighted Pool-Adjacent-Violators (PAVA) for monotone non-increasing sequence y_1 >= y_2 >= ... >= y_G.
+hrf_pava_nonincreasing <- function(y, w = NULL) {
+  n <- length(y)
+  if (n <= 1L) return(as.numeric(y))
+  if (is.null(w)) w <- rep(1.0, n)
+  w <- pmax(as.numeric(w), 1e-8)
+  # Non-increasing y is equivalent to non-decreasing -y; apply standard PAVA on -y.
+  z <- -as.numeric(y)
+  blk_val <- numeric(n)
+  blk_w <- numeric(n)
+  blk_len <- integer(n)
+  m <- 0L
+  for (i in seq_len(n)) {
+    m <- m + 1L
+    blk_val[m] <- z[i]
+    blk_w[m] <- w[i]
+    blk_len[m] <- 1L
+    while (m >= 2L && blk_val[m - 1L] > blk_val[m]) {
+      w_tot <- blk_w[m - 1L] + blk_w[m]
+      blk_val[m - 1L] <- (blk_w[m - 1L] * blk_val[m - 1L] + blk_w[m] * blk_val[m]) / w_tot
+      blk_w[m - 1L] <- w_tot
+      blk_len[m - 1L] <- blk_len[m - 1L] + blk_len[m]
+      m <- m - 1L
+    }
+  }
+  out <- numeric(n)
+  pos <- 0L
+  for (b in seq_len(m)) {
+    len_b <- blk_len[b]
+    out[(pos + 1L):(pos + len_b)] <- -blk_val[b]
+    pos <- pos + len_b
+  }
+  out
 }
 
 # Gain-calibrated, task-weighted adaptive prewhitened GCV selection for the
@@ -1798,23 +1834,37 @@ hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_w
 hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore",
     penalty = "sobolev", ridge_floor = 1e-8, observation_mask = "fit",
     backend = "cpp", gcv_rule = c("min", "1se"), nuisance_mode = "ignore", tail_padding = 0L,
-    frame_weights = NULL, precomputed_nsd = NULL) {
+    frame_weights = NULL, precomputed_nsd = NULL,
+    lambda_mode = c("auto", "global", "stratified"), max_lambda_strata = 4L,
+    voxel_map = NULL, geometry = NULL) {
   gcv_rule <- match.arg(gcv_rule)
+  lambda_mode <- match.arg(lambda_mode)
+  max_lambda_strata <- as.integer(max_lambda_strata)
   lambda_grid <- sort(unique(as.numeric(lambda_grid)))
+  n_runs <- length(bold)
+  n_vox <- ncol(bold[[1L]])
+
   if (length(lambda_grid) == 1L) {
+    lam1 <- lambda_grid[1L]
     return(list(
-      lambda = lambda_grid[1L],
+      lambda = lam1,
       tuning = data.frame(
-        kernel = 1L, lambda = lambda_grid[1L], df = NA_real_, rss = NA_real_,
+        kernel = 1L, lambda = lam1, df = NA_real_, rss = NA_real_,
         gcv = NA_real_, gcv_se = NA_real_, var_level = NA_real_,
         var_contrast = NA_real_, mtf_rel = 1.0, gcv_adaptive = 1.0, snr_task = NA_real_
-      )
+      ),
+      lambda_by_voxel = rep(lam1, n_vox),
+      lambda_strata = data.frame(
+        tier = 1L, label = "global", n_voxels = n_vox,
+        mean_r2 = NA_real_, snr_task = NA_real_, lambda = lam1,
+        stringsAsFactors = FALSE
+      ),
+      lambda_mode_used = "global"
     ))
   }
 
-  n_runs <- length(bold)
-  n_vox <- ncol(bold[[1L]])
   r2_mat <- matrix(0.0, nrow = n_vox, ncol = n_runs)
+  r2_sel_mat <- matrix(0.0, nrow = n_vox, ncol = n_runs)
   tp_mat <- matrix(1.0, nrow = n_vox, ncol = n_runs)
   has_r2 <- FALSE
   if (!is.null(hrf_fit$selections)) {
@@ -1825,6 +1875,13 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
           v_r2 <- as.numeric(sel_r$best_adjusted_partial_r2)
           v_r2[!is.finite(v_r2)] <- 0.0
           r2_mat[, r] <- pmax(0.0, v_r2)
+          r2_sel_mat[, r] <- r2_mat[, r]
+          has_r2 <- TRUE
+        }
+        if ("selected_adjusted_partial_r2" %in% names(sel_r)) {
+          v_sr2 <- as.numeric(sel_r$selected_adjusted_partial_r2)
+          v_sr2[!is.finite(v_sr2)] <- 0.0
+          r2_sel_mat[, r] <- pmax(0.0, v_sr2)
           has_r2 <- TRUE
         }
         if ("selected_task_p" %in% names(sel_r)) {
@@ -1846,12 +1903,10 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
     1.0
   }
 
-  run_tuning_list <- list()
-  run_weights <- numeric(0)
-  wiener_lambdas <- numeric(0)
-  wiener_tunings <- list()
-
-  for (r_tune in seq_along(bold)) {
+  # Pre-compute valid rows and ok signal columns per run once
+  rows_by_run <- vector("list", n_runs)
+  ok_by_run <- vector("list", n_runs)
+  for (r_tune in seq_len(n_runs)) {
     y_t <- bold[[r_tune]]
     n_t <- nrow(y_t)
     mask_t <- if (observation_mask == "fit" && !is.null(hrf_fit$specification$valid_rows)) {
@@ -1860,372 +1915,669 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
       rep(TRUE, n_t)
     }
     rows_t <- which(!is.na(mask_t) & mask_t)
-    if (length(rows_t) < 3L) next
-    st_t <- decon_signal_status(y_t[rows_t, , drop = FALSE])
-    ok_cols <- which(st_t == "ok")
-    if (!length(ok_cols)) next
+    rows_by_run[[r_tune]] <- rows_t
+    if (length(rows_t) >= 3L) {
+      st_t <- decon_signal_status(y_t[rows_t, , drop = FALSE])
+      ok_by_run[[r_tune]] <- which(st_t == "ok")
+    } else {
+      ok_by_run[[r_tune]] <- integer(0L)
+    }
+  }
 
-    r2_r_vec <- if (has_r2 && ncol(r2_mat) >= r_tune) r2_mat[, r_tune] else r2_v
-    tp_r_vec <- if (ncol(tp_mat) >= r_tune) tp_mat[, r_tune] else tp_v
-    r2_ok <- r2_r_vec[ok_cols]
-    tp_ok <- tp_r_vec[ok_cols]
-    pos_r2 <- r2_ok[r2_ok > 0]
-    if (length(pos_r2)) {
-      r2_cut <- max(0.005, as.numeric(stats::quantile(pos_r2, probs = 0.35, na.rm = TRUE)))
-      active_cols <- ok_cols[r2_ok >= r2_cut | tp_ok <= 0.15]
-    } else {
-      active_cols <- integer(0)
-    }
-    if (length(active_cols) < min(8L, length(ok_cols))) {
-      ord_ok <- order(r2_ok, -tp_ok, decreasing = TRUE)
-      active_cols <- ok_cols[utils::head(ord_ok, min(64L, length(ok_cols)))]
-    } else if (length(active_cols) > 128L) {
-      ord_act <- order(r2_r_vec[active_cols], decreasing = TRUE)
-      active_cols <- active_cols[utils::head(ord_act, 128L)]
-    }
+  tune_subset_cols <- function(cand_cols = NULL, mode_type = "global_active", r2_tier_score = NULL) {
+    run_tuning_list <- list()
+    run_weights <- numeric(0)
+    wiener_lambdas <- numeric(0)
+    wiener_tunings <- list()
 
-    w_act <- pmax(r2_r_vec[active_cols], 1e-3)
-    w_act <- w_act / sum(w_act)
-    sel_t <- hrf_fit$selections[[r_tune]]$kernel_index[active_cols]
-    k_tab <- tapply(w_act, sel_t, sum)
-    k_mode <- as.integer(names(k_tab)[which.max(k_tab)])
-    if (!length(k_mode) || is.na(k_mode)) k_mode <- 1L
+    for (r_tune in seq_len(n_runs)) {
+      y_t <- bold[[r_tune]]
+      n_t <- nrow(y_t)
+      rows_t <- rows_by_run[[r_tune]]
+      ok_cols <- ok_by_run[[r_tune]]
+      if (length(rows_t) < 3L || !length(ok_cols)) next
 
-    norm_mode_tune <- if (!is.null(hrf_fit$settings$kernel_normalize)) {
-      hrf_fit$settings$kernel_normalize
-    } else {
-      "signed_sum"
-    }
-    k_tune <- if (identical(hrf_fit$settings$selection_mode, "soft_average") &&
-        !is.null(hrf_fit$selected_kernels) && !is.null(hrf_fit$selected_kernels[[r_tune]])) {
-      k_avg <- as.numeric(hrf_fit$selected_kernels[[r_tune]][, active_cols, drop = FALSE] %*% w_act)
-      tryCatch(
-        normalize_decon_kernel(k_avg, mode = norm_mode_tune),
-        error = function(e) as.numeric(hrf_fit$kernels[, k_mode])
-      )
-    } else {
-      as.numeric(hrf_fit$kernels[, k_mode])
-    }
-    attr(k_tune, "normalize") <- norm_mode_tune
+      r2_r_vec <- if (has_r2 && ncol(r2_mat) >= r_tune) r2_mat[, r_tune] else r2_v
+      tp_r_vec <- if (ncol(tp_mat) >= r_tune) tp_mat[, r_tune] else tp_v
 
-    noise_rt <- if (is.null(hrf_fit$noise)) NULL else hrf_fit$noise[[r_tune]]
-    rho_t <- if (is.null(noise_rt)) {
-      0.0
-    } else {
-      stats::median(noise_rt$rho[active_cols], na.rm = TRUE)
-    }
-    if (!is.finite(rho_t)) rho_t <- 0.0
-    psi1_t <- if (!is.null(noise_rt) && "psi1" %in% names(noise_rt)) {
-      stats::median(noise_rt$psi1[active_cols], na.rm = TRUE)
-    } else {
-      0.0
-    }
-    psi2_t <- if (!is.null(noise_rt) && "psi2" %in% names(noise_rt)) {
-      stats::median(noise_rt$psi2[active_cols], na.rm = TRUE)
-    } else {
-      0.0
-    }
-    psi3_t <- if (!is.null(noise_rt) && "psi3" %in% names(noise_rt)) {
-      stats::median(noise_rt$psi3[active_cols], na.rm = TRUE)
-    } else {
-      0.0
-    }
-    psi4_t <- if (!is.null(noise_rt) && "psi4" %in% names(noise_rt)) {
-      stats::median(noise_rt$psi4[active_cols], na.rm = TRUE)
-    } else {
-      0.0
-    }
-    if (!is.finite(psi1_t)) psi1_t <- 0.0
-    if (!is.finite(psi2_t)) psi2_t <- 0.0
-    if (!is.finite(psi3_t)) psi3_t <- 0.0
-    if (!is.finite(psi4_t)) psi4_t <- 0.0
-    ar_t <- if (abs(psi3_t) > 1e-10 || abs(psi4_t) > 1e-10) {
-      c(rho_t, psi1_t, psi2_t, psi3_t, psi4_t)
-    } else if (abs(psi1_t) > 1e-10 || abs(psi2_t) > 1e-10) {
-      c(rho_t, psi1_t, psi2_t)
-    } else {
-      rho_t
-    }
-
-    w_rt <- if (!is.null(frame_weights) && length(frame_weights) >= r_tune &&
-                length(frame_weights[[r_tune]]) == length(rows_t)) {
-      as.numeric(frame_weights[[r_tune]])
-    } else {
-      NULL
-    }
-    has_w_rt <- !is.null(w_rt) && any(is.finite(w_rt)) && any(w_rt < 1.0 - 1e-8)
-
-    nsd_tune <- NULL
-    if (identical(scaling, "noise_sd")) {
-      if (!is.null(precomputed_nsd) && length(precomputed_nsd) >= r_tune &&
-          length(precomputed_nsd[[r_tune]]) >= max(active_cols)) {
-        cand_nsd <- as.numeric(precomputed_nsd[[r_tune]][active_cols])
-        if (all(is.finite(cand_nsd) & cand_nsd > 0)) {
-          nsd_tune <- cand_nsd
-        }
-      }
-      if (is.null(nsd_tune) && !is.null(hrf_fit$specification$events[[r_tune]])) {
-        mask_tune_bool <- seq_len(n_t) %in% rows_t
-        nuis_t <- if (!is.null(hrf_fit$specification$nuisance)) hrf_fit$specification$nuisance[[r_tune]] else matrix(numeric(), n_t, 0L)
-        z_t_base <- cbind(intercept = 1, trend = seq(-1, 1, length.out = n_t), nuis_t)
-        off_t <- if (length(hrf_fit$settings$time_offset) >= r_tune) hrf_fit$settings$time_offset[r_tune] else 0.0
-        md_t <- hrf_build_noise_mean_design(n_t, hrf_fit$specification$events[[r_tune]], tr, off_t, k_tune, z_t_base, mask_tune_bool)
-        if (md_t$df_nominal >= 16L) {
-          nsd_tune <- hrf_estimate_gls_noise_sd(
-            y_t[rows_t, active_cols, drop = FALSE],
-            md_t$design[rows_t, , drop = FALSE],
-            rows_t,
-            ar_t
-          )
-        }
-      }
-    }
-
-    sc_vox <- scale_decon_input(
-      y_t[rows_t, active_cols, drop = FALSE],
-      scaling = scaling,
-      noise_rho = rho_t,
-      noise_psi1 = psi1_t,
-      noise_psi2 = psi2_t,
-      noise_psi3 = psi3_t,
-      noise_psi4 = psi4_t,
-      noise_sd_override = nsd_tune,
-      rows = rows_t,
-      obs_weights = w_rt
-    )$y
-    if (identical(nuisance_mode, "joint")) {
-      nuis_j <- if (!is.null(hrf_fit$specification$nuisance)) hrf_fit$specification$nuisance[[r_tune]] else matrix(numeric(), n_t, 0L)
-      z_j <- cbind(1, seq(-1, 1, length.out = n_t), nuis_j)[rows_t, , drop = FALSE]
-      z_jw <- if (has_w_rt) sweep(z_j, 1L, sqrt(pmax(w_rt, 1e-4)), "*") else z_j
-      nrm_j <- sqrt(colSums(z_jw^2)); nrm_j[nrm_j == 0] <- 1
-      sv_j <- hrf_safe_svd(sweep(z_jw, 2L, nrm_j, "/"), nv = 0)
-      rk_j <- if (length(sv_j$d) && sv_j$d[1L] > 0) sum(sv_j$d > 1e-8 * sv_j$d[1L]) else 0L
-      if (rk_j > 0L && length(rows_t) - rk_j >= 8L) {
-        qj <- sv_j$u[, seq_len(rk_j), drop = FALSE]
-        if (has_w_rt) {
-          sw_rt <- sqrt(pmax(w_rt, 1e-4))
-          coef_j <- crossprod(qj, sweep(sc_vox, 1L, sw_rt, "*"))
-          sc_vox <- sc_vox - sweep(qj %*% coef_j, 1L, sw_rt, "/")
+      if (identical(mode_type, "global_active")) {
+        r2_ok <- r2_r_vec[ok_cols]
+        tp_ok <- tp_r_vec[ok_cols]
+        pos_r2 <- r2_ok[r2_ok > 0]
+        if (length(pos_r2)) {
+          r2_cut <- max(0.005, as.numeric(stats::quantile(pos_r2, probs = 0.35, na.rm = TRUE)))
+          active_cols <- ok_cols[r2_ok >= r2_cut | tp_ok <= 0.15]
         } else {
-          sc_vox <- sc_vox - qj %*% crossprod(qj, sc_vox)
+          active_cols <- integer(0)
+        }
+        if (length(active_cols) < min(8L, length(ok_cols))) {
+          ord_ok <- order(r2_ok, -tp_ok, decreasing = TRUE)
+          active_cols <- ok_cols[utils::head(ord_ok, min(64L, length(ok_cols)))]
+        } else if (length(active_cols) > 128L) {
+          ord_act <- order(r2_r_vec[active_cols], decreasing = TRUE)
+          active_cols <- active_cols[utils::head(ord_act, 128L)]
+        }
+      } else {
+        sub_ok <- intersect(as.integer(cand_cols), ok_cols)
+        if (!length(sub_ok)) next
+        r2_ok <- r2_r_vec[sub_ok]
+        if (length(sub_ok) > 96L) {
+          if (identical(mode_type, "tier_background")) {
+            # Evenly stride across background voxels for spatially balanced representation
+            stride_idx <- unique(as.integer(round(seq(1, length(sub_ok), length.out = 96L))))
+            active_cols <- sub_ok[stride_idx]
+          } else {
+            sc_sub <- if (!is.null(r2_tier_score)) r2_tier_score[sub_ok] else r2_r_vec[sub_ok]
+            ord_sub <- order(sc_sub, decreasing = TRUE)
+            active_cols <- sub_ok[utils::head(ord_sub, 96L)]
+          }
+        } else {
+          active_cols <- sub_ok
         }
       }
-    }
-    if (has_w_rt) {
-      sc_vox <- sweep(sc_vox, 1L, sqrt(pmin(pmax(w_rt, 1e-4), 1.0)), "*")
-    }
-    y_tune <- sc_vox
-    groups_all <- hrf_fit$specification$spatial_groups
-    if (!is.null(groups_all) && length(groups_all) == n_vox) {
-      g_act <- as.character(groups_all[active_cols])
-      u_groups <- unique(g_act[!is.na(g_act)])
-      parcel_cols <- list()
-      for (g in u_groups) {
-        idx_g <- which(g_act == g)
-        if (length(idx_g) >= 2L) {
-          wg <- sqrt(pmax(r2_r_vec[active_cols[idx_g]], 1e-3))
-          wg <- wg / sum(wg)
-          sub_g <- sc_vox[, idx_g, drop = FALSE]
-          # Align voxel signs deterministically via leading SVD direction so mixed-polarity
-          # task voxels inside a parcel do not cancel out during GCV pooling.
-          sgn_g <- tryCatch({
-            vg <- svd(sub_g, nu = 0, nv = 1)$v[, 1L]
-            if (vg[which.max(wg)] < 0) vg <- -vg
-            ifelse(vg >= 0, 1.0, -1.0)
-          }, error = function(e) rep(1.0, length(idx_g)))
-          p_series <- as.numeric(sub_g %*% (wg * sgn_g))
-          if (all(is.finite(p_series)) && stats::sd(p_series) > 1e-8) {
-            parcel_cols[[g]] <- p_series
+
+      w_act <- if (identical(mode_type, "tier_background")) {
+        rep(1.0 / length(active_cols), length(active_cols))
+      } else {
+        wa <- pmax(r2_r_vec[active_cols], 1e-3)
+        wa / sum(wa)
+      }
+      sel_t <- hrf_fit$selections[[r_tune]]$kernel_index[active_cols]
+      k_tab <- tapply(w_act, sel_t, sum)
+      k_mode <- as.integer(names(k_tab)[which.max(k_tab)])
+      if (!length(k_mode) || is.na(k_mode)) k_mode <- 1L
+
+      norm_mode_tune <- if (!is.null(hrf_fit$settings$kernel_normalize)) {
+        hrf_fit$settings$kernel_normalize
+      } else {
+        "signed_sum"
+      }
+      k_tune <- if (identical(hrf_fit$settings$selection_mode, "soft_average") &&
+          !is.null(hrf_fit$selected_kernels) && !is.null(hrf_fit$selected_kernels[[r_tune]])) {
+        k_avg <- as.numeric(hrf_fit$selected_kernels[[r_tune]][, active_cols, drop = FALSE] %*% w_act)
+        tryCatch(
+          normalize_decon_kernel(k_avg, mode = norm_mode_tune),
+          error = function(e) as.numeric(hrf_fit$kernels[, k_mode])
+        )
+      } else {
+        as.numeric(hrf_fit$kernels[, k_mode])
+      }
+      attr(k_tune, "normalize") <- norm_mode_tune
+
+      noise_rt <- if (is.null(hrf_fit$noise)) NULL else hrf_fit$noise[[r_tune]]
+      rho_t <- if (is.null(noise_rt)) 0.0 else stats::median(noise_rt$rho[active_cols], na.rm = TRUE)
+      if (!is.finite(rho_t)) rho_t <- 0.0
+      psi1_t <- if (!is.null(noise_rt) && "psi1" %in% names(noise_rt)) stats::median(noise_rt$psi1[active_cols], na.rm = TRUE) else 0.0
+      psi2_t <- if (!is.null(noise_rt) && "psi2" %in% names(noise_rt)) stats::median(noise_rt$psi2[active_cols], na.rm = TRUE) else 0.0
+      psi3_t <- if (!is.null(noise_rt) && "psi3" %in% names(noise_rt)) stats::median(noise_rt$psi3[active_cols], na.rm = TRUE) else 0.0
+      psi4_t <- if (!is.null(noise_rt) && "psi4" %in% names(noise_rt)) stats::median(noise_rt$psi4[active_cols], na.rm = TRUE) else 0.0
+      if (!is.finite(psi1_t)) psi1_t <- 0.0
+      if (!is.finite(psi2_t)) psi2_t <- 0.0
+      if (!is.finite(psi3_t)) psi3_t <- 0.0
+      if (!is.finite(psi4_t)) psi4_t <- 0.0
+      ar_t <- if (abs(psi3_t) > 1e-10 || abs(psi4_t) > 1e-10) {
+        c(rho_t, psi1_t, psi2_t, psi3_t, psi4_t)
+      } else if (abs(psi1_t) > 1e-10 || abs(psi2_t) > 1e-10) {
+        c(rho_t, psi1_t, psi2_t)
+      } else {
+        rho_t
+      }
+
+      w_rt <- if (!is.null(frame_weights) && length(frame_weights) >= r_tune &&
+                  length(frame_weights[[r_tune]]) == length(rows_t)) {
+        as.numeric(frame_weights[[r_tune]])
+      } else {
+        NULL
+      }
+      has_w_rt <- !is.null(w_rt) && any(is.finite(w_rt)) && any(w_rt < 1.0 - 1e-8)
+
+      nsd_tune <- NULL
+      if (identical(scaling, "noise_sd")) {
+        if (!is.null(precomputed_nsd) && length(precomputed_nsd) >= r_tune &&
+            length(precomputed_nsd[[r_tune]]) >= max(active_cols)) {
+          cand_nsd <- as.numeric(precomputed_nsd[[r_tune]][active_cols])
+          if (all(is.finite(cand_nsd) & cand_nsd > 0)) {
+            nsd_tune <- cand_nsd
+          }
+        }
+        if (is.null(nsd_tune) && !is.null(hrf_fit$specification$events[[r_tune]])) {
+          mask_tune_bool <- seq_len(n_t) %in% rows_t
+          nuis_t <- if (!is.null(hrf_fit$specification$nuisance)) hrf_fit$specification$nuisance[[r_tune]] else matrix(numeric(), n_t, 0L)
+          z_t_base <- cbind(intercept = 1, trend = seq(-1, 1, length.out = n_t), nuis_t)
+          off_t <- if (length(hrf_fit$settings$time_offset) >= r_tune) hrf_fit$settings$time_offset[r_tune] else 0.0
+          md_t <- hrf_build_noise_mean_design(n_t, hrf_fit$specification$events[[r_tune]], tr, off_t, k_tune, z_t_base, mask_tune_bool)
+          if (md_t$df_nominal >= 16L) {
+            nsd_tune <- hrf_estimate_gls_noise_sd(
+              y_t[rows_t, active_cols, drop = FALSE],
+              md_t$design[rows_t, , drop = FALSE],
+              rows_t,
+              ar_t
+            )
           }
         }
       }
-      if (length(parcel_cols)) {
-        p_mat <- do.call(cbind, parcel_cols)
-        p_scaled <- scale_decon_input(
-          p_mat,
-          scaling = "noise_sd",
-          noise_rho = rho_t,
-          noise_psi1 = psi1_t,
-          noise_psi2 = psi2_t,
-          noise_psi3 = psi3_t,
-          noise_psi4 = psi4_t,
-          rows = rows_t,
-          obs_weights = w_rt
-        )$y
-        y_tune <- cbind(p_scaled, sc_vox[, seq_len(min(32L, ncol(sc_vox))), drop = FALSE])
+
+      sc_vox <- scale_decon_input(
+        y_t[rows_t, active_cols, drop = FALSE],
+        scaling = scaling,
+        noise_rho = rho_t,
+        noise_psi1 = psi1_t,
+        noise_psi2 = psi2_t,
+        noise_psi3 = psi3_t,
+        noise_psi4 = psi4_t,
+        noise_sd_override = nsd_tune,
+        rows = rows_t,
+        obs_weights = w_rt
+      )$y
+      if (identical(nuisance_mode, "joint")) {
+        nuis_j <- if (!is.null(hrf_fit$specification$nuisance)) hrf_fit$specification$nuisance[[r_tune]] else matrix(numeric(), n_t, 0L)
+        z_j <- cbind(1, seq(-1, 1, length.out = n_t), nuis_j)[rows_t, , drop = FALSE]
+        z_jw <- if (has_w_rt) sweep(z_j, 1L, sqrt(pmax(w_rt, 1e-4)), "*") else z_j
+        nrm_j <- sqrt(colSums(z_jw^2)); nrm_j[nrm_j == 0] <- 1
+        sv_j <- hrf_safe_svd(sweep(z_jw, 2L, nrm_j, "/"), nv = 0)
+        rk_j <- if (length(sv_j$d) && sv_j$d[1L] > 0) sum(sv_j$d > 1e-8 * sv_j$d[1L]) else 0L
+        if (rk_j > 0L && length(rows_t) - rk_j >= 8L) {
+          qj <- sv_j$u[, seq_len(rk_j), drop = FALSE]
+          if (has_w_rt) {
+            sw_rt <- sqrt(pmax(w_rt, 1e-4))
+            coef_j <- crossprod(qj, sweep(sc_vox, 1L, sw_rt, "*"))
+            sc_vox <- sc_vox - sweep(qj %*% coef_j, 1L, sw_rt, "/")
+          } else {
+            sc_vox <- sc_vox - qj %*% crossprod(qj, sc_vox)
+          }
+        }
       }
-    }
-    if (tail_padding > 0L) {
-      y_tune <- rbind(y_tune, matrix(0.0, as.integer(tail_padding), ncol(y_tune)))
-    }
+      if (has_w_rt) {
+        sc_vox <- sweep(sc_vox, 1L, sqrt(pmin(pmax(w_rt, 1e-4), 1.0)), "*")
+      }
+      y_tune <- sc_vox
+      groups_all <- hrf_fit$specification$spatial_groups
+      if (!identical(mode_type, "tier_background") && !is.null(groups_all) && length(groups_all) == n_vox) {
+        g_act <- as.character(groups_all[active_cols])
+        u_groups <- unique(g_act[!is.na(g_act)])
+        parcel_cols <- list()
+        for (g in u_groups) {
+          idx_g <- which(g_act == g)
+          if (length(idx_g) >= 2L) {
+            wg <- sqrt(pmax(r2_r_vec[active_cols[idx_g]], 1e-3))
+            wg <- wg / sum(wg)
+            sub_g <- sc_vox[, idx_g, drop = FALSE]
+            # Align voxel signs deterministically via leading SVD direction so mixed-polarity
+            # task voxels inside a parcel do not cancel out during GCV pooling.
+            sgn_g <- tryCatch({
+              vg <- svd(sub_g, nu = 0, nv = 1)$v[, 1L]
+              if (vg[which.max(wg)] < 0) vg <- -vg
+              ifelse(vg >= 0, 1.0, -1.0)
+            }, error = function(e) rep(1.0, length(idx_g)))
+            p_series <- as.numeric(sub_g %*% (wg * sgn_g))
+            if (all(is.finite(p_series)) && stats::sd(p_series) > 1e-8) {
+              parcel_cols[[g]] <- p_series
+            }
+          }
+        }
+        if (length(parcel_cols)) {
+          p_mat <- do.call(cbind, parcel_cols)
+          p_scaled <- scale_decon_input(
+            p_mat,
+            scaling = "noise_sd",
+            noise_rho = rho_t,
+            noise_psi1 = psi1_t,
+            noise_psi2 = psi2_t,
+            noise_psi3 = psi3_t,
+            noise_psi4 = psi4_t,
+            rows = rows_t,
+            obs_weights = w_rt
+          )$y
+          y_tune <- cbind(p_scaled, sc_vox[, seq_len(min(32L, ncol(sc_vox))), drop = FALSE])
+        }
+      }
+      if (tail_padding > 0L) {
+        y_tune <- rbind(y_tune, matrix(0.0, as.integer(tail_padding), ncol(y_tune)))
+      }
 
-    tune_res <- deconvolve_reglin(
-      BOLDobs = y_tune,
-      kernel = k_tune,
-      lambda = NULL,
-      lambda_grid = lambda_grid,
-      penalty = penalty,
-      tune_by = "global",
-      normalize = FALSE,
-      demean = FALSE,
-      ridge_floor = ridge_floor,
-      return_diagnostics = TRUE,
-      prewhiten_gcv = rho_t != 0,
-      prewhiten_rho = rho_t,
-      backend = if (backend == "wiener") "wiener" else "cpp",
-      gcv_rule = gcv_rule,
-      scaling = "none"
-    )
-    tun <- tune_res$tuning
-    if (backend == "wiener" || !is.data.frame(tun) || nrow(tun) != length(lambda_grid)) {
-      lam_out <- as.numeric(tune_res$lambda[1L])
-      if (!is.finite(lam_out)) lam_out <- lambda_grid[1L]
-      wiener_lambdas <- c(wiener_lambdas, lam_out)
-      wiener_tunings[[length(wiener_tunings) + 1L]] <- tun
-      run_weights <- c(run_weights, as.numeric(length(rows_t)))
-      next
-    }
+      tune_res <- deconvolve_reglin(
+        BOLDobs = y_tune,
+        kernel = k_tune,
+        lambda = NULL,
+        lambda_grid = lambda_grid,
+        penalty = penalty,
+        tune_by = "global",
+        normalize = FALSE,
+        demean = FALSE,
+        ridge_floor = ridge_floor,
+        return_diagnostics = TRUE,
+        prewhiten_gcv = rho_t != 0,
+        prewhiten_rho = rho_t,
+        backend = if (backend == "wiener") "wiener" else "cpp",
+        gcv_rule = gcv_rule,
+        scaling = "none"
+      )
+      tun <- tune_res$tuning
+      if (backend == "wiener" || !is.data.frame(tun) || nrow(tun) != length(lambda_grid)) {
+        lam_out <- as.numeric(tune_res$lambda[1L])
+        if (!is.finite(lam_out)) lam_out <- lambda_grid[1L]
+        wiener_lambdas <- c(wiener_lambdas, lam_out)
+        wiener_tunings[[length(wiener_tunings) + 1L]] <- tun
+        run_weights <- c(run_weights, as.numeric(length(rows_t)))
+        next
+      }
 
-    # Evaluate exact interior gain-restored variance and modulation transfer on a
-    # compact window using a fast 2-column normal-equation solve.
-    l_k <- length(k_tune)
-    n_win <- min(length(rows_t), max(64L, 2L * l_k + 16L))
-    if (n_win < l_k + 8L) n_win <- max(length(rows_t), l_k + 8L)
-    t0 <- max(3L, min(n_win - 2L, as.integer(floor(n_win * 0.45))))
-    t1 <- min(n_win, t0 + 1L)
+      # Evaluate exact interior gain-restored variance and modulation transfer on a
+      # compact window using a fast 2-column normal-equation solve.
+      l_k <- length(k_tune)
+      n_win <- min(length(rows_t), max(64L, 2L * l_k + 16L))
+      if (n_win < l_k + 8L) n_win <- max(length(rows_t), l_k + 8L)
+      t0 <- max(3L, min(n_win - 2L, as.integer(floor(n_win * 0.45))))
+      t1 <- min(n_win, t0 + 1L)
 
-    h_full <- decon_convolution_matrix(n_win, k_tune)[seq_len(n_win), , drop = FALSE]
-    wh <- hrf_apply_whitening(h_full, seq_len(n_win), ar_t, unit_marginal = FALSE)
-    hth <- crossprod(wh)
-    p_pen <- decon_penalty_crossprod(ncol(wh), penalty)
-    idx_lat <- (l_k - 1L) + seq_len(n_win)
-    idx0 <- idx_lat[t0]
-    idx1 <- idx_lat[t1]
-    h0 <- wh[, idx0]
-    h1 <- wh[, idx1]
-    h_diff <- h0 - h1
+      h_full <- decon_convolution_matrix(n_win, k_tune)[seq_len(n_win), , drop = FALSE]
+      wh <- hrf_apply_whitening(h_full, seq_len(n_win), ar_t, unit_marginal = FALSE)
+      hth <- crossprod(wh)
+      p_pen <- decon_penalty_crossprod(ncol(wh), penalty)
+      idx_lat <- (l_k - 1L) + seq_len(n_win)
+      idx0 <- idx_lat[t0]
+      idx1 <- idx_lat[t1]
+      h0 <- wh[, idx0]
+      h1 <- wh[, idx1]
+      h_diff <- h0 - h1
 
-    e_rhs <- matrix(0.0, nrow = ncol(wh), ncol = 2L)
-    e_rhs[idx0, 1L] <- 1.0
-    e_rhs[idx0, 2L] <- 1.0
-    e_rhs[idx1, 2L] <- -1.0
+      e_rhs <- matrix(0.0, nrow = ncol(wh), ncol = 2L)
+      e_rhs[idx0, 1L] <- 1.0
+      e_rhs[idx0, 2L] <- 1.0
+      e_rhs[idx1, 2L] <- -1.0
 
-    n_grid <- length(lambda_grid)
-    v_lvl <- v_diff <- c_mtf <- g_rel <- numeric(n_grid)
-    rf <- max(ridge_floor, 1e-8)
-    d_isi <- max(2L, as.integer(round(2.5 / tr)))
-    far_mask <- abs(seq_len(n_win) - t0) >= d_isi
-    for (i in seq_len(n_grid)) {
-      lhs <- hth + lambda_grid[i] * p_pen
-      diag(lhs) <- diag(lhs) + rf
-      q_mat <- tryCatch(solve(lhs, e_rhs), error = function(e) MASS::ginv(lhs) %*% e_rhs)
-      b0 <- as.numeric(wh %*% q_mat[, 1L])
-      bdiff <- as.numeric(wh %*% q_mat[, 2L])
-      r_row <- as.numeric(crossprod(q_mat[, 1L], hth[, idx_lat, drop = FALSE]))
+      n_grid <- length(lambda_grid)
+      v_lvl <- v_diff <- c_mtf <- g_rel <- numeric(n_grid)
+      rf <- max(ridge_floor, 1e-8)
+      d_isi <- max(2L, as.integer(round(2.5 / tr)))
+      far_mask <- abs(seq_len(n_win) - t0) >= d_isi
+      for (i in seq_len(n_grid)) {
+        lhs <- hth + lambda_grid[i] * p_pen
+        diag(lhs) <- diag(lhs) + rf
+        q_mat <- tryCatch(solve(lhs, e_rhs), error = function(e) MASS::ginv(lhs) %*% e_rhs)
+        b0 <- as.numeric(wh %*% q_mat[, 1L])
+        bdiff <- as.numeric(wh %*% q_mat[, 2L])
+        r_row <- as.numeric(crossprod(q_mat[, 1L], hth[, idx_lat, drop = FALSE]))
 
-      g_lvl <- max(sum(b0 * h0), 1e-4)
-      g_diff <- max(sum(bdiff * h_diff), 1e-4)
-      leak_isi <- if (any(far_mask)) {
-        min(0.85, sqrt(sum(r_row[far_mask]^2)) / g_lvl)
+        g_lvl <- max(sum(b0 * h0), 1e-4)
+        g_diff <- max(sum(bdiff * h_diff), 1e-4)
+        leak_isi <- if (any(far_mask)) {
+          min(0.85, sqrt(sum(r_row[far_mask]^2)) / g_lvl)
+        } else {
+          0.0
+        }
+        g_eff <- g_lvl * max(0.15, 1.0 - 0.65 * (leak_isi^2))
+        v_lvl[i] <- sum(b0^2) / (g_eff^2)
+        v_diff[i] <- sum(bdiff^2) / (g_diff^2)
+        g_rel[i] <- g_lvl
+
+        conc_0 <- g_lvl / sqrt(max(sum(r_row^2), 1e-12))
+        step_rel <- g_diff / (2.0 * g_lvl)
+        c_mtf[i] <- 0.5 * conc_0 + 0.5 * step_rel
+      }
+
+      g_rel <- pmin(1.0, pmax(0.0, g_rel / max(g_rel[1L], 1e-6)))
+      c_rel <- pmin(1.0, pmax(0.0, 0.65 * (c_mtf / max(c_mtf[1L], 1e-6)) + 0.35 * g_rel))
+      p_exp <- min(1.0, tr^0.65)
+      v_norm <- 0.50 * (v_lvl / min(v_lvl))^p_exp + 0.50 * (v_diff / min(v_diff))^p_exp
+
+      gcv_vec <- as.numeric(tun$gcv)
+      gcv_min <- min(gcv_vec, na.rm = TRUE)
+      gcv_end <- gcv_vec[n_grid]
+      snr_gcv <- if (is.finite(gcv_min) && gcv_min > 0 && is.finite(gcv_end)) {
+        max(0.0, (gcv_end - gcv_min) / gcv_min)
       } else {
         0.0
       }
-      g_eff <- g_lvl * max(0.15, 1.0 - 0.65 * (leak_isi^2))
-      v_lvl[i] <- sum(b0^2) / (g_eff^2)
-      v_diff[i] <- sum(bdiff^2) / (g_diff^2)
-      g_rel[i] <- g_lvl
 
-      conc_0 <- g_lvl / sqrt(max(sum(r_row^2), 1e-12))
-      step_rel <- g_diff / (2.0 * g_lvl)
-      c_mtf[i] <- 0.5 * conc_0 + 0.5 * step_rel
+      if (identical(mode_type, "tier_background")) {
+        snr_task <- min(0.20, 0.15 * snr_gcv)
+        w_bias <- 0.04 + 0.20 * snr_task
+        v_use <- 0.75 * (v_lvl / min(v_lvl))^p_exp + 0.25 * (gcv_vec / max(gcv_min, 1e-8))
+      } else if (identical(mode_type, "tier_active")) {
+        sc_ref <- if (!is.null(r2_tier_score)) r2_tier_score[active_cols] else r2_ok
+        r2_rep <- if (has_r2 && length(sc_ref)) {
+          as.numeric(stats::quantile(sc_ref, probs = 0.75, names = FALSE, na.rm = TRUE))
+        } else {
+          0.0
+        }
+        if (!is.finite(r2_rep)) r2_rep <- 0.0
+        snr_r2 <- (8.0 / max(tr, 0.25)) * r2_rep / max(1.0 - r2_rep, 0.10)
+        snr_task <- min(6.0, max(snr_r2, if (has_r2) 0.35 * snr_gcv else 2.0 * snr_gcv))
+        w_bias <- 0.25 + 0.35 * snr_task
+        v_use <- v_norm
+      } else {
+        r2_top <- if (has_r2 && length(r2_ok)) {
+          mean(utils::head(sort(r2_ok, decreasing = TRUE), min(12L, length(r2_ok))), na.rm = TRUE)
+        } else {
+          0.0
+        }
+        if (!is.finite(r2_top)) r2_top <- 0.0
+        snr_r2 <- (8.0 / max(tr, 0.25)) * r2_top / max(1.0 - r2_top, 0.10)
+        snr_task <- min(6.0, max(snr_r2, if (has_r2) 0.35 * snr_gcv else 2.0 * snr_gcv))
+        w_bias <- 0.25 + 0.35 * snr_task
+        v_use <- v_norm
+      }
+
+      idx_gmin <- which.min(gcv_vec)
+      gcv_excess <- rep(0.0, n_grid)
+      if (length(idx_gmin) == 1L && is.finite(gcv_min) && gcv_min > 0) {
+        s_hi <- seq_len(n_grid) >= idx_gmin
+        gcv_excess[s_hi] <- pmax(0.0, (gcv_vec[s_hi] - gcv_min) / gcv_min)
+      }
+
+      gcv_adaptive <- v_use + w_bias * (1.0 - c_rel)^2 + 0.30 * (gcv_excess^2)
+
+      tun$var_level <- v_lvl
+      tun$var_contrast <- v_diff
+      tun$mtf_rel <- c_rel
+      tun$gcv_adaptive <- gcv_adaptive
+      tun$snr_task <- rep(snr_task, n_grid)
+      run_tuning_list[[length(run_tuning_list) + 1L]] <- tun
+      run_weights <- c(run_weights, as.numeric(length(rows_t)))
     }
 
-    g_rel <- pmin(1.0, pmax(0.0, g_rel / max(g_rel[1L], 1e-6)))
-    c_rel <- pmin(1.0, pmax(0.0, 0.65 * (c_mtf / max(c_mtf[1L], 1e-6)) + 0.35 * g_rel))
-    p_exp <- min(1.0, tr^0.65)
-    v_norm <- 0.50 * (v_lvl / min(v_lvl))^p_exp + 0.50 * (v_diff / min(v_diff))^p_exp
-
-    gcv_vec <- as.numeric(tun$gcv)
-    gcv_min <- min(gcv_vec, na.rm = TRUE)
-    gcv_end <- gcv_vec[n_grid]
-    snr_gcv <- if (is.finite(gcv_min) && gcv_min > 0 && is.finite(gcv_end)) {
-      max(0.0, (gcv_end - gcv_min) / gcv_min)
-    } else {
-      0.0
-    }
-    r2_top <- if (has_r2 && length(r2_ok)) {
-      mean(utils::head(sort(r2_ok, decreasing = TRUE), min(12L, length(r2_ok))), na.rm = TRUE)
-    } else {
-      0.0
-    }
-    if (!is.finite(r2_top)) r2_top <- 0.0
-    snr_r2 <- (8.0 / max(tr, 0.25)) * r2_top / max(1.0 - r2_top, 0.10)
-    snr_task <- min(6.0, max(snr_r2, if (has_r2) 0.35 * snr_gcv else 2.0 * snr_gcv))
-
-    idx_gmin <- which.min(gcv_vec)
-    gcv_excess <- rep(0.0, n_grid)
-    if (length(idx_gmin) == 1L && is.finite(gcv_min) && gcv_min > 0) {
-      s_hi <- seq_len(n_grid) >= idx_gmin
-      gcv_excess[s_hi] <- pmax(0.0, (gcv_vec[s_hi] - gcv_min) / gcv_min)
+    if (length(wiener_lambdas) > 0L && !length(run_tuning_list)) {
+      w_norm <- run_weights / sum(run_weights)
+      ord_w <- order(w_norm, wiener_lambdas)
+      lam_pool <- exp(sum(w_norm[ord_w] * log(pmax(wiener_lambdas[ord_w], 1e-12))))
+      best_w <- which.min(abs(log(pmax(lambda_grid, 1e-12)) - log(max(lam_pool, 1e-12))))
+      return(list(lambda = lambda_grid[best_w], tuning = wiener_tunings[[ord_w[1L]]]))
     }
 
-    w_bias <- 0.25 + 0.35 * snr_task
-    gcv_adaptive <- v_norm + w_bias * (1.0 - c_rel)^2 + 0.30 * (gcv_excess^2)
+    if (length(run_tuning_list) > 0L) {
+      n_grid <- length(lambda_grid)
+      w_norm <- run_weights / sum(run_weights)
+      # Sort run contributions canonically so floating-point summation is strictly
+      # permutation-invariant across arbitrary run orderings.
+      sig_sort <- vapply(run_tuning_list, function(df_r) as.numeric(df_r$gcv_adaptive[1L]), numeric(1L))
+      ord_r <- order(w_norm, sig_sort)
+      tun_pool <- run_tuning_list[[ord_r[1L]]]
+      avg_cols <- intersect(
+        c("df", "rss", "gcv", "gcv_se", "var_level", "var_contrast", "mtf_rel", "gcv_adaptive", "snr_task"),
+        names(tun_pool)
+      )
+      for (cn in avg_cols) {
+        acc_c <- numeric(n_grid)
+        for (k in ord_r) {
+          acc_c <- acc_c + w_norm[k] * as.numeric(run_tuning_list[[k]][[cn]])
+        }
+        tun_pool[[cn]] <- acc_c
+      }
+      gcv_adaptive_pool <- tun_pool$gcv_adaptive
+      best_idx <- which.min(gcv_adaptive_pool)
+      if (!length(best_idx) || !is.finite(best_idx)) best_idx <- 1L
+      if (gcv_rule == "1se" && best_idx < n_grid) {
+        var_min_idx <- max(which.min(tun_pool$var_level), which.min(tun_pool$var_contrast))
+        if (best_idx < var_min_idx) {
+          best_idx <- min(var_min_idx, best_idx + 1L)
+        }
+      }
+      return(list(lambda = lambda_grid[best_idx], tuning = tun_pool))
+    }
 
-    tun$var_level <- v_lvl
-    tun$var_contrast <- v_diff
-    tun$mtf_rel <- c_rel
-    tun$gcv_adaptive <- gcv_adaptive
-    tun$snr_task <- rep(snr_task, n_grid)
-    run_tuning_list[[length(run_tuning_list) + 1L]] <- tun
-    run_weights <- c(run_weights, as.numeric(length(rows_t)))
-  }
-
-  if (length(wiener_lambdas) > 0L && !length(run_tuning_list)) {
-    w_norm <- run_weights / sum(run_weights)
-    ord_w <- order(w_norm, wiener_lambdas)
-    lam_pool <- exp(sum(w_norm[ord_w] * log(pmax(wiener_lambdas[ord_w], 1e-12))))
-    best_w <- which.min(abs(log(pmax(lambda_grid, 1e-12)) - log(max(lam_pool, 1e-12))))
-    return(list(lambda = lambda_grid[best_w], tuning = wiener_tunings[[ord_w[1L]]]))
-  }
-
-  if (length(run_tuning_list) > 0L) {
-    n_grid <- length(lambda_grid)
-    w_norm <- run_weights / sum(run_weights)
-    # Sort run contributions canonically so floating-point summation is strictly
-    # permutation-invariant across arbitrary run orderings.
-    sig_sort <- vapply(run_tuning_list, function(df_r) as.numeric(df_r$gcv_adaptive[1L]), numeric(1L))
-    ord_r <- order(w_norm, sig_sort)
-    tun_pool <- run_tuning_list[[ord_r[1L]]]
-    avg_cols <- intersect(
-      c("df", "rss", "gcv", "gcv_se", "var_level", "var_contrast", "mtf_rel", "gcv_adaptive", "snr_task"),
-      names(tun_pool)
+    list(
+      lambda = lambda_grid[1L],
+      tuning = data.frame(
+        kernel = 1L, lambda = lambda_grid, df = NA_real_, rss = NA_real_,
+        gcv = NA_real_, gcv_se = NA_real_, var_level = NA_real_,
+        var_contrast = NA_real_, mtf_rel = NA_real_, gcv_adaptive = NA_real_, snr_task = NA_real_
+      )
     )
-    for (cn in avg_cols) {
-      acc_c <- numeric(n_grid)
-      for (k in ord_r) {
-        acc_c <- acc_c + w_norm[k] * as.numeric(run_tuning_list[[k]][[cn]])
-      }
-      tun_pool[[cn]] <- acc_c
-    }
-    gcv_adaptive_pool <- tun_pool$gcv_adaptive
-    best_idx <- which.min(gcv_adaptive_pool)
-    if (!length(best_idx) || !is.finite(best_idx)) best_idx <- 1L
-    if (gcv_rule == "1se" && best_idx < n_grid) {
-      var_min_idx <- max(which.min(tun_pool$var_level), which.min(tun_pool$var_contrast))
-      if (best_idx < var_min_idx) {
-        best_idx <- min(var_min_idx, best_idx + 1L)
-      }
-    }
-    return(list(lambda = lambda_grid[best_idx], tuning = tun_pool))
   }
+
+  tuned_global <- tune_subset_cols(mode_type = "global_active")
+  lam_ref <- tuned_global$lambda
+  tun_ref <- tuned_global$tuning
+  snr_ref <- if (is.data.frame(tun_ref) && "snr_task" %in% names(tun_ref) && nrow(tun_ref) >= 1L) {
+    as.numeric(tun_ref$snr_task[1L])
+  } else {
+    NA_real_
+  }
+
+  global_fallback <- function() {
+    list(
+      lambda = lam_ref,
+      tuning = tun_ref,
+      lambda_by_voxel = rep(lam_ref, n_vox),
+      lambda_strata = data.frame(
+        tier = 1L, label = "global", n_voxels = n_vox,
+        mean_r2 = mean(r2_v, na.rm = TRUE), snr_task = snr_ref, lambda = lam_ref,
+        stringsAsFactors = FALSE
+      ),
+      lambda_mode_used = "global"
+    )
+  }
+
+  if (identical(lambda_mode, "global") || max_lambda_strata <= 1L ||
+      identical(backend, "wiener") || !has_r2 || n_vox < 12L) {
+    return(global_fallback())
+  }
+
+  # Compute out-of-sample spatially stabilized task informativeness r2_stab
+  r2_oos <- rowMeans(0.65 * r2_sel_mat + 0.35 * r2_mat, na.rm = TRUE)
+  r2_oos[!is.finite(r2_oos)] <- 0.0
+  tp_med <- apply(tp_mat, 1L, stats::median, na.rm = TRUE)
+  tp_med[!is.finite(tp_med)] <- 1.0
+
+  sg_lam <- NULL
+  if (inherits(hrf_fit$specification$spatial_graph, "medusa_spatial_graph") &&
+      hrf_fit$specification$spatial_graph$n_voxels == n_vox) {
+    sg_lam <- hrf_fit$specification$spatial_graph
+  } else if (!is.null(voxel_map) && is.data.frame(voxel_map) && nrow(voxel_map) == n_vox) {
+    sg_lam <- tryCatch(
+      build_spatial_graph(
+        list(voxel_map = voxel_map, geometry = geometry),
+        spatial_groups = hrf_fit$specification$spatial_groups,
+        parcel_boundary = "soft",
+        voxel_ids = hrf_fit$voxel_ids
+      ),
+      error = function(e) NULL
+    )
+  } else if (!is.null(hrf_fit$specification$spatial_coords)) {
+    sg_lam <- tryCatch(
+      build_spatial_graph(
+        hrf_fit$specification$spatial_coords,
+        spatial_fwhm = hrf_fit$settings$spatial_fwhm,
+        spatial_groups = hrf_fit$specification$spatial_groups,
+        parcel_boundary = "soft",
+        voxel_ids = hrf_fit$voxel_ids
+      ),
+      error = function(e) NULL
+    )
+  }
+
+  if (!is.null(sg_lam)) {
+    pos_oos <- r2_oos[r2_oos > 0]
+    rng_bw <- if (length(pos_oos) >= 4L) {
+      max(0.025, 1.5 * stats::mad(pos_oos, constant = 1.4826))
+    } else {
+      0.035
+    }
+    g_ids_lam <- hrf_encode_group_ids(hrf_fit$specification$spatial_groups, n_vox)
+    cw_lam <- if (!is.null(hrf_fit$settings$parcel_cross_weight)) {
+      as.numeric(hrf_fit$settings$parcel_cross_weight)
+    } else {
+      0.35
+    }
+    r2_stab <- as.numeric(smooth_scalar_csr_cpp(
+      sg_lam$row_ptr, sg_lam$col_idx, sg_lam$dist, sg_lam$sigma,
+      r2_oos, rng_bw, g_ids_lam, cw_lam
+    ))
+    r2_stab[!is.finite(r2_stab)] <- r2_oos[!is.finite(r2_stab)]
+  } else if (!is.null(hrf_fit$specification$spatial_groups) &&
+             length(hrf_fit$specification$spatial_groups) == n_vox) {
+    g_chr <- as.character(hrf_fit$specification$spatial_groups)
+    g_means <- tapply(r2_oos, g_chr, mean, na.rm = TRUE)
+    r2_stab <- 0.50 * r2_oos + 0.50 * as.numeric(g_means[g_chr])
+  } else {
+    r2_stab <- r2_oos
+  }
+
+  # Cross-run Fisher combined task p-value and BH q-value to distinguish genuine focal
+  # task subpopulations from random multiple-comparisons fluctuations on pure-null maps
+  p_comb_v <- stats::pchisq(
+    -2.0 * rowSums(log(pmin(pmax(tp_mat, 1e-16), 1.0))),
+    df = 2.0 * ncol(tp_mat),
+    lower.tail = FALSE
+  )
+  p_comb_v[!is.finite(p_comb_v)] <- 1.0
+  q_comb_v <- stats::p.adjust(p_comb_v, method = "BH")
+
+  bg_mask <- (q_comb_v > 0.20) & (r2_stab < 0.025)
+  bg_idx <- which(bg_mask)
+  act_idx <- which(!bg_mask)
+  n_sig_fdr <- sum((q_comb_v < 0.10) & (r2_stab >= 0.015))
+  r2_span <- diff(range(r2_stab, na.rm = TRUE))
+
+  if (identical(lambda_mode, "auto")) {
+    # Only stratify when the map contains genuine FDR-supported task activity alongside
+    # either silent background cortex or broad SNR heterogeneity across >= 24 voxels.
+    if (n_sig_fdr < 4L || length(act_idx) < 4L ||
+        (length(bg_idx) < 4L && (r2_span < 0.030 || n_vox < 24L))) {
+      return(global_fallback())
+    }
+  }
+
+  tier_cols <- list()
+  tier_is_bg <- logical(0L)
+  tier_labels <- character(0L)
+
+  if (length(act_idx) < 4L) {
+    # Forced "stratified" on a nearly uniform/low-SNR map: split at median if informative
+    if (n_vox >= 8L && r2_span > 1e-4) {
+      ord_all <- order(r2_stab, seq_len(n_vox))
+      half_n <- as.integer(floor(n_vox / 2L))
+      tier_cols <- list(ord_all[seq_len(half_n)], ord_all[(half_n + 1L):n_vox])
+      tier_is_bg <- c(TRUE, FALSE)
+      tier_labels <- c("background", "low_snr")
+    } else {
+      return(global_fallback())
+    }
+  } else {
+    has_bg_tier <- length(bg_idx) >= 4L
+    if (has_bg_tier) {
+      tier_cols[[1L]] <- bg_idx
+      tier_is_bg <- c(tier_is_bg, TRUE)
+      tier_labels <- c(tier_labels, "background")
+      k_act_budget <- max(1L, max_lambda_strata - 1L)
+    } else {
+      act_idx <- seq_len(n_vox)
+      k_act_budget <- max_lambda_strata
+    }
+
+    min_act_sz <- max(8L, min(16L, as.integer(floor(length(act_idx) / max(1L, k_act_budget)))))
+    k_act <- min(k_act_budget, max(1L, as.integer(floor(length(act_idx) / min_act_sz))))
+    ord_a <- order(r2_stab[act_idx], act_idx)
+    act_sorted <- act_idx[ord_a]
+    bin_id <- as.integer(ceiling(seq_along(act_sorted) * k_act / length(act_sorted)))
+    act_bins <- split(act_sorted, bin_id)
+
+    # Merge adjacent active bins if their mean stabilized R^2 differs by < 0.012
+    merged_bins <- list(act_bins[[1L]])
+    if (length(act_bins) >= 2L) {
+      for (bi in 2:length(act_bins)) {
+        prev_b <- merged_bins[[length(merged_bins)]]
+        cur_b <- act_bins[[bi]]
+        if (abs(mean(r2_stab[cur_b]) - mean(r2_stab[prev_b])) < 0.012) {
+          merged_bins[[length(merged_bins)]] <- c(prev_b, cur_b)
+        } else {
+          merged_bins[[length(merged_bins) + 1L]] <- cur_b
+        }
+      }
+    }
+
+    n_ab <- length(merged_bins)
+    act_names <- if (n_ab == 1L) {
+      "high_snr"
+    } else if (n_ab == 2L) {
+      c("low_snr", "high_snr")
+    } else if (n_ab == 3L) {
+      c("low_snr", "mid_snr", "high_snr")
+    } else {
+      paste0("snr_tier_", seq_len(n_ab))
+    }
+    for (bi in seq_len(n_ab)) {
+      tier_cols[[length(tier_cols) + 1L]] <- merged_bins[[bi]]
+      tier_is_bg <- c(tier_is_bg, FALSE)
+      tier_labels <- c(tier_labels, act_names[bi])
+    }
+  }
+
+  G <- length(tier_cols)
+  if (G <= 1L) {
+    return(global_fallback())
+  }
+
+  # Order tiers strictly by ascending mean r2_stab (background first, highest SNR last)
+  tier_mean_r2 <- vapply(tier_cols, function(idx) mean(r2_stab[idx], na.rm = TRUE), numeric(1L))
+  ord_t <- order(tier_is_bg, decreasing = TRUE)
+  if (sum(!tier_is_bg) >= 2L) {
+    act_pos <- which(!tier_is_bg)
+    ord_act_t <- act_pos[order(tier_mean_r2[act_pos])]
+    ord_t <- c(which(tier_is_bg), ord_act_t)
+  }
+  tier_cols <- tier_cols[ord_t]
+  tier_is_bg <- tier_is_bg[ord_t]
+  tier_labels <- tier_labels[ord_t]
+  tier_mean_r2 <- tier_mean_r2[ord_t]
+  tier_n <- vapply(tier_cols, length, integer(1L))
+
+  tier_lam_raw <- numeric(G)
+  tier_snr <- numeric(G)
+  for (g in seq_len(G)) {
+    mt_g <- if (tier_is_bg[g]) "tier_background" else "tier_active"
+    res_g <- tune_subset_cols(cand_cols = tier_cols[[g]], mode_type = mt_g, r2_tier_score = r2_stab)
+    tier_lam_raw[g] <- res_g$lambda
+    tier_snr[g] <- if (is.data.frame(res_g$tuning) && "snr_task" %in% names(res_g$tuning) && nrow(res_g$tuning) >= 1L) {
+      as.numeric(res_g$tuning$snr_task[1L])
+    } else {
+      NA_real_
+    }
+  }
+
+  # Anchor background >= lam_ref >= highest-SNR focal tier, then enforce monotone
+  # non-increasing log(lambda) across tiers via weighted PAVA and snap to lambda_grid.
+  if (tier_is_bg[1L]) {
+    tier_lam_raw[1L] <- max(tier_lam_raw[1L], lam_ref)
+  }
+  if (!tier_is_bg[G]) {
+    tier_lam_raw[G] <- min(tier_lam_raw[G], lam_ref)
+  }
+  log_grid <- log(pmax(lambda_grid, 1e-12))
+  log_iso <- hrf_pava_nonincreasing(log(pmax(tier_lam_raw, 1e-12)), w = sqrt(tier_n))
+  tier_lam <- vapply(log_iso, function(lg) {
+    lambda_grid[which.min(abs(log_grid - lg))]
+  }, numeric(1L))
+  # Guarantee exact discrete monotonicity after grid snapping
+  if (G >= 2L) {
+    for (g in 2:G) {
+      if (tier_lam[g] > tier_lam[g - 1L]) {
+        tier_lam[g] <- tier_lam[g - 1L]
+      }
+    }
+  }
+
+  lambda_by_voxel <- rep(lam_ref, n_vox)
+  for (g in seq_len(G)) {
+    lambda_by_voxel[tier_cols[[g]]] <- tier_lam[g]
+  }
+
+  lambda_strata <- data.frame(
+    tier = seq_len(G),
+    label = tier_labels,
+    n_voxels = tier_n,
+    mean_r2 = tier_mean_r2,
+    snr_task = tier_snr,
+    lambda = tier_lam,
+    stringsAsFactors = FALSE
+  )
 
   list(
-    lambda = lambda_grid[1L],
-    tuning = data.frame(
-      kernel = 1L, lambda = lambda_grid, df = NA_real_, rss = NA_real_,
-      gcv = NA_real_, gcv_se = NA_real_, var_level = NA_real_,
-      var_contrast = NA_real_, mtf_rel = NA_real_, gcv_adaptive = NA_real_, snr_task = NA_real_
-    )
+    lambda = lam_ref,
+    tuning = tun_ref,
+    lambda_by_voxel = lambda_by_voxel,
+    lambda_strata = lambda_strata,
+    lambda_mode_used = if (length(unique(tier_lam)) > 1L) "stratified" else "global"
   )
 }
