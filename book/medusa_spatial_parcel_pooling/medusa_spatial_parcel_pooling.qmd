@@ -74,8 +74,9 @@ Notice a crucial synergy in **Pathway B**: even when your final group hypothesis
 | **Volumetric NIfTI export** | `write_nifti_ts(stat_mat, file, reference = decon)` (uses carried `voxel_map` + `geometry` directly) | `backproject_medusa(coef_df, brain_mask = decon, ...)` (maps integer `atlas_value` parcels directly onto 3D/4D NIfTIs) |
 
 ::: {.callout-tip}
-### What Does Default `pooling = "voxel"` Do When `read_nifti_ts(..., atlas = ...)` Supplies an Atlas?
-When a `"medusa_nifti_ts"` bundle carries `ts$parcel_ids`, calling `estimate_crossrun_hrf(ts, ...)` with the default `pooling = "voxel"` does **not** force all voxels in a parcel to share one HRF. Instead, it keeps individual HRFs for task-supported voxels (`spatial_strength = 0`), pools AR($p$) noise parameters within parcels, and uses the parcel-pooled HRF strictly as a `"fallback_parcel"` safety net for low-SNR voxels that fail cross-run gating. Switching explicitly to `pooling = "graph"` upgrades both HRF evidence and REML noise estimation to edge-preserving geodesic bilateral pooling across all voxels.
+### What Does Default `pooling = "voxel"` Do on Atlas-Carrying vs. Atlas-Free NIfTI Inputs?
+- **Atlas-free NIfTI (`read_nifti_ts(..., atlas = NULL)`):** `estimate_crossrun_hrf(ts, ...)` keeps `pooling = "voxel"` as a pure single-voxel fit by default so spatial specificity is preserved unless you explicitly opt into `pooling = "graph"`. Even if Step 1 used `pooling = "voxel"`, Step 3 (`decon_epoch_regression(..., tau2_shrinkage = "auto")`) still constructs the 26-connected geodesic CSR graph automatically from `decon$voxel_map` to stabilize voxelwise trial variances (`"graph_eb"`).
+- **Atlas-carrying NIfTI (`read_nifti_ts(..., atlas = ...)`):** Calling `estimate_crossrun_hrf(ts, ...)` with default `pooling = "voxel"` does **not** force all voxels in a parcel to share one HRF; it keeps individual HRFs for task-supported voxels (`spatial_strength = 0`), pools AR($p$) noise parameters within parcels, and uses the parcel-pooled HRF strictly as a `"fallback_parcel"` safety net for low-SNR voxels that fail cross-run gating. Switching explicitly to `pooling = "graph"` upgrades both HRF evidence and REML noise estimation to edge-preserving geodesic bilateral pooling across all voxels.
 :::
 
 ---
@@ -344,7 +345,7 @@ In Step 3 (`decon_epoch_regression()`), GLS precision weights and ZCA trial whit
 - **Null-cortex truncation bias:** Nearly half of true $\tau_{\text{bio}}^2 = 0$ voxels draw positive noise fluctuations, inflating average null $\hat{\tau}_{\text{bio}}^2$ above zero (`r fmt(s3[method == "Raw voxel MoM ('none')", null_mean_tau2])`).
 - Meanwhile, **global Empirical Bayes (`tau2_shrinkage = "eb"`)** pools all 6,655 voxels toward one whole-slab prior dominated by the 85% null background—leaving **`r pct(zc_eb)`** active zero-collapse unfixed while pulling the 30-voxel Right Insula hotspot downward relative to local bilateral pooling (`hotspot mean` $\hat{\tau}_{\text{bio}}^2 =$ **`r fmt(hot_eb)`** vs. **`r fmt(hot_geb)`** under Graph-EB)!
 
-`tau2_shrinkage = "graph_eb"` (`graph_eb_tau2_csr_cpp()`, automatic default when `deconvolution` carries a spatial graph in voxelwise mode) solves all three problems:
+`tau2_shrinkage = "graph_eb"` (`graph_eb_tau2_csr_cpp()`, automatic default under `tau2_shrinkage = "auto"` whenever `deconvolution` carries a spatial graph or `voxel_map` coordinates in voxelwise mode) solves all three problems:
 
 1. **Pre-truncation scale-free pooling:** Shrinks the *untruncated* dimensionless ratio $\hat{\theta}_u = \hat{\tau}_{\text{raw},u}^2 / s_{\text{obs},u}^2$ across bilateral graph neighbors *before* applying $\max(0, \cdot)$—allowing positive and negative estimation errors in null cortex to cancel symmetrically around zero while preventing zero-collapse in active cortex (**`r pct(zc_geb)`** zero-collapse!).
 2. **Isserlis correlated-error variance discount:** Accounts for the exact squared-error correlation $\operatorname{Corr}(Z_u^2, Z_v^2) = \rho_{uv}^2$ induced by shared spatial scanner innovations (`noise_innovations`) so effective neighborhood sample size is never overstated.

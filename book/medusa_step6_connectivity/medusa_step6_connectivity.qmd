@@ -1,4 +1,4 @@
-# Step 6 · Trial-level connectivity and PPI {#sec-step6}
+# Step 6: Trial-Level Connectivity and PPI {#sec-step6}
 
 ```{r setup, include=FALSE}
 d <- read.csv("ppi_summary.csv")

@@ -16,7 +16,7 @@ project:
 book:
   title: "MEDuSA"
   subtitle: "From BOLD time series to trial-level inference"
-  date: 2026-11-13
+  date: today
   site-url: https://hallquistlab.github.io/medusa/book/
   repo-url: https://github.com/HallquistLab/medusa
   search: true

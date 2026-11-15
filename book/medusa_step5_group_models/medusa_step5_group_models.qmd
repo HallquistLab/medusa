@@ -1,4 +1,4 @@
-# Step 5 · Group and trajectory inference {#sec-step5}
+# Step 5: Group and Trajectory Inference {#sec-step5}
 
 ```{r setup, include=FALSE}
 d <- readRDS("step5_examples.rds")
@@ -21,16 +21,18 @@ Step 4 produces a participant-level trial panel in which each parcel, trial, and
 
 MEDuSA provides two complementary group-inference pathways in Step 5, matched to two distinct scientific targets:
 
-1. **Split-wise linear mixed-effects models via `mixed_by()`:** Fits a prespecified multilevel regression formula independently at each `(parcel, evt_time)` readout. This pathway is designed for rich within-trial factorial designs, cross-level interactions, random participant slopes, nested run intercepts, and precision-weighted single-readout inference, followed by explicit multiplicity correction across the planned `(parcel, lag, term)` family.
+1. **Split-wise linear mixed-effects models via `mixed_by()`:** Fits a prespecified multilevel regression formula independently at each `(parcel, evt_time)` readout—either on an in-memory `group_panel` or streamed directly from disk-backed `.parquet` / Hive-partitioned Parquet datasets, `.rds`, or `.csv(.gz)` files with automatic column projection and `split_filter` pushdown. This pathway is designed for rich within-trial factorial designs, cross-level interactions, random participant slopes, nested run intercepts, and precision-weighted single-readout inference, followed by explicit multiplicity correction across the planned `(parcel, lag, term)` family.
 2. **Joint multi-lag trajectory inference via `medusa_multilag_infer()`:** Models all peri-event lags of a `(parcel, term)` profile *jointly*, combining participant-level within-run multiple regressions with available-case cross-lag covariance pooling, optional spectral resolution deblurring and P-spline smoothing, studentized Wishart null calibration (`Max-|T|`, 1D TFCE, omnibus Mahalanobis), simultaneous confidence bands, planned time-window contrasts, and peak/latency summaries.
+3. **Volumetric brain-map export via `backproject_medusa()` (and `write_nifti_ts()`):** Maps parcel-level group statistics from `mixed_by()` or `medusa_multilag_infer()` directly back onto 3D/4D NIfTI volumes in C++ using carried `voxel_map` + `geometry` metadata (or an integer NIfTI parcellation mask) for immediate visualization in `ggbrain` or standard neuroimaging viewers (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd)).
 
 | Scientific question | Recommended Step 5 pathway | Primary inferential output |
 |:---|:---|:---|
-| What is the conditional trial association in a multilevel model with explicit random slopes, nested runs, or cross-level interactions? | `mixed_by()` (wrapping `lmerTest::lmer()`) | `coef_df_reml` + explicit familywise (`"holm"`) or arbitrary-dependence FDR (`"BY"`) adjustment |
+| What is the conditional trial association in a multilevel model with explicit random slopes, nested runs, or cross-level interactions? | `mixed_by()` (wrapping `lmerTest::lmer()`, `rstanarm::stan_lmer()`, or `jlmer()`) | `coef_df_reml` + explicit familywise (`"holm"`) or arbitrary-dependence FDR (`"BY"`) adjustment |
 | Which individual peri-event lags show an effect while controlling familywise error across the epoch? | `medusa_multilag_infer()` | Raw `estimate`, `p_maxT`, and simultaneous band `conf.low.sim` / `conf.high.sim` |
 | Is there a temporally extended, same-sign deflection across neighboring lags? | `medusa_multilag_infer()` | `p_tfce` (1D threshold-free cluster enhancement across lag) |
 | Is there any evidence against a flat zero trajectory across the entire epoch? | `medusa_multilag_infer()` | `omnibus_p` (regularized Mahalanobis epoch test) |
 | How much stronger is activity in a late window vs. an early window, or when does the curve peak? | `medusa_multilag_infer()` | `contrasts` (on `contrast_source = "unsmoothed"`) and `latency` (`peak_lag`, `com_lag`, `fwhm`) |
+| How do parcel-level or lag-evolving group statistics map onto 3D/4D volumetric brain space? | `backproject_medusa()` (parcel panels) or `write_nifti_ts()` (voxelwise fits) | Streaming `.nii.gz` effect/statistic volumes aligned to `decon` or an integer atlas mask |
 
 ---
 
@@ -55,10 +57,11 @@ Step 5 accepts three structured input representations depending on which modelin
 | Input | Structure | Why Step 5 needs it and why it is shaped that way |
 |:---|:---|:---|
 | **`subject_epochs` (recommended for `medusa_multilag_infer()`)** | Named `list` of per-participant `decon_epoch_regression()` S3 objects | Preserves **both** each participant's `$panel` and their exact parcel-level `$lag_resolution`, `$lag_error_cor`, and `$demix_within_trial` metadata. Passing the full list avoids losing operator matrices when panels are stacked or saved to CSV, and allows `medusa_multilag_infer()` to pool participant-specific lag operators automatically. |
-| **`group_panel` (required for `mixed_by()`, also accepted by `medusa_multilag_infer()`)** | Stacked long `data.table` keyed uniquely by `(id, run, event_index, evt_time, parcel)` | Gives `mixed_by()` a single rectangular table that can be split cleanly by `(parcel, evt_time)` while retaining behavioral covariates, run identifiers, `precision_weight_cohort`, and paired `*_whitened` columns. Keying behavioral merges on `(id, run, event_index)`—never `trial` alone—guarantees exact alignment when trials are dropped or runs are numbered per person. |
+| **`group_panel` or disk dataset paths (for `mixed_by()`, in-memory `group_panel` also accepted by `medusa_multilag_infer()`)** | Stacked long `data.table` keyed uniquely by `(id, run, event_index, evt_time, parcel)`—or character vector of `.parquet` files, Hive-partitioned Parquet directories (via `arrow`), `.rds`, or `.csv(.gz)` paths | Gives `mixed_by()` a rectangular panel split cleanly by `(parcel, evt_time)`. For whole-cortex cohorts (e.g., 200–1000 parcels × 10+ lags × hundreds of subjects), passing Parquet/`.rds` paths streams splits sequentially while projecting *only* the columns referenced by `model_formulae`, `split_on`, `weights`, and `external_merge_by`, pushing `split_filter` predicates directly down to Arrow! |
+| **`external_df` & `external_merge_by` (optional in `mixed_by()`)** | In-memory `data.table` or file path (`.parquet`, `.rds`, `.csv`) + key vector `c("id", "run", "event_index")` | Keeps neural epoch archives decoupled from evolving behavioral/computational model tables: `mixed_by()` joins `external_df` on the fly per split/file without duplicating behavioral columns across hundreds of parcels on disk. |
 | **`subject_slopes` (optional route for `medusa_multilag_infer()`)** | Long `data.frame` / `data.table` with `(id, parcel, term, lag, estimate, std.error, df)` | Allows users who fit custom within-participant first-stage models (e.g., generalized linear models, nonlinear computational fits, or custom nuisance designs) to bring per-participant lag slopes and SEs into `medusa_multilag_infer()` alongside explicit `lag_resolution` and `lag_error_cor` matrices. |
 | **Centered behavioral predictors** | Within-person / within-run deviations (`x_within`) + person means (`x_mean`) | Computed on the behavioral trial table **before** merging with parcel activity so censored or missing fMRI frames in one parcel cannot shift the definition of a participant's behavioral mean in another parcel. |
-| **`contrasts` & `tr`** | Named list of early/late lag windows + acquisition TR (seconds) | Defines planned scientific window comparisons before inspecting trajectories and supplies reference operator timing if standalone tables lack operator attributes. |
+| **`contrasts`, `tr`, & `brain_mask`** | Named list of early/late lag windows; acquisition TR (s); optional `decon` / `ts` object or 3D NIfTI parcellation mask | Defines planned window comparisons upfront, supplies reference operator timing, and provides volumetric NIfTI geometry (`voxel_map$atlas_value` + `geometry`) when exporting group maps with `backproject_medusa()`. |
 
 Before fitting any group model, verify that `(id, run, event_index)` is unique in the behavioral table and `(id, run, event_index, evt_time, parcel)` is unique in the merged panel:
 
@@ -103,6 +106,12 @@ stopifnot(!anyDuplicated(group_panel[, .(id, run, event_index, evt_time, parcel)
 | **`$subjects`** | Participant-by-lag `data.table` containing raw slopes, processed curves, and multivariate empirical-Bayes (`estimate_eb`) trajectories | Retains finite per-participant support counts at every lag (for auditing available-case edge censoring) and provides cross-lag-shrunken individual curves for visualization without conflating EB shrinkage with independent group observations. |
 | **`$covariance`** | Nested list of raw (`Sigma_raw`), deblurred (`Sigma_deblur`), and final (`Sigma_multilag`) cross-lag covariance matrices | Exposes the exact covariance operators used by every band, contrast, and latency draw so custom linear combinations or between-window comparisons can be verified algebraically. |
 
+### From `backproject_medusa()` (Volumetric NIfTI Export)
+
+| Output component | Structure & key columns | Why it is set up that way |
+|:---|:---|:---|
+| **Written `.nii.gz` paths** | Character vector of 3D (single-lag) or 4D (multi-lag across `evt_time` / `lag`) NIfTI files per `<plot_col>_<term>.nii.gz` | Streams parcel statistics directly to compressed NIfTI in C++ (`compression = 2L`), auto-detecting `parcel` (numeric, integer, or numeric-string labels matched to `atlas_value`), `evt_time` / `lag`, and `term` while accepting `brain_mask = decon` (or a 3D NIfTI mask path) with `fill = NA_real_` for clean `ggbrain` overlays. |
+
 ---
 
 ## Recommended Settings
@@ -134,6 +143,30 @@ focal_tests <- subset(
   term %in% c("value_within", "entropy_within")
 )
 focal_tests$p_by <- p.adjust(focal_tests$p.value, method = "BY")
+
+# Large-cohort alternative: stream directly from Hive-partitioned Parquet on disk
+# (`arrow` pushes `split_filter` down and projects only required model columns!)
+# group_models_disk <- mixed_by(
+#   data              = "/study/medusa_panels_parquet/",
+#   external_df       = "/study/trial_behavior_centered.parquet",
+#   external_merge_by = c("id", "run", "event_index"),
+#   model_formulae    = list(trial_effects = group_formula),
+#   split_on          = c("parcel", "evt_time"),
+#   split_filter      = list(evt_time = -1:4),
+#   weights           = "precision_weight_cohort",
+#   calculate         = "parameter_estimates_reml",
+#   ncores            = 8L
+# )
+
+# Optional: backproject parcel estimates & t-statistics to 3D/4D NIfTI volumes
+# (`parcel`, `evt_time`, and `term` are auto-detected; `brain_mask` accepts `decon` or an atlas path)
+# nii_files <- backproject_medusa(
+#   coef_df    = focal_tests,
+#   brain_mask = decon,
+#   plot_cols  = c("estimate", "statistic"),
+#   output_dir = "group_maps",
+#   fill       = NA_real_
+# )
 ```
 
 ### Pathway B: Joint multi-lag trajectory inference (`medusa_multilag_infer()`)
@@ -161,12 +194,14 @@ trajectory <- medusa_multilag_infer(
 |:---|:---|:---|:---|
 | **`weights` (in `mixed_by()`)** | `NULL` | `"precision_weight_cohort"` | Normalizes $(\widehat\tau_{\mathrm{eff}}^2 + s_i^2)^{-1}$ once across the entire `(parcel, evt_time)` split rather than per person, preserving both within-run trial heteroskedasticity and between-participant SNR differences. Use `"precision_weight"` only if you intentionally want every participant weighted equally regardless of scan noise. Never pass `1 / se_demixed^2` directly (ignores biological trial variance). |
 | **Random-effects grouping** | User formula | `(1 + x_within || id) + (1 | id:run)` | Includes random participant slopes for within-person focal predictors (preventing trial-row pseudoreplication) and nested participant–run intercepts `(1 | id:run)`. Never write `(1 | run)` when run labels like `"run1"` repeat across participants. |
-| **Upstream `demix_within_trial`** | `TRUE` (in Step 3) | `TRUE` for `mixed_by()`; `FALSE` for `medusa_multilag_infer()` | `mixed_by()` visits one lag at a time and relies on Step 3's ridge demixing; `medusa_multilag_infer()` sees the entire lag profile and performs regularized spectral deblurring (`trajectory_mode = "auto"`) with full cross-lag covariance propagation, avoiding double-regularization. |
+| **Upstream `demix_within_trial`** | `FALSE` (in Step 3) | `FALSE` for `medusa_multilag_infer()`; optional `TRUE` for single-lag `mixed_by()` | Keeping `demix_within_trial = FALSE` lets `medusa_multilag_infer()` see the full lag profile and perform regularized spectral deblurring (`trajectory_mode = "auto"`) with group-level SNR and cross-lag covariance propagation, avoiding double-regularization. Enable `TRUE` upstream only when sharpening lag specificity for single-lag `mixed_by()` models. |
 | **`covariates` (in `medusa_multilag_infer()`)** | Required | Pass correlated trial predictors jointly (`c("value_within", "entropy_within")`) | Time-varying covariates supplied together are fit jointly in a single within-run multiple regression (controlling shared variance), while participant-constant covariates (e.g., `value_mean`, age) are automatically routed to Level-2 precision-weighted WLS with HC2 SEs. |
 | **`trajectory_mode`** | `"auto"` | `"auto"` | Automatically applies regularized spectral deblurring when `demix_within_trial = FALSE` (skipping deblurring if already demixed upstream) followed by cross-lag covariance-aware P-spline smoothing. Use `"none"` when evaluating raw lag readouts without spectral or spline post-processing. |
 | **`contrast_source`** | `"unsmoothed"` | `"unsmoothed"` | Evaluates planned window contrasts on the deblurred trajectory *prior* to P-spline smoothing, retaining resolution recovery without introducing smoothing shrinkage bias into linear window averages. |
 | **`use_whitened`** | `FALSE` | `FALSE` (or `TRUE` with all covariates pre-whitened in Step 4) | Unwhitened `decon_demixed` works out of the box with arbitrary formulas; if serial residual autocorrelation is strong in rapid designs, set `whiten_panel = TRUE` in Step 4 (passing all covariates so `*_whitened` columns exist) and match `decon_demixed_whitened` to `*_whitened` predictors. |
 | **Study-wide multiplicity** | Within-term (`mixed_by`) / within-trajectory (`multilag`) | Explicit `"BY"` or `"holm"` across planned family | Built-in `p_maxT` and `p_tfce` control familywise error across lags *within one `(parcel, term)` trajectory*. When testing multiple parcels or terms, apply Holm or Benjamini–Yekutieli across the planned epoch `omnibus_p` values or across the planned `(parcel, lag, term)` table. |
+| **Disk-backed scaling (`data` & `split_filter` in `mixed_by()`)** | In-memory `data.table` | Partitioned `.parquet` directory + `external_df` when panels exceed RAM | Partitioning participant panels by `parcel` (e.g., `arrow::write_dataset(..., partitioning = "parcel")`) lets `mixed_by()` stream one parcel split at a time with minimal memory overhead, projecting only formula columns and pushing `split_filter` predicates down before R materialization. |
+| **Volumetric NIfTI export (`backproject_medusa()`)** | `fill = 0` | `brain_mask = decon`, `fill = NA_real_` | Using `fill = NA_real_` distinguishes out-of-mask / unmodeled background voxels cleanly from genuine zero-effect parcels when plotting thresholded or unthresholded maps in `ggbrain` (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-spatial-recipes)). |
 
 ---
 
@@ -183,7 +218,7 @@ In @fig-within, the true within-person trial slope is $+0.55$ while the between-
 ::: {.callout-important title="Interpreting between-person effects in MEDuSA"}
 Keep two upstream conventions in mind whenever interpreting participant intercepts or trait covariates:
 1. **Run centering removes tonic run baselines:** Step 2 scaling (`"noise_sd"`, `"demean"`, `"zscore"`) centers BOLD within each run, so tonic run-constant neural baselines are not identifiable; between-person predictors (`x_mean`) explain differences in average *event-locked phasic deflections* across people, or cross-level interactions (`x_within * trait`) modulating within-person slopes.
-2. **HRF normalization conventions:** Step 1 normalizes candidate HRFs to unit positive-lobe integral (`normalize = "area"`), so restored BOLD-unit amplitudes reflect the product of phasic neural amplitude and local neurovascular gain.
+2. **HRF normalization conventions:** Under `preset = "medusa"`, Step 1 normalizes candidate HRFs to unit positive-lobe integral (`normalize = "positive_lobe"`), so restored BOLD-unit amplitudes reflect the product of phasic neural amplitude and local neurovascular gain.
 :::
 
 When a predictor drifts across runs (e.g., fatigue or block-level contingencies), centering within each `(id, run)` isolates pure within-run trial contrasts, while run-mean and person-mean terms can capture run- and person-level shifts separately.

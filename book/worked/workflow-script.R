@@ -3,7 +3,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8,
                       fig.height = 4.5, fig.align = "center")
 library(medusa)
 library(ggplot2)
-needed <- c("estimate_crossrun_hrf", "deconvolve_crossrun_hrf", "decon_epoch_regression",
+needed <- c("read_nifti_ts", "write_nifti_ts", "build_spatial_graph", "align_medusa_ts",
+            "estimate_crossrun_hrf", "deconvolve_crossrun_hrf", "decon_epoch_regression",
             "mixed_by", "medusa_multilag_infer", "decon_connectivity_repair")
 stopifnot(all(vapply(needed, exists, logical(1),
                     envir = asNamespace("medusa"), inherits = FALSE)))
@@ -305,7 +306,7 @@ knitr::kable(
 #                  run3 = "/study/sub01/run3_preprocessed.nii.gz")
 # mask_path <- "/study/sub01/analysis_mask.nii.gz"
 # atlas_path <- "/study/sub01/schaefer200_registered.nii.gz"
-#
+# 
 # ts <- read_nifti_ts(
 #   niftis = nifti_paths,
 #   mask = mask_path,
@@ -313,16 +314,53 @@ knitr::kable(
 #   tr = 1.0,
 #   ncpus = 3L
 # )
-#
-# bold <- ts$bold
-# voxel_map <- ts$voxel_map
-# parcel_ids <- ts$parcel_ids
-#
+# 
+# # Optional BIDS / fMRIPrep helpers (never delete motion-censored volumes from BOLD):
+# trial_df <- read_bids_events(
+#   c("/study/bids/sub-01/func/sub-01_task-mid_run-01_events.tsv",
+#     "/study/bids/sub-01/func/sub-01_task-mid_run-02_events.tsv",
+#     "/study/bids/sub-01/func/sub-01_task-mid_run-03_events.tsv"),
+#   bold = ts
+# )
+# conf <- read_fmriprep_confounds(
+#   c("/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-01_desc-confounds_timeseries.tsv",
+#     "/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-02_desc-confounds_timeseries.tsv",
+#     "/study/derivatives/fmriprep/sub-01/func/sub-01_task-mid_run-03_desc-confounds_timeseries.tsv"),
+#   bold = ts,
+#   strategy = "24p",
+#   fd_threshold = 0.5
+# )
+# # Or discover BOLD, per-run brain masks, confounds, and BIDS events in one step
+# # (for BrainGnomes postprocessed streams, pass `desc = "postproc"` to ingest
+# # `*_censor.1D`, `*_templatemask.nii.gz`, and derivative provenance guards automatically):
+# # ts <- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",
+# #                             bids_dir = "/study/bids", task = "mid",
+# #                             atlas = atlas_path, strategy = "24p", fd_threshold = 0.5)
+# 
+# # Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both
+# # finite nuisance regressors and clock-preserving `valid_rows`; when `ts` comes
+# # from `read_fmriprep_subject()`, `events` and `nuisance` are already attached):
+# hrf_fit <- estimate_crossrun_hrf(ts, events = trial_df, nuisance = conf, pooling = "parcel")
+# decon <- deconvolve_crossrun_hrf(ts, hrf_fit, scaling = "noise_sd", penalty = "sobolev")
+# 
+# # Reference behavioral predictor columns directly by name (or formula `~ rpe + abs_rpe`):
+# # target rows are sliced in lockstep with `event_index` without manual per-run subsetting.
+# feedback_fit <- decon_epoch_regression(
+#   decon,
+#   covariates = c("rpe", "abs_rpe"),
+#   target_condition = "feedback",
+#   lags = seq(-2, 4, by = 1),
+#   restore_scale = TRUE,
+#   aggregate_by_parcel = TRUE,
+#   whiten_panel = TRUE,
+#   return_panel = TRUE
+# )
+# 
+# # Geometry and voxel maps propagate onto `hrf_fit` and `decon`:
+# # export 4D deconvolved activity or backproject parcel statistics with no extra reference file
+# write_nifti_ts(decon, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"))
 # # Optional: direct C++ matrix-native event alignment (no CSV or fmri_ts intermediates)
-# # aligned <- align_medusa_ts(ts, events = trial_df, event = "feedback_onset", time_before = -2, time_after = 4)
-#
-# # Optional: write 4D deconvolved activity or a 3D voxel summary map back to NIfTI in C++
-# # write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz", "run3_decon.nii.gz"), reference = ts)
+# # aligned <- align_medusa_ts(decon, events = trial_df, event = "onset", time_before = -2, time_after = 4)
 
 
 ## ----file-workflow-recipe, eval=FALSE-----------------------------------------
@@ -349,4 +387,57 @@ knitr::kable(
 #   aggregate_by = "atlas_value", tr = tr, ncpus = 1L, fail_on_error = TRUE
 # )
 # attr(aligned, "file_status")
+
+
+## ----voxelwise-graph-recipe, eval=FALSE---------------------------------------
+# # Option A: Atlas-free or shifted-border geodesic bilateral graph pooling
+# ts_ribbon <- read_nifti_ts(
+#   niftis = nifti_paths,
+#   mask = "/study/sub01/cortical_ribbon_mask.nii.gz",
+#   atlas = atlas_path, # optional; omit (NULL) for atlas-free voxelwise mapping
+#   tr = 1.0
+# )
+# 
+# # Optional explicit CSR graph inspection (built automatically when pooling = "graph")
+# g_geo <- build_spatial_graph(
+#   ts_ribbon,
+#   spatial_fwhm = 6,
+#   parcel_boundary = "soft", # ignored automatically when atlas = NULL
+#   metric = "geodesic"       # 26-connected in-mask Dijkstra stops at CSF sulci
+# )
+# 
+# hrf_vox <- estimate_crossrun_hrf(
+#   ts_ribbon,
+#   events = trial_df,
+#   nuisance = conf,
+#   kernel_grid = hrf_library(ts_ribbon$tr, preset = "medusa"),
+#   pooling = "graph",        # omit to keep single-voxel default on atlas-free NIfTIs
+#   spatial_graph = g_geo,
+#   parcel_boundary = "soft",
+#   amplitude_model = "trial",
+#   selection_mode = "soft_average"
+# )
+# 
+# decon_vox <- deconvolve_crossrun_hrf(
+#   ts_ribbon,
+#   hrf_vox,
+#   scaling = "noise_sd",
+#   penalty = "sobolev",
+#   lambda_mode = "auto"      # FDR-gated SNR tiers + monotone PAVA smoothing
+# )
+# 
+# ep_vox <- decon_epoch_regression(
+#   decon_vox,
+#   covariates = c("rpe", "abs_rpe"),
+#   target_condition = "feedback",
+#   lags = seq(-1, 3, by = 1),
+#   restore_scale = TRUE,
+#   aggregate_by_parcel = FALSE,
+#   tau2_shrinkage = "auto"   # resolves to bilateral "graph_eb" via decon_vox$voxel_map
+# )
+# 
+# # Export lag = 0 s voxelwise GLS t-map directly using carried NIfTI geometry:
+# lag0_rpe <- subset(ep_vox$coefficients, lag == 0 & term == "rpe")
+# t_vec <- stats::setNames(lag0_rpe$t_gls, lag0_rpe$voxel)
+# write_nifti_ts(t_vec, "sub01_feedback_rpe_t_lag0.nii.gz", reference = decon_vox, fill = NA_real_)
 

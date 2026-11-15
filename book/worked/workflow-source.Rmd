@@ -18,7 +18,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8,
                       fig.height = 4.5, fig.align = "center")
 library(medusa)
 library(ggplot2)
-needed <- c("read_nifti_ts", "write_nifti_ts", "align_medusa_ts",
+needed <- c("read_nifti_ts", "write_nifti_ts", "build_spatial_graph", "align_medusa_ts",
             "estimate_crossrun_hrf", "deconvolve_crossrun_hrf", "decon_epoch_regression",
             "mixed_by", "medusa_multilag_infer", "decon_connectivity_repair")
 stopifnot(all(vapply(needed, exists, logical(1),
@@ -33,7 +33,8 @@ Read the [conceptual primer](medusa-concepts.html) first if HRF selection, regul
 |---|---|---|
 | Event-lock and interpolate in-memory matrices, NIfTI bundles, or deconvolved runs onto a lag grid | `read_nifti_ts()` / `deconvolve_crossrun_hrf()` → `align_medusa_ts()` | Fast C++ segment quadrature and overlap/censoring auditing without CSVs or `fmri_ts`; descriptive alignment only (does not de-mix neighboring events) |
 | Deconvolve NIfTI runs and align/aggregate them using existing file workflows | `voxelwise_deconvolution()` → `evt_align_decon_files()` (or `run_decon_alignment()`) | Uses C++ fast pivoting on `.csv.gz` / `.rds` files; does not automatically learn cross-run HRFs or de-mix epochs |
-| Learn HRFs from other runs and quantify operator-based epoch effects | `read_nifti_ts()` → `estimate_crossrun_hrf()` → `deconvolve_crossrun_hrf()` → `decon_epoch_regression()` | Uses named time-by-voxel matrices, exact inverse operators, and explicit event/covariate matching |
+| Learn HRFs from other runs and quantify operator-based parcel epoch effects | `read_nifti_ts()` → `estimate_crossrun_hrf()` → `deconvolve_crossrun_hrf()` → `decon_epoch_regression()` | Uses named time-by-voxel matrices, exact inverse operators, and explicit event/covariate matching |
+| Map voxelwise or shifted-border NIfTI trial effects without blurring neural time series | `read_nifti_ts()` → `estimate_crossrun_hrf(..., pooling = "graph")` → `deconvolve_crossrun_hrf(..., lambda_mode = "auto")` → `decon_epoch_regression(..., tau2_shrinkage = "graph_eb")` → `write_nifti_ts()` | Pools HRF/noise evidence, SNR-stratified penalties, and trial variances over a 26-connected geodesic CSR graph while keeping `activity` and `beta_*` unsmoothed |
 | Compare a fixed canonical HRF with a learned HRF under the same downstream model | Use a one-column canonical library and a multi-candidate library in the matrix route | Keep lambda, penalty, noise, scale, and readout comparable |
 
 The third route goes beyond descriptive alignment: epoch regression uses the **fitted inverse operator**, not only an activity matrix or saved CSV. Do not pass a legacy deconvolution file to `decon_epoch_regression()`, and do not run `align_medusa_ts()` or `evt_align_decon_files()` on `decon_epoch_regression()$panel`—that panel is already event aligned.
@@ -513,13 +514,70 @@ Here `atlas_path` is the chosen registered atlas, and `trial_df` contains `id`, 
 
 The default file algorithm remains `"bush2011"`, with z-scored input and bounded encoding outputs. Selecting `"reglin"` is deliberate here: Bush encodings and linear amplitudes have different meanings, and non-zscore input modes are not supported by the voxelwise Bush route. This recipe uses a fixed canonical HRF. The file wrapper can also tune supplied candidates within a run, but that is not leave-one-run-out HRF learning.
 
+# Voxelwise and geodesic graph-pooled NIfTI maps
+
+**Voxelwise NIfTI map recipe; not executed.** When individual functional boundaries may shift across nominal atlas borders—or when analyzing an atlas-free ribbon/subcortical mask (`atlas = NULL`)—MEDuSA can share estimation strength across local gray-matter neighborhoods without ever smoothing raw BOLD, deconvolved `activity`, or trial regression slopes (`beta_*`). On atlas-free NIfTI bundles, `estimate_crossrun_hrf()` keeps `pooling = "voxel"` by default unless you opt into `pooling = "graph"`, whereas `decon_epoch_regression(..., aggregate_by_parcel = FALSE, tau2_shrinkage = "auto")` automatically builds the 26-connected in-mask geodesic CSR graph from `decon$voxel_map` to stabilize voxelwise biological trial variances (`"graph_eb"`) and sandwich residual scales.
+
+```{r voxelwise-graph-recipe, eval=FALSE}
+# Option A: Atlas-free or shifted-border geodesic bilateral graph pooling
+ts_ribbon <- read_nifti_ts(
+  niftis = nifti_paths,
+  mask = "/study/sub01/cortical_ribbon_mask.nii.gz",
+  atlas = atlas_path, # optional; omit (NULL) for atlas-free voxelwise mapping
+  tr = 1.0
+)
+
+# Optional explicit CSR graph inspection (built automatically when pooling = "graph")
+g_geo <- build_spatial_graph(
+  ts_ribbon,
+  spatial_fwhm = 6,
+  parcel_boundary = "soft", # ignored automatically when atlas = NULL
+  metric = "geodesic"       # 26-connected in-mask Dijkstra stops at CSF sulci
+)
+
+hrf_vox <- estimate_crossrun_hrf(
+  ts_ribbon,
+  events = trial_df,
+  nuisance = conf,
+  kernel_grid = hrf_library(ts_ribbon$tr, preset = "medusa"),
+  pooling = "graph",        # omit to keep single-voxel default on atlas-free NIfTIs
+  spatial_graph = g_geo,
+  parcel_boundary = "soft",
+  amplitude_model = "trial",
+  selection_mode = "soft_average"
+)
+
+decon_vox <- deconvolve_crossrun_hrf(
+  ts_ribbon,
+  hrf_vox,
+  scaling = "noise_sd",
+  penalty = "sobolev",
+  lambda_mode = "auto"      # FDR-gated SNR tiers + monotone PAVA smoothing
+)
+
+ep_vox <- decon_epoch_regression(
+  decon_vox,
+  covariates = c("rpe", "abs_rpe"),
+  target_condition = "feedback",
+  lags = seq(-1, 3, by = 1),
+  restore_scale = TRUE,
+  aggregate_by_parcel = FALSE,
+  tau2_shrinkage = "auto"   # resolves to bilateral "graph_eb" via decon_vox$voxel_map
+)
+
+# Export lag = 0 s voxelwise GLS t-map directly using carried NIfTI geometry:
+lag0_rpe <- subset(ep_vox$coefficients, lag == 0 & term == "rpe")
+t_vec <- stats::setNames(lag0_rpe$t_gls, lag0_rpe$voxel)
+write_nifti_ts(t_vec, "sub01_feedback_rpe_t_lag0.nii.gz", reference = decon_vox, fill = NA_real_)
+```
+
 # Settings and checks at each handoff
 
 | Handoff | Settings to record | Check before proceeding |
 |---|---|---|
-| Input to HRF/noise fit | TR, offsets, masks, candidate library, `spatial_groups` and optional `noise_groups` | Confirm clocks, retained acquisition indices, target-run exclusion for HRF selection, gap-local AR($p$) noise fits, and fallback strata. |
-| HRF/noise fit to inverse | `lambda` or tuning grid, penalty, nuisance mode, scaling | In PRs 62 & 64, `scaling = "noise_sd"` estimates **marginal observation-noise** SD ($\sigma_{\text{marg}}$) via leverage-adjusted Winsorized GLS residuals, and `lambda = NULL` pools adaptive GCV across all usable runs. Examine estimated scales, fit residuals, and tuning diagnostics. |
-| Inverse to event measurements | Source duration and units, readout, demixing, target condition and lag grid | Verify event-row identity, causal BOLD observability (`obs_frac_tau >= 0.20`), matched $M_{\text{post}}$ covariate alignment, and rate versus integrated activity for duration models. |
+| Input to HRF/noise fit | TR, offsets, masks, candidate library, `pooling` (`"voxel"`, `"parcel"`, `"graph"`), `spatial_groups` / `spatial_graph` | Confirm clocks, retained acquisition indices, target-run exclusion for HRF selection, geodesic vs. Euclidean neighborhood topology (`hrf_fit$spatial$graph`), gap-local AR($p$) noise fits, and fallback strata. |
+| HRF/noise fit to inverse | `lambda` / `lambda_mode` (`"auto"`, `"global"`, `"stratified"`), penalty, nuisance mode, scaling | In PRs 62 & 64+, `scaling = "noise_sd"` estimates **marginal observation-noise** SD ($\sigma_{\text{marg}}$) via leverage-adjusted Winsorized GLS residuals, and `lambda = NULL` (`lambda_mode = "auto"`) pools FDR-gated, PAVA-monotone GCV across usable runs (`decon$settings$lambda_strata`). Examine estimated scales, fit residuals, and tuning diagnostics. |
+| Inverse to event measurements | Source duration and units, readout, demixing, `tau2_shrinkage`, target condition and lag grid | Verify event-row identity, causal BOLD observability (`obs_frac_tau >= 0.20`), matched $M_{\text{post}}$ covariate alignment, bilateral `"graph_eb"` variance stabilization in voxelwise mode, and rate versus integrated activity for duration models. |
 | Event measurements to parcel panel | Parcel labels, `restore_scale`, `tau2_mode`, `whiten_panel` | Audit usable voxels, task-free `noise_innovations` spatial covariance, and retained trials by run. Distinguish within-run `precision_weight` from cohort-comparable `precision_weight_cohort` and retain `shared_noise_loading` for connectivity. |
 | Panel to group claim | Participant/run effects, predictors, weights, trajectory/connectivity mode, test family | Check participant counts, residual dependence, singularity, `contrast_source = "unsmoothed"`, `shared_error = "auto"`, and whether the test applies to one lag, one trajectory, or a whole study family. |
 
