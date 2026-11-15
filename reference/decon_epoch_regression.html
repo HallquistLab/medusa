@@ -74,6 +74,8 @@ per-trial operator precision weights and within-run error covariance.</p>
 <span>  duration_scale <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rate"</span>, <span class="st">"integral"</span><span class="op">)</span>,</span>
 <span>  weighting <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"precision"</span>, <span class="st">"gls"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  tau2_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"residual"</span>, <span class="st">"marginal"</span><span class="op">)</span>,</span>
+<span>  tau2_shrinkage <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"graph_eb"</span>, <span class="st">"eb"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  spatial_graph <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  aggregate_by_parcel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  parcel_groups <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  whiten_panel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -247,6 +249,29 @@ residuals minus projected operator variance \(\mathrm{tr}((\mathbf{I}-\mathbf{P}
 or <code>"marginal"</code> (covariate-agnostic estimator combining run-centered
 marginal variance, lag-1 trial difference variance, and robust MAD scale
 minus analytical operator variance expectations).</p></dd>
+
+
+<dt id="arg-tau-shrinkage">tau2_shrinkage<a class="anchor" aria-label="anchor" href="#arg-tau-shrinkage"></a></dt>
+<dd><p>Empirical-Bayes shrinkage across analysis units for
+biological trial variance \(\hat{\tau}^2_{\mathrm{bio},v}\) and sandwich
+residual scale factors: <code>"auto"</code> (default; enables bilateral
+<code>"graph_eb"</code> automatically for voxelwise/vertexwise map workflows with
+\(\ge 6\) units whenever spatial coordinates, <code>voxel_map</code>, or
+<code>spatial_graph</code> are available, and uses <code>"none"</code> otherwise),
+<code>"graph_eb"</code> (2-pass bilateral Empirical Bayes over a sparse spatial
+neighborhood graph with Isserlis spatial-correlation accounting and
+Efron-Morris limited translation), <code>"eb"</code> (non-spatial global Empirical
+Bayes across units with residual-correlation accounting), or <code>"none"</code>
+(independent single-unit method-of-moments estimates).</p></dd>
+
+
+<dt id="arg-spatial-graph">spatial_graph<a class="anchor" aria-label="anchor" href="#arg-spatial-graph"></a></dt>
+<dd><p>Optional <code>"medusa_spatial_graph"</code> object (from
+<code><a href="build_spatial_graph.html">build_spatial_graph</a></code>) or spatial input accepted by
+<code><a href="build_spatial_graph.html">build_spatial_graph</a></code> used when <code>tau2_shrinkage</code> resolves
+to <code>"graph_eb"</code>. When <code>NULL</code>, inferred automatically from
+<code>deconvolution$hrf_fit$specification$spatial_graph</code>,
+<code>deconvolution$voxel_map</code>, or <code>spatial_coords</code> when present.</p></dd>
 
 
 <dt id="arg-aggregate-by-parcel">aggregate_by_parcel<a class="anchor" aria-label="anchor" href="#arg-aggregate-by-parcel"></a></dt>

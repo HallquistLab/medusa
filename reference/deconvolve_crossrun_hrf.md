@@ -20,6 +20,8 @@ deconvolve_crossrun_hrf(
   observation_mask = NULL,
   lambda_grid = 10^seq(-2, 1, length.out = 16),
   gcv_rule = c("min", "1se"),
+  lambda_mode = c("auto", "global", "stratified"),
+  max_lambda_strata = 4L,
   rwls = "auto"
 )
 ```
@@ -40,10 +42,11 @@ deconvolve_crossrun_hrf(
 
 - lambda:
 
-  Nonnegative regularization strength. If `NULL` (the default for modern
-  `ar1`/`calibrated` fits), selected automatically from `lambda_grid` by
-  gain-calibrated, task-weighted adaptive prewhitened generalized
-  cross-validation using `gcv_rule`.
+  Nonnegative regularization strength (either a scalar or a per-voxel
+  numeric vector of length `ncol(bold[[1]])`). If `NULL` (the default
+  for modern `ar1`/`calibrated` fits), selected automatically from
+  `lambda_grid` by gain-calibrated, task-weighted adaptive prewhitened
+  generalized cross-validation using `gcv_rule` and `lambda_mode`.
 
 - scaling:
 
@@ -99,6 +102,21 @@ deconvolve_crossrun_hrf(
 
   Selection rule (`"min"` or `"1se"`) used when `lambda = NULL`.
 
+- lambda_mode:
+
+  Spatial regularization tuning mode when `lambda = NULL`: `"auto"`
+  (default; stratifies `lambda` across out-of-sample
+  task-informativeness tiers when the map exhibits SNR heterogeneity
+  across active and background cortex, and falls back to `"global"` on
+  homogeneous maps), `"global"` (single scalar `lambda` for all voxels),
+  or `"stratified"` (monotone SNR-tier `lambda` up to
+  `max_lambda_strata` strata).
+
+- max_lambda_strata:
+
+  Maximum number of SNR regularization strata when `lambda = NULL` and
+  `lambda_mode` is `"auto"` or `"stratified"` (default `4L`).
+
 - rwls:
 
   Robust weighted least-squares frame weighting mode for transient
@@ -114,9 +132,10 @@ deconvolve_crossrun_hrf(
 ## Value
 
 An S3 list of class `"crossrun_decon"` with `activity` matrices, per-run
-`scaling`/status tables, the `hrf_fit`, frozen inverse `settings`,
-standardized `noise_innovations`, per-run observation `frame_weights`,
-and optional NIfTI `voxel_map` and `geometry` metadata (enabling direct
+`scaling`/status tables (including per-voxel `lambda`), the `hrf_fit`,
+frozen inverse `settings`, standardized `noise_innovations`, per-run
+observation `frame_weights`, and optional NIfTI `voxel_map` and
+`geometry` metadata (enabling direct
 [`write_nifti_ts`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md)
 export without an external reference file). Activity matrices retain
 voxel IDs and carry `tr`, `time_offset`, and `observation_mask`
@@ -124,19 +143,20 @@ attributes for subsequent event alignment.
 
 ## Details
 
-One inverse operator is constructed per selected HRF/run length, cached
-for consecutive runs with identical masks/nuisance designs, and applied
-using block matrix products for cpp/r. Scalar Wiener uses direct block
-FFT fits. HRFs are frozen; no voxelwise factorization or R fitting loop
-is required. AR/calibrated fits use a masked GLS inverse with the frozen
-run-specific noise covariance. A gap of d acquisitions uses rho^d and
-the corresponding accumulated innovation variance. Censored rows
-contribute no observations; latent activity is still estimated on the
-complete original grid. Its observation_mask attribute identifies
-modeled versus observed samples. Nonfinite/constant signals on usable
-observations remain NA. Nonfinite censored observations do not
-invalidate a run. Joint nuisance fitting avoids projecting only the BOLD
-and inadvertently changing the task model. Wiener requires OLS,
-nuisance_mode = "ignore", observation_mask = "all". Scaling is applied
-once before optional padding, and its centers/divisors are returned.
-Different run z-scores do not preserve absolute between-run units.
+One inverse operator is constructed per selected HRF/noise/lambda
+stratum and run length, cached for consecutive runs with identical
+masks/nuisance designs, and applied using block matrix products for
+cpp/r. Scalar Wiener uses direct block FFT fits. HRFs are frozen; no
+voxelwise factorization or R fitting loop is required. AR/calibrated
+fits use a masked GLS inverse with the frozen run-specific noise
+covariance. A gap of d acquisitions uses rho^d and the corresponding
+accumulated innovation variance. Censored rows contribute no
+observations; latent activity is still estimated on the complete
+original grid. Its observation_mask attribute identifies modeled versus
+observed samples. Nonfinite/constant signals on usable observations
+remain NA. Nonfinite censored observations do not invalidate a run.
+Joint nuisance fitting avoids projecting only the BOLD and inadvertently
+changing the task model. Wiener requires OLS, nuisance_mode = "ignore",
+observation_mask = "all". Scaling is applied once before optional
+padding, and its centers/divisors are returned. Different run z-scores
+do not preserve absolute between-run units.

@@ -123,6 +123,31 @@
   `parcel_cross_weight = 0.35`), and prototype waveform quantization
   (`max_hrf_strata = 48L`) for whole-brain scalability; and hardens
   multi-trial GLS SVD projections (`hrf_safe_svd()`).
+- Added SNR-stratified deconvolution regularization and bilateral graph
+  Empirical-Bayes variance stabilization in Steps 2–3
+  ([`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  and
+  [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)):
+  [`deconvolve_crossrun_hrf()`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  gains `lambda_mode = c("auto", "global", "stratified")`,
+  `max_lambda_strata = 4L`, and per-voxel vector `lambda` support,
+  stratifying prewhitened GCV regularization across spatially stabilized
+  out-of-sample task-$`R^2`$ tiers (gated by cross-run Fisher + BH FDR
+  significance with weighted PAVA monotonicity) and propagating
+  heterogeneous `lambda` through
+  [`diagnose_crossrun_recovery()`](https://hallquistlab.github.io/medusa/reference/diagnose_crossrun_recovery.md)
+  and
+  [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md);
+  and
+  [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
+  gains `tau2_shrinkage = c("auto", "graph_eb", "eb", "none")` and
+  `spatial_graph = NULL` (`src/spatial_graph.cpp`), shrinking scale-free
+  untruncated trial biological variance ratios prior to zero truncation
+  with Isserlis spatial error-correlation accounting, bilateral boundary
+  stopping, Efron-Morris hotspot protection, and spatial Limma/Smyth
+  moderation of sandwich residual scales
+  (`[scale_unw, scale_pw, scale_gls]`) without ever smoothing neural
+  timecourses or trial regression slopes.
 
 ### Standalone package extraction
 

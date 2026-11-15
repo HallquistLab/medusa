@@ -29,6 +29,8 @@ decon_epoch_regression(
   duration_scale = c("rate", "integral"),
   weighting = c("precision", "gls", "none"),
   tau2_mode = c("auto", "residual", "marginal"),
+  tau2_shrinkage = c("auto", "graph_eb", "eb", "none"),
+  spatial_graph = NULL,
   aggregate_by_parcel = FALSE,
   parcel_groups = NULL,
   whiten_panel = FALSE,
@@ -205,6 +207,31 @@ decon_epoch_regression(
   `"marginal"` (covariate-agnostic estimator combining run-centered
   marginal variance, lag-1 trial difference variance, and robust MAD
   scale minus analytical operator variance expectations).
+
+- tau2_shrinkage:
+
+  Empirical-Bayes shrinkage across analysis units for biological trial
+  variance \\\hat{\tau}^2\_{\mathrm{bio},v}\\ and sandwich residual
+  scale factors: `"auto"` (default; enables bilateral `"graph_eb"`
+  automatically for voxelwise/vertexwise map workflows with \\\ge 6\\
+  units whenever spatial coordinates, `voxel_map`, or `spatial_graph`
+  are available, and uses `"none"` otherwise), `"graph_eb"` (2-pass
+  bilateral Empirical Bayes over a sparse spatial neighborhood graph
+  with Isserlis spatial-correlation accounting and Efron-Morris limited
+  translation), `"eb"` (non-spatial global Empirical Bayes across units
+  with residual-correlation accounting), or `"none"` (independent
+  single-unit method-of-moments estimates).
+
+- spatial_graph:
+
+  Optional `"medusa_spatial_graph"` object (from
+  [`build_spatial_graph`](https://hallquistlab.github.io/medusa/reference/build_spatial_graph.md))
+  or spatial input accepted by
+  [`build_spatial_graph`](https://hallquistlab.github.io/medusa/reference/build_spatial_graph.md)
+  used when `tau2_shrinkage` resolves to `"graph_eb"`. When `NULL`,
+  inferred automatically from
+  `deconvolution$hrf_fit$specification$spatial_graph`,
+  `deconvolution$voxel_map`, or `spatial_coords` when present.
 
 - aggregate_by_parcel:
 

@@ -315,13 +315,13 @@ decon <- deconvolve_crossrun_hrf(
   nuisance_mode = "ignore", observation_mask = "fit", tail_padding = 0L
 )
 head(decon$scaling$run1)
-#>    run voxel status   center      scale   noise_sd  scaling noise_rho
-#> 1 run1    v1     ok 100.2592 0.03825892 0.03825892 noise_sd    0.3731
-#> 2 run1    v2     ok 100.2564 0.03935950 0.03935950 noise_sd    0.3731
-#> 3 run1    v3     ok 100.2542 0.04308699 0.04308699 noise_sd    0.3731
-#> 4 run1    v4     ok 100.2518 0.04642880 0.04642880 noise_sd    0.3731
-#> 5 run1    v5     ok 100.2556 0.04335176 0.04335176 noise_sd    0.3731
-#> 6 run1    v6     ok 100.2505 0.04129131 0.04129131 noise_sd    0.3731
+#>    run voxel status   center      scale   noise_sd  scaling noise_rho lambda
+#> 1 run1    v1     ok 100.2592 0.03825892 0.03825892 noise_sd    0.3731    0.1
+#> 2 run1    v2     ok 100.2564 0.03935950 0.03935950 noise_sd    0.3731    0.1
+#> 3 run1    v3     ok 100.2542 0.04308699 0.04308699 noise_sd    0.3731    0.1
+#> 4 run1    v4     ok 100.2518 0.04642880 0.04642880 noise_sd    0.3731    0.1
+#> 5 run1    v5     ok 100.2556 0.04335176 0.04335176 noise_sd    0.3731    0.1
+#> 6 run1    v6     ok 100.2505 0.04129131 0.04129131 noise_sd    0.3731    0.1
 #>   n_observations
 #> 1            220
 #> 2            220

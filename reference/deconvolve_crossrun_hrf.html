@@ -60,6 +60,8 @@
 <span>  observation_mask <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  lambda_grid <span class="op">=</span> <span class="fl">10</span><span class="op">^</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="fl">16</span><span class="op">)</span>,</span>
 <span>  gcv_rule <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"min"</span>, <span class="st">"1se"</span><span class="op">)</span>,</span>
+<span>  lambda_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"global"</span>, <span class="st">"stratified"</span><span class="op">)</span>,</span>
+<span>  max_lambda_strata <span class="op">=</span> <span class="fl">4L</span>,</span>
 <span>  rwls <span class="op">=</span> <span class="st">"auto"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -80,10 +82,12 @@ preprocessed BOLD used for estimation.</p></dd>
 
 
 <dt id="arg-lambda">lambda<a class="anchor" aria-label="anchor" href="#arg-lambda"></a></dt>
-<dd><p>Nonnegative regularization strength. If <code>NULL</code> (the
-default for modern <code>ar1</code>/<code>calibrated</code> fits), selected
+<dd><p>Nonnegative regularization strength (either a scalar or a
+per-voxel numeric vector of length <code>ncol(bold[[1]])</code>). If <code>NULL</code>
+(the default for modern <code>ar1</code>/<code>calibrated</code> fits), selected
 automatically from <code>lambda_grid</code> by gain-calibrated, task-weighted
-adaptive prewhitened generalized cross-validation using <code>gcv_rule</code>.</p></dd>
+adaptive prewhitened generalized cross-validation using <code>gcv_rule</code>
+and <code>lambda_mode</code>.</p></dd>
 
 
 <dt id="arg-scaling">scaling<a class="anchor" aria-label="anchor" href="#arg-scaling"></a></dt>
@@ -140,6 +144,22 @@ observations (all). Defaults to fit for AR/calibrated, all for OLS/legacy.</p></
 <code>lambda = NULL</code>.</p></dd>
 
 
+<dt id="arg-lambda-mode">lambda_mode<a class="anchor" aria-label="anchor" href="#arg-lambda-mode"></a></dt>
+<dd><p>Spatial regularization tuning mode when <code>lambda = NULL</code>:
+<code>"auto"</code> (default; stratifies <code>lambda</code> across out-of-sample
+task-informativeness tiers when the map exhibits SNR heterogeneity across
+active and background cortex, and falls back to <code>"global"</code> on
+homogeneous maps), <code>"global"</code> (single scalar <code>lambda</code> for all
+voxels), or <code>"stratified"</code> (monotone SNR-tier <code>lambda</code> up to
+<code>max_lambda_strata</code> strata).</p></dd>
+
+
+<dt id="arg-max-lambda-strata">max_lambda_strata<a class="anchor" aria-label="anchor" href="#arg-max-lambda-strata"></a></dt>
+<dd><p>Maximum number of SNR regularization strata when
+<code>lambda = NULL</code> and <code>lambda_mode</code> is <code>"auto"</code> or
+<code>"stratified"</code> (default <code>4L</code>).</p></dd>
+
+
 <dt id="arg-rwls">rwls<a class="anchor" aria-label="anchor" href="#arg-rwls"></a></dt>
 <dd><p>Robust weighted least-squares frame weighting mode for transient
 temporal artifacts (e.g., sub-censoring-threshold motion glitches or RF spikes):
@@ -154,9 +174,10 @@ Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An S3 list of class <code>"crossrun_decon"</code> with <code>activity</code>
-  matrices, per-run <code>scaling</code>/status tables, the <code>hrf_fit</code>, frozen
-  inverse <code>settings</code>, standardized <code>noise_innovations</code>, per-run
-  observation <code>frame_weights</code>, and optional NIfTI <code>voxel_map</code> and
+  matrices, per-run <code>scaling</code>/status tables (including per-voxel
+  <code>lambda</code>), the <code>hrf_fit</code>, frozen inverse <code>settings</code>,
+  standardized <code>noise_innovations</code>, per-run observation
+  <code>frame_weights</code>, and optional NIfTI <code>voxel_map</code> and
   <code>geometry</code> metadata (enabling direct <code><a href="write_nifti_ts.html">write_nifti_ts</a></code>
   export without an external reference file). Activity matrices retain voxel
   IDs and carry <code>tr</code>, <code>time_offset</code>, and <code>observation_mask</code>
@@ -164,9 +185,10 @@ Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>One inverse operator is constructed per selected HRF/run length,
-  cached for consecutive runs with identical masks/nuisance designs, and applied using block
-  matrix products for cpp/r. Scalar Wiener uses direct block FFT fits.
+    <p>One inverse operator is constructed per selected HRF/noise/lambda
+  stratum and run length, cached for consecutive runs with identical
+  masks/nuisance designs, and applied using block matrix products for cpp/r.
+  Scalar Wiener uses direct block FFT fits.
   HRFs are frozen; no voxelwise factorization or R fitting loop is required.
   AR/calibrated fits use a masked GLS inverse with the frozen run-specific
   noise covariance. A gap of d acquisitions uses rho^d and the corresponding
