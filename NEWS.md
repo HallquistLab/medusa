@@ -91,6 +91,18 @@
   Efron-Morris hotspot protection, and spatial Limma/Smyth moderation of
   sandwich residual scales (`[scale_unw, scale_pw, scale_gls]`) without ever
   smoothing neural timecourses or trial regression slopes.
+* Polished spatial/parcel pooling ergonomics and volumetric backprojection:
+  `build_spatial_graph()` now accepts `stats::dist`, dense `Matrix`, and sparse
+  symmetric `Matrix` distance objects directly alongside explicit
+  `x_type = c("auto", "coords", "distance")` disambiguation;
+  `deconvolve_crossrun_hrf()` exposes named per-voxel `settings$lambda_by_voxel`;
+  `decon_epoch_regression(..., aggregate_by_parcel = TRUE, tau2_shrinkage = "graph_eb")`
+  auto-constructs a precision-weighted 3D parcel-centroid spatial graph and
+  propagates parcel-aggregated task-$R^2$ gating;
+  `backproject_medusa()` auto-detects `parcel`, `evt_time`/`lag`, and all-`NA`
+  `term` defaults while parsing character/factor numeric parcel IDs safely;
+  and `book/medusa_spatial_parcel_pooling/` adds a full cortical-ribbon
+  `ggbrain` walkthrough.
 
 ## Standalone package extraction
 

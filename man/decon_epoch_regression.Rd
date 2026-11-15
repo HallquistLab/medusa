@@ -164,19 +164,24 @@ biological trial variance \eqn{\hat{\tau}^2_{\mathrm{bio},v}} and sandwich
 residual scale factors: \code{"auto"} (default; enables bilateral
 \code{"graph_eb"} automatically for voxelwise/vertexwise map workflows with
 \eqn{\ge 6} units whenever spatial coordinates, \code{voxel_map}, or
-\code{spatial_graph} are available, and uses \code{"none"} otherwise),
+\code{spatial_graph} are available, and uses \code{"none"} for parcel-level
+runs unless \code{spatial_graph} is supplied explicitly),
 \code{"graph_eb"} (2-pass bilateral Empirical Bayes over a sparse spatial
 neighborhood graph with Isserlis spatial-correlation accounting and
-Efron-Morris limited translation), \code{"eb"} (non-spatial global Empirical
-Bayes across units with residual-correlation accounting), or \code{"none"}
-(independent single-unit method-of-moments estimates).}
+Efron-Morris limited translation; for \code{aggregate_by_parcel = TRUE},
+automatically constructs a precision-weighted 3D parcel-centroid Euclidean
+graph when \code{spatial_graph} is \code{NULL}), \code{"eb"} (non-spatial
+global Empirical Bayes across units with residual-correlation accounting),
+or \code{"none"} (independent single-unit method-of-moments estimates).}
 
 \item{spatial_graph}{Optional \code{"medusa_spatial_graph"} object (from
 \code{\link{build_spatial_graph}}) or spatial input accepted by
 \code{\link{build_spatial_graph}} used when \code{tau2_shrinkage} resolves
 to \code{"graph_eb"}. When \code{NULL}, inferred automatically from
 \code{deconvolution$hrf_fit$specification$spatial_graph},
-\code{deconvolution$voxel_map}, or \code{spatial_coords} when present.}
+\code{deconvolution$voxel_map}, or \code{spatial_coords} when present
+(using precision-weighted 3D parcel centroids when
+\code{aggregate_by_parcel = TRUE}).}
 
 \item{aggregate_by_parcel}{Logical; if \code{TRUE}, aggregates deconvolved
 signals across voxels within each spatial parcel (using inverse-variance

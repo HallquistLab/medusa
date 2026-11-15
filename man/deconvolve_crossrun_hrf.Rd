@@ -95,13 +95,17 @@ Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 \value{
 An S3 list of class \code{"crossrun_decon"} with \code{activity}
   matrices, per-run \code{scaling}/status tables (including per-voxel
-  \code{lambda}), the \code{hrf_fit}, frozen inverse \code{settings},
-  standardized \code{noise_innovations}, per-run observation
-  \code{frame_weights}, and optional NIfTI \code{voxel_map} and
-  \code{geometry} metadata (enabling direct \code{\link{write_nifti_ts}}
-  export without an external reference file). Activity matrices retain voxel
-  IDs and carry \code{tr}, \code{time_offset}, and \code{observation_mask}
-  attributes for subsequent event alignment.
+  \code{lambda}), the \code{hrf_fit}, frozen inverse \code{settings}
+  (including scalar reference \code{settings$lambda}, the named per-voxel
+  penalty vector \code{settings$lambda_by_voxel} ready for 1-line 3D NIfTI
+  export via \code{\link{write_nifti_ts}}, and SNR tier summary table
+  \code{settings$lambda_strata} when stratified), standardized
+  \code{noise_innovations}, per-run observation \code{frame_weights}, and
+  optional NIfTI \code{voxel_map} and \code{geometry} metadata (enabling
+  direct \code{\link{write_nifti_ts}} export without an external reference
+  file). Activity matrices retain voxel IDs and carry \code{tr},
+  \code{time_offset}, and \code{observation_mask} attributes for subsequent
+  event alignment.
 }
 \description{
 Deconvolve runs using frozen HRFs learned from other runs

@@ -234,3 +234,41 @@ test_that("read_nifti_ts integrates directly with estimate_crossrun_hrf and deco
   expect_equal(dec_rt$bold$run1, dec$activity$run1, ignore_attr = TRUE, tolerance = 1e-10)
   expect_equal(dec_rt$bold$run2, dec$activity$run2, ignore_attr = TRUE, tolerance = 1e-10)
 })
+
+test_that("write_nifti_ts and print methods guard NULL or empty tr fields safely", {
+  tmp_dir <- withr::local_tempdir()
+  arr <- array(rnorm(3L * 2L * 2L * 6L), dim = c(3L, 2L, 2L, 6L))
+  mask <- array(1L, dim = c(3L, 2L, 2L))
+  f_run <- file.path(tmp_dir, "run.nii.gz")
+  f_mask <- file.path(tmp_dir, "mask.nii.gz")
+  nii_run <- RNifti::asNifti(arr)
+  RNifti::pixdim(nii_run) <- c(2, 2, 2, 1.5)
+  RNifti::writeNifti(nii_run, f_run)
+  nii_mask <- RNifti::asNifti(mask)
+  RNifti::pixdim(nii_mask) <- c(2, 2, 2)
+  RNifti::writeNifti(nii_mask, f_mask)
+
+  ts <- read_nifti_ts(f_run, mask = f_mask)
+  ts_null_tr <- ts
+  ts_null_tr["tr"] <- list(NULL)
+  expect_output(print(ts_null_tr), "TR: unspecified")
+
+  ts_empty_tr <- ts
+  ts_empty_tr$tr <- numeric(0L)
+  expect_output(print(ts_empty_tr), "TR: unspecified")
+
+  f_out_3d <- file.path(tmp_dir, "map3d.nii.gz")
+  stat_vec <- stats::setNames(seq_len(nrow(ts$voxel_map)) * 0.5, ts$voxel_map$voxel)
+  expect_no_error(write_nifti_ts(stat_vec, f_out_3d, reference = ts_null_tr))
+  expect_true(file.exists(f_out_3d))
+
+  # 4D reference geometry retains header_tr = 1.5 s -> falls back to 1.5 s when ts$tr is NULL
+  f_out_4d <- file.path(tmp_dir, "ts4d.nii.gz")
+  expect_no_error(write_nifti_ts(ts_null_tr, f_out_4d))
+  expect_equal(RNifti::niftiHeader(f_out_4d)$pixdim[5L], 1.5, tolerance = 1e-6)
+
+  # 3D mask reference has NA header_tr -> falls back cleanly to 1.0 s when tr is NULL
+  f_out_4d_maskref <- file.path(tmp_dir, "ts4d_maskref.nii.gz")
+  expect_no_error(write_nifti_ts(ts_null_tr$bold[[1L]], f_out_4d_maskref, reference = f_mask, voxel_map = ts$voxel_map))
+  expect_equal(RNifti::niftiHeader(f_out_4d_maskref)$pixdim[5L], 1.0, tolerance = 1e-6)
+})

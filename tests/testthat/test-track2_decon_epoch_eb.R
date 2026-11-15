@@ -409,3 +409,90 @@ test_that("Track 2b: Isserlis spatial-correlation accounting maintains calibrate
   # Scale moderation suppresses extreme spurious |t| spikes from single-voxel variance underestimation
   expect_lte(mean(max_t_ge), mean(max_t_no) + 0.15)
 })
+
+test_that("settings$lambda_by_voxel exports cleanly via write_nifti_ts and parcel-mode graph_eb auto-builds centroid graph", {
+  set.seed(20261118L)
+  tmp_dir <- withr::local_tempdir()
+  tr <- 1.0
+  n_time <- 140L
+  n_trials <- 24L
+  lib <- hrf_library(tr, peak_delays = 6.0, dispersions = 1.0, undershoot_ratios = 6)
+
+  # 8 parcels (3 voxels each = 24 voxels): parcels 1..4 on active gyral cluster, parcels 5..8 distant null cluster
+  grid <- expand.grid(i = 1:6, j = 1:4, k = 1L)
+  V <- nrow(grid)
+  vox_ids <- paste0("v", seq_len(V))
+  parcel_num <- ((grid$j - 1L) * 2L) + ifelse(grid$i <= 3L, 1L, 2L) # 8 parcels of 3 voxels each
+  # Separate odd vs even parcels across a wide 40 mm gap so centroids form two distinct 4-parcel clusters
+  x_mm <- ifelse(grid$i <= 3L, 3.0 * grid$i, 40.0 + 3.0 * grid$i)
+  y_mm <- 3.0 * grid$j
+  z_mm <- rep(0.0, V)
+
+  mask_arr <- array(0L, dim = c(6L, 4L, 1L))
+  for (v in seq_len(V)) mask_arr[grid$i[v], grid$j[v], 1L] <- parcel_num[v]
+  f_atlas <- file.path(tmp_dir, "atlas.nii.gz")
+  RNifti::writeNifti(RNifti::asNifti(mask_arr, pixdim = c(1, 3, 3, 3)), f_atlas)
+
+  vm <- data.frame(
+    voxel = vox_ids,
+    linear_index = seq_len(V),
+    i = grid$i, j = grid$j, k = grid$k,
+    x = x_mm, y = y_mm, z = z_mm,
+    atlas_value = parcel_num,
+    stringsAsFactors = FALSE
+  )
+  geom <- medusa:::resolve_nifti_spatial_geometry(f_atlas, label = "atlas")
+
+  active_parcels <- c(1L, 3L, 5L, 7L) # x <= 9 mm cluster
+  bold <- events <- covs <- vector("list", 2L)
+  names(bold) <- names(events) <- names(covs) <- c("run1", "run2")
+  for (r in 1:2) {
+    onsets <- cumsum(c(6.0, stats::runif(n_trials - 1L, 4.0, 5.8)))
+    x_cov <- as.numeric(scale(stats::rnorm(n_trials)))
+    events[[r]] <- data.frame(onset = onsets, duration = 0.0, condition = "stim")
+    covs[[r]] <- data.frame(x = x_cov)
+    G <- hrf_event_design_cpp(
+      n_time, tr, 0.0, onsets, rep(0.0, n_trials), seq_len(n_trials), n_trials, lib
+    )[[1L]]
+    Y_r <- matrix(0.0, n_time, V, dimnames = list(NULL, vox_ids))
+    for (p_id in 1:8) {
+      bio_p <- if (p_id %in% active_parcels) stats::rnorm(n_trials, sd = sqrt(1.8)) else numeric(n_trials)
+      amp_p <- (if (p_id %in% active_parcels) 3.0 + 0.9 * x_cov else 0.0) + bio_p
+      for (v in which(parcel_num == p_id)) {
+        Y_r[, v] <- as.numeric(G %*% amp_p) + as.numeric(stats::arima.sim(list(ar = 0.25), n = n_time, sd = 0.5))
+      }
+    }
+    attr(Y_r, "voxel_map") <- vm
+    attr(Y_r, "geometry") <- geom
+    bold[[r]] <- Y_r
+  }
+
+  p_labels <- stats::setNames(as.character(parcel_num), vox_ids)
+  fit <- estimate_crossrun_hrf(bold, events, lib, tr = tr, spatial_groups = p_labels, pooling = "parcel", noise_model = "ar1")
+  dec <- deconvolve_crossrun_hrf(bold, fit, lambda = NULL, lambda_mode = "stratified", scaling = "noise_sd", penalty = "sobolev")
+
+  # Polish #4: settings$lambda_by_voxel is named by voxel_ids, matches scaling[[1]]$lambda, and writes 3D NIfTI in 1 line
+  expect_identical(names(dec$settings$lambda_by_voxel), vox_ids)
+  expect_equal(unname(dec$settings$lambda_by_voxel), dec$scaling$run1$lambda)
+  f_lam <- file.path(tmp_dir, "log10_lambda.nii.gz")
+  write_nifti_ts(log10(dec$settings$lambda_by_voxel), f_lam, reference = dec, datatype = "double")
+  expect_equal(as.numeric(RNifti::readNifti(f_lam)), log10(unname(dec$settings$lambda_by_voxel)), tolerance = 1e-10)
+
+  # Polish #5: parcel-mode tau2_shrinkage = 'auto' stays 'none', while 'graph_eb' auto-builds parcel-centroid graph
+  reg_p_auto <- decon_epoch_regression(
+    dec, covariates = covs, events = events, lags = 0,
+    restore_scale = TRUE, parcel_groups = p_labels, tau2_shrinkage = "auto"
+  )
+  reg_p_ge <- decon_epoch_regression(
+    dec, covariates = covs, events = events, lags = 0,
+    restore_scale = TRUE, parcel_groups = p_labels, tau2_shrinkage = "graph_eb"
+  )
+  expect_equal(reg_p_auto$settings$tau2_shrinkage_used, "none")
+  expect_equal(reg_p_ge$settings$tau2_shrinkage_used, "graph_eb")
+  expect_equal(nrow(reg_p_ge$coefficients), 8L)
+
+  act_rows <- match(as.character(active_parcels), reg_p_ge$coefficients$parcel)
+  null_rows <- setdiff(seq_len(8L), act_rows)
+  expect_gt(stats::median(reg_p_ge$coefficients$tau2_bio[act_rows]), 0.6)
+  expect_lt(stats::median(reg_p_ge$coefficients$tau2_bio[null_rows]), 0.25)
+})

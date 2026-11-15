@@ -9,13 +9,15 @@
 #'   \code{data.frame} with lattice columns \code{i, j, k} (or world coordinates
 #'   \code{x, y, z}), a numeric \eqn{V \times D} coordinate matrix, an edge
 #'   \code{data.frame} with columns \code{from}, \code{to} (and optional positive
-#'   \code{dist} together with \code{n_voxels}), a square numeric/sparse distance
-#'   matrix (nonzero off-diagonal entries giving neighbor distances), or an
-#'   existing \code{"medusa_spatial_graph"}.
+#'   \code{dist} together with \code{n_voxels}), a \code{\link[stats]{dist}}
+#'   object, a square numeric or sparse/dense \code{Matrix} distance matrix
+#'   (positive finite off-diagonal entries giving neighbor distances; \code{0}
+#'   or \code{Inf} denoting disconnected pairs), or an existing
+#'   \code{"medusa_spatial_graph"}.
 #' @param spatial_fwhm Optional positive numeric Gaussian spatial kernel FWHM (in
 #'   mm or coordinate units). Defaults to \code{2.5 * median(spacing)} for lattice
 #'   inputs and \code{2.5} times the median nearest-neighbor distance for
-#'   coordinate matrices.
+#'   coordinate and distance matrices.
 #' @param max_neighbors Maximum number of non-self spatial neighbors retained per
 #'   node (default \code{32L}). Every node always retains itself at index 1 of its
 #'   CSR row with distance \code{0}.
@@ -38,6 +40,15 @@
 #' @param n_voxels Optional total node count \eqn{V} when \code{x} is an edge
 #'   \code{data.frame} that may contain isolated nodes.
 #' @param voxel_ids Optional character vector of node IDs of length \eqn{V}.
+#' @param x_type Disambiguation for matrix inputs \code{x}: \code{"auto"}
+#'   (default; treats \code{dist} and \code{Matrix} inputs, as well as square
+#'   \eqn{V \times V} numeric matrices with \eqn{V > 3}, zero diagonal, and
+#'   nonnegative entries as pairwise distance matrices, and other numeric
+#'   matrices as \eqn{V \times D} coordinate matrices), \code{"coords"} (force
+#'   interpretation as a \eqn{V \times D} coordinate matrix), or
+#'   \code{"distance"} (force interpretation as a square \eqn{V \times V}
+#'   distance matrix, including small \eqn{2 \times 2} or \eqn{3 \times 3}
+#'   distance matrices).
 #'
 #' @return An S3 object of class \code{"medusa_spatial_graph"} containing 1-based
 #'   CSR arrays \code{row_ptr} (length \eqn{V + 1}), \code{col_idx}, and
@@ -54,9 +65,11 @@ build_spatial_graph <- function(
     parcel_boundary = c("soft", "hard", "ignore"),
     metric = c("auto", "geodesic", "euclidean"),
     n_voxels = NULL,
-    voxel_ids = NULL) {
+    voxel_ids = NULL,
+    x_type = c("auto", "coords", "distance")) {
   parcel_boundary <- match.arg(parcel_boundary)
   metric <- match.arg(metric)
+  x_type <- match.arg(x_type)
   checkmate::assert_integerish(max_neighbors, lower = 1L, len = 1L, any.missing = FALSE)
   max_neighbors <- as.integer(max_neighbors)
   if (!is.null(spatial_fwhm)) {
@@ -186,21 +199,18 @@ build_spatial_graph <- function(
     ))
   }
 
-  # 4. Square sparse Matrix (e.g., Matrix::dgCMatrix)
-  if (inherits(x, "Matrix")) {
-    if (!requireNamespace("Matrix", quietly = TRUE)) {
-      stop("Package 'Matrix' is required to convert sparse Matrix spatial_graph inputs.", call. = FALSE)
+  # 4. Pairwise distance inputs: stats::dist or Matrix (sparse or dense)
+  if (inherits(x, "dist")) {
+    if (x_type == "coords") {
+      stop("A 'dist' object cannot be interpreted with x_type = 'coords'.", call. = FALSE)
     }
-    if (nrow(x) != ncol(x)) {
-      stop("Sparse Matrix spatial_graph must be square (V x V).", call. = FALSE)
+    if (is.null(voxel_ids)) {
+      lbl <- attr(x, "Labels")
+      if (!is.null(lbl)) voxel_ids <- as.character(lbl)
     }
-    sm <- Matrix::summary(x)
-    ed <- data.frame(from = as.integer(sm$i), to = as.integer(sm$j), dist = as.numeric(sm$x))
-    ed <- ed[is.finite(ed$dist) & ed$dist > 0 & ed$from != ed$to, , drop = FALSE]
-    if (is.null(voxel_ids) && !is.null(rownames(x))) voxel_ids <- rownames(x)
-    return(hrf_build_custom_edge_graph(
-      edges = ed,
-      n_voxels = nrow(x),
+    return(hrf_build_distance_matrix_graph(
+      m = as.matrix(x),
+      n_voxels = n_voxels,
       voxel_ids = voxel_ids,
       spatial_fwhm = spatial_fwhm,
       max_neighbors = max_neighbors,
@@ -210,7 +220,76 @@ build_spatial_graph <- function(
     ))
   }
 
-  # 5. Coordinate matrix (or data.frame of coordinates)
+  if (inherits(x, "Matrix")) {
+    if (!requireNamespace("Matrix", quietly = TRUE)) {
+      stop("Package 'Matrix' is required to convert Matrix spatial_graph inputs.", call. = FALSE)
+    }
+    if (x_type == "coords") {
+      x <- as.matrix(x)
+    } else {
+      if (nrow(x) != ncol(x)) {
+        stop("Distance Matrix spatial_graph must be square (V x V).", call. = FALSE)
+      }
+      V_mat <- nrow(x)
+      if (!is.null(n_voxels) && as.integer(n_voxels) != V_mat) {
+        stop("spatial_graph node count (", V_mat, ") does not match expected voxel count (", n_voxels, ").", call. = FALSE)
+      }
+      if (is.null(voxel_ids)) {
+        if (!is.null(rownames(x))) {
+          voxel_ids <- rownames(x)
+        } else if (!is.null(colnames(x))) {
+          voxel_ids <- colnames(x)
+        }
+      }
+      if (inherits(x, "sparseMatrix")) {
+        ts <- methods::as(methods::as(x, "generalMatrix"), "TsparseMatrix")
+        if (any(is.nan(ts@x))) {
+          stop("Distance Matrix entries must not contain NaN.", call. = FALSE)
+        }
+        off_nz <- (ts@i != ts@j) & !is.na(ts@x)
+        if (any(ts@x[off_nz] < 0)) {
+          stop("Distance Matrix off-diagonal entries must be nonnegative.", call. = FALSE)
+        }
+        keep_nz <- (ts@i != ts@j) & is.finite(ts@x) & (ts@x > 0)
+        from_nz <- as.integer(ts@i[keep_nz] + 1L)
+        to_nz <- as.integer(ts@j[keep_nz] + 1L)
+        d_nz <- as.numeric(ts@x[keep_nz])
+        if (length(d_nz)) {
+          nn_by_u <- tapply(c(d_nz, d_nz), c(from_nz, to_nz), min)
+          step_d <- stats::median(as.numeric(nn_by_u))
+        } else {
+          step_d <- 1.0
+        }
+        eff_fwhm <- if (is.null(spatial_fwhm)) 2.5 * step_d else as.numeric(spatial_fwhm)
+        sigma <- fwhm_to_sigma(eff_fwhm)
+        eff_rad <- if (is.null(max_radius)) max(2.75 * sigma, 1.80 * step_d) else as.numeric(max_radius)
+        within_nz <- d_nz <= (eff_rad + 1e-9)
+        ed <- data.frame(from = from_nz[within_nz], to = to_nz[within_nz], dist = d_nz[within_nz])
+        return(hrf_build_custom_edge_graph(
+          edges = ed,
+          n_voxels = V_mat,
+          voxel_ids = voxel_ids,
+          spatial_fwhm = eff_fwhm,
+          max_neighbors = max_neighbors,
+          max_radius = eff_rad,
+          spatial_groups = spatial_groups,
+          parcel_boundary = parcel_boundary
+        ))
+      }
+      return(hrf_build_distance_matrix_graph(
+        m = as.matrix(x),
+        n_voxels = n_voxels,
+        voxel_ids = voxel_ids,
+        spatial_fwhm = spatial_fwhm,
+        max_neighbors = max_neighbors,
+        max_radius = max_radius,
+        spatial_groups = spatial_groups,
+        parcel_boundary = parcel_boundary
+      ))
+    }
+  }
+
+  # 5. Coordinate matrix or square base R distance matrix
   if (is.data.frame(x)) x <- as.matrix(x)
   if (is.atomic(x) && is.null(dim(x)) && is.numeric(x)) {
     x <- matrix(as.numeric(x), ncol = 1L, dimnames = list(names(x), NULL))
@@ -218,9 +297,24 @@ build_spatial_graph <- function(
   if (!is.matrix(x) || !is.numeric(x)) {
     stop(
       "Unsupported input 'x' for build_spatial_graph(): supply a 'medusa_nifti_ts', ",
-      "voxel_map, numeric coordinate matrix, or edge data.frame.",
+      "voxel_map, numeric coordinate matrix, distance matrix/'dist', or edge data.frame.",
       call. = FALSE
     )
+  }
+  if (x_type == "distance" || (x_type == "auto" && hrf_is_auto_distance_matrix(x))) {
+    if (nrow(x) != ncol(x)) {
+      stop("x_type = 'distance' requires a square (V x V) numeric distance matrix.", call. = FALSE)
+    }
+    return(hrf_build_distance_matrix_graph(
+      m = x,
+      n_voxels = n_voxels,
+      voxel_ids = voxel_ids,
+      spatial_fwhm = spatial_fwhm,
+      max_neighbors = max_neighbors,
+      max_radius = max_radius,
+      spatial_groups = spatial_groups,
+      parcel_boundary = parcel_boundary
+    ))
   }
   if (metric == "geodesic") {
     stop("metric = 'geodesic' requires a lattice voxel_map with columns 'i', 'j', 'k'.", call. = FALSE)
@@ -484,6 +578,81 @@ hrf_build_custom_edge_graph <- function(edges, n_voxels, voxel_ids, spatial_fwhm
     max_radius = eff_rad,
     max_neighbors = max_neighbors,
     metric = "custom",
+    parcel_boundary = parcel_boundary
+  )
+}
+
+hrf_is_auto_distance_matrix <- function(m) {
+  if (!is.matrix(m) || !is.numeric(m)) return(FALSE)
+  if (nrow(m) != ncol(m) || ncol(m) <= 3L) return(FALSE)
+  if (any(is.nan(m))) return(FALSE)
+  d_diag <- diag(m)
+  if (!all(is.finite(d_diag)) || max(abs(d_diag)) > 1e-12) return(FALSE)
+  fin <- m[is.finite(m)]
+  if (length(fin) <= ncol(m) || any(fin < 0)) return(FALSE)
+  off_fin <- m[row(m) != col(m) & is.finite(m)]
+  length(off_fin) > 0L && any(off_fin > 0)
+}
+
+hrf_build_distance_matrix_graph <- function(m, n_voxels, voxel_ids, spatial_fwhm,
+    max_neighbors, max_radius, spatial_groups, parcel_boundary) {
+  if (!is.matrix(m) || !is.numeric(m) || nrow(m) != ncol(m)) {
+    stop("Distance matrix must be a square (V x V) numeric matrix.", call. = FALSE)
+  }
+  V <- nrow(m)
+  if (!is.null(n_voxels) && as.integer(n_voxels) != V) {
+    stop("spatial_graph node count (", V, ") does not match expected voxel count (", n_voxels, ").", call. = FALSE)
+  }
+  if (any(is.nan(m))) {
+    stop("Distance matrix entries must not contain NaN.", call. = FALSE)
+  }
+  if (is.null(voxel_ids)) {
+    if (!is.null(rownames(m))) {
+      voxel_ids <- rownames(m)
+    } else if (!is.null(colnames(m))) {
+      voxel_ids <- colnames(m)
+    }
+  }
+  if (V <= 1L) {
+    ed <- data.frame(from = integer(0L), to = integer(0L), dist = numeric(0L))
+    return(hrf_build_custom_edge_graph(
+      edges = ed,
+      n_voxels = V,
+      voxel_ids = voxel_ids,
+      spatial_fwhm = if (is.null(spatial_fwhm)) 2.5 else spatial_fwhm,
+      max_neighbors = max_neighbors,
+      max_radius = max_radius,
+      spatial_groups = spatial_groups,
+      parcel_boundary = parcel_boundary
+    ))
+  }
+  off_vals <- m[row(m) != col(m)]
+  if (any(!is.na(off_vals) & off_vals < 0)) {
+    stop("Distance matrix off-diagonal entries must be nonnegative (use 0 or Inf for disconnected pairs).", call. = FALSE)
+  }
+  m_pos <- m
+  diag(m_pos) <- Inf
+  m_pos[!is.finite(m_pos) | m_pos <= 0] <- Inf
+  nn_u <- pmin(apply(m_pos, 1L, min), apply(m_pos, 2L, min))
+  nn_fin <- nn_u[is.finite(nn_u)]
+  step_d <- if (length(nn_fin)) stats::median(nn_fin) else 1.0
+  eff_fwhm <- if (is.null(spatial_fwhm)) 2.5 * step_d else as.numeric(spatial_fwhm)
+  sigma <- max(eff_fwhm / sqrt(8.0 * log(2.0)), 1e-6)
+  eff_rad <- if (is.null(max_radius)) max(2.75 * sigma, 1.80 * step_d) else as.numeric(max_radius)
+  hit <- which(is.finite(m_pos) & m_pos <= (eff_rad + 1e-9), arr.ind = TRUE)
+  ed <- if (nrow(hit)) {
+    data.frame(from = as.integer(hit[, 1L]), to = as.integer(hit[, 2L]), dist = as.numeric(m_pos[hit]))
+  } else {
+    data.frame(from = integer(0L), to = integer(0L), dist = numeric(0L))
+  }
+  hrf_build_custom_edge_graph(
+    edges = ed,
+    n_voxels = V,
+    voxel_ids = voxel_ids,
+    spatial_fwhm = eff_fwhm,
+    max_neighbors = max_neighbors,
+    max_radius = eff_rad,
+    spatial_groups = spatial_groups,
     parcel_boundary = parcel_boundary
   )
 }

@@ -527,7 +527,8 @@ compute_zca_whitening_matrix <- function(Sigma_tot, eig_floor = 0.08, offdiag_sc
 
 # Resolve a sparse spatial graph for bilateral Empirical-Bayes variance shrinkage in Step 3.
 resolve_epoch_spatial_graph <- function(deconvolution, fit, spatial_graph,
-                                        aggregate_by_parcel, n_units, unit_ids) {
+                                        aggregate_by_parcel, n_units, unit_ids,
+                                        parcel_vox_list = NULL, parcel_weights_list = NULL) {
   if (!is.null(spatial_graph)) {
     if (inherits(spatial_graph, "medusa_spatial_graph")) {
       if (as.integer(spatial_graph$n_voxels) != as.integer(n_units)) {
@@ -542,7 +543,55 @@ resolve_epoch_spatial_graph <- function(deconvolution, fit, spatial_graph,
       voxel_ids = unit_ids
     ))
   }
-  if (isTRUE(aggregate_by_parcel)) return(NULL)
+  if (isTRUE(aggregate_by_parcel)) {
+    if (is.null(parcel_vox_list) || length(parcel_vox_list) != n_units || n_units < 2L) {
+      return(NULL)
+    }
+    vox_coords <- NULL
+    vm <- deconvolution$voxel_map
+    n_vox <- length(fit$voxel_ids)
+    if (!is.null(vm) && is.data.frame(vm) && nrow(vm) == n_vox) {
+      if (all(c("x", "y", "z") %in% names(vm))) {
+        vox_coords <- as.matrix(vm[, c("x", "y", "z"), drop = FALSE])
+      } else if (all(c("i", "j", "k") %in% names(vm))) {
+        sp <- hrf_infer_lattice_spacing(vm, deconvolution$geometry)
+        ijk_m <- as.matrix(vm[, c("i", "j", "k"), drop = FALSE])
+        storage.mode(ijk_m) <- "double"
+        vox_coords <- sweep(ijk_m, 2L, as.numeric(sp), "*")
+      }
+    }
+    if (is.null(vox_coords) && !is.null(fit$specification$spatial_coords) &&
+        is.matrix(fit$specification$spatial_coords) &&
+        nrow(fit$specification$spatial_coords) == n_vox) {
+      vox_coords <- fit$specification$spatial_coords
+    }
+    if (is.null(vox_coords) || any(!is.finite(vox_coords))) {
+      return(NULL)
+    }
+    storage.mode(vox_coords) <- "double"
+    centroids <- matrix(
+      NA_real_, nrow = n_units, ncol = ncol(vox_coords),
+      dimnames = list(unit_ids, colnames(vox_coords))
+    )
+    for (g in seq_len(n_units)) {
+      vg <- parcel_vox_list[[g]]
+      wg <- if (!is.null(parcel_weights_list) && length(parcel_weights_list) >= g) {
+        parcel_weights_list[[g]]
+      } else {
+        rep(1.0 / length(vg), length(vg))
+      }
+      wg <- wg / sum(wg)
+      centroids[g, ] <- as.numeric(crossprod(wg, vox_coords[vg, , drop = FALSE]))
+    }
+    return(tryCatch(
+      build_spatial_graph(
+        centroids,
+        metric = "euclidean",
+        voxel_ids = unit_ids
+      ),
+      error = function(e) NULL
+    ))
+  }
   if (inherits(fit$specification$spatial_graph, "medusa_spatial_graph") &&
       fit$specification$spatial_graph$n_voxels == n_units) {
     return(fit$specification$spatial_graph)
@@ -829,18 +878,23 @@ eb_moderate_scale_global_r <- function(scale_raw, d_eff, df_nom, eb_fit) {
 #'   residual scale factors: \code{"auto"} (default; enables bilateral
 #'   \code{"graph_eb"} automatically for voxelwise/vertexwise map workflows with
 #'   \eqn{\ge 6} units whenever spatial coordinates, \code{voxel_map}, or
-#'   \code{spatial_graph} are available, and uses \code{"none"} otherwise),
+#'   \code{spatial_graph} are available, and uses \code{"none"} for parcel-level
+#'   runs unless \code{spatial_graph} is supplied explicitly),
 #'   \code{"graph_eb"} (2-pass bilateral Empirical Bayes over a sparse spatial
 #'   neighborhood graph with Isserlis spatial-correlation accounting and
-#'   Efron-Morris limited translation), \code{"eb"} (non-spatial global Empirical
-#'   Bayes across units with residual-correlation accounting), or \code{"none"}
-#'   (independent single-unit method-of-moments estimates).
+#'   Efron-Morris limited translation; for \code{aggregate_by_parcel = TRUE},
+#'   automatically constructs a precision-weighted 3D parcel-centroid Euclidean
+#'   graph when \code{spatial_graph} is \code{NULL}), \code{"eb"} (non-spatial
+#'   global Empirical Bayes across units with residual-correlation accounting),
+#'   or \code{"none"} (independent single-unit method-of-moments estimates).
 #' @param spatial_graph Optional \code{"medusa_spatial_graph"} object (from
 #'   \code{\link{build_spatial_graph}}) or spatial input accepted by
 #'   \code{\link{build_spatial_graph}} used when \code{tau2_shrinkage} resolves
 #'   to \code{"graph_eb"}. When \code{NULL}, inferred automatically from
 #'   \code{deconvolution$hrf_fit$specification$spatial_graph},
-#'   \code{deconvolution$voxel_map}, or \code{spatial_coords} when present.
+#'   \code{deconvolution$voxel_map}, or \code{spatial_coords} when present
+#'   (using precision-weighted 3D parcel centroids when
+#'   \code{aggregate_by_parcel = TRUE}).
 #' @param aggregate_by_parcel Logical; if \code{TRUE}, aggregates deconvolved
 #'   signals across voxels within each spatial parcel (using inverse-variance
 #'   voxel precision weights and empirical spatial noise correlation propagation)
@@ -2214,9 +2268,14 @@ decon_epoch_regression <- function(
   X_pool <- do.call(rbind, x_centered_list)
   x_row_finite <- if (n_terms > 0L) (rowSums(!is.finite(X_pool)) == 0L) else rep(TRUE, total_trials)
 
-  epoch_graph <- if (!identical(tau2_shrinkage, "none") && n_units >= 2L) {
+  need_epoch_graph <- !identical(tau2_shrinkage, "none") &&
+    !identical(tau2_shrinkage, "eb") &&
+    n_units >= 2L &&
+    (!isTRUE(aggregate_by_parcel) || !is.null(spatial_graph) || identical(tau2_shrinkage, "graph_eb"))
+  epoch_graph <- if (need_epoch_graph) {
     resolve_epoch_spatial_graph(
-      deconvolution, fit, spatial_graph, aggregate_by_parcel, n_units, unit_ids
+      deconvolution, fit, spatial_graph, aggregate_by_parcel, n_units, unit_ids,
+      parcel_vox_list = parcel_vox_list, parcel_weights_list = parcel_weights_list
     )
   } else {
     NULL
@@ -2247,8 +2306,9 @@ decon_epoch_regression <- function(
   eb_group_ids <- integer(0L)
   eb_cross_w <- 1.0
   if (identical(eff_tau2_shrinkage, "graph_eb")) {
-    if (!isTRUE(aggregate_by_parcel) && length(fit$selections) == n_runs) {
+    if (length(fit$selections) == n_runs) {
       r2_mat_eb <- matrix(0.0, n_runs, n_units)
+      has_r2 <- FALSE
       for (r in seq_len(n_runs)) {
         sel_r <- fit$selections[[r]]
         sc_raw <- if (!is.null(sel_r[["selected_adjusted_partial_r2"]])) {
@@ -2258,16 +2318,31 @@ decon_epoch_regression <- function(
         } else {
           sel_r[["score"]]
         }
-        if (!is.null(sc_raw) && is.numeric(sc_raw) && length(sc_raw) == n_units) {
+        if (!is.null(sc_raw) && is.numeric(sc_raw)) {
           sv <- as.numeric(sc_raw)
           sv[!is.finite(sv) | sv < 0] <- 0.0
-          r2_mat_eb[r, ] <- sv
+          if (!isTRUE(aggregate_by_parcel) && length(sv) == n_units) {
+            r2_mat_eb[r, ] <- sv
+            has_r2 <- TRUE
+          } else if (isTRUE(aggregate_by_parcel) && length(sv) == n_voxels &&
+                     !is.null(parcel_vox_list) && length(parcel_vox_list) == n_units) {
+            for (g in seq_len(n_units)) {
+              vg <- parcel_vox_list[[g]]
+              wg <- parcel_weights_list[[g]]
+              r2_mat_eb[r, g] <- sum(wg * sv[vg]) / max(sum(wg), 1e-12)
+            }
+            has_r2 <- TRUE
+          }
         }
       }
-      r2_mean_eb <- colMeans(r2_mat_eb)
-      pos_r2 <- r2_mean_eb[r2_mean_eb > 1e-4]
-      r2_half <- if (length(pos_r2)) max(0.02, stats::median(pos_r2)) else 0.05
-      task_gate_vec <- r2_mean_eb / (r2_mean_eb + r2_half)
+      if (has_r2) {
+        r2_mean_eb <- colMeans(r2_mat_eb)
+        pos_r2 <- r2_mean_eb[r2_mean_eb > 1e-4]
+        r2_half <- if (length(pos_r2)) max(0.02, stats::median(pos_r2)) else 0.05
+        task_gate_vec <- r2_mean_eb / (r2_mean_eb + r2_half)
+      } else {
+        task_gate_vec <- rep(0.5, n_units)
+      }
     } else {
       task_gate_vec <- rep(0.5, n_units)
     }

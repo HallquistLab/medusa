@@ -416,11 +416,15 @@ read_nifti_ts <- function(
   )
 }
 
+has_valid_tr <- function(v) {
+  !is.null(v) && is.numeric(v) && length(v) == 1L && is.finite(v) && v > 0
+}
+
 #' @export
 print.medusa_nifti_ts <- function(x, ...) {
   n_runs <- length(x$bold)
   n_vox <- nrow(x$voxel_map)
-  tr_txt <- if (is.finite(x$tr)) sprintf("%.4g s", x$tr) else "unspecified"
+  tr_txt <- if (has_valid_tr(x$tr)) sprintf("%.4g s", x$tr) else "unspecified"
   cat(sprintf(
     "<medusa_nifti_ts> %d run%s | %d voxel%s | spatial dim: %s | TR: %s | orientation: %s\n",
     n_runs, if (n_runs == 1L) "" else "s",
@@ -611,7 +615,7 @@ write_nifti_ts <- function(
   if (inherits(x, "medusa_nifti_ts")) {
     if (is.null(voxel_map) && is.null(voxel_indices)) voxel_map <- x$voxel_map
     if (is.null(reference)) reference <- resolve_reference_from_geometry(x$geometry)
-    if (is.null(tr) && is.finite(x$tr)) tr <- x$tr
+    if (is.null(tr) && has_valid_tr(x$tr)) tr <- x$tr
     if (!orientation_supplied) orientation <- x$orientation
     x <- x$bold
   } else if (inherits(x, "crossrun_decon") ||
@@ -620,7 +624,7 @@ write_nifti_ts <- function(
     gm_dec <- if (!is.null(x$geometry)) x$geometry else x$hrf_fit$geometry
     if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(vm_dec)) voxel_map <- vm_dec
     if (is.null(reference) && !is.null(gm_dec)) reference <- resolve_reference_from_geometry(gm_dec)
-    if (is.null(tr) && !is.null(x$hrf_fit$settings$tr) && is.finite(x$hrf_fit$settings$tr)) {
+    if (is.null(tr) && has_valid_tr(x$hrf_fit$settings$tr)) {
       tr <- x$hrf_fit$settings$tr
     }
     if (!time_offset_supplied && !is.null(x$hrf_fit$settings$time_offset)) {
@@ -637,11 +641,11 @@ write_nifti_ts <- function(
       reference <- resolve_reference_from_geometry(geom_attr)
     }
     tr_attr <- attr(x, "tr", exact = TRUE)
-    if (is.null(tr) && !is.null(tr_attr) && is.finite(tr_attr)) {
+    if (is.null(tr) && has_valid_tr(tr_attr)) {
       tr <- tr_attr
     }
     off_attr <- attr(x, "time_offset", exact = TRUE)
-    if (!time_offset_supplied && !is.null(off_attr) && all(is.finite(off_attr))) {
+    if (!time_offset_supplied && !is.null(off_attr) && length(off_attr) > 0L && all(is.finite(off_attr))) {
       time_offset <- as.numeric(off_attr)
     }
     orient_attr <- attr(x, "orientation", exact = TRUE)
@@ -658,7 +662,7 @@ write_nifti_ts <- function(
       reference <- resolve_reference_from_geometry(geom_attr)
     }
     tr_attr <- attr(x[[1L]], "tr", exact = TRUE)
-    if (is.null(tr) && !is.null(tr_attr) && is.finite(tr_attr)) {
+    if (is.null(tr) && has_valid_tr(tr_attr)) {
       tr <- tr_attr
     }
     if (!time_offset_supplied &&
@@ -669,14 +673,14 @@ write_nifti_ts <- function(
 
   if (inherits(reference, "medusa_nifti_ts")) {
     if (is.null(voxel_map) && is.null(voxel_indices)) voxel_map <- reference$voxel_map
-    if (is.null(tr) && is.finite(reference$tr)) tr <- reference$tr
+    if (is.null(tr) && has_valid_tr(reference$tr)) tr <- reference$tr
     reference <- resolve_reference_from_geometry(reference$geometry)
   } else if (inherits(reference, "crossrun_decon") ||
              (is.list(reference) && !is.data.frame(reference) && all(c("activity", "hrf_fit") %in% names(reference)))) {
     vm_ref <- if (!is.null(reference$voxel_map)) reference$voxel_map else reference$hrf_fit$voxel_map
     gm_ref <- if (!is.null(reference$geometry)) reference$geometry else reference$hrf_fit$geometry
     if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(vm_ref)) voxel_map <- vm_ref
-    if (is.null(tr) && !is.null(reference$hrf_fit$settings$tr) && is.finite(reference$hrf_fit$settings$tr)) {
+    if (is.null(tr) && has_valid_tr(reference$hrf_fit$settings$tr)) {
       tr <- reference$hrf_fit$settings$tr
     }
     reference <- resolve_reference_from_geometry(gm_ref)
@@ -684,7 +688,7 @@ write_nifti_ts <- function(
     if (is.null(voxel_map) && is.null(voxel_indices) && !is.null(reference$voxel_map)) {
       voxel_map <- reference$voxel_map
     }
-    if (is.null(tr) && !is.null(reference$settings$tr) && is.finite(reference$settings$tr)) {
+    if (is.null(tr) && has_valid_tr(reference$settings$tr)) {
       tr <- reference$settings$tr
     }
     reference <- resolve_reference_from_geometry(reference$geometry)
@@ -712,8 +716,8 @@ write_nifti_ts <- function(
   if (!is.null(tr)) {
     checkmate::assert_number(tr, lower = 0.01, finite = TRUE)
     tr_val <- as.numeric(tr)
-  } else if (is.finite(ref_geom$header_tr) && ref_geom$header_tr > 0) {
-    tr_val <- ref_geom$header_tr
+  } else if (has_valid_tr(ref_geom$header_tr)) {
+    tr_val <- as.numeric(ref_geom$header_tr)
   } else {
     tr_val <- 1.0
   }

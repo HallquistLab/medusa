@@ -12,12 +12,16 @@
 #'   or `"crossrun_hrf"` object read with `atlas` metadata.
 #' @param plot_cols Character vector of numeric column names in `coef_df` to
 #'   backproject.
-#' @param parcel_col Column name in `coef_df` identifying integer mask parcel
-#'   values. Default `"roi"`.
+#' @param parcel_col Column name in `coef_df` identifying integer/numeric mask
+#'   parcel values (numeric, integer, character such as `"10"`, or factor
+#'   values that parse cleanly as numbers are accepted). Defaults to `"roi"`,
+#'   automatically falling back to `"parcel"` when omitted and `"roi"` is absent.
 #' @param time_col Column name in `coef_df` identifying event-locked timepoints.
-#'   Default `"time"`.
+#'   Defaults to `"time"`, automatically falling back to `"evt_time"` or `"lag"`
+#'   when omitted and `"time"` is absent.
 #' @param effect_col Column name in `coef_df` identifying model terms/effects,
-#'   or `NULL` if `coef_df` contains a single effect. Default `"term"`.
+#'   or `NULL` if `coef_df` contains a single effect. Default `"term"` (if
+#'   omitted and `"term"` contains only `NA`, treated as `NULL`).
 #' @param output_dir Output directory where `.nii.gz` files will be written.
 #'   Default `getwd()`.
 #' @param ncpus Integer number of parallel worker processes. Default `4L`.
@@ -43,7 +47,25 @@ backproject_medusa <- function(
   compression = 2L,
   fill = 0
 ) {
+  parcel_col_supplied <- !missing(parcel_col)
+  time_col_supplied <- !missing(time_col)
+  effect_col_supplied <- !missing(effect_col)
   checkmate::assert_data_frame(coef_df, min.rows = 1L)
+  coef_df <- as.data.frame(coef_df)
+  if (!parcel_col_supplied && !(parcel_col %in% names(coef_df)) && ("parcel" %in% names(coef_df))) {
+    parcel_col <- "parcel"
+  }
+  if (!time_col_supplied && !(time_col %in% names(coef_df))) {
+    if ("evt_time" %in% names(coef_df)) {
+      time_col <- "evt_time"
+    } else if ("lag" %in% names(coef_df)) {
+      time_col <- "lag"
+    }
+  }
+  if (!effect_col_supplied && !is.null(effect_col) && (effect_col %in% names(coef_df)) &&
+      all(is.na(coef_df[[effect_col]]))) {
+    effect_col <- NULL
+  }
   checkmate::assert_character(plot_cols, min.len = 1L, any.missing = FALSE)
   checkmate::assert_subset(plot_cols, names(coef_df))
   checkmate::assert_string(parcel_col)
@@ -97,7 +119,34 @@ backproject_medusa <- function(
     mask_ref <- RNifti::niftiHeader(brain_mask)
   }
 
-  mvals <- sort(unique(coef_df[[parcel_col]]))
+  p_raw <- coef_df[[parcel_col]]
+  if (is.factor(p_raw)) p_raw <- as.character(p_raw)
+  if (is.character(p_raw)) {
+    non_na <- !is.na(p_raw)
+    p_num <- rep(NA_real_, length(p_raw))
+    if (any(non_na)) {
+      parsed <- suppressWarnings(as.numeric(trimws(p_raw[non_na])))
+      bad_lbl <- !is.finite(parsed)
+      if (any(bad_lbl)) {
+        ex_lbl <- utils::head(unique(p_raw[non_na][bad_lbl]), 3L)
+        stop(
+          sprintf(
+            "Parcel column '%s' contains non-numeric label(s) (e.g., '%s') that cannot be matched to numeric NIfTI mask values.",
+            parcel_col, paste(ex_lbl, collapse = "', '")
+          ),
+          call. = FALSE
+        )
+      }
+      p_num[non_na] <- parsed
+    }
+  } else if (is.numeric(p_raw)) {
+    p_num <- as.numeric(p_raw)
+  } else {
+    stop("Parcel column '", parcel_col, "' must be numeric, integer, character, or factor.", call. = FALSE)
+  }
+  coef_df[[parcel_col]] <- p_num
+
+  mvals <- sort(unique(p_num[is.finite(p_num)]))
   if (length(mvals) == 0L) {
     stop("No non-missing parcel values found in coef_df[['", parcel_col, "']].", call. = FALSE)
   }

@@ -21,6 +21,7 @@ The rendered HTML book is written to `_book/index.html` (configured in [`_quarto
 - **Step 4 · Parcel panels and cohort precision weights:** [`medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd`](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd)
 - **Step 5 · Group mixed models and multi-lag trajectory inference:** [`medusa_step5_group_models/medusa_step5_group_models.qmd`](medusa_step5_group_models/medusa_step5_group_models.qmd) and [`medusa_pr62_calibration/medusa_pr62_calibration.qmd`](medusa_pr62_calibration/medusa_pr62_calibration.qmd)
 - **Step 6 · Trial-level connectivity, M-MOMS, and PPI:** [`medusa_step6_connectivity/medusa_step6_connectivity.qmd`](medusa_step6_connectivity/medusa_step6_connectivity.qmd), [`medusa_standard_errors_mmom.qmd`](medusa_standard_errors_mmom.qmd), and [`medusa_connectivity_inference/medusa_connectivity_inference.qmd`](medusa_connectivity_inference/medusa_connectivity_inference.qmd)
+- **Spatial & Volumetric Workflows (`ggbrain`):** [`medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd`](medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd)
 - **Validation & Reproduction:** [`evidence.qmd`](evidence.qmd), [`reference.qmd`](reference.qmd), and [`library/medusa_validation_suite.html`](library/medusa_validation_suite.html)
 
 See [`reference.qmd`](reference.qmd) for one-line `Rscript` commands to regenerate every chapter's simulations and figures from `library(medusa)`.

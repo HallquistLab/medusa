@@ -1851,13 +1851,17 @@ print.crossrun_hrf <- function(x, ...) {
 #'   \code{"innovation"} (Diedrichsen-style innovation-space downweighting).
 #' @return An S3 list of class \code{"crossrun_decon"} with \code{activity}
 #'   matrices, per-run \code{scaling}/status tables (including per-voxel
-#'   \code{lambda}), the \code{hrf_fit}, frozen inverse \code{settings},
-#'   standardized \code{noise_innovations}, per-run observation
-#'   \code{frame_weights}, and optional NIfTI \code{voxel_map} and
-#'   \code{geometry} metadata (enabling direct \code{\link{write_nifti_ts}}
-#'   export without an external reference file). Activity matrices retain voxel
-#'   IDs and carry \code{tr}, \code{time_offset}, and \code{observation_mask}
-#'   attributes for subsequent event alignment.
+#'   \code{lambda}), the \code{hrf_fit}, frozen inverse \code{settings}
+#'   (including scalar reference \code{settings$lambda}, the named per-voxel
+#'   penalty vector \code{settings$lambda_by_voxel} ready for 1-line 3D NIfTI
+#'   export via \code{\link{write_nifti_ts}}, and SNR tier summary table
+#'   \code{settings$lambda_strata} when stratified), standardized
+#'   \code{noise_innovations}, per-run observation \code{frame_weights}, and
+#'   optional NIfTI \code{voxel_map} and \code{geometry} metadata (enabling
+#'   direct \code{\link{write_nifti_ts}} export without an external reference
+#'   file). Activity matrices retain voxel IDs and carry \code{tr},
+#'   \code{time_offset}, and \code{observation_mask} attributes for subsequent
+#'   event alignment.
 #' @details One inverse operator is constructed per selected HRF/noise/lambda
 #'   stratum and run length, cached for consecutive runs with identical
 #'   masks/nuisance designs, and applied using block matrix products for cpp/r.
@@ -2195,7 +2199,11 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     lambda_mode_used <- if (length(unique(lambda_by_voxel)) > 1L) "voxel_vector" else "fixed"
   }
 
-  settings <- list(lambda = lambda_scalar, lambda_tuning = lambda_tuning,
+  lambda_by_voxel <- unname(as.numeric(lambda_by_voxel))
+  lambda_by_voxel_named <- stats::setNames(lambda_by_voxel, hrf_fit$voxel_ids)
+
+  settings <- list(lambda = lambda_scalar, lambda_by_voxel = lambda_by_voxel_named,
+    lambda_tuning = lambda_tuning,
     lambda_mode = lambda_mode_req, lambda_mode_used = lambda_mode_used,
     lambda_strata = lambda_strata, max_lambda_strata = max_lambda_strata,
     scaling = scaling, penalty = penalty,
@@ -2341,8 +2349,14 @@ print.crossrun_decon <- function(x, ...) {
     x$settings$rwls
   ))
   if (!is.null(x$geometry)) {
-    cat(sprintf("  NIfTI geometry attached: %s (TR = %.4g s)\n",
-                paste(x$geometry$dim, collapse = "x"), x$hrf_fit$settings$tr))
+    tr_v <- x$hrf_fit$settings$tr
+    tr_s <- if (!is.null(tr_v) && is.numeric(tr_v) && length(tr_v) == 1L && is.finite(tr_v)) {
+      sprintf("%.4g s", tr_v)
+    } else {
+      "unspecified"
+    }
+    cat(sprintf("  NIfTI geometry attached: %s (TR = %s)\n",
+                paste(x$geometry$dim, collapse = "x"), tr_s))
   }
   invisible(x)
 }

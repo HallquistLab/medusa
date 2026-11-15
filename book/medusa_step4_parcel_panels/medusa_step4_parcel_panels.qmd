@@ -18,6 +18,8 @@ Step 4—executed seamlessly inside `decon_epoch_regression(..., parcel_groups =
 ::: {.callout-note}
 ### Position in the MEDuSA Pipeline
 **Step 2 `decon` + `parcel_groups` vector** $\longrightarrow$ **Step 4 (`decon_epoch_regression(..., parcel_groups = ...)` )** $\longrightarrow$ Subject `epochs` list & stacked `group_panel` $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`) & Step 6 (`decon_connectivity_repair`)**
+
+For a volumetric NIfTI benchmark comparing Step 4 parcel-panel inference (`backproject_medusa()`) directly against full-resolution voxelwise Graph-EB mapping (`write_nifti_ts()`) across aligned parcels, shifted individual borders, and sub-parcel focal hotspots, see [Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd).
 :::
 
 ---

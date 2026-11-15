@@ -28,14 +28,18 @@ or `"crossrun_hrf"` object read with `atlas` metadata.}
 \item{plot_cols}{Character vector of numeric column names in `coef_df` to
 backproject.}
 
-\item{parcel_col}{Column name in `coef_df` identifying integer mask parcel
-values. Default `"roi"`.}
+\item{parcel_col}{Column name in `coef_df` identifying integer/numeric mask
+parcel values (numeric, integer, character such as `"10"`, or factor
+values that parse cleanly as numbers are accepted). Defaults to `"roi"`,
+automatically falling back to `"parcel"` when omitted and `"roi"` is absent.}
 
 \item{time_col}{Column name in `coef_df` identifying event-locked timepoints.
-Default `"time"`.}
+Defaults to `"time"`, automatically falling back to `"evt_time"` or `"lag"`
+when omitted and `"time"` is absent.}
 
 \item{effect_col}{Column name in `coef_df` identifying model terms/effects,
-or `NULL` if `coef_df` contains a single effect. Default `"term"`.}
+or `NULL` if `coef_df` contains a single effect. Default `"term"` (if
+omitted and `"term"` contains only `NA`, treated as `NULL`).}
 
 \item{output_dir}{Output directory where `.nii.gz` files will be written.
 Default `getwd()`.}

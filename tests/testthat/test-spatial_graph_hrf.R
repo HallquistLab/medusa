@@ -390,3 +390,64 @@ test_that("build_spatial_graph converts sparse Matrix distance graphs cleanly", 
   expect_equal(g$voxel_ids, paste0("v", 1:4))
   expect_equal(diff(g$row_ptr), c(2L, 3L, 2L, 1L))
 })
+
+test_that("build_spatial_graph supports stats::dist, dense Matrix, square distance matrices, and x_type disambiguation", {
+  coords <- as.matrix(expand.grid(x = c(0, 2, 4), y = c(0, 2), z = 0))
+  rownames(coords) <- paste0("n", seq_len(nrow(coords)))
+
+  g_coords <- build_spatial_graph(coords, max_neighbors = 8L)
+  d_obj <- stats::dist(coords)
+  d_mat <- as.matrix(d_obj)
+
+  # 1. stats::dist and base R square distance matrix match coordinate graph (including auto FWHM/radius)
+  g_dist <- build_spatial_graph(d_obj, max_neighbors = 8L)
+  g_dmat <- build_spatial_graph(d_mat, max_neighbors = 8L)
+  expect_identical(g_dist$voxel_ids, rownames(coords))
+  expect_equal(g_dist$spatial_fwhm, g_coords$spatial_fwhm, tolerance = 1e-10)
+  expect_equal(g_dist$max_radius, g_coords$max_radius, tolerance = 1e-10)
+  expect_identical(g_dist$row_ptr, g_coords$row_ptr)
+  expect_identical(g_dist$col_idx, g_coords$col_idx)
+  expect_equal(g_dist$dist, g_coords$dist, tolerance = 1e-10)
+  expect_identical(g_dmat$row_ptr, g_dist$row_ptr)
+  expect_identical(g_dmat$col_idx, g_dist$col_idx)
+  expect_equal(g_dmat$dist, g_dist$dist, tolerance = 1e-10)
+
+  # 2. Inf entries in geodesic distance matrices act as disconnected barriers
+  d_inf <- d_mat
+  d_inf[1:3, 4:6] <- Inf
+  d_inf[4:6, 1:3] <- Inf
+  g_inf <- build_spatial_graph(d_inf, spatial_fwhm = 6.0, max_radius = 10.0)
+  nbrs_1 <- g_inf$col_idx[g_inf$row_ptr[1L]:(g_inf$row_ptr[2L] - 1L)]
+  expect_true(all(nbrs_1 <= 3L))
+
+  # 3. Dense Matrix (dgeMatrix / dsyMatrix) and symmetric sparse dsCMatrix work without summary() crash
+  if (requireNamespace("Matrix", quietly = TRUE)) {
+    dm_dense <- Matrix::Matrix(d_mat, sparse = FALSE)
+    dm_sym <- Matrix::forceSymmetric(dm_dense)
+    g_dense_M <- build_spatial_graph(dm_dense, max_neighbors = 8L)
+    g_sym_M <- build_spatial_graph(dm_sym, max_neighbors = 8L)
+    expect_identical(g_dense_M$row_ptr, g_dist$row_ptr)
+    expect_identical(g_dense_M$col_idx, g_dist$col_idx)
+    expect_equal(g_dense_M$dist, g_dist$dist, tolerance = 1e-10)
+    expect_identical(g_sym_M$col_idx, g_dist$col_idx)
+
+    sm_sym <- Matrix::forceSymmetric(Matrix::sparseMatrix(
+      i = c(1L, 2L), j = c(2L, 3L), x = c(2.0, 2.5), dims = c(4L, 4L)
+    ))
+    g_sm_sym <- build_spatial_graph(sm_sym)
+    expect_equal(diff(g_sm_sym$row_ptr), c(2L, 3L, 2L, 1L))
+  }
+
+  # 4. Small 3 x 3 matrices: x_type = 'auto' keeps 3D coordinates, while x_type = 'distance' treats as distances
+  c3 <- matrix(c(0, 0, 0, 2, 0, 0, 0, 2, 0), nrow = 3L, byrow = TRUE)
+  expect_identical(build_spatial_graph(c3)$metric, "euclidean")
+  d3 <- as.matrix(stats::dist(c3))
+  g_d3 <- build_spatial_graph(d3, x_type = "distance")
+  expect_identical(g_d3$metric, "custom")
+  expect_equal(g_d3$n_voxels, 3L)
+
+  # Negative off-diagonal distances fail cleanly
+  d_bad <- d3
+  d_bad[1L, 2L] <- -1.0
+  expect_error(build_spatial_graph(d_bad, x_type = "distance"), "nonnegative")
+})

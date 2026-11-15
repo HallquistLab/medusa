@@ -97,3 +97,50 @@ test_that("backproject_medusa writes 4D RNifti volumes with preserved geometry a
   expect_equal(img_3d[1, 1, 1], 2.5, tolerance = 1e-6)
   expect_equal(img_3d[3, 2, 2], -3.25, tolerance = 1e-6)
 })
+
+test_that("backproject_medusa coerces character/factor numeric parcel IDs and auto-detects parcel/evt_time/lag columns", {
+  out_dir <- withr::local_tempdir()
+  mask_arr <- array(0L, dim = c(3L, 2L, 2L))
+  mask_arr[1:2, 1, 1] <- 10L
+  mask_arr[3, 2, 2] <- 20L
+  mask_path <- file.path(out_dir, "atlas.nii.gz")
+  RNifti::writeNifti(RNifti::asNifti(mask_arr, pixdim = c(1, 2, 2, 2)), mask_path)
+
+  # 1. mixed_by()-style output with character 'parcel' and 'evt_time' (no manual as.integer or parcel_col needed)
+  mb_df <- data.frame(
+    parcel = c("10", "20", "10", "20"),
+    evt_time = c(0.0, 0.0, 1.5, 1.5),
+    term = "rpe",
+    statistic = c(3.2, -1.8, 4.1, -0.5),
+    stringsAsFactors = FALSE
+  )
+  out_mb <- file.path(out_dir, "mb")
+  f_mb <- backproject_medusa(mb_df, brain_mask = mask_path, plot_cols = "statistic", output_dir = out_mb, ncpus = 1L)
+  expect_length(f_mb, 1L)
+  img_mb <- RNifti::readNifti(f_mb)
+  expect_equal(as.numeric(img_mb[1, 1, 1, ]), c(3.2, 4.1), tolerance = 1e-6)
+  expect_equal(as.numeric(img_mb[3, 2, 2, ]), c(-1.8, -0.5), tolerance = 1e-6)
+  # Input data.frame parcel column remains untouched as character
+  expect_type(mb_df$parcel, "character")
+
+  # 2. decon_epoch_regression()-style output with factor 'parcel', 'lag', and all-NA 'term' (marginal tau2_bio)
+  ep_df <- data.frame(
+    parcel = factor(c("10", "20")),
+    lag = c(0.0, 0.0),
+    term = c(NA_character_, NA_character_),
+    tau2_bio = c(0.75, 1.40)
+  )
+  out_ep <- file.path(out_dir, "ep")
+  f_ep <- backproject_medusa(ep_df, brain_mask = mask_path, plot_cols = "tau2_bio", output_dir = out_ep, ncpus = 1L)
+  expect_equal(basename(f_ep), "tau2_bio.nii.gz")
+  img_ep <- RNifti::readNifti(f_ep)
+  expect_equal(img_ep[1, 1, 1], 0.75, tolerance = 1e-6)
+  expect_equal(img_ep[3, 2, 2], 1.40, tolerance = 1e-6)
+
+  # 3. Non-numeric string parcel labels fail with a clear diagnostic message
+  bad_df <- data.frame(parcel = c("L_V1", "R_V1"), evt_time = c(0, 0), term = "rpe", statistic = c(1.0, 2.0))
+  expect_error(
+    backproject_medusa(bad_df, brain_mask = mask_path, plot_cols = "statistic", output_dir = out_dir, ncpus = 1L),
+    "non-numeric label.*L_V1"
+  )
+})

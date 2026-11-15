@@ -13,7 +13,8 @@ build_spatial_graph(
   parcel_boundary = c("soft", "hard", "ignore"),
   metric = c("auto", "geodesic", "euclidean"),
   n_voxels = NULL,
-  voxel_ids = NULL
+  voxel_ids = NULL,
+  x_type = c("auto", "coords", "distance")
 )
 }
 \arguments{
@@ -22,14 +23,16 @@ build_spatial_graph(
 \code{data.frame} with lattice columns \code{i, j, k} (or world coordinates
 \code{x, y, z}), a numeric \eqn{V \times D} coordinate matrix, an edge
 \code{data.frame} with columns \code{from}, \code{to} (and optional positive
-\code{dist} together with \code{n_voxels}), a square numeric/sparse distance
-matrix (nonzero off-diagonal entries giving neighbor distances), or an
-existing \code{"medusa_spatial_graph"}.}
+\code{dist} together with \code{n_voxels}), a \code{\link[stats]{dist}}
+object, a square numeric or sparse/dense \code{Matrix} distance matrix
+(positive finite off-diagonal entries giving neighbor distances; \code{0}
+or \code{Inf} denoting disconnected pairs), or an existing
+\code{"medusa_spatial_graph"}.}
 
 \item{spatial_fwhm}{Optional positive numeric Gaussian spatial kernel FWHM (in
 mm or coordinate units). Defaults to \code{2.5 * median(spacing)} for lattice
 inputs and \code{2.5} times the median nearest-neighbor distance for
-coordinate matrices.}
+coordinate and distance matrices.}
 
 \item{max_neighbors}{Maximum number of non-self spatial neighbors retained per
 node (default \code{32L}). Every node always retains itself at index 1 of its
@@ -59,6 +62,16 @@ otherwise), \code{"geodesic"}, or \code{"euclidean"}.}
 \code{data.frame} that may contain isolated nodes.}
 
 \item{voxel_ids}{Optional character vector of node IDs of length \eqn{V}.}
+
+\item{x_type}{Disambiguation for matrix inputs \code{x}: \code{"auto"}
+(default; treats \code{dist} and \code{Matrix} inputs, as well as square
+\eqn{V \times V} numeric matrices with \eqn{V > 3}, zero diagonal, and
+nonnegative entries as pairwise distance matrices, and other numeric
+matrices as \eqn{V \times D} coordinate matrices), \code{"coords"} (force
+interpretation as a \eqn{V \times D} coordinate matrix), or
+\code{"distance"} (force interpretation as a square \eqn{V \times V}
+distance matrix, including small \eqn{2 \times 2} or \eqn{3 \times 3}
+distance matrices).}
 }
 \value{
 An S3 object of class \code{"medusa_spatial_graph"} containing 1-based
