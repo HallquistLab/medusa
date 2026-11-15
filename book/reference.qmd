@@ -6,18 +6,18 @@ This Quarto book lives in the `book/` directory of the standalone `medusa` R pac
 
 | Pipeline component | Core `medusa` functions | Key methodological features |
 |:---|:---|:---|
-| **Step 1 · NIfTI matrix I/O, HRF & AR($p$) noise** | `read_nifti_ts()`, `hrf_library()`, `estimate_crossrun_hrf()` | Streaming C++ 4D NIfTI ↔ `T × V` matrix extraction with pre-flight geometry checks, 3D physiological HRF manifold (`preset = "medusa"`), out-of-sample cross-run evidence pooling, 2-pass target-excluding REML AR($p$) noise refit, Winsorized GLS marginal `noise_sd`, and task-free `noise_innovations`. |
-| **Step 2 · Event-informed continuous deconvolution** | `deconvolve_crossrun_hrf()`, `diagnose_crossrun_recovery()`, `write_nifti_ts()`, `deconvolve_reglin()`, `deconvolve_nlreg()` | Continuous neural source recovery with event-supported `lambda` tuning, adaptive kurtosis/tail-triggered `rwls = "auto"` glitch downweighting, `"noise_sd"` scaling, explicit `hrf_inverse_operator()` strata, and streaming C++ 3D/4D NIfTI export (`deconvolve_nlreg()` retained as blind Bush & Cisler 2011 comparator). |
-| **Step 3 · Trial-epoch readout, alignment & demixing** | `decon_epoch_regression()`, `align_medusa_ts()`, `evt_align_decon_files()` | Kernel quadrature onto peri-event lag grids, collateral non-target removal (`demix_other_events`), post-readout ridge target demixing (`demix_target_trials`), within-trial lag demixing (`demix_within_trial`), duration `"rate"` vs. `"integral"` readout, exact Toeplitz error propagation (`se_demixed`), and fast C++ matrix-native descriptive alignment (`align_medusa_ts()`). |
+| **Step 1 · NIfTI/BIDS I/O, spatial graph, HRF & AR($p$) noise** | `read_fmriprep_subject()`, `read_fmriprep_confounds()`, `read_bids_events()`, `read_nifti_ts()`, `build_spatial_graph()`, `hrf_library()`, `estimate_crossrun_hrf()` | Streaming C++ 4D NIfTI ↔ `T × V` matrix extraction with pre-flight geometry checks, BIDS/fMRIPrep/`BrainGnomes` ingestion with clock-preserving `valid_rows`, 3D physiological HRF manifold (`preset = "medusa"`), out-of-sample parcel and geodesic bilateral graph pooling (`pooling = "graph"`), 2-pass target-excluding REML AR($p$) noise refit, Winsorized GLS marginal `noise_sd`, and task-free `noise_innovations`. |
+| **Step 2 · Event-informed continuous deconvolution** | `deconvolve_crossrun_hrf()`, `diagnose_crossrun_recovery()`, `write_nifti_ts()`, `deconvolve_reglin()`, `deconvolve_nlreg()` | Continuous neural source recovery with FDR-gated SNR-stratified PAVA `lambda` tuning (`lambda_mode = "auto"`), adaptive kurtosis/tail-triggered `rwls = "auto"` glitch downweighting, `"noise_sd"` scaling, explicit `hrf_inverse_operator()` strata, and streaming C++ 3D/4D NIfTI export (`deconvolve_nlreg()` retained as blind Bush & Cisler 2011 comparator). |
+| **Step 3 · Trial-epoch readout, alignment & demixing** | `decon_epoch_regression()`, `align_medusa_ts()`, `evt_align_decon_files()` | Kernel quadrature onto peri-event lag grids, collateral non-target removal (`demix_other_events`), post-readout ridge target demixing (`demix_target_trials`), within-trial lag demixing (`demix_within_trial`), duration `"rate"` vs. `"integral"` readout, pre-truncation bilateral Graph-EB trial variance (`tau2_shrinkage = "graph_eb"`) & moderated sandwich scales, exact Toeplitz error propagation (`se_demixed`), and fast C++ matrix-native descriptive alignment (`align_medusa_ts()`). |
 | **Step 4 · Parcel panels & cohort weights** | `decon_epoch_regression(..., parcel_groups = ...)` | Multi-stratum inverse-variance parcel pooling using task-free `noise_innovations`, `shared_noise_loading` & `unit_error_cor` export, `precision_weight` & `precision_weight_cohort`, and matched ZCA panel whitening (`whiten_panel`). |
 | **Step 5 · Group & trajectory inference** | `mixed_by()`, `medusa_multilag_infer()`, `backproject_medusa()` | Cohort-weighted split-wise REML mixed models (`lmerTest`), joint multi-lag trajectories with available-case pooling, spectral deblurring, Marra–Wood P-splines, studentized Wishart `Max-|T|` / 1D TFCE / omnibus tests, `"unsmoothed"` window contrasts, and streaming NIfTI map backprojection. |
 | **Step 6 · Trial connectivity & PPI** | `decon_connectivity_repair()`, `medusa_fit_mmom()`, `medusa_between_subject_repair()` | Within-trial M-MOMS predictor disattenuation, automatic cross-parcel `shared_error = "auto"` subtraction, exact residualized-seed covariance projection, and HKSJ random-effects participant pooling. |
 
-For NIfTI matrix and file-backed workflows (`read_nifti_ts()`, `write_nifti_ts()`, `align_medusa_ts()`, `voxelwise_deconvolution()`, and `evt_align_decon_files()`), see the package vignettes (`vignettes/medusa-workflows.Rmd` and `vignettes/medusa-docs.md`) and function reference (`?read_nifti_ts`, `?estimate_crossrun_hrf`, `?deconvolve_crossrun_hrf`, `?align_medusa_ts`, `?decon_epoch_regression`, `?medusa_multilag_infer`, `?decon_connectivity_repair`).
+For NIfTI matrix and file-backed workflows (`read_nifti_ts()`, `write_nifti_ts()`, `build_spatial_graph()`, `align_medusa_ts()`, `voxelwise_deconvolution()`, and `evt_align_decon_files()`), see the package vignettes (`vignettes/medusa-workflows.Rmd` and `vignettes/medusa-docs.md`) and function reference (`?read_nifti_ts`, `?build_spatial_graph`, `?estimate_crossrun_hrf`, `?deconvolve_crossrun_hrf`, `?align_medusa_ts`, `?decon_epoch_regression`, `?medusa_multilag_infer`, `?decon_connectivity_repair`).
 
 ## Reproducing All Simulations, Figures, and the Book
 
-With `medusa` and its plotting/reporting dependencies (`ggplot2`, `data.table`, `lmerTest`, `knitr`, `rmarkdown`) installed in R, render the book from `book/`:
+With `medusa` and its plotting/reporting dependencies (`ggplot2`, `data.table`, `lmerTest`, `knitr`, `rmarkdown`; plus `ggbrain`, `patchwork`, and `RNifti` when regenerating volumetric brain-map figures) installed in R, render the book from `book/`:
 
 ```bash
 quarto render
@@ -58,6 +58,9 @@ Rscript assets/forward-model.R
 (cd medusa_step6_connectivity && Rscript simulate.R && Rscript figures.R)
 (cd medusa_connectivity_inference && Rscript prepare_figures.R)
 
+# Volumetric spatial & parcel pooling benchmark + ggbrain maps
+(cd medusa_spatial_parcel_pooling && Rscript simulate_spatial_pooling.R && Rscript figures_spatial_pooling.R)
+
 # Render full Quarto HTML book to _book/
 quarto render
 ```
@@ -78,3 +81,6 @@ quarto render
 - Kuznetsova, A., Brockhoff, P. B., & Christensen, R. H. B. (2017). `lmerTest` package: tests in linear mixed effects models. *Journal of Statistical Software*, 82(13), 1–26. [Article](https://www.jstatsoft.org/article/view/v082i13)
 - Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in multiple testing under dependency. *Annals of Statistics*, 29(4), 1165–1188. [Article](https://doi.org/10.1214/aos/1013699998)
 - Cole, M. W., Ito, T., Schultz, D., Mill, R., Chen, R., & Cocuzza, C. (2019). Task activations produce spurious but systematic inflation of task functional connectivity estimates. *NeuroImage*, 189, 1–18. [Article](https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/)
+- Efron, B., & Morris, C. (1972). Limiting the risk of Bayes and empirical Bayes estimators—Part II: The empirical Bayes case. *Journal of the American Statistical Association*, 67(337), 130–139.
+- Smyth, G. K. (2004). Linear models and empirical Bayes methods for assessing differential expression in microarray experiments. *Statistical Applications in Genetics and Molecular Biology*, 3(1), Article 3.
+- Tomasi, C., & Manduchi, R. (1998). Bilateral filtering for gray and color images. *Proceedings of the Sixth International Conference on Computer Vision (ICCV)*, 839–846.

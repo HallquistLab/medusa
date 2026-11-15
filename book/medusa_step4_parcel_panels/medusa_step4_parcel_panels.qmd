@@ -18,6 +18,8 @@ Step 4—executed seamlessly inside `decon_epoch_regression(..., parcel_groups =
 ::: {.callout-note}
 ### Position in the MEDuSA Pipeline
 **Step 2 `decon` + `parcel_groups` vector** $\longrightarrow$ **Step 4 (`decon_epoch_regression(..., parcel_groups = ...)` )** $\longrightarrow$ Subject `epochs` list & stacked `group_panel` $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`) & Step 6 (`decon_connectivity_repair`)**
+
+For a volumetric NIfTI benchmark comparing Step 4 parcel-panel inference (`backproject_medusa()`) directly against full-resolution voxelwise Graph-EB mapping (`write_nifti_ts()`) across aligned parcels, shifted individual borders, and sub-parcel focal hotspots, see [Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd).
 :::
 
 ---
@@ -28,7 +30,7 @@ Step 4 achieves four specific goals when transitioning from voxels to regional a
 
 1. **Pool voxels using cross-run SNR-optimal weights (`parcel_weights`):** Weight each parcel's constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task $R^2$, renormalizing automatically if a voxel drops out in one run.
 2. **Propagate true spatial noise correlation without task contamination:** Compute each parcel's effective observation-noise SD from Step 2's **task-free whitened `noise_innovations`** (`\|Z_r (u \odot \sigma)\|_2`), accurately spanning negative, independent, partially shared, and common spatial noise regimes.
-3. **Preserve mixed intra-parcel HRF strata exactly:** Accumulate per-stratum forward/inverse operator contributions weighted by $u_v$ whenever voxels inside a parcel belong to different `(HRF, AR)` strata, avoiding single-HRF approximation error.
+3. **Preserve mixed intra-parcel `(HRF, AR, lambda)` strata exactly:** Accumulate per-stratum forward/inverse operator contributions weighted by $u_v$ whenever voxels inside a parcel belong to different `(HRF, AR, lambda)` strata (for example when Step 1 used `pooling = "graph"` and Step 2 used `lambda_mode = "auto"`), avoiding single-HRF or single-whitener approximation error.
 4. **Package a lossless, identity-safe trial panel for Steps 5–6:** Deliver aligned raw, de-mixed, Empirical-Bayes-shrunk, and ZCA-whitened parcel columns alongside cohort-comparable precision weights and cross-parcel shared-error loadings.
 
 **What Step 4 deliberately leaves to Steps 5–6:** Step 4 produces one participant's parcel panel (and operator summaries). You must attach an explicit participant `id` column (and `session` if longitudinal) before stacking participants with `data.table::rbindlist()` for Step 5–6 population models.
