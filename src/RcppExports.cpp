@@ -479,6 +479,63 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// smooth_scalar_csr_cpp
+Rcpp::NumericVector smooth_scalar_csr_cpp(const Rcpp::IntegerVector& row_ptr, const Rcpp::IntegerVector& col_idx, const Rcpp::NumericVector& dist, double sigma_spatial, const Rcpp::NumericVector& values, double range_scale, const Rcpp::IntegerVector& group_ids, double cross_parcel_weight);
+RcppExport SEXP _medusa_smooth_scalar_csr_cpp(SEXP row_ptrSEXP, SEXP col_idxSEXP, SEXP distSEXP, SEXP sigma_spatialSEXP, SEXP valuesSEXP, SEXP range_scaleSEXP, SEXP group_idsSEXP, SEXP cross_parcel_weightSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type row_ptr(row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type col_idx(col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma_spatial(sigma_spatialSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type values(valuesSEXP);
+    Rcpp::traits::input_parameter< double >::type range_scale(range_scaleSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< double >::type cross_parcel_weight(cross_parcel_weightSEXP);
+    rcpp_result_gen = Rcpp::wrap(smooth_scalar_csr_cpp(row_ptr, col_idx, dist, sigma_spatial, values, range_scale, group_ids, cross_parcel_weight));
+    return rcpp_result_gen;
+END_RCPP
+}
+// graph_eb_tau2_csr_cpp
+Rcpp::List graph_eb_tau2_csr_cpp(const Rcpp::IntegerVector& row_ptr, const Rcpp::IntegerVector& col_idx, const Rcpp::NumericVector& dist, double sigma_spatial, const Rcpp::NumericVector& theta_raw, const Rcpp::NumericVector& d_eff, const Rcpp::NumericVector& task_gate, const arma::mat& U_resid, double d_resid, const Rcpp::IntegerVector& group_ids, double cross_parcel_weight);
+RcppExport SEXP _medusa_graph_eb_tau2_csr_cpp(SEXP row_ptrSEXP, SEXP col_idxSEXP, SEXP distSEXP, SEXP sigma_spatialSEXP, SEXP theta_rawSEXP, SEXP d_effSEXP, SEXP task_gateSEXP, SEXP U_residSEXP, SEXP d_residSEXP, SEXP group_idsSEXP, SEXP cross_parcel_weightSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type row_ptr(row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type col_idx(col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type dist(distSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma_spatial(sigma_spatialSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type theta_raw(theta_rawSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type d_eff(d_effSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type task_gate(task_gateSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type U_resid(U_residSEXP);
+    Rcpp::traits::input_parameter< double >::type d_resid(d_residSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type group_ids(group_idsSEXP);
+    Rcpp::traits::input_parameter< double >::type cross_parcel_weight(cross_parcel_weightSEXP);
+    rcpp_result_gen = Rcpp::wrap(graph_eb_tau2_csr_cpp(row_ptr, col_idx, dist, sigma_spatial, theta_raw, d_eff, task_gate, U_resid, d_resid, group_ids, cross_parcel_weight));
+    return rcpp_result_gen;
+END_RCPP
+}
+// moderate_scale_csr_cpp
+Rcpp::List moderate_scale_csr_cpp(const Rcpp::IntegerVector& alpha_row_ptr, const Rcpp::IntegerVector& alpha_col_idx, const Rcpp::NumericVector& alpha_w, const Rcpp::NumericVector& kappa_minus, const Rcpp::NumericVector& c_self_prior, const arma::mat& scale_raw, const Rcpp::NumericVector& d_eff, const Rcpp::NumericVector& df_nom);
+RcppExport SEXP _medusa_moderate_scale_csr_cpp(SEXP alpha_row_ptrSEXP, SEXP alpha_col_idxSEXP, SEXP alpha_wSEXP, SEXP kappa_minusSEXP, SEXP c_self_priorSEXP, SEXP scale_rawSEXP, SEXP d_effSEXP, SEXP df_nomSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type alpha_row_ptr(alpha_row_ptrSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type alpha_col_idx(alpha_col_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type alpha_w(alpha_wSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type kappa_minus(kappa_minusSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type c_self_prior(c_self_priorSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type scale_raw(scale_rawSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type d_eff(d_effSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type df_nom(df_nomSEXP);
+    rcpp_result_gen = Rcpp::wrap(moderate_scale_csr_cpp(alpha_row_ptr, alpha_col_idx, alpha_w, kappa_minus, c_self_prior, scale_raw, d_eff, df_nom));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_medusa_hrf_event_design_cpp", (DL_FUNC) &_medusa_hrf_event_design_cpp, 8},
@@ -507,6 +564,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_csr_cluster_member_weights_cpp", (DL_FUNC) &_medusa_csr_cluster_member_weights_cpp, 6},
     {"_medusa_csr_quad_cor_cpp", (DL_FUNC) &_medusa_csr_quad_cor_cpp, 13},
     {"_medusa_csr_hrf_graph_pool_cpp", (DL_FUNC) &_medusa_csr_hrf_graph_pool_cpp, 29},
+    {"_medusa_smooth_scalar_csr_cpp", (DL_FUNC) &_medusa_smooth_scalar_csr_cpp, 8},
+    {"_medusa_graph_eb_tau2_csr_cpp", (DL_FUNC) &_medusa_graph_eb_tau2_csr_cpp, 11},
+    {"_medusa_moderate_scale_csr_cpp", (DL_FUNC) &_medusa_moderate_scale_csr_cpp, 8},
     {NULL, NULL, 0}
 };
 

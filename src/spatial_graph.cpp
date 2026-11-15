@@ -1278,3 +1278,460 @@ Rcpp::List csr_hrf_graph_pool_cpp(
     Rcpp::Named("omega") = omega_out
   );
 }
+
+// Fast edge-preserving bilateral smoother on a 1-based CSR spatial graph.
+// Used to spatially stabilize out-of-sample task informativeness (R^2) for
+// SNR-stratified deconvolution regularization without bleeding across task borders.
+// [[Rcpp::export]]
+Rcpp::NumericVector smooth_scalar_csr_cpp(
+    const Rcpp::IntegerVector& row_ptr,
+    const Rcpp::IntegerVector& col_idx,
+    const Rcpp::NumericVector& dist,
+    double sigma_spatial,
+    const Rcpp::NumericVector& values,
+    double range_scale,
+    const Rcpp::IntegerVector& group_ids,
+    double cross_parcel_weight) {
+  const int V = values.size();
+  if (row_ptr.size() != V + 1) {
+    Rcpp::stop("row_ptr length must equal length(values) + 1");
+  }
+  Rcpp::NumericVector out(V);
+  const double inv_2sig2 = 1.0 / (2.0 * std::max(sigma_spatial * sigma_spatial, 1e-12));
+  const bool use_range = std::isfinite(range_scale) && range_scale > 0.0;
+  const double inv_2rng2 = use_range ? (1.0 / (2.0 * range_scale * range_scale)) : 0.0;
+  const bool has_groups = (group_ids.size() == V);
+  const double cw = std::min(1.0, std::max(0.0, cross_parcel_weight));
+
+  for (int u = 0; u < V; ++u) {
+    const double val_u = values[u];
+    const bool ok_u = R_finite(val_u);
+    const int p_start = row_ptr[u] - 1;
+    const int p_end = row_ptr[u + 1] - 1;
+    double num = 0.0;
+    double den = 0.0;
+    for (int p = p_start; p < p_end; ++p) {
+      const int v = col_idx[p] - 1;
+      if (v < 0 || v >= V) continue;
+      const double val_v = values[v];
+      if (!R_finite(val_v)) continue;
+      const double d = dist[p];
+      double w = std::exp(-(d * d) * inv_2sig2);
+      if (has_groups && u != v && group_ids[u] != group_ids[v]) {
+        w *= cw;
+      }
+      if (use_range && ok_u && u != v) {
+        const double dv = val_v - val_u;
+        w *= std::exp(-(dv * dv) * inv_2rng2);
+      }
+      if (w > 1e-12) {
+        num += w * val_v;
+        den += w;
+      }
+    }
+    if (den > 1e-12) {
+      out[u] = num / den;
+    } else {
+      out[u] = val_u;
+    }
+  }
+  return out;
+}
+
+// Bilateral Geodesic Graph Empirical-Bayes shrinkage of untruncated dimensionless
+// trial biological variance ratios theta_raw = tau2_raw / s2_obs in Step 3.
+// Accounts explicitly for spatial error correlation across neighbors via Isserlis'
+// identity Corr(Z_a^2, Z_b^2) = rho_{ab}^2 and preserves sharp functional boundaries.
+// [[Rcpp::export]]
+Rcpp::List graph_eb_tau2_csr_cpp(
+    const Rcpp::IntegerVector& row_ptr,
+    const Rcpp::IntegerVector& col_idx,
+    const Rcpp::NumericVector& dist,
+    double sigma_spatial,
+    const Rcpp::NumericVector& theta_raw,
+    const Rcpp::NumericVector& d_eff,
+    const Rcpp::NumericVector& task_gate,
+    const arma::mat& U_resid,
+    double d_resid,
+    const Rcpp::IntegerVector& group_ids,
+    double cross_parcel_weight) {
+  const int V = theta_raw.size();
+  if (row_ptr.size() != V + 1) {
+    Rcpp::stop("row_ptr length must equal length(theta_raw) + 1");
+  }
+  if (d_eff.size() != V || task_gate.size() != V) {
+    Rcpp::stop("d_eff and task_gate must match length(theta_raw)");
+  }
+  const bool has_resid = (static_cast<int>(U_resid.n_cols) == V && U_resid.n_rows >= 3);
+  const arma::uword m_tr = has_resid ? U_resid.n_rows : 0;
+  const double d_res = std::max(3.0, d_resid);
+  const double inv_2sig2 = 1.0 / (2.0 * std::max(sigma_spatial * sigma_spatial, 1e-12));
+  const bool has_groups = (group_ids.size() == V);
+  const double cw = std::min(1.0, std::max(0.0, cross_parcel_weight));
+
+  std::vector<bool> valid(static_cast<size_t>(V), false);
+  std::vector<double> u_norm2(static_cast<size_t>(V), 0.0);
+  for (int u = 0; u < V; ++u) {
+    valid[static_cast<size_t>(u)] = R_finite(theta_raw[u]) && R_finite(d_eff[u]) && (d_eff[u] > 0.0);
+    if (has_resid) {
+      u_norm2[static_cast<size_t>(u)] = arma::dot(U_resid.col(u), U_resid.col(u));
+    }
+  }
+
+  // Pass 1: Bilateral pilot smooth of untruncated theta_raw using spatial distance,
+  // soft parcel boundary, Step-1 task-gate similarity, and orthogonal residual sign concordance.
+  std::vector<double> theta_pilot(static_cast<size_t>(V), NA_REAL);
+  std::vector<double> v_pilot(static_cast<size_t>(V), 1.0);
+  for (int u = 0; u < V; ++u) {
+    if (!valid[static_cast<size_t>(u)]) continue;
+    const int p_start = row_ptr[u] - 1;
+    const int p_end = row_ptr[u + 1] - 1;
+    const double q_u = R_finite(task_gate[u]) ? task_gate[u] : 0.5;
+    const bool u_ok_res = has_resid && (u_norm2[static_cast<size_t>(u)] > 0.25);
+    double num = 0.0;
+    double den = 0.0;
+    for (int p = p_start; p < p_end; ++p) {
+      const int v = col_idx[p] - 1;
+      if (v < 0 || v >= V || !valid[static_cast<size_t>(v)]) continue;
+      const double d = dist[p];
+      double w = std::exp(-(d * d) * inv_2sig2);
+      if (u == v) {
+        w *= 0.35; // Downweight noisy self in pilot prior when neighbors exist
+      } else {
+        if (has_groups && group_ids[u] != group_ids[v]) {
+          w *= cw;
+        }
+        const double q_v = R_finite(task_gate[v]) ? task_gate[v] : 0.5;
+        const double dq = q_v - q_u;
+        w *= std::exp(-(dq * dq) / (2.0 * 0.35 * 0.35));
+        if (u_ok_res && u_norm2[static_cast<size_t>(v)] > 0.25) {
+          const double c_uv = std::max(-1.0, std::min(1.0, arma::dot(U_resid.col(u), U_resid.col(v))));
+          if (c_uv < 0.0) {
+            w *= std::exp(3.0 * c_uv);
+          } else {
+            w *= (0.65 + 0.35 * c_uv);
+          }
+        }
+      }
+      const double de_v = std::max(2.0, d_eff[v]);
+      w *= std::sqrt(de_v);
+      if (w > 1e-12) {
+        num += w * theta_raw[v];
+        den += w;
+      }
+    }
+    const double th_p = (den > 1e-12) ? (num / den) : theta_raw[u];
+    theta_pilot[static_cast<size_t>(u)] = th_p;
+    const double de_u = std::max(2.0, d_eff[u]);
+    const double lvl_p = 1.0 + std::max(0.0, th_p);
+    v_pilot[static_cast<size_t>(u)] = (2.0 / de_u) * (lvl_p * lvl_p);
+  }
+
+  // Pass 2: Leave-self-out bilateral neighbor prior theta_0, exact Isserlis spatial
+  // correlation accounting (kappa_minus, c_self_prior), and local dispersion.
+  Rcpp::NumericVector theta_prior(V, NA_REAL);
+  Rcpp::NumericVector kappa_minus(V, 1.0);
+  Rcpp::NumericVector c_self_prior(V, 0.0);
+  std::vector<double> v_theta(static_cast<size_t>(V), 1.0);
+  std::vector<double> v_diff(static_cast<size_t>(V), 1.0);
+  std::vector<double> omega2_nb(static_cast<size_t>(V), 0.0);
+  std::vector<bool> has_prior(static_cast<size_t>(V), false);
+  std::vector<double> het_ratios;
+  het_ratios.reserve(static_cast<size_t>(V));
+
+  std::vector<int> alpha_rp(static_cast<size_t>(V + 1), 1);
+  std::vector<int> alpha_ci;
+  std::vector<double> alpha_w;
+  alpha_ci.reserve(static_cast<size_t>(col_idx.size()));
+  alpha_w.reserve(static_cast<size_t>(col_idx.size()));
+
+  for (int u = 0; u < V; ++u) {
+    if (!valid[static_cast<size_t>(u)]) {
+      alpha_rp[static_cast<size_t>(u + 1)] = static_cast<int>(alpha_ci.size()) + 1;
+      continue;
+    }
+    const int p_start = row_ptr[u] - 1;
+    const int p_end = row_ptr[u + 1] - 1;
+    const double q_u = R_finite(task_gate[u]) ? task_gate[u] : 0.5;
+    const double th_pu = theta_pilot[static_cast<size_t>(u)];
+    const double vp_u = std::max(1e-6, v_pilot[static_cast<size_t>(u)]);
+    const bool u_ok_res = has_resid && (u_norm2[static_cast<size_t>(u)] > 0.25);
+
+    std::vector<int> nbrs;
+    std::vector<double> w_loc;
+    std::vector<double> rho2_self;
+    nbrs.reserve(static_cast<size_t>(std::max(0, p_end - p_start)));
+    w_loc.reserve(static_cast<size_t>(std::max(0, p_end - p_start)));
+    rho2_self.reserve(static_cast<size_t>(std::max(0, p_end - p_start)));
+    double w_sum = 0.0;
+
+    for (int p = p_start; p < p_end; ++p) {
+      const int v = col_idx[p] - 1;
+      if (v < 0 || v >= V || v == u || !valid[static_cast<size_t>(v)]) continue;
+      const double d = dist[p];
+      double w = std::exp(-(d * d) * inv_2sig2);
+      if (has_groups && group_ids[u] != group_ids[v]) {
+        w *= cw;
+      }
+      const double q_v = R_finite(task_gate[v]) ? task_gate[v] : 0.5;
+      const double dq = q_v - q_u;
+      w *= std::exp(-(dq * dq) / (2.0 * 0.35 * 0.35));
+
+      // Cauchy range kernel on pilot variance jump preserves sharp variance boundaries
+      const double d_th = theta_pilot[static_cast<size_t>(v)] - th_pu;
+      w /= (1.0 + (d_th * d_th) / (4.0 * vp_u));
+
+      double r2_uv = 0.0;
+      if (u_ok_res && u_norm2[static_cast<size_t>(v)] > 0.25) {
+        const double c_uv = std::max(-1.0, std::min(1.0, arma::dot(U_resid.col(u), U_resid.col(v))));
+        if (c_uv < 0.0) {
+          w *= std::exp(3.0 * c_uv);
+        } else {
+          w *= (0.65 + 0.35 * c_uv);
+        }
+        r2_uv = std::min(1.0, std::max(0.0, (d_res * c_uv * c_uv - 1.0) / (d_res - 1.0)));
+      }
+
+      w /= std::max(1e-4, v_pilot[static_cast<size_t>(v)]);
+      if (w > 1e-12) {
+        nbrs.push_back(v);
+        w_loc.push_back(w);
+        rho2_self.push_back(r2_uv);
+        w_sum += w;
+      }
+    }
+
+    const int ku = static_cast<int>(nbrs.size());
+    if (ku == 0 || w_sum <= 1e-12) {
+      alpha_rp[static_cast<size_t>(u + 1)] = static_cast<int>(alpha_ci.size()) + 1;
+      continue;
+    }
+
+    double th0 = 0.0;
+    double sw2 = 0.0;
+    double c_u0 = 0.0;
+    for (int a = 0; a < ku; ++a) {
+      w_loc[static_cast<size_t>(a)] /= w_sum;
+      const double wa = w_loc[static_cast<size_t>(a)];
+      const int va = nbrs[static_cast<size_t>(a)];
+      th0 += wa * theta_raw[va];
+      sw2 += wa * wa;
+      c_u0 += wa * rho2_self[static_cast<size_t>(a)];
+      alpha_ci.push_back(va + 1);
+      alpha_w.push_back(wa);
+    }
+    alpha_rp[static_cast<size_t>(u + 1)] = static_cast<int>(alpha_ci.size()) + 1;
+
+    double kap = sw2;
+    if (has_resid && ku >= 2) {
+      arma::mat Z_u(m_tr, static_cast<arma::uword>(ku), arma::fill::zeros);
+      for (int a = 0; a < ku; ++a) {
+        const int va = nbrs[static_cast<size_t>(a)];
+        if (u_norm2[static_cast<size_t>(va)] > 0.25) {
+          Z_u.col(static_cast<arma::uword>(a)) =
+            std::sqrt(w_loc[static_cast<size_t>(a)]) * U_resid.col(static_cast<arma::uword>(va));
+        }
+      }
+      const arma::mat G_u = Z_u.t() * Z_u;
+      double off_corr = 0.0;
+      for (int a = 0; a < ku; ++a) {
+        const double wa = w_loc[static_cast<size_t>(a)];
+        for (int b = a + 1; b < ku; ++b) {
+          const double wb = w_loc[static_cast<size_t>(b)];
+          const double denom_ab = wa * wb;
+          if (denom_ab <= 1e-16) continue;
+          const double c2_ab = (G_u(a, b) * G_u(a, b)) / denom_ab;
+          const double r2_ab = std::min(1.0, std::max(0.0, (d_res * c2_ab - 1.0) / (d_res - 1.0)));
+          off_corr += 2.0 * denom_ab * r2_ab;
+        }
+      }
+      kap = std::min(1.0, std::max(sw2, sw2 + off_corr));
+    }
+    c_u0 = std::min(1.0, std::max(0.0, c_u0));
+
+    const double de_u = std::max(2.0, d_eff[u]);
+    const double th_lvl = std::max(0.0, 0.75 * th0 + 0.25 * th_pu);
+    const double vt_u = (2.0 / de_u) * (1.0 + th_lvl) * (1.0 + th_lvl);
+    const double vd_u = std::max(0.05 * vt_u, vt_u * std::max(0.0, 1.0 + kap - 2.0 * c_u0));
+
+    double disp_nb = 0.0;
+    for (int a = 0; a < ku; ++a) {
+      const double da = theta_raw[nbrs[static_cast<size_t>(a)]] - th0;
+      disp_nb += w_loc[static_cast<size_t>(a)] * (da * da);
+    }
+    omega2_nb[static_cast<size_t>(u)] = std::max(0.0, disp_nb - std::max(0.0, 1.0 - kap) * vt_u);
+
+    theta_prior[u] = th0;
+    kappa_minus[u] = kap;
+    c_self_prior[u] = c_u0;
+    v_theta[static_cast<size_t>(u)] = vt_u;
+    v_diff[static_cast<size_t>(u)] = vd_u;
+    has_prior[static_cast<size_t>(u)] = true;
+
+    const double diff_u = theta_raw[u] - th0;
+    // Exact median of chi^2_1 is 0.4549364: robust global heterogeneity estimator
+    het_ratios.push_back((diff_u * diff_u) / 0.4549364 - vd_u);
+  }
+
+  double omega2_glob = 0.0;
+  if (!het_ratios.empty()) {
+    std::sort(het_ratios.begin(), het_ratios.end());
+    const size_t nh = het_ratios.size();
+    const double med_h = (nh % 2 == 1)
+      ? het_ratios[nh / 2]
+      : 0.5 * (het_ratios[nh / 2 - 1] + het_ratios[nh / 2]);
+    omega2_glob = std::max(0.0, med_h);
+  }
+
+  Rcpp::NumericVector theta_eb(V, NA_REAL);
+  Rcpp::NumericVector shrinkage_b(V, 0.0);
+  for (int u = 0; u < V; ++u) {
+    if (!valid[static_cast<size_t>(u)]) continue;
+    if (!has_prior[static_cast<size_t>(u)]) {
+      theta_eb[u] = std::max(0.0, theta_raw[u]);
+      shrinkage_b[u] = 0.0;
+      continue;
+    }
+    const double th0 = theta_prior[u];
+    const double vt_u = v_theta[static_cast<size_t>(u)];
+    const double vd_u = v_diff[static_cast<size_t>(u)];
+    const double c_u0 = c_self_prior[u];
+    const double diff_u = theta_raw[u] - th0;
+    const double om_base = std::max(omega2_glob, 0.50 * omega2_nb[static_cast<size_t>(u)]);
+    // Efron-Morris limited-translation safeguard for isolated focal variance peaks (> 2.5 sigma)
+    const double om_eff = std::max(om_base, (diff_u * diff_u) / 6.25 - vd_u);
+    const double num_b = std::max(0.0, vt_u * (1.0 - c_u0));
+    const double den_b = vd_u + om_eff;
+    const double b_u = (den_b > 1e-12) ? std::min(0.90, std::max(0.0, num_b / den_b)) : 0.0;
+    shrinkage_b[u] = b_u;
+    theta_eb[u] = std::max(0.0, (1.0 - b_u) * theta_raw[u] + b_u * th0);
+  }
+
+  return Rcpp::List::create(
+    Rcpp::Named("theta_eb") = theta_eb,
+    Rcpp::Named("theta_prior") = theta_prior,
+    Rcpp::Named("shrinkage_b") = shrinkage_b,
+    Rcpp::Named("kappa_minus") = kappa_minus,
+    Rcpp::Named("c_self_prior") = c_self_prior,
+    Rcpp::Named("omega2_glob") = omega2_glob,
+    Rcpp::Named("alpha_row_ptr") = Rcpp::wrap(alpha_rp),
+    Rcpp::Named("alpha_col_idx") = Rcpp::wrap(alpha_ci),
+    Rcpp::Named("alpha_w") = Rcpp::wrap(alpha_w)
+  );
+}
+
+// Correlated-error Smyth/Limma moderation of sandwich covariance scale factors
+// using precomputed bilateral CSR weights and Isserlis error-correlation parameters.
+// [[Rcpp::export]]
+Rcpp::List moderate_scale_csr_cpp(
+    const Rcpp::IntegerVector& alpha_row_ptr,
+    const Rcpp::IntegerVector& alpha_col_idx,
+    const Rcpp::NumericVector& alpha_w,
+    const Rcpp::NumericVector& kappa_minus,
+    const Rcpp::NumericVector& c_self_prior,
+    const arma::mat& scale_raw,
+    const Rcpp::NumericVector& d_eff,
+    const Rcpp::NumericVector& df_nom) {
+  const int V = static_cast<int>(scale_raw.n_rows);
+  const int S = static_cast<int>(scale_raw.n_cols);
+  if (alpha_row_ptr.size() != V + 1 || kappa_minus.size() != V ||
+      c_self_prior.size() != V || d_eff.size() != V || df_nom.size() != V) {
+    Rcpp::stop("Dimension mismatch in moderate_scale_csr_cpp");
+  }
+
+  arma::mat scale_mod = scale_raw;
+  Rcpp::NumericVector df_mod = Rcpp::clone(df_nom);
+  arma::mat psi_mat(V, std::max(1, S), arma::fill::ones);
+
+  for (int col = 0; col < S; ++col) {
+    std::vector<double> s_prior(static_cast<size_t>(V), NA_REAL);
+    std::vector<double> vs_vec(static_cast<size_t>(V), 1.0);
+    std::vector<double> vd_vec(static_cast<size_t>(V), 1.0);
+    std::vector<bool> ok_p(static_cast<size_t>(V), false);
+    std::vector<double> het_vals;
+    het_vals.reserve(static_cast<size_t>(V));
+
+    for (int u = 0; u < V; ++u) {
+      const double su = scale_raw(u, col);
+      if (!std::isfinite(su) || !R_finite(d_eff[u]) || d_eff[u] <= 0.0) continue;
+      const int p_s = alpha_row_ptr[u] - 1;
+      const int p_e = alpha_row_ptr[u + 1] - 1;
+      if (p_e <= p_s) continue;
+
+      double s0 = 0.0;
+      double w_tot = 0.0;
+      for (int p = p_s; p < p_e; ++p) {
+        const int v = alpha_col_idx[p] - 1;
+        if (v < 0 || v >= V) continue;
+        const double sv = scale_raw(v, col);
+        if (!std::isfinite(sv)) continue;
+        s0 += alpha_w[p] * sv;
+        w_tot += alpha_w[p];
+      }
+      if (w_tot <= 1e-8) continue;
+      s0 /= w_tot;
+
+      const double de_u = std::max(2.0, d_eff[u]);
+      const double s_lvl = std::max(0.25, s0);
+      const double vs_u = (2.0 / de_u) * (s_lvl * s_lvl);
+      const double kap = kappa_minus[u];
+      const double c_u0 = c_self_prior[u];
+      const double vd_u = std::max(0.05 * vs_u, vs_u * std::max(0.0, 1.0 + kap - 2.0 * c_u0));
+
+      s_prior[static_cast<size_t>(u)] = s0;
+      vs_vec[static_cast<size_t>(u)] = vs_u;
+      vd_vec[static_cast<size_t>(u)] = vd_u;
+      ok_p[static_cast<size_t>(u)] = true;
+      const double diff = su - s0;
+      het_vals.push_back((diff * diff) / 0.4549364 - vd_u);
+    }
+
+    double om2_col = 0.0;
+    if (!het_vals.empty()) {
+      std::sort(het_vals.begin(), het_vals.end());
+      const size_t nh = het_vals.size();
+      const double med_h = (nh % 2 == 1)
+        ? het_vals[nh / 2]
+        : 0.5 * (het_vals[nh / 2 - 1] + het_vals[nh / 2]);
+      om2_col = std::max(0.0, med_h);
+    }
+
+    for (int u = 0; u < V; ++u) {
+      const double su = scale_raw(u, col);
+      if (!std::isfinite(su)) continue;
+      if (!ok_p[static_cast<size_t>(u)]) {
+        scale_mod(u, col) = std::max(0.25, su);
+        psi_mat(u, col) = 1.0;
+        continue;
+      }
+      const double s0 = s_prior[static_cast<size_t>(u)];
+      const double vs_u = vs_vec[static_cast<size_t>(u)];
+      const double vd_u = vd_vec[static_cast<size_t>(u)];
+      const double kap = kappa_minus[u];
+      const double c_u0 = c_self_prior[u];
+      const double diff = su - s0;
+      const double om_eff = std::max(om2_col, (diff * diff) / 6.25 - vd_u);
+      const double num_b = std::max(0.0, vs_u * (1.0 - c_u0));
+      const double den_b = vd_u + om_eff;
+      const double b_u = (den_b > 1e-12) ? std::min(0.85, std::max(0.0, num_b / den_b)) : 0.0;
+      scale_mod(u, col) = std::max(0.25, (1.0 - b_u) * su + b_u * s0);
+      const double psi_u = (1.0 - b_u) * (1.0 - b_u) +
+        2.0 * b_u * (1.0 - b_u) * c_u0 +
+        b_u * b_u * kap;
+      psi_mat(u, col) = std::min(1.0, std::max(0.15, psi_u));
+    }
+  }
+
+  const int ref_col = std::max(0, S - 1);
+  for (int u = 0; u < V; ++u) {
+    if (!R_finite(df_nom[u]) || !R_finite(d_eff[u]) || d_eff[u] <= 0.0) continue;
+    const double psi_u = psi_mat(u, ref_col);
+    const double df_gain = d_eff[u] / std::max(0.25, psi_u);
+    df_mod[u] = std::max(df_nom[u], std::min(2.5 * df_nom[u], df_gain));
+  }
+
+  return Rcpp::List::create(
+    Rcpp::Named("scale_mod") = scale_mod,
+    Rcpp::Named("df_mod") = df_mod
+  );
+}

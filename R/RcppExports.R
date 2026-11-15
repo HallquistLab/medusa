@@ -235,3 +235,15 @@ csr_hrf_graph_pool_cpp <- function(scores, train_scores_list, has_gate, task_p_r
     .Call(`_medusa_csr_hrf_graph_pool_cpp`, scores, train_scores_list, has_gate, task_p_raw, shape_p_raw, compatible, task_supported, supported, eff_task, eff_shape, counts, min_training_runs, row_ptr, col_idx, dist, group_ids, boundary_mode, cross_weight, sigma_sp, rho_train, lsd_train, v_quad_fold, kernel_cos, dist_fb, fallback_kernel, evidence_alpha, min_r2, canonical_strength, soft_average)
 }
 
+smooth_scalar_csr_cpp <- function(row_ptr, col_idx, dist, sigma_spatial, values, range_scale, group_ids, cross_parcel_weight) {
+    .Call(`_medusa_smooth_scalar_csr_cpp`, row_ptr, col_idx, dist, sigma_spatial, values, range_scale, group_ids, cross_parcel_weight)
+}
+
+graph_eb_tau2_csr_cpp <- function(row_ptr, col_idx, dist, sigma_spatial, theta_raw, d_eff, task_gate, U_resid, d_resid, group_ids, cross_parcel_weight) {
+    .Call(`_medusa_graph_eb_tau2_csr_cpp`, row_ptr, col_idx, dist, sigma_spatial, theta_raw, d_eff, task_gate, U_resid, d_resid, group_ids, cross_parcel_weight)
+}
+
+moderate_scale_csr_cpp <- function(alpha_row_ptr, alpha_col_idx, alpha_w, kappa_minus, c_self_prior, scale_raw, d_eff, df_nom) {
+    .Call(`_medusa_moderate_scale_csr_cpp`, alpha_row_ptr, alpha_col_idx, alpha_w, kappa_minus, c_self_prior, scale_raw, d_eff, df_nom)
+}
+
