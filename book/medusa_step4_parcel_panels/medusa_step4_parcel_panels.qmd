@@ -55,7 +55,7 @@ The walkthrough below develops Step 4 in four substeps: computing SNR-informed v
 1. **Aggregate voxels using cross-run SNR-optimal weights (`parcel_weights`):** Weight constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task $R^2$.
 2. **Preserve intra-parcel `(HRF, AR, lambda)` heterogeneity:** Combine per-stratum forward and inverse operators ($\sum_s w_s D_s F_s$) directly rather than approximating a parcel with a single averaged HRF.
 3. **Propagate within- and between-parcel spatial noise correlation accurately:** Estimate parcel measurement noise and cross-parcel error correlations from Step 2's task-free whitened `noise_innovations`.
-4. **Produce a self-contained participant trial panel for cohort inference:** Export aligned de-mixed readouts, conditional standard errors, cohort-comparable precision weights, paired ZCA-whitened variables, and cross-parcel shared-noise loadings.
+4. **Produce a self-contained participant trial panel for cohort inference:** Export aligned de-mixed readouts, conditional standard errors, cohort-comparable precision weights, paired within-run decorrelated (`*_whitened`) variables, and cross-parcel shared-noise loadings.
 
 ### Inputs: What Step 4 Receives and Why
 
@@ -66,7 +66,7 @@ In addition to the Step 3 arguments (`deconvolution`, `events`, `target_conditio
 | `parcel_groups` | Named character/factor vector mapping `voxel_ids` to parcel labels (or `ts$parcel_ids` from `read_nifti_ts()`) | Naming elements by `voxel_ids` guarantees exact column alignment and automatically enables `aggregate_by_parcel = TRUE`. |
 | `deconvolution$noise_innovations` | Carried automatically inside `deconvolution` (`n_valid_rows × n_voxels` per run) | Provides orthonormalized, task-projected $\text{AR}(p)$ innovations from Step 2 so shared task responses across voxels are separated cleanly from shared scanner noise. |
 | `tau2_mode` & `tau2_shrinkage` | `tau2_mode = c("auto", "marginal", "residual")`; `tau2_shrinkage = c("auto", "graph_eb", "eb", "none")` | Govern how parcel biological trial-to-trial variance $\hat{\tau}_{\text{bio}}^2$ is estimated (`"auto"` defaults to `"none"` on standard coarse parcels; setting `"graph_eb"` builds a 3D parcel-centroid Euclidean graph for fine 400–1000-parcel atlases). |
-| `restore_scale` & `whiten_panel` | Logical flags (`TRUE` recommended for both) | Place runs onto physical BOLD units before pooling and export paired within-run ZCA-decorrelated outcome and predictor columns on the parcel covariance. |
+| `restore_scale` & `whiten_panel` | Logical flags (`TRUE` recommended for both) | Place runs onto physical BOLD units before pooling and export paired within-run symmetrically decorrelated (`*_whitened`, regularized ZCA) outcome and predictor columns on the parcel covariance. | |
 
 ### Outputs: What Step 4 Produces and Why It Is Set Up That Way
 
@@ -142,7 +142,7 @@ On the aggregated parcel series, Step 4 estimates biological trial-to-trial vari
 
 1. **Within-person vs. cohort precision weights (@fig-step4-precision):** Both use composite inverse variance $(\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$. `precision_weight` normalizes to mean 1 within each participant/parcel, whereas `precision_weight_cohort` retains unnormalized inverse variance so Step 5 `mixed_by()` appropriately downweights high-noise scans and participants across the cohort.
 2. **Empirical-Bayes shrunk readouts (`decon_eb`, @fig-step4-shrinkage):** Shrinks noisy individual trials toward the run mean using trial reliability $\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)$ for clean single-trial visualization.
-3. **Paired ZCA-whitened columns (`whiten_panel = TRUE`, @fig-step4-zca):** Applies a run-mean-preserving regularized ZCA map equally to `decon_demixed` and supplied covariates on the parcel covariance $\Sigma_{\text{tot}}$.
+3. **Paired within-run decorrelated columns (`whiten_panel = TRUE`, @fig-step4-zca):** Applies a run-mean-preserving symmetric decorrelation map (regularized zero-phase component analysis, or ZCA whitening) equally to `decon_demixed` and supplied covariates on the parcel covariance $\Sigma_{\text{tot}}$, removing serial trial error correlations while keeping each trial aligned to its original ordering.
 
 ![Relative `precision_weight` vs. `se_demixed` under `"marginal"` and `"residual"` working trial-variance modes.](figures/04-precision.png){#fig-step4-precision width="90%" fig-alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode."}
 
@@ -205,7 +205,7 @@ ep$panel[, id := subject_id]
 <summary>Mathematical Reference & Reproduction</summary>
 
 - **Within-parcel effective noise variance:** Let $Z_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(Z_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ estimates parcel observation-noise variance without task contamination, bounded into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
-- **Cross-parcel `shared_noise_loading`:** Normalizing $\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2$ and pooling $\tilde{Z}_r^\top \tilde{Z}_r$ across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk on noisy off-diagonals, and projected onto the PSD cone) yields `unit_error_cor`, whose principal factor loadings are stored in `panel$shared_noise_loading`.
+- **Cross-parcel `shared_noise_loading`:** Normalizing $\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2$ and pooling $\tilde{Z}_r^\top \tilde{Z}_r$ across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk on noisy off-diagonals, and projected onto the nearest positive semi-definite correlation matrix) yields `unit_error_cor`, whose principal factor loadings are stored in `panel$shared_noise_loading`.
 
 [Step 4 simulation script](simulate_step4.R) · [Figure script](figures_step4.R) · [Parcel noise table](parcel_noise_check.csv)
 

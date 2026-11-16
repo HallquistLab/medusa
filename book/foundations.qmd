@@ -9,11 +9,11 @@ A central insight from two-step latent-variable and multilevel measurement-error
 | Test trial modulation at a planned parcel and lag | Population within-person slope (`Neural ~ Behavior`) | Steps 1–4 de-mixed parcel panel $\to$ Step 5 `mixed_by()` with participant random slopes and cohort precision weights |
 | Separate firing rate from time-on-task during RT intervals | Sustained boxcar height (`"rate"`) or area (`"integral"`) | Step 3 duration-matched forward model (`source_model = "duration"`) |
 | Characterize how an effect evolves across peri-event time | Full lag trajectory, window contrast, or peak timing | Step 5 `medusa_multilag_infer()` using cross-lag resolution and covariance matrices |
-| Estimate trial-level seed–target coupling or PPI | Disattenuated neural slope (`Target ~ Seed * Task`) | Step 6 `decon_connectivity_repair()` via regularized modified method of moments (M-MOMS) |
+| Estimate trial-level seed–target coupling or PPI | Disattenuated neural slope (`Target ~ Seed * Task`) | Step 6 `decon_connectivity_repair()` via measurement-error subtraction with conditioning protection (M-MOMS) |
 
 ## 1. Express BOLD through a linear neurovascular forward model
 
-Consider a single fMRI run and voxel (or parcel) observed at $T$ acquisition times. Let $a \in \mathbb{R}^T$ denote latent neural activity on the acquisition grid, $H(h)$ denote causal Toeplitz convolution with the local hemodynamic response function $h$, $Z$ collect low-frequency drift and nuisance terms, and $\varepsilon$ denote zero-mean serial observation noise with covariance $\Sigma$:
+Consider a single fMRI run and voxel (or parcel) observed at $T$ acquisition times. Let $a \in \mathbb{R}^T$ denote latent neural activity on the acquisition grid, $H(h)$ denote time-invariant causal convolution with the local hemodynamic response function $h$ (a Toeplitz matrix whose columns shift $h$ forward volume by volume), $Z$ collect low-frequency drift and nuisance terms, and $\varepsilon$ denote zero-mean serial observation noise with covariance $\Sigma$:
 
 $$
 y = H(h)a + Z\gamma + \varepsilon,
@@ -32,7 +32,7 @@ With nuisance projection absorbed into the whitened solve, the deconvolved serie
 
 ## 2. Write the exact trial-readout measurement model
 
-To move from continuous activity $\widehat{a}$ to event-locked trial quantities, suppose an investigator samples $\widehat{a}$ around target events using a local quadrature matrix $S$ (for instance, a triangle window centered at feedback onset). If the true event-related neural amplitudes are $\theta$ with forward BOLD design $F\theta$ ($y = F\theta + \varepsilon$ after nuisance removal), the raw trial readout $\widehat{z}_{\text{raw}} = S\widehat{a} = SD y$ can be written by adding and subtracting $\theta$:
+To move from continuous activity $\widehat{a}$ to event-locked trial quantities, suppose an investigator samples $\widehat{a}$ around target events using a local time-averaging matrix $S$ (symmetric kernel quadrature—for instance, a triangle window centered at feedback onset). If the true event-related neural amplitudes are $\theta$ with forward BOLD design $F\theta$ ($y = F\theta + \varepsilon$ after nuisance removal), the raw trial readout $\widehat{z}_{\text{raw}} = S\widehat{a} = SD y$ can be written by adding and subtracting $\theta$:
 
 $$
 \begin{aligned}
@@ -63,7 +63,7 @@ Removing systematic mixing places `decon_demixed` ($\widehat{z}$) on a **classic
 Once trial readouts $\widehat{z}$ are expressed as latent signal plus additive error $e$ with known variance $s_i^2 = \Omega_{ii}$, how measurement error affects group inference depends on **which side of the structural equation $\widehat{z}$ occupies** (Skrondal & Laake, 2001; Vig & Hallquist, 2026):
 
 1. **Neural activity as the outcome (`Neural ~ Behavior`, Step 5):** When error-free task or behavioral variables predict `decon_demixed`, additive zero-mean error $e_i$ enters the regression residual without biasing fixed-effect slope estimates. However, error precision varies across trials, runs, and participants. Step 5 (`mixed_by()` and `medusa_multilag_infer()`) pairs participant random slopes—treating **participants** as the independent unit of population replication—with composite inverse-variance weights $(\widehat{\tau}_{\text{eff}}^2 + s_i^2)^{-1}$ (`precision_weight_cohort`) and cross-lag covariance matrices so standard errors, simultaneous bands, and window contrasts remain calibrated.
-2. **Neural activity as a predictor (`Target ~ Seed * Task` or `Behavior ~ Seed`, Step 6):** When a noisy parcel readout moves to the right-hand side as a predictor, trial error $u_i$ inflates the predictor variance $X^\top X$ (attenuating slopes toward zero) and any shared scanner or physiological noise $\operatorname{Cov}(u_i, v_i) \neq 0$ between seed and target shifts $X^\top Y$. Step 6 (`decon_connectivity_repair()`) applies regularized modified method of moments (**M-MOMS**, `medusa_fit_mmom()`) to subtract per-trial error covariance blocks $\Psi_i$ and task-free cross-parcel noise covariances before pooling participant slopes at the group level.
+2. **Neural activity as a predictor (`Target ~ Seed * Task` or `Behavior ~ Seed`, Step 6):** When a noisy parcel readout moves to the right-hand side as a predictor, trial error $u_i$ inflates the predictor variance $X^\top X$ (attenuating slopes toward zero) and any shared scanner or physiological noise $\operatorname{Cov}(u_i, v_i) \neq 0$ between seed and target shifts $X^\top Y$. Step 6 (`decon_connectivity_repair()`) subtracts per-trial predictor error covariance blocks $\Psi_i$ and task-free cross-parcel noise covariances from the sample cross-products while guarding against unstable small denominators in low-reliability scans (**Modified Method of Moments with Step-up Regularization, M-MOMS**, `medusa_fit_mmom()`), before pooling participant slopes at the group level.
 
 ## 5. When does MEDuSA agree with—or outperform—GLM, FIR, and LSS beta-series? {#sec-glm-fir-lss-comparison}
 
@@ -80,7 +80,7 @@ Before committing to a full deconvolution pipeline, a practical question is when
 1. **Parametric Canonical GLM:** Standard run-wise prewhitened general linear model convolving `feedback` and centered `rpe` (plus `cue` and `decision` boxcars when present) with a canonical $6.0\text{ s}$ two-gamma HRF, followed by a group random-effects $t$-test.
 2. **LSS Single-Trial Beta-Series (Mumford et al., 2012):** Separate prewhitened canonical-HRF GLM for every feedback trial (one column for the target trial, one column summing all other feedback trials, plus cue/decision regressors), followed by a multilevel model (`beta_lss ~ rpe_within + (1 + rpe_within || id) + (1 | id:run)`).
 3. **Condition-Modulated FIR:** Prewhitened finite impulse response basis ($-2$ to $+14\text{ s}$) for both the feedback main effect and `rpe` modulation, summarizing the peak-scaled canonical BOLD window ($+4$ to $+6\text{ s}$) across participants alongside the full BOLD-time curve.
-4. **MEDuSA:** Out-of-sample parcel HRF cross-fitting (`estimate_crossrun_hrf()`), event-informed Sobolev deconvolution (`deconvolve_crossrun_hrf()`), de-mixed parcel epoch extraction (`decon_epoch_regression()`), and cohort-weighted multilevel / trajectory inference (`mixed_by()` and `medusa_multilag_infer()`).
+4. **MEDuSA:** Out-of-sample parcel HRF cross-fitting (`estimate_crossrun_hrf()`), event-informed slope-and-curvature-penalized deconvolution (`deconvolve_crossrun_hrf()`, `penalty = "sobolev"`), de-mixed parcel epoch extraction (`decon_epoch_regression()`), and cohort-weighted multilevel / trajectory inference (`mixed_by()` and `medusa_multilag_infer()`).
 
 @fig-glm-fir-lss-medusa and @tbl-glm-fir-lss-medusa compare all four estimators across three progressively more demanding task regimes:
 

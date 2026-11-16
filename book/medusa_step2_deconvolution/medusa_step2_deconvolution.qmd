@@ -52,7 +52,7 @@ The five substeps below develop this estimator from the basic continuous GLS inv
 1. **Recover continuous, unconstrained latent neural time courses:** Estimate a `time × voxel` activity matrix $\hat{s}_r$ on the intact acquisition grid via prewhitened penalized GLS.
 2. **Standardize voxels and runs by pure observation noise:** Estimate marginal observation-noise SD ($\hat{\sigma}_{\text{marg}}$) from task-projected GLS residuals (`scaling = "noise_sd"`) so strong task activation does not compress recovered amplitudes.
 3. **Downweight transient non-task glitches safely:** Attenuate isolated sub-scrubbing motion or RF spikes (`rwls = "auto"`) while leaving genuine high-amplitude neural bursts unclipped.
-4. **Adapt regularization (`lambda`) to regional task SNR:** Tune smoothness across runs via gain-calibrated prewhitened GCV, stratifying silent background cortex and active foci into monotone SNR tiers (`lambda_mode = "auto"`).
+4. **Adapt regularization (`lambda`) to regional task SNR:** Tune smoothness automatically across runs while grouping voxels from quiet background cortex up to strong task foci so noisier regions receive stronger smoothing (`lambda_mode = "auto"`).
 5. **Carry exact linear operator metadata into Steps 3–6:** Package `activity` together with `scaling`, task-free `noise_innovations`, `frame_weights`, and `(HRF, AR, lambda)` stratum keys so downstream steps de-mix overlapping epochs and propagate analytical standard errors.
 
 ### Inputs: What Step 2 Receives and Why
@@ -109,7 +109,7 @@ knitr::kable(d2$metrics, digits = 3, row.names = FALSE,
 
 **Choice point — Roughness penalty (`penalty`) and nuisance projection (`nuisance_mode`):**
 
-- **Penalty geometry:** `penalty = "sobolev"` ($0.10 D_1^\top D_1 + 0.90 D_2^\top D_2$) is recommended as the standard choice. Pure second-difference smoothing (`"diff2"`) leaves global linear ramps unpenalized, whereas pure `"ridge"` shrinks each time point toward zero without sharing smoothness across neighboring TRs; `"sobolev"` (and `"matern1"`) gently anchors baseline drift while keeping phasic transitions crisp (@fig-step2-penalties, @tbl-step2-penalties).
+- **Penalty geometry:** `penalty = "sobolev"` combines a gentle first-difference slope penalty with a strong second-difference curvature penalty ($0.10 D_1^\top D_1 + 0.90 D_2^\top D_2$, a discrete Sobolev norm) and is recommended as the standard choice. Pure second-difference curvature smoothing (`"diff2"`) leaves global linear ramps unpenalized, whereas pure `"ridge"` shrinks each time point toward zero without sharing smoothness across neighboring TRs; `"sobolev"` (and `"matern1"`) gently anchors baseline drift while keeping phasic transitions crisp (@fig-step2-penalties, @tbl-step2-penalties).
 - **Nuisance handling:** Use `nuisance_mode = "ignore"` when input BOLD has already been detrended or confound-regressed upstream, or switch to `nuisance_mode = "joint"` when drift and motion regressors passed via `hrf_fit` remain present in `bold` and should be projected out inside the whitened inverse (@fig-step2-mask-nuisance, top).
 
 ![Joint vs. ignored nuisance handling when drift remains in `bold` (top) and bridging a masked `valid_rows = FALSE` artifact window `70–80 s` under `observation_mask = "fit"` (bottom).](figures/07-mask-nuisance.png){#fig-step2-mask-nuisance width="95%" fig-alt="Two-panel plot showing drift removal under nuisance_mode = joint and artifact containment under observation_mask = fit."}
@@ -120,7 +120,7 @@ knitr::kable(d2$metrics, digits = 3, row.names = FALSE,
 
 Before solving the penalized GLS objective across thousands of voxels, each run and voxel is centered and divided by a reference scale so $\lambda$ acts comparably everywhere. A common convention in blind deconvolution is whole-run z-scoring (`scaling = "zscore"`), which divides by total temporal $\text{SD}(y)$. However, in a strongly task-responsive voxel, $\text{SD}(y)$ combines background noise *and* task-evoked BOLD variance—inflating the denominator and compressing recovered neural slopes relative to quieter voxels.
 
-To separate observation noise from task signal without constraining $\hat{s}_r$, `scaling = "noise_sd"` fits an **auxiliary event-informed GLS regression** (`hrf_estimate_gls_noise_sd()`) containing run drift, user nuisance columns, free per-trial convolved event regressors under Step 1's HRF, and 1st/2nd HRF Taylor derivatives (absorbing trial-to-trial latency jitter). From the leverage-standardized, Winsorized residuals of this projection, MEDuSA extracts two quantities:
+To separate observation noise from task signal without constraining $\hat{s}_r$, `scaling = "noise_sd"` fits an **auxiliary event-informed GLS regression** containing run drift, user nuisance columns, free per-trial convolved event regressors under Step 1's HRF, and 1st/2nd HRF Taylor derivatives (absorbing trial-to-trial latency jitter). From the outlier-trimmed, leverage-adjusted residuals of this projection (Winsorized GLS residuals), MEDuSA extracts two quantities:
 
 1. **Uncontaminated marginal observation-noise SD ($\hat{\sigma}_{\text{marg}}$):** Tracks true background noise uniformly across high-gain, moderate-gain, and null voxels (@fig-step2-scaling and @tbl-step2-blind-scale).
 2. **Task-free whitened `noise_innovations`:** Orthonormalized residual series carried forward to measure pure spatial noise correlations in Steps 4 and 6.
@@ -142,10 +142,10 @@ knitr::kable(bve$scale_table, digits = 3, row.names = FALSE,
 
 Even after binary motion censoring (`valid_rows`), fMRI runs occasionally contain sub-threshold micro-movements or RF spikes ($\text{FD} \approx 0.2\text{--}0.3\text{ mm}$) that would cause oscillatory ringing in an unweighted linear inverse. At the same time, naive outlier downweighting risks mistaking an unusually large, genuine neural response (such as a surprise prediction-error burst) for an artifact.
 
-Under `rwls = "auto"`, `hrf_estimate_rwls_weights()` measures cross-voxel residual energy **orthogonal to the `[trial HRF, dHRF/dt]` subspace** and widens frame tolerance in proportion to the convolved task envelope:
+Under `rwls = "auto"`, Step 2 measures cross-voxel residual energy **orthogonal to the modeled `[trial HRF, dHRF/dt]` task subspace** and widens frame tolerance in proportion to the convolved task envelope:
 
-- On clean Gaussian runs, a spatial Liu–Tang–Zhang (2009) null gate keeps all weights at $w_t = 1$ so standard unweighted GLS is preserved exactly.
-- When genuine non-task glitches occur, isolated 1–2 TR spikes are routed to **rank-$k$ Woodbury Sparse Bayesian Learning** ($\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)$, preventing high-$\rho$ AR filters from smearing the glitch into neighboring frames), while multi-TR physiological bursts receive smooth innovation-space downweighting—all while keeping $w_t = 1$ across heavy task-evoked neural bursts.
+- On clean Gaussian runs, a whole-brain tail-energy test calibrated for spatially correlated voxels (via the Liu–Tang–Zhang, 2009 moment approximation) keeps all weights at $w_t = 1$ so standard unweighted GLS is preserved exactly.
+- When genuine non-task glitches occur, isolated 1–2 TR spikes are absorbed by adding **transient observation-noise variance at only those flagged volumes** ($\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)$, solved via low-rank Woodbury Sparse Bayesian Learning updates so high-$\rho$ AR filters do not smear a single-volume spike into neighboring frames), while multi-TR physiological bursts receive smooth innovation-space downweighting—all while keeping $w_t = 1$ across heavy task-evoked neural bursts.
 
 **Choice point — Glitch downweighting (`rwls`):** Leave `rwls = "auto"` enabled for empirical data; set `rwls = "none"` only when testing exact unweighted operator identities in synthetic benchmarks.
 
@@ -153,12 +153,12 @@ Under `rwls = "auto"`, `hrf_estimate_rwls_weights()` measures cross-voxel residu
 
 ### 2.4 Tune smoothing strength (`lambda`) across task-SNR strata
 
-Choosing $\lambda$ by ordinary observation-space generalized cross-validation (GCV) targets BOLD prediction accuracy rather than downstream trial estimation, and averaging GCV across thousands of task-silent voxels pulls a single global penalty toward oversmoothing.
+Choosing $\lambda$ by ordinary observation-space out-of-sample prediction error—approximated via generalized cross-validation (GCV)—targets BOLD curve fitting rather than downstream trial estimation, and averaging GCV across thousands of task-silent voxels pulls a single global penalty toward oversmoothing.
 
-When `lambda = NULL`, `hrf_tune_decon_lambda()` pools prewhitened GCV across usable runs alongside Stage-3 gain-restored trial level/contrast variance and modulation transfer weighted by Step 1's out-of-sample task SNR (@fig-step2-tuning). Furthermore, on volumetric maps where focal task regions coexist with quiet background cortex, `lambda_mode = "auto"` (`hrf_tune_decon_lambda_stratified()`) applies **FDR-gated, PAVA-monotone SNR stratification**:
+When `lambda = NULL`, Step 2 pools prewhitened GCV across usable runs alongside Stage-3 gain-restored trial level/contrast variance and modulation transfer weighted by Step 1's out-of-sample task SNR (@fig-step2-tuning). Furthermore, on volumetric maps where focal task regions coexist with quiet background cortex, `lambda_mode = "auto"` stratifies voxels by out-of-sample task SNR and enforces that smoothing never increases as task signal strengthens:
 
-1. **Cross-run Fisher + BH-FDR gate:** Combines Step 1 per-run task $p$-values across runs; if no voxels pass $q \le 0.10$ (e.g., pure-null maps), `"auto"` collapses safely to one global penalty.
-2. **Monotone task-SNR tiers:** When focal signal is present, voxels are grouped into a quiet background tier ($q > 0.20$, graph-stabilized $R^2 < 0.025$) and ascending active task-$R^2$ quantiles (`max_lambda_strata = 4L`), with weighted pool-adjacent-violators (`hrf_pava_nonincreasing()`) enforcing $\lambda_{\text{quiet}} \ge \lambda_{\text{low-SNR}} \ge \dots \ge \lambda_{\text{high-SNR}}$ (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-step2-stratified-lambda)).
+1. **Cross-run false-discovery gate:** Combines Step 1 per-run task $p$-values across runs (Fisher combination + Benjamini–Hochberg FDR); if no voxels pass $q \le 0.10$ (e.g., pure-null maps), `"auto"` collapses safely to one global penalty.
+2. **Monotone task-SNR tiers:** When focal signal is present, voxels are grouped into a quiet background tier ($q > 0.20$, graph-stabilized $R^2 < 0.025$) and ascending active task-$R^2$ quantiles (`max_lambda_strata = 4L`), enforcing $\lambda_{\text{quiet}} \ge \lambda_{\text{low-SNR}} \ge \dots \ge \lambda_{\text{high-SNR}}$ via a monotone ordering constraint (weighted pool-adjacent-violators, PAVA; see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-step2-stratified-lambda)).
 
 ![Comparison of raw prewhitened GCV versus MEDuSA's adaptive task-weighted criterion (top) and the underlying gain-restored level and contrast variance proxies (bottom).](figures/04-tuning.png){#fig-step2-tuning width="95%" fig-alt="Tuning curves across lambda_grid showing raw GCV, adaptive criterion, level variance, and contrast variance."}
 
@@ -205,8 +205,7 @@ decon <- deconvolve_crossrun_hrf(
   rwls             = "auto",
   nuisance_mode    = "ignore",   # set "joint" when drift/motion was NOT removed from bold upstream
   observation_mask = "fit",
-  tail_padding     = 0L,
-  backend          = "cpp"
+  tail_padding     = 0L
 )
 
 # Inspect conditional gain and event cross-talk under your study's schedule:
@@ -220,7 +219,7 @@ recovery <- diagnose_crossrun_recovery(decon, lags = 0)
 |---|---|---|---|
 | `scaling` | `"noise_sd"` | `"zscore"` | Divides by event-projected marginal observation-noise SD (`Substep 2.2`) rather than task-contaminated whole-run SD; pair with `restore_scale = TRUE` in Step 3. |
 | `penalty` | `"sobolev"` | `"diff2"` | Penalizes both curvature and slow linear ramps (`Substep 2.1`) for stable baselines and clean event transitions. |
-| `lambda` & `lambda_mode` | `NULL`, `"auto"` | `NULL`, `"auto"` | Tunes prewhitened GCV across runs and stratifies volumetric maps into PAVA-monotone task-SNR tiers (`Substep 2.4`). Use `"global"` when enforcing one scalar penalty across all voxels. |
+| `lambda` & `lambda_mode` | `NULL`, `"auto"` | `NULL`, `"auto"` | Tunes cross-run smoothness via prewhitened GCV and orders smoothing monotonically from quiet cortex down to high-SNR foci (PAVA; `Substep 2.4`). Use `"global"` when enforcing one scalar penalty across all voxels. |
 | `rwls` | `"auto"` | `"auto"` | Stays inactive ($w_t = 1$) on clean runs and downweights non-task glitches while protecting task-aligned bursts (`Substep 2.3`). |
 | `nuisance_mode` | `"ignore"` (cleaned BOLD) or `"joint"` (raw BOLD) | `"ignore"` | Set `"joint"` whenever drift or confound columns supplied to Step 1 have not already been regressed out of `bold` (`Substep 2.1`). |
 | `observation_mask` & `tail_padding` | `"fit"` & `0L` | `"fit"` & `0L` | Excludes masked `valid_rows == FALSE` frames from the data term without shifting the clock, and avoids appending artificial post-run zeros (`see below`). |
@@ -249,7 +248,7 @@ Let $I_r \subset \{1, \dots, n_r\}$ index the $m_r$ valid rows (`valid_rows[[r]]
   $$
   D_r = \bigl(A_r^\top A_r + P_{\lambda}\bigr)^{-1} A_r^\top \tilde{W}_r \in \mathbb{R}^{n_r \times m_r},
   $$
-  evaluated across voxel batches via Cholesky solves in C++ (`backend = "cpp"`, agreeing with `backend = "r"` to `r format(d2$backend_err, digits = 3)`), with `restore_scale` reproducing `demean` units to `r format(max(d2$restore_err), digits = 3)`.
+  evaluated across voxel batches via Cholesky solves in C++ (`backend = "cpp"`, agreeing with `backend = "r"` to `r format(d2$backend_err, digits = 3)`), with `restore_scale` reproducing `demean` units to `r format(max(d2$restore_err), digits = 3)`. Internal R helpers implementing Substeps 2.2–2.4 in `R/crossrun_hrf.R` are `hrf_estimate_gls_noise_sd()`, `hrf_estimate_rwls_weights()`, `hrf_tune_decon_lambda()`, `hrf_tune_decon_lambda_stratified()`, and `hrf_pava_nonincreasing()`.
 
 [Step 2 simulation script](simulate_step2.R) · [Figure script](figures_step2.R) · [Verification output](verification.txt)
 

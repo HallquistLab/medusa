@@ -63,7 +63,7 @@ The walkthrough below develops Step 0 across four substeps—from planning run s
 ### Goals of Step 0
 
 1. **Design identifiable multi-run event schedules:** Ensure adjacent task phases decouple under hemodynamic blurring and provide independent runs for out-of-sample HRF cross-fitting.
-2. **Stream 4D NIfTI runs into consistent `time × voxel` matrices:** Verify spatial grid geometry across runs, intersect per-run brain masks (`mask_policy = "intersect"`), and attach parcel labels or spatial coordinates.
+2. **Read 4D NIfTI runs into consistent `time × voxel` matrices:** Verify spatial grid geometry across runs, intersect per-run brain masks (`mask_policy = "intersect"`), and attach parcel labels or spatial coordinates.
 3. **Preserve exact volume timestamps during dummy-scan and motion censoring:** Flag initial non-steady-state volumes and high-motion frames in `valid_rows` rather than deleting time rows, keeping event `onset` seconds locked to the scanner clock.
 4. **Retain complete forward event schedules and trial keys:** Keep nuisance task occurrences (such as missed-response timeouts) in `events` so their BOLD waves are removed rather than absorbed into noise, and link external behavioral or reinforcement-learning (RL) tables through unambiguous `event_index` keys.
 
@@ -83,7 +83,7 @@ The walkthrough below develops Step 0 across four substeps—from planning run s
 
 | Output Component | Structure | Why It Is Set Up That Way |
 |---|---|---|
-| `bold` | Named list (`run1`, `run2`, ...) of `T_r × V` numeric matrices | Streams 4D NIfTI volumes in C++ directly into memory-contiguous matrices restricted to the shared in-mask voxel set $V$. |
+| `bold` | Named list (`run1`, `run2`, ...) of `T_r × V` numeric matrices | Reads 4D NIfTI volumes directly into matrices restricted to the shared in-mask voxel set $V$. |
 | `tr`, `voxel_map`, & `geometry` | Scalar `tr` (s), `V`-row coordinate/parcel lookup table, and 3D NIfTI header template | Anchors continuous-to-discrete time mapping and enables instant 3D/4D NIfTI reconstruction via `write_nifti_ts()` and `backproject_medusa()`. |
 | `parcel_ids` | Named vector of parcel labels across the $V$ columns | Supplies `spatial_groups` / `parcel_groups` automatically to Steps 1, 3, and 4 when an `atlas` is provided. |
 | `events` | Standardized `data.frame` (`run`, `onset`, `duration`, `condition`, plus all extra BIDS trial columns) | Normalizes BIDS `trial_type` to `condition`, converts `"n/a"` durations to `0` impulses while retaining numeric covariates, and aligns run names to `names(bold)`. |
@@ -129,7 +129,7 @@ Once `fMRIPrep` preprocessing completes, each run produces a 4D BOLD NIfTI file,
 
 Calling `read_fmriprep_subject()` performs four coordinated ingestion steps automatically:
 
-1. **Mask intersection and atlas alignment:** Reads all runs' brain masks, retains voxels present in every run (`mask_policy = "intersect"` so parcel definitions stay identical across cross-fitting folds), checks 3D affine/dimension agreement against `atlas`, and streams the 4D runs in C++ into `T_r × V` matrices.
+1. **Mask intersection and atlas alignment:** Reads all runs' brain masks, retains voxels present in every run (`mask_policy = "intersect"` so parcel definitions stay identical across cross-fitting folds), checks 3D affine/dimension agreement against `atlas`, and extracts the 4D runs directly into `T_r × V` matrices.
 2. **Confound cleaning and rank protection:** Parses `*_desc-confounds_timeseries.tsv` under a standard preset (`strategy = "6p"`, `"24p"`, `"36p"`, or `"acompcor"`), replaces BIDS `"n/a"` strings on temporal derivative/quadratic lag rows with `0`, centers columns, and drops any zero-variance or collinear columns per run.
 3. **Clock-preserving frame censoring (`valid_rows`):** Flags `fMRIPrep`'s `non_steady_state_outlier*` dummy scans (`include_non_steady_state = TRUE`) alongside frames exceeding `fd_threshold` or `dvars_threshold` by setting `valid_rows = FALSE` rather than deleting rows from `bold`.
 4. **BIDS event standardization:** Reads `*_events.tsv`, maps `trial_type` to `condition`, treats `"n/a"` durations as `0`-second impulses, and coerces numeric trial columns cleanly.
@@ -164,7 +164,7 @@ knitr::kable(
 
 **Choice point — One-call `read_fmriprep_subject()` vs. modular readers and confound `strategy`:**
 
-- **Standard BIDS/`fMRIPrep` directories:** Use `read_fmriprep_subject()` with `include_non_steady_state = TRUE` and `strategy = "24p"` (six rigid-body realignment parameters, their temporal derivatives, and quadratic terms) or `"acompcor"` when anatomical CompCor components are desired alongside motion terms. Remember that Steps 1–2 already add per-run intercepts, linear trends, and `< 1/128 Hz` DCT drift cosines internally, so avoid pre-bandpass-filtering BOLD before MEDuSA.
+- **Standard BIDS/`fMRIPrep` directories:** Use `read_fmriprep_subject()` with `include_non_steady_state = TRUE` and `strategy = "24p"` (six rigid-body realignment parameters, their temporal derivatives, and quadratic terms) or `"acompcor"` when anatomical CompCor components are desired alongside motion terms. Remember that Steps 1–2 already add per-run intercepts, linear trends, and slow `< 1/128 Hz` cosine drift terms internally, so avoid pre-bandpass-filtering BOLD before MEDuSA.
 - **Fast-TR multiband acquisitions ($\text{TR} \le 1.0\text{ s}$):** Add `motion_bandstop_bpm = c(12, 20)` and `motion_filter_target = "fd_only"` inside `read_fmriprep_subject()` (or `read_fmriprep_confounds()`) so respiratory chest-wall modulation does not trigger false FD scrubbing; see [Step 1 §1.5](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-respiratory-fd-filter).
 - **Custom preprocessing or `BrainGnomes` pipelines:** Assemble the exact same inputs modularly via `read_nifti_ts(bold_files, mask = ..., atlas = ...)`, `read_fmriprep_confounds(confound_files, censor_files = ...)`, and `read_bids_events(event_files)`. If an upstream pipeline *already* discarded $k$ initial dummy volumes before writing BOLD NIfTIs while leaving `events.tsv` anchored to scanner trigger $t = 0$, pass `time_offset = k * tr` to Step 1 (or check the BIDS JSON `StartTime` field).
 
@@ -177,7 +177,7 @@ In real cognitive tasks, participants occasionally miss a response deadline or e
 From the perspective of the forward BOLD model ($y = Ha + Z\gamma + \varepsilon$), however, **a missed trial is still a physical sensory and cognitive event in the scanner**: the cue appeared, a timeout warning or visual change occurred, and salience/error-monitoring cortex responded strongly. Deleting those timestamps from `events` forces Steps 1–3 to treat large timeout-evoked BOLD waves as unexplained noise:
 
 1. In **Step 1**, unmodeled timeout waves inflate residual autocorrelation ($\hat{\rho}$).
-2. In **Step 2**, unmodeled BOLD deflections inflate `noise_sd` and push automatic GCV tuning toward heavier smoothing (`lambda`), attenuating nearby valid trials.
+2. In **Step 2**, unmodeled BOLD deflections inflate `noise_sd` and push automatic cross-validation tuning toward heavier smoothing (`lambda`), attenuating nearby valid trials.
 3. In **Step 3**, `demix_other_events = TRUE` cannot subtract the tail of a preceding timeout wave from the next valid feedback trial if the timeout event was omitted.
 
 Instead, label missed or timeout events as a **separate condition** in `events` (for example, `trial_type = "missed_feedback"` or `"timeout"`), and keep `target_condition = "feedback"` in Step 3. @fig-step0-missed and @tbl-step0-missed demonstrate the improvement on `sub-01` (where 3 of 18 trials per run are timeout trials evoking a strong cortical salience burst): keeping `"missed_feedback"` in `events` recovers the exact observation noise (`0.029` vs. true `0.030`), true AR(1) parameter (`0.462` vs. true `0.450`), and true lag-0 RPE slope (`r fmt(missed_tbl$lag0_beta[1])` vs. `0.650`), whereas deleting missed rows from `events.tsv` inflates estimated `noise_sd` by `r round(100 * (missed_tbl$est_noise_sd[2] / missed_tbl$est_noise_sd[1] - 1))`% and cuts the recovered RPE slope to `r fmt(missed_tbl$lag0_beta[2])`.

@@ -22,8 +22,8 @@ Once participant trial panels are assembled in Step 4, **Step 5 tests how behavi
 Step 5 provides two complementary modeling pathways plus direct volumetric brain-map export:
 
 1. **Split-wise linear mixed-effects models (`mixed_by()`):** Fits a multilevel formula independently at each `(parcel, evt_time)` split—in memory or streamed from disk-backed Parquet/`.rds` datasets—accommodating participant random slopes, nested run intercepts, and rich cross-level interactions.
-2. **Joint multi-lag trajectory inference (`medusa_multilag_infer()`):** Models the full lag vector of a `(parcel, term)` profile jointly using cross-lag resolution and covariance matrices to deliver spectral deblurring, P-spline trajectories, simultaneous `Max-|T|` confidence bands, 1D TFCE tests, planned window contrasts, and peak/latency summaries.
-3. **Volumetric NIfTI backprojection (`backproject_medusa()`):** Maps parcel-level group statistics directly onto 3D/4D NIfTI brain volumes in C++ for visualization in `ggbrain`.
+2. **Joint multi-lag trajectory inference (`medusa_multilag_infer()`):** Models the full lag vector of a `(parcel, term)` profile jointly using cross-lag resolution and covariance matrices to sharpen blurred lag profiles (spectral deblurring), fit smooth penalized-spline (P-spline) trajectories, and compute simultaneous `Max-|T|` confidence bands, cluster-enhanced (`1D TFCE`) tests, planned window contrasts, and peak/latency summaries.
+3. **Volumetric NIfTI backprojection (`backproject_medusa()`):** Maps parcel-level group statistics directly onto 3D/4D NIfTI brain volumes for visualization in `ggbrain`.
 
 ```{r}
 #| eval: false
@@ -84,10 +84,10 @@ The four substeps below walk from centering predictors (`5.1`), through split-wi
 
 | Output component | Structure & key columns | Role |
 |:---|:---|:---|
-| **`$coefficients`** | `data.table` per `(unit, term, lag)` with raw (`estimate`, `p_maxT`, `p_tfce`, `conf.low.sim`) and processed (`estimate_multilag`, `conf.low.multilag.sim`) columns | Places unsmoothed lag localization tests side by side with deblurred/P-spline trajectory estimates incorporating Marra–Wood smoothing uncertainty. |
+| **`$coefficients`** | `data.table` per `(unit, term, lag)` with raw (`estimate`, `p_maxT`, `p_tfce`, `conf.low.sim`) and processed (`estimate_multilag`, `conf.low.multilag.sim`) columns | Places unsmoothed lag localization tests side by side with deblurred/P-spline trajectory estimates incorporating smoothing-penalty uncertainty (Marra–Wood posterior covariance). |
 | **`$contrasts` & `$latency`** | Window contrast table (`estimate`, `std.error`, `df`, `p.value`) and trajectory timing table (`peak_lag`, `com_lag`, `fwhm`, `omnibus_p`) | Summarize planned early-vs.-late window tests and continuous spline-interpolated timing with covariance-propagated uncertainty. |
 | **`$subjects` & `$covariance`** | Participant-by-lag slope table (`estimate_raw`, `estimate_eb`) and nested `Sigma_raw` / `Sigma_deblur` / `Sigma_multilag` matrices | Expose lag-specific participant support counts and exact cross-lag covariance matrices. |
-| **Written `.nii.gz` paths (`backproject_medusa()`)** | Character vector of 3D or 4D NIfTI files per `<plot_col>_<term>.nii.gz` | Streams parcel statistics directly to NIfTI in C++, auto-detecting `parcel`, `evt_time` / `lag`, and `term`. |
+| **Written `.nii.gz` paths (`backproject_medusa()`)** | Character vector of 3D or 4D NIfTI files per `<plot_col>_<term>.nii.gz` | Writes parcel statistics directly to compressed NIfTI volumes, auto-detecting `parcel`, `evt_time` / `lag`, and `term`. |
 
 ---
 
@@ -164,9 +164,9 @@ Across 3 simulated parcels (`Phasic`, `Sustained`, `Null`) × 8 lags × 2 focal 
 
 Because neighboring lags share both deconvolution smoothness ($R_{\text{lag}}$) and correlated observation noise ($C_{\text{lag}}$), modeling the lag vector $\widehat{b} = (\widehat{b}_1, \dots, \widehat{b}_L)^\top$ jointly is substantially more informative than treating lags as unrelated splits:
 
-1. **Joint within-run regression and available-case lag pooling:** `medusa_multilag_infer()` fits all supplied time-varying `covariates` together within each run (routing any participant-constant covariates to Level-2 WLS with HC2 SEs) and pools participant slopes across lags using available cases—retaining participants at interior lags even if boundary censoring removed an edge lag.
-2. **Spectral deblurring and covariance-aware P-splines:** Under `trajectory_mode = "auto"` (with upstream `demix_within_trial = FALSE`), `medusa_multilag_infer()` applies a regularized spectral inverse of $R_{\text{lag}}$ (`"deblur"`, @fig-pr62-deblur) followed by boosted P-spline smoothing (`"deblur_pspline"`), incorporating Marra–Wood posterior smoothing-bias uncertainty into $\Sigma_{\text{multilag}}$.
-3. **Studentized Wishart epoch inference (`n_perm` draws):** Accounts for finite-sample covariance estimation across participants to deliver simultaneous `Max-|T|` bands (`p_maxT`, `conf.low.sim`, `conf.high.sim`), threshold-free cluster enhancement (`p_tfce`) for sustained deflections, and an epoch Mahalanobis test (`omnibus_p`; @fig-pr62-trajectory, @fig-pr62-tests).
+1. **Joint within-run regression and available-case lag pooling:** `medusa_multilag_infer()` fits all supplied time-varying `covariates` together within each run (routing any participant-constant trait covariates to between-participant weighted least squares with leverage-adjusted HC2 standard errors) and pools participant slopes across lags using available cases—retaining participants at interior lags even if boundary censoring removed an edge lag.
+2. **Cross-lag sharpening and uncertainty-aware spline smoothing:** Under `trajectory_mode = "auto"` (with upstream `demix_within_trial = FALSE`), `medusa_multilag_infer()` first gently inverts the known cross-lag blurring matrix $R_{\text{lag}}$ (regularized spectral deblurring; `"deblur"`, @fig-pr62-deblur) and then fits a smooth penalized spline (`"deblur_pspline"`), folding uncertainty from the smoothing penalty itself into $\Sigma_{\text{multilag}}$ (Marra–Wood posterior covariance; Marra & Wood, 2012) rather than treating the smooth curve as bias-free.
+3. **Finite-sample cross-lag calibration (`n_perm` draws):** Because the $L \times L$ cross-lag covariance is estimated from a finite cohort of participants, `medusa_multilag_infer()` simulates null covariance draws that propagate that finite-sample covariance uncertainty (studentized Wishart draws). From those joint draws it computes simultaneous `Max-|T|` bands (`p_maxT`, `conf.low.sim`, `conf.high.sim`), threshold-free cluster enhancement (`p_tfce`, accumulating contiguous same-sign deflections without an arbitrary cutoff), and a multivariate departure test across the whole epoch (`omnibus_p`, Mahalanobis test; @fig-pr62-trajectory, @fig-pr62-tests).
 
 ![Spectral cross-lag deblurring on a deterministic coefficient curve spread by `C_blur`: the deblurred trajectory recovers the underlying phasic width.](figures/09-pr62-deblur.png){#fig-pr62-deblur fig-alt="The blurred effect is wider than the known target. The deblurred curve is closer to the target in this controlled example."}
 
