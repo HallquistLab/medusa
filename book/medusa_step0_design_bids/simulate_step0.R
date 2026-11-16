@@ -1,7 +1,8 @@
 # Step 0 simulations:
 # 1. Experimental design & inter-phase jitter identifiability benchmarks
 # 2. Live on-disk BIDS + fMRIPrep ingestion via read_fmriprep_subject(),
-#    dummy-scan clock alignment checks, and missed/timeout trial handling.
+#    dummy-scan clock alignment checks, missed/timeout trial handling, and
+#    non-aggressive ICA-AROMA + matched nuisance projection (fMRIPost-AROMA).
 
 library(medusa)
 library(data.table)
@@ -483,6 +484,189 @@ run1_valid_time  <- as.numeric(ev_r1[condition == "feedback", onset])
 act_intact_p1 <- rowMeans(dec_intact$activity[[1L]][, 1:6]) * mean(dec_intact$scaling[[1L]]$scale[1:6])
 act_drop_p1   <- rowMeans(dec_drop_missed$activity[[1L]][, 1:6]) * mean(dec_drop_missed$scaling[[1L]]$scale[1:6])
 
+# ==============================================================================
+# Demonstration C: Non-Aggressive ICA-AROMA & Matched Nuisance Projection
+# ==============================================================================
+cat("\nPart 3: Simulating fMRIPost-AROMA non-aggressive denoising & matched confound projection...\n")
+set.seed(20261116)
+
+aroma_root      <- tempfile("medusa_step0_aroma_")
+fprep_aroma_dir <- file.path(aroma_root, "derivatives", "fmriprep")
+post_aroma_dir  <- file.path(aroma_root, "derivatives", "fmripost-aroma")
+bids_aroma_dir  <- file.path(aroma_root, "bids")
+dir.create(file.path(fprep_aroma_dir, "sub-01", "func"), recursive = TRUE)
+dir.create(file.path(post_aroma_dir,  "sub-01", "func"), recursive = TRUE)
+dir.create(file.path(bids_aroma_dir,  "sub-01", "func"), recursive = TRUE)
+
+atlas_aroma_path <- file.path(aroma_root, "atlas_2parcels.nii.gz")
+RNifti::writeNifti(atlas_nii, atlas_aroma_path)
+
+n_vols_a <- 240L
+n_tr_a   <- 20L
+mot_ic_list <- list()
+
+for (r in 1:3) {
+  stem_a <- sprintf("sub-01_task-learn_run-0%d", r)
+  cue_on <- seq(8.0, by = 10.8, length.out = n_tr_a)
+  fb_on  <- cue_on + runif(n_tr_a, 1.4, 3.6)
+  rpe_r  <- as.numeric(scale(rnorm(n_tr_a)))
+
+  ev_a <- rbind(
+    data.frame(onset = round(cue_on, 3), duration = 0.5, trial_type = "cue", rpe = "n/a", stringsAsFactors = FALSE),
+    data.frame(onset = round(fb_on, 3),  duration = "n/a", trial_type = "feedback", rpe = sprintf("%.4f", rpe_r), stringsAsFactors = FALSE)
+  )
+  ev_a <- ev_a[order(as.numeric(ev_a$onset)), ]
+  rownames(ev_a) <- NULL
+
+  s_targ <- s_ctrl <- s_rpe_only <- numeric(n_vols_a)
+  for (i in seq_len(nrow(ev_a))) {
+    on_i  <- as.numeric(ev_a$onset[i])
+    dur_i <- if (ev_a$duration[i] == "n/a") 0 else as.numeric(ev_a$duration[i])
+    sc    <- source_col(on_i, dur_i, n_vols_a, tr)
+    if (ev_a$trial_type[i] == "cue") {
+      s_targ <- s_targ + 0.80 * sc
+      s_ctrl <- s_ctrl + 0.90 * sc
+    } else {
+      rpe_i <- as.numeric(ev_a$rpe[i])
+      s_targ <- s_targ + (0.90 + 0.65 * rpe_i) * sc
+      s_ctrl <- s_ctrl + 0.55 * sc
+      s_rpe_only <- s_rpe_only + (0.65 * rpe_i) * sc
+    }
+  }
+
+  x_targ <- conv_open(s_targ, h_true)
+  x_ctrl <- conv_open(s_ctrl, h_true)
+  x_rpe  <- as.numeric(scale(conv_open(s_rpe_only, h_true)))
+
+  # 2 accepted neural ICs + 6 rejected motion/edge ICs
+  ic1_acc <- as.numeric(scale(x_targ + rnorm(n_vols_a, sd = 0.010)))
+  ic2_acc <- as.numeric(scale(x_ctrl + rnorm(n_vols_a, sd = 0.010)))
+  # IC_3: task-correlated head motion (feedback flinch / button press, r ~ 0.62 with convolved RPE)
+  ic3_mot <- as.numeric(scale(0.62 * x_rpe + sqrt(1 - 0.62^2) * sim_ar1(n_vols_a, 0.30, 1.0)))
+  ic4_mot <- as.numeric(scale(sim_ar1(n_vols_a, 0.35, 1.0)))
+  ic5_mot <- as.numeric(scale(sim_ar1(n_vols_a, 0.25, 1.0)))
+  ic6_mot <- as.numeric(scale(sim_ar1(n_vols_a, 0.40, 1.0)))
+  ic7_mot <- as.numeric(scale(rnorm(n_vols_a)))
+  ic8_mot <- as.numeric(scale(rnorm(n_vols_a)))
+  mot_ic_list[[r]] <- cbind(ic3_mot, ic4_mot, ic5_mot, ic6_mot, ic7_mot, ic8_mot)
+
+  # Physiological CSF / WM noise shared with gray matter AND contaminated by motion ICs in raw confounds
+  u_csf <- sim_ar1(n_vols_a, 0.50, 0.080)
+  u_wm  <- sim_ar1(n_vols_a, 0.55, 0.070)
+
+  arr4d_a <- array(0, dim = c(dims3, n_vols_a))
+  for (v in 1:12) {
+    sig_v <- if (v <= 6L) x_targ else x_ctrl
+    mot_v <- (if (v <= 6L) 0.085 else 0.060) * ic3_mot +
+             0.110 * ic4_mot - 0.095 * ic5_mot + 0.080 * ic6_mot +
+             0.055 * ic7_mot - 0.050 * ic8_mot
+    phys_v <- 1.0 * u_csf + 0.9 * u_wm
+    y_v <- 100 + sig_v + mot_v + phys_v + sim_ar1(n_vols_a, 0.45, 0.030)
+    idx3 <- arrayInd(v, dims3)
+    arr4d_a[idx3[1], idx3[2], idx3[3], ] <- y_v
+  }
+
+  bold_nii_a <- RNifti::asNifti(arr4d_a); RNifti::pixdim(bold_nii_a) <- c(2, 2, 2, tr)
+  RNifti::writeNifti(bold_nii_a, file.path(fprep_aroma_dir, "sub-01", "func",
+    paste0(stem_a, "_space-MNI152NLin6Asym_res-2_desc-preproc_bold.nii.gz")))
+  RNifti::writeNifti(mask_nii, file.path(fprep_aroma_dir, "sub-01", "func",
+    paste0(stem_a, "_space-MNI152NLin6Asym_res-2_desc-brain_mask.nii.gz")))
+  writeLines('{"RepetitionTime": 1.0, "TaskName": "learn"}',
+    file.path(bids_aroma_dir, "sub-01", "func", paste0(stem_a, "_bold.json")))
+  utils::write.table(ev_a, file.path(bids_aroma_dir, "sub-01", "func", paste0(stem_a, "_events.tsv")),
+    sep = "\t", row.names = FALSE, quote = FALSE)
+
+  csf_raw <- u_csf + 0.085 * ic4_mot - 0.065 * ic5_mot + 0.050 * ic7_mot
+  wm_raw  <- u_wm  - 0.070 * ic4_mot + 0.080 * ic6_mot - 0.050 * ic8_mot
+  fd_a    <- c(NA_real_, round(runif(n_vols_a - 1L, 0.05, 0.24), 4))
+  conf_a  <- data.frame(
+    csf = round(csf_raw, 6),
+    white_matter = round(wm_raw, 6),
+    trans_x = round(0.08 * ic3_mot, 6),
+    trans_y = round(0.10 * ic4_mot, 6),
+    trans_z = round(0.09 * ic5_mot, 6),
+    rot_x   = round(0.002 * ic6_mot, 6),
+    rot_y   = round(0.002 * ic7_mot, 6),
+    rot_z   = round(0.002 * ic8_mot, 6),
+    framewise_displacement = ifelse(is.na(fd_a), "n/a", sprintf("%.4f", fd_a)),
+    stringsAsFactors = FALSE
+  )
+  utils::write.table(conf_a, file.path(fprep_aroma_dir, "sub-01", "func",
+    paste0(stem_a, "_desc-confounds_timeseries.tsv")), sep = "\t", row.names = FALSE, quote = FALSE)
+
+  # Sibling fMRIPost-AROMA outputs (omits space- entity, matching fMRIPost-AROMA >= 0.1)
+  mix_mat <- round(cbind(ic1_acc, ic2_acc, ic3_mot, ic4_mot, ic5_mot, ic6_mot, ic7_mot, ic8_mot), 6)
+  utils::write.table(mix_mat, file.path(post_aroma_dir, "sub-01", "func",
+    paste0(stem_a, "_res-2_desc-melodic_mixing.tsv")), sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+  metrics_df <- data.frame(
+    IC = paste0("IC_", 1:8),
+    classification = c("accepted", "accepted", rep("rejected", 6L)),
+    rationale = c("", "", rep("edge_fraction;high_frequency_content", 6L)),
+    stringsAsFactors = FALSE
+  )
+  utils::write.table(metrics_df, file.path(post_aroma_dir, "sub-01", "func",
+    paste0(stem_a, "_res-2_desc-aroma_metrics.tsv")), sep = "\t", row.names = FALSE, quote = FALSE)
+}
+
+run_aroma_regime <- function(lbl, aroma_mode, clean_nuis) {
+  sub_a <- read_fmriprep_subject(
+    fmriprep_dir         = fprep_aroma_dir,
+    bids_dir             = bids_aroma_dir,
+    sub                  = "01",
+    task                 = "learn",
+    atlas                = atlas_aroma_path,
+    strategy             = "csf_wm",
+    aroma                = aroma_mode,
+    aroma_clean_nuisance = clean_nuis,
+    fd_threshold         = 0.5
+  )
+  hfit <- estimate_crossrun_hrf(
+    sub_a, kernel_grid = candidates, pooling = "parcel",
+    amplitude_model = "trial", selection_mode = "soft_average"
+  )
+  dec <- deconvolve_crossrun_hrf(
+    sub_a, hfit, scaling = "noise_sd", penalty = "sobolev",
+    nuisance_mode = "joint", observation_mask = "fit"
+  )
+  ep <- decon_epoch_regression(
+    dec, covariates = "rpe", target_condition = "feedback",
+    lags = -2:4, aggregate_by_parcel = TRUE,
+    restore_scale = TRUE, return_panel = FALSE
+  )
+  mot_r2 <- mean(vapply(seq_along(sub_a$bold), function(r_idx) {
+    Y_p1 <- rowMeans(sub_a$bold[[r_idx]][, 1:6, drop = FALSE])
+    Z_r  <- cbind(1, seq_along(Y_p1), sub_a$nuisance[[r_idx]])
+    res_post <- qr.resid(qr(Z_r), Y_p1)
+    max(0, summary(stats::lm(res_post ~ mot_ic_list[[r_idx]][, 2:6, drop = FALSE]))$adj.r.squared)
+  }, numeric(1)))
+
+  cf <- as.data.table(ep$coefficients)
+  p1 <- as.character(unique(cf$parcel)[1L])
+  sub_cf <- cf[as.character(parcel) == p1 & term == "rpe"]
+  list(
+    metrics = data.table(
+      regime          = lbl,
+      est_noise_sd    = mean(vapply(dec$scaling, function(s) mean(s$noise_sd[1:6]), numeric(1))),
+      resid_motion_r2 = mot_r2,
+      lag0_beta       = sub_cf[lag == 0, beta_gls],
+      lag0_se         = sub_cf[lag == 0, se_gls],
+      lag0_bias       = sub_cf[lag == 0, beta_gls] - 0.65
+    ),
+    profile = sub_cf[, .(lag, beta = beta_gls, se = se_gls, regime = lbl)]
+  )
+}
+
+r_none   <- run_aroma_regime("No AROMA (csf_wm only)", "none", FALSE)
+r_aggr   <- run_aroma_regime("Aggressive AROMA (aroma = 'aggressive')", "aggressive", TRUE)
+r_uncl   <- run_aroma_regime("Non-aggressive AROMA + uncleaned csf_wm", "nonaggressive", FALSE)
+r_nonagg <- run_aroma_regime("Non-aggressive AROMA + matched csf_wm (Recommended)", "nonaggressive", TRUE)
+
+aroma_tbl      <- rbind(r_none$metrics, r_aggr$metrics, r_uncl$metrics, r_nonagg$metrics)
+aroma_profiles <- rbind(r_none$profile, r_aggr$profile, r_uncl$profile, r_nonagg$profile)
+print(aroma_tbl)
+fwrite(aroma_tbl, "aroma_denoising_metrics.csv")
+unlink(aroma_root, recursive = TRUE)
+
 saveRDS(list(
   true_peak_sec = true_peak_sec,
   t_hrf = t_hrf,
@@ -506,6 +690,8 @@ saveRDS(list(
   qc_summary = qc_summary,
   clock_tbl = clock_tbl,
   missed_tbl = missed_tbl,
+  aroma_tbl = aroma_tbl,
+  aroma_profiles = aroma_profiles,
   design_benchmarks = design_benchmarks
 ), "step0_examples.rds")
 

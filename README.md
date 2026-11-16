@@ -13,7 +13,7 @@ remotes::install_github("HallquistLab/medusa")
 
 ## Core Workflow
 
-1. **NIfTI/BIDS matrix I/O, spatial graph, cross-run HRF & AR($p$) noise estimation:** `read_fmriprep_subject()`, `read_fmriprep_confounds()`, `read_bids_events()`, `read_nifti_ts()`, `write_nifti_ts()`, `build_spatial_graph()`, `hrf_library()`, `estimate_crossrun_hrf()`
+1. **NIfTI/BIDS matrix I/O, non-aggressive ICA-AROMA, spatial graph, cross-run HRF & AR($p$) noise estimation:** `read_fmriprep_subject()`, `read_fmriprep_confounds()`, `read_fmriprep_aroma()`, `apply_aroma()`, `read_bids_events()`, `read_nifti_ts()`, `write_nifti_ts()`, `build_spatial_graph()`, `hrf_library()`, `estimate_crossrun_hrf()`
 2. **Deconvolution:** `deconvolve_crossrun_hrf()`, `deconvolve_reglin()`, `deconvolve_nlreg()`, `deconvolve_nlreg_resample()`, `voxelwise_deconvolution()`
 3. **Event-locked alignment & epoch de-mixing:** `align_medusa_ts()`, `get_medusa_interpolated_ts()`, `evt_align_decon_files()`, `run_decon_alignment()`, `decon_epoch_regression()`, `fmri_ts`, `event_lock_ts()`
 4. **Diagnostics & connectivity repair:** `diagnose_crossrun_recovery()`, `deconvolution_impulse_diagnostics()`, `decon_connectivity_repair()`, `medusa_between_subject_repair()`
