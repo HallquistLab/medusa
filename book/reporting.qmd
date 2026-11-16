@@ -1,0 +1,118 @@
+---
+title: "Reporting MEDuSA in Empirical Papers and Reviewer FAQ"
+subtitle: "Stage-by-stage reporting checklist, adaptable Methods templates, and answers to common peer-review questions"
+---
+
+## Overview
+
+Clear methodological reporting serves two goals in empirical task-fMRI papers: it allows readers to reproduce every analytical choice from raw BIDS/`fMRIPrep` derivatives to group statistics, and it preempts common peer-review concerns about hemodynamic circularity, motion scrubbing, trial overlap, and measurement-error propagation.
+
+This appendix provides three practical resources for manuscript preparation:
+
+1. A **stage-by-stage reporting checklist** (@tbl-reporting-checklist) paired with a short R snippet to extract cohort-level quality-control numbers.
+2. **Adaptable *Methods* prose templates** covering Steps 0–4 preprocessing/deconvolution, Step 5 multilevel and trajectory inference, and Step 6 connectivity/PPI disattenuation.
+3. A **Peer-Review FAQ** addressing eight methodological questions frequently raised by cognitive neuroscience reviewers.
+
+---
+
+## 1. Stage-by-Stage Reporting Checklist
+
+| Pipeline stage | Quantities & settings to report in *Methods* / *Supplement* | Where to inspect in `medusa` |
+|:---|:---|:---|
+| **Step 0 · Design, BIDS/`fMRIPrep` & Denoising** | Number of runs ($R$), trial counts per condition, inter-phase / ITI jitter ranges, `TR`, output space & atlas parcellation, confound strategy (`"24p"`, `"csf_wm"` + `aroma = "nonaggressive"` with `aroma_clean_nuisance = TRUE`), respiratory FD filter (`motion_bandstop_bpm`), FD threshold, mean/SD `%` censored volumes, dummy-scan masking (`include_non_steady_state = TRUE`), and explicit retention of missed/timeout events | `sub$tr`, `sub$confounds$summary`, `table(sub$events$run, sub$events$condition)` ([Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd)) |
+| **Step 1 · Cross-Run HRF & $\text{AR}(p)$ Noise** | Candidate HRF manifold (`hrf_library(preset = "medusa")`, positive-lobe normalization), out-of-sample cross-run fold structure ($s \neq r$), spatial pooling mode (`pooling = "parcel"` or `"graph"`), two-pass REML $\text{AR}(p)$ order (`ar_order = "auto"`), and `%` of units hitting the `0.90` stationarity bound | `hrf_fit$training_runs`, `hrf_fit$selections`, `hrf_fit$noise` ([Step 1](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd)) |
+| **Step 2 · Continuous Deconvolution** | Smoothness penalty (`penalty = "sobolev"`), observation-noise standardization (`scaling = "noise_sd"`), cross-run SNR-stratified smoothing (`lambda_mode = "auto"`), adaptive glitch downweighting (`rwls = "auto"`), `observation_mask = "fit"`, and median conditional self-gain | `diagnose_crossrun_recovery(decon, events)$summary` ([Step 2](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)) |
+| **Step 3 · Epoch Readout & Demixing** | Target condition, peri-event lag grid (`lags`), neural source model (`"impulse"` vs. `"duration"` + `"rate"` or `"integral"`), readout kernel & width, collateral and target demixing (`demix_other_events`, `demix_target_trials`, `demix_ridge`), `min_bold_coverage` threshold (`0.20`), and `%` of trial-lags gated to `NA` | `epochs$panel` (`is.na(decon_demixed)`, `se_demixed`) ([Step 3](medusa_step3_epochs/medusa_step3_epochs.qmd)) |
+| **Step 4 · Parcel Panels & Weights** | Physical scale restoration (`restore_scale = TRUE`), biological variance mode (`tau2_mode`, `tau2_shrinkage`), outcome column (`decon_demixed`), cohort precision weights (`precision_weight_cohort`), and whether within-run ZCA whitening (`whiten_panel = TRUE`) was used | `epochs$panel`, `epochs$unit_error_cor` ([Step 4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd)) |
+| **Step 5 · Group & Trajectory Models** | Within-person vs. between-person predictor decomposition (`x_within`, `x_mean`), random-effects structure (`(1 + x_within || id) + (1 | id:run)`), REML Satterthwaite `df` (`lmerTest`) & singularity handling; for trajectories: `trajectory_mode`, `contrast_source = "unsmoothed"`, `n_perm`, and study-wide multiplicity family (`"holm"` or `"BY"`) | `group_models$coef_df_reml`, `traj$coefficients`, `traj$contrasts`, `traj$latency` ([Step 5](medusa_step5_group_models/medusa_step5_group_models.qmd)) |
+| **Step 6 · Connectivity & PPI** | `seed_region`, `target_region`, `seed_lag`, `target_lag`, `orthogonalize_seed_x`, `control_target_seed_lag`, estimator (`method = "mmoms"` reported alongside `"naive_unweighted"`), cross-parcel error subtraction (`shared_error = "auto"`), HKSJ random-effects $t$-intervals, convergence/step-up summary, and condition-dependent shared-error sensitivity | `ppi$group`, `ppi$subjects` (`r_shared_error`, `alpha_final`, `converged`) ([Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)) |
+
+: Essential methodological details to report at each stage of an empirical MEDuSA analysis. {#tbl-reporting-checklist}
+
+### Extracting Cohort QC Descriptives in R
+
+Before drafting your *Methods* section, summarize censoring, deconvolution gain, and trial retention across your analyzed cohort ($s = 1, \dots, S$):
+
+```{r}
+#| eval: false
+#| code-fold: false
+# Assuming `subject_bundles` (Step 0), `subject_decons` (Step 2), and `subject_epochs` (Step 4) are named lists:
+censor_pct <- unlist(lapply(subject_bundles, function(x) x$confounds$summary$pct_censored))
+self_gain  <- unlist(lapply(names(subject_decons), function(id) {
+  diagnose_crossrun_recovery(subject_decons[[id]], events = subject_bundles[[id]]$events)$summary$mean_gain
+}))
+gated_pct  <- sapply(subject_epochs, function(ep) 100 * mean(is.na(ep$panel$decon_demixed)))
+
+cat(sprintf(
+  "Censored volumes: M = %.1f%% (SD = %.1f%%)\nConditional self-gain: Mdn = %.2f (IQR = %.2f)\nGated trial-lags: M = %.1f%% (SD = %.1f%%)\n",
+  mean(censor_pct), sd(censor_pct),
+  median(self_gain, na.rm = TRUE), IQR(self_gain, na.rm = TRUE),
+  mean(gated_pct), sd(gated_pct)
+))
+```
+
+---
+
+## 2. Adaptable Manuscript *Methods* Templates
+
+Replace bracketed placeholders (`[...]`) with your study's acquisition and design parameters, and omit optional clauses that do not apply to your analysis.
+
+### Template A: Steps 0–4 — Ingestion, Cross-Run HRF Learning, Deconvolution, and Parcel Readout
+
+> **Single-trial fMRI deconvolution and parcel panel construction.** Preprocessed BOLD time series (`fMRIPrep` `[vXX.X]`, `[MNI152NLin2009cAsym]`, `TR = [0.80] s`, `[R = 4]` runs per participant) were analyzed in R using the `medusa` package (`[v0.1.0]`; Hallquist, 2026). Within each run, `[non-aggressive ICA-AROMA denoising was applied to BOLD volumes and matched CSF/WM nuisance regressors (Pruim et al., 2015; Lindquist et al., 2019), and]` `[24-parameter head-motion regressors plus cosine drift bases]` were projected on an intact acquisition clock (`read_fmriprep_subject()`). `[To prevent respiration-induced pseudomotion from triggering false framewise-displacement (FD) scrubs at sub-second TR, realignment parameters were notch-filtered across 12–20 breaths/min prior to computing FD (Fair et al., 2020).]` Initial non-steady-state volumes and frames exceeding `FD > [0.3 / 0.5] mm` (`M = [X.X]%`, `SD = [X.X]%` of volumes) were masked via clock-preserving observation weights (`valid_rows`) rather than physically concatenating runs, and missed/timeout trials were retained as a separate nuisance event condition in the forward schedule.
+>
+> Regional hemodynamic response functions (HRFs) were estimated out of sample across runs (`estimate_crossrun_hrf()`) over a three-dimensional physiological HRF library (`hrf_library(preset = "medusa")`, positive-lobe normalized) pooled within `[Schaefer 200-parcel regions / bilateral cortical-ribbon neighborhoods]`. Conditioned on each run's out-of-sample selected HRF, temporal noise autocorrelation was refit in a second restricted-maximum-likelihood (REML) $\text{AR}(p)$ pass (`ar_order = "auto"`). Continuous latent neural activity was reconstructed on the acquisition grid via prewhitened, Sobolev-penalized generalized least squares (`deconvolve_crossrun_hrf()`, `scaling = "noise_sd"`), using monotone SNR-stratified cross-run generalized cross-validation (`lambda_mode = "auto"`) and task-protected outlier downweighting (`rwls = "auto"`).
+>
+> Event-locked trial estimates around `[feedback onset]` (`lags = [-2 to +6 s]`) were extracted via `decon_epoch_regression()` (`source_model = ["impulse" / "duration"]`, `readout_kernel = "triangle"`, `restore_scale = TRUE`), subtracting collateral spillover from non-target task phases (`demix_other_events = TRUE`) and inverting target-to-target hemodynamic mixing (`demix_target_trials = TRUE`, `demix_ridge = [0.05]`) to place trial readouts (`decon_demixed`) on an additive measurement-error scale (Vig & Hallquist, 2026). Voxels were aggregated into anatomical parcels using cross-run precision weights while propagating stationary temporal and spatial noise innovations into run-centered trial standard errors (`se_demixed`) and cross-parcel error correlations (`unit_error_cor`). Trial-lags with fewer than 20% unmasked causal HRF support (`min_bold_coverage = 0.20`; `[X.X]%` of trials) were recorded as missing (`NA`).
+
+---
+
+### Template B: Step 5 — Population Multilevel and Peri-Event Trajectory Inference
+
+> **Group-level trial and trajectory inference.** Time-varying behavioral predictors (`[reward prediction error, RPE]`) were decomposed into within-person centered fluctuations (`[rpe_within]`) and person-level means (`[rpe_mean]`).
+>
+> *[Option 1 — Planned lag or duration mixed models (`mixed_by()`):]* At each `[parcel and planned lag]`, unshrunken trial readouts (`decon_demixed`) were fit using linear mixed-effects models (`mixed_by()` via `lmerTest`; Kuznetsova et al., 2017) weighted by normalized inverse total trial variance (`weights = "precision_weight_cohort"`), with random intercepts and within-person slopes per participant and nested run intercepts (`decon_demixed ~ rpe_within + rpe_mean + (1 + rpe_within || id) + (1 | id:run)`). Degrees of freedom were estimated via Satterthwaite's approximation, and $p$-values across `[P = 200 parcels]` were controlled using `[Holm familywise error / Benjamini–Yekutieli false discovery rate]` adjustment.
+>
+> *[Option 2 — Joint multi-lag trajectory inference (`medusa_multilag_infer()`):]* Full peri-event lag profiles (`[-2 to +6 s]`) were modeled jointly using `medusa_multilag_infer()` (`trajectory_mode = "auto"`), combining spectral cross-lag deblurring and uncertainty-propagated penalized splines with `[799]` finite-sample studentized Wishart draws across available participant lag sets. Within each trajectory, simultaneous 95% confidence bands (`Max-|T|`), 1D threshold-free cluster-enhanced (`1D TFCE`) $p$-values, and Mahalanobis epoch omnibus tests (`omnibus_p`) were computed; planned window contrasts (`[late 3–5 s minus early 0–2 s]`) were evaluated on unsmoothed lag estimates (`contrast_source = "unsmoothed"`). Across tested parcels, epoch-wide discovery was controlled by applying `[Holm / Benjamini–Yekutieli]` correction to `omnibus_p`.
+
+---
+
+### Template C: Step 6 — Trial-Level Functional Connectivity and PPI
+
+> **Measurement-error-corrected trial connectivity and PPI.** Trial-to-trial seed–target coupling and psychophysiological interaction (`Target ~ Seed + [Modulator] + Seed:[Modulator]`) between `[seed parcel]` and `[target parcel(s)]` were estimated using `decon_connectivity_repair()` (`method = "mmoms"`, `shared_error = "auto"`, `orthogonalize_seed_x = [FALSE / TRUE]`, `use_whitened = FALSE`). Within each participant, run-centered predictor measurement-error covariance blocks $\Psi_i$ constructed from squared trial standard errors (`se_demixed^2`) were subtracted from sample design cross-products ($X^\top X$), while stationary cross-parcel error covariances estimated from task-free deconvolution innovations (`unit_error_cor`) were subtracted from predictor–outcome cross-products ($X^\top Y$) with step-up positive-definiteness regularization (Modified Method of Moments with Step-up Regularization, M-MOMS; Fuller, 1987; Vig & Hallquist, 2026). Participant-level M-MOMS slopes were pooled across the cohort ($S = [N]$) using leverage-guarded Hartung–Knapp–Sidik–Jonkman (HKSJ) random-effects $t$-intervals, reported alongside uncorrected ordinary least-squares (`"naive_unweighted"`) estimates and sensitivity analyses across hypothesized condition-dependent cross-error correlations.
+
+---
+
+## 3. Peer-Review FAQ: Common Questions and Misconceptions
+
+### Q1. Does evaluating peri-event lags every 0.5 s or 1.0 s mean MEDuSA achieves sub-TR neural temporal resolution?
+
+**No.** Evaluating lags on a fine peri-event grid (or across jittered sub-TR event onsets) provides smooth *phase alignment* relative to stimulus onset, not unlimited neural frequency bandwidth. Because hemodynamic convolution $H_r$ is a strong low-pass filter and Step 2 applies a positive smoothness penalty $\lambda_v > 0$ to keep variance finite, recovered neural activity $\widehat{a}_r(t)$ has a finite temporal point-spread width determined by the resolution operator $R_r = D_r M_{r,o} H_r$. You can report that effective bandwidth transparently via `diagnose_crossrun_recovery(decon)` (`mean_gain`) and rely on `medusa_multilag_infer(..., trajectory_mode = "auto")` for regularized cross-lag deblurring ([Step 2](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd); [Step 5](medusa_step5_group_models/medusa_step5_group_models.qmd)).
+
+### Q2. Isn't estimating the HRF from the participant's own task scans circular ("double dipping")?
+
+**No, for two independent reasons.** First, `estimate_crossrun_hrf()` is strictly **out of sample across runs**: the HRF kernel applied to deconvolve run $r$ is selected exclusively from non-target runs $s \neq r$. Second, HRF selection evaluates overall task-evoked variance explained by event *occurrences* without access to downstream trial-by-trial behavioral modulators (`rpe_within`), group contrasts, or connectivity targets. Pass-2 $\text{AR}(p)$ noise refitting on run $r$ keeps the cross-fitted HRF completely frozen ([Step 1](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd); [Autocorrelation Prewhitening](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd)).
+
+### Q3. How does MEDuSA differ from Mumford et al. (2012) LSS beta-series or a standard parametric GLM?
+
+On slow, well-spaced, single-phase designs where the canonical HRF matches regional vasculature, parametric GLMs, LSS beta-series, and MEDuSA yield closely aligned group inferences. They diverge in three common cognitive neuroscience settings ([Conceptual foundations §5](foundations.qmd#sec-glm-fir-lss-comparison)): (1) rapid multi-phase trials (`cue` $\to$ variable-RT `decision` $\to$ `feedback`), where separate LSS regressions omit modulators on neighboring phases and absorb cue/RT confounds; (2) regions with non-canonical HRF peak delays or dispersion, which MEDuSA learns out of sample per parcel; and (3) biphasic or delayed post-event dynamics that collapse to near zero under a single canonical GLM impulse but emerge clearly across a continuous peri-event lag trajectory.
+
+### Q4. Empirical-Bayes shrunken `decon_eb` has lower trial-wise MSE—why shouldn't I use it as the outcome in `mixed_by()`?
+
+Minimum mean-squared error for *individual trial predictions* is not the same goal as unbiased *structural slope estimation* across trials (Skrondal & Laake, 2001; Vig & Hallquist, 2026). Because `decon_eb` shrinks noisy deviations toward the parcel mean by reliability factor $\kappa_{ri} = \widehat{\tau}^2 / (\widehat{\tau}^2 + s_{ri}^2) < 1$, entering `decon_eb` on the left-hand side of a regression multiplies the true population slope by $\bar{\kappa} < 1$—attenuating group effects by 30–60% when single-trial fMRI reliability is moderate ([QC Gallery Pair 3](medusa_qc_gallery/medusa_qc_gallery.qmd#sec-qc-step34)). Entering unshrunk `decon_demixed` with `weights = "precision_weight_cohort"` avoids shrinkage bias while still downweighting noisy trials and runs optimally.
+
+### Q5. Why set `restore_scale = TRUE` in Step 3 if Step 2 already standardized each run with `scaling = "noise_sd"`?
+
+Standardizing each run by its marginal observation-noise SD $\widehat{\sigma}_{\text{obs}}$ *inside Step 2* places the data fidelity term and smoothness penalty $\lambda_v \|P a_r\|^2$ on a dimensionless SNR scale so GCV smoothing behaves consistently across scanners and runs. If left in noise-SD units for Step 3–5, however, a noisy high-motion run ($\widehat{\sigma}_{\text{obs}} = 2.0$) would have its true neural signal divided by twice as much as a clean run ($\widehat{\sigma}_{\text{obs}} = 1.0$), shrinking its amplitude relative to clean runs. Setting `restore_scale = TRUE` multiplies both `decon_demixed` and `se_demixed` back by $\widehat{\sigma}_{\text{obs}}$, placing every run of a parcel onto common physical BOLD units while letting `se_demixed` and `precision_weight_cohort` downweight noisy runs cleanly ([Step 3](medusa_step3_epochs/medusa_step3_epochs.qmd); [Propagating BOLD Noise into Trial SEs](medusa_standard_errors_mmom.qmd)).
+
+### Q6. How does Step 6 M-MOMS PPI differ from standard gPPI (McLaren et al., 2012) or LSS beta-series correlations?
+
+Standard BOLD-level PPI multiplies noisy BOLD (or MAP-deconvolved point estimates) by task regressors without accounting for two opposing trial-level error biases: (a) random estimation variance $s_{S,i}^2$ in the seed readout *attenuates* both baseline connectivity and PPI interaction slopes toward zero, and (b) correlated physiological, vascular, or motion noise shared across brain regions ($r_{ST} > 0$) *inflates* apparent coupling. `decon_connectivity_repair()` forms the interaction on de-mixed trial readouts, subtracts analytical seed error moments $\Psi_i(s_{S,i}^2)$ from $X^\top X$, subtracts cross-parcel innovation covariance from $X^\top Y$ (`shared_error = "auto"`), protects small-sample matrix conditioning (`method = "mmoms"`), and pools participant slopes via HKSJ $t$-intervals ([Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd); [Latent Connectivity Beyond Per-Trial Disattenuation](medusa_connectivity_inference/medusa_connectivity_inference.qmd)).
+
+### Q7. Can I interpret the first lag with `p_tfce < .05` as the exact onset time of a neural effect?
+
+**No.** Just as in cluster-based permutation testing for EEG/MEG and spatial fMRI ([Sassenhagen & Draschkow, 2019](https://onlinelibrary.wiley.com/doi/10.1111/psyp.13335)), 1D threshold-free cluster enhancement (`p_tfce`) integrates contiguous extent and height across lags to boost sensitivity to sustained deflections; its error guarantee applies to the cluster-enhanced statistic rather than exact onset boundaries. When you want strict familywise localization at individual lags of a trajectory, inspect **`p_maxT`** and the simultaneous band `[conf.low.sim, conf.high.sim]`; when you want continuous timing summaries (peak lag, center-of-mass latency, or full-width at half-maximum), report `$latency` bootstrap intervals from `medusa_multilag_infer()` ([Simultaneous Bands Across Lags](medusa_multilag_calibration/medusa_multilag_calibration.qmd)).
+
+### Q8. Does Sobolev smoothing across motion-censored frames "hallucinate" trial observations inside scrubbed gaps?
+
+**No.** Under `observation_mask = "fit"`, censored frames (`valid_rows == FALSE`) contribute zero data weight during Step 2 while keeping acquisition timestamps exact. In Step 3, `decon_epoch_regression()` computes the exact fraction of each trial-lag's forward HRF energy supported by unmasked BOLD frames: if fewer than 20% of causal HRF support was observed (`min_bold_coverage = 0.20`), that trial-lag is gated directly to `NA`; if partial scrubbing occurred inside the HRF window, the propagated sandwich variance $\Omega_{r,\tau}$ automatically inflates `se_demixed` for that specific trial so downstream precision weights downweight it proportionately ([Step 3](medusa_step3_epochs/medusa_step3_epochs.qmd); [QC Gallery Pair 3](medusa_qc_gallery/medusa_qc_gallery.qmd#sec-qc-step34)).

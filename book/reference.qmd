@@ -81,10 +81,9 @@ quarto render
 
 </details>
 
-## Companion Archives (`library/`)
+## Companion Validation Suite (`library/`)
 
-- **14-Study Validation Suite:** [Rendered HTML](library/medusa_validation_suite.html) · [Quarto source](library/medusa_validation_suite.qmd) — comprehensive multi-study simulation benchmarks from the `medusa_simulation` validation repository.
-- **Historical Pipeline Primers:** [Audited pipeline primer](library/medusa_pipeline_primer_audited.html) ([source](library/medusa_pipeline_primer_audited.qmd)), [original primer](library/medusa_pipeline_primer.html) ([source](library/medusa_pipeline_primer.qmd), [audit notes](library/medusa_pipeline_primer_audit.md)), and [verbatim archive](library/other_agent_original_verbatim.qmd).
+- **14-Study Validation Suite:** [Rendered HTML](library/medusa_validation_suite.html) · [Quarto source](library/medusa_validation_suite.qmd) — comprehensive multi-study simulation benchmarks evaluating end-to-end pipeline configurations across realistic event schedules, neurovascular heterogeneity, artifact bursts, censoring masks, and cohort sizes (synthesized in [What Validation Proves](evidence.qmd)).
 
 ## Key Methodological References
 
@@ -98,6 +97,8 @@ quarto render
 - Abdulrahman, H., & Henson, R. N. (2016). Effect of trial-to-trial variability on optimal event-related fMRI design. *NeuroImage*, 125, 756–766. [Article](https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/)
 - Marra, G., & Wood, S. N. (2012). Coverage properties of confidence intervals for generalized additive model components. *Scandinavian Journal of Statistics*, 39(1), 53–74.
 - Kuznetsova, A., Brockhoff, P. B., & Christensen, R. H. B. (2017). `lmerTest` package: tests in linear mixed effects models. *Journal of Statistical Software*, 82(13), 1–26. [Article](https://www.jstatsoft.org/article/view/v082i13)
+- McLaren, D. G., Ries, M. L., Xu, G., & Johnson, S. C. (2012). A generalized form of context-dependent psychophysiological interactions (gPPI): A comparison to standard approaches. *NeuroImage*, 61(4), 1277–1286. [DOI](https://doi.org/10.1016/j.neuroimage.2012.03.068)
+- Sassenhagen, J., & Draschkow, D. (2019). Cluster-based permutation tests of MEG/EEG data do not establish significance of effect latency or location. *Psychophysiology*, 56(6), e13335. [DOI](https://doi.org/10.1111/psyp.13335)
 - Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in multiple testing under dependency. *Annals of Statistics*, 29(4), 1165–1188. [Article](https://doi.org/10.1214/aos/1013699998)
 - Cole, M. W., Ito, T., Schultz, D., Mill, R., Chen, R., & Cocuzza, C. (2019). Task activations produce spurious but systematic inflation of task functional connectivity estimates. *NeuroImage*, 189, 1–18. [Article](https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/)
 - Power, J. D., Barnes, K. A., Snyder, A. Z., Schlaggar, B. L., & Petersen, S. E. (2012). Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. *NeuroImage*, 59(3), 2142–2154. [DOI](https://doi.org/10.1016/j.neuroimage.2011.10.018)
