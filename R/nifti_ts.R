@@ -452,6 +452,18 @@ print.medusa_nifti_ts <- function(x, ...) {
     p_txt <- if (length(p_cols) == 1L) sprintf("%d col(s)", p_cols) else paste0(paste(p_cols, collapse = "-"), " cols")
     cat(sprintf("  Confounds attached: %d/%d volume(s) censored | nuisance: %s\n", n_cens, n_tot, p_txt))
   }
+  if (is.list(x$aroma) && isTRUE(x$aroma$applied)) {
+    ar_sum <- x$aroma$summary
+    n_rej <- if (is.data.frame(ar_sum)) sum(ar_sum$n_rejected) else NA_integer_
+    n_cmp <- if (is.data.frame(ar_sum)) sum(ar_sum$n_components) else NA_integer_
+    cat(sprintf(
+      "  AROMA denoising: %s (%d/%d component(s) removed%s)\n",
+      x$aroma$mode,
+      n_rej,
+      n_cmp,
+      if (isTRUE(x$aroma$nuisance_cleaned)) ", nuisance cleaned" else ""
+    ))
+  }
   if (!is.null(x$events)) {
     n_ev <- if (is.data.frame(x$events)) {
       nrow(x$events)
