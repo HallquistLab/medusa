@@ -191,7 +191,7 @@ ep$panel[, id := subject_id]
 
 1. **Checking run-to-run voxel coverage:** When partial FoV clipping drops voxels from a small parcel in one run, renormalization shifts the parcel's spatial center slightly; inspect `decon$scaling[[r]]$status` whenever dropout is non-trivial.
 2. **Matching panel columns to their statistical role:** Mirrors the distinction between unshrunk likelihood-only readouts and shrunken EB predictions (Skrondal & Laake, 2001; Vig & Hallquist, 2026):
-   - Use **`decon_demixed`** (with `weights = "precision_weight_cohort"`) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve **`decon_eb`** for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage.
+   - Use **`decon_demixed`** (with `weights = "precision_weight_cohort"`) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve **`decon_eb`** for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage (see the [Visual QC Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd) for a visual demonstration of `decon_eb` slope attenuation).
    - When using ZCA-whitened variables, pair `decon_demixed_whitened` exclusively with matched `<var>_whitened` predictors from the same `(parcel, evt_time)` split.
 3. **Cohort storage handoff:** Attach `id` (and `session` if longitudinal) before combining participants. Saving `subject_epochs` as `.rds` or writing panels to Parquet (`arrow::write_dataset()`) preserves the `shared_noise_loading` list-column for Step 6 alongside scalable disk streaming for Step 5 `mixed_by()`.
 

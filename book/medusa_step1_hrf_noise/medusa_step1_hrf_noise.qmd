@@ -274,7 +274,7 @@ Before passing `hrf_fit` to `deconvolve_crossrun_hrf()` ([Step 2](../medusa_step
 
 1. **Check cross-fitting provenance:** Confirm `hrf_fit$training_runs` lists non-target runs $s \neq r$ and review `hrf_fit$signal_status`.
 2. **Plot realized waveforms (`hrf_fit$selected_kernels`):** Under `soft_average`, `selections$kernel_index` identifies only the top-weight library column, whereas `selected_kernels` shows the actual composite HRF used in Step 2.
-3. **Check `hrf_fit$noise` for stationarity boundary hits:** Widespread $\hat{\rho} = 0.90$ estimates typically point to unmodeled scanner drift, uncensored motion spikes, or omitted task events.
+3. **Check `hrf_fit$noise` for stationarity boundary hits:** Widespread $\hat{\rho} = 0.90$ estimates typically point to unmodeled scanner drift, uncensored motion spikes, or omitted task events (see [Pair 1 in the Visual QC Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd#sec-qc-step01)).
 4. **Scope boundary:** Step 1 estimates the forward neurovascular filter and serial noise structure without modifying `bold` or evaluating behavioral trial hypotheses; continuous latent signal reconstruction begins in Step 2.
 
 <details>
