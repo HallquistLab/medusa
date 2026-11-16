@@ -37,13 +37,13 @@ book:
     - part: "Spatial and volumetric workflows"
       chapters:
         - medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd
-    - part: "Measurement models and evidence"
+    - part: "Methodological deep dives"
       chapters:
+        - medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd
         - medusa_standard_errors_mmom.qmd
+        - medusa_multilag_calibration/medusa_multilag_calibration.qmd
         - medusa_connectivity_inference/medusa_connectivity_inference.qmd
         - evidence.qmd
-        - medusa_pr62_calibration/medusa_pr62_calibration.qmd
-        - medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd
   appendices:
     - reference.qmd
 

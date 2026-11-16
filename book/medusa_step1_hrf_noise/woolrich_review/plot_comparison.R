@@ -10,9 +10,9 @@ a$method <- factor(
   levels = c("Generating covariance", "Canonical_HRF", "Current_MEDuSA", "Tukey15_selected"),
   labels = c(
     "Generating covariance",
-    "Fixed canonical HRF noise fit",
-    "Current MEDuSA (2-pass REML refit)",
-    "Pooled Tukey taper (M = 15)"
+    "Single-pass canonical HRF",
+    "Two-pass REML refit (MEDuSA)",
+    "Raw-residual Tukey taper (M = 15)"
   )
 )
 theme_set(
