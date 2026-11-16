@@ -105,7 +105,7 @@ Across all `r check$n_trials` trials and `r check$subjects` participants, the es
 
 ## 3. Characterize the full lag trajectory and window contrasts (Step 5: `medusa_multilag_infer()`)
 
-When the scientific question extends across the entire $-2\text{ s}$ to $+4\text{ s}$ peri-event epoch, passing the named `subject_epochs` list to `medusa_multilag_infer()` pools participant lag slopes jointly and constructs a simultaneous 95% `Max-|T|` confidence band covering all seven lags together:
+When the scientific question extends across the entire $-2\text{ s}$ to $+4\text{ s}$ peri-event epoch, passing the named `subject_epochs` list to `medusa_multilag_infer()` pools participant lag slopes jointly and constructs a simultaneous 95% confidence band covering all seven lags together (`Max-|T|`):
 
 ```{r trajectory-example}
 #| eval: false
@@ -141,7 +141,7 @@ Notice why the recovered raw lag curve in @fig-worked-lags spans neighboring lag
 
 ### Choice point: Comparing a planned window contrast across trajectory curves {#sec-worked-contrasts}
 
-Suppose we test a planned `late_minus_early` contrast (`[2, 4] s` minus `[0, 1] s`) under `trajectory_mode = "deblur_pspline"`, which applies group-level spectral cross-lag deblurring followed by P-spline smoothing. `contrast_source` lets us choose which curve defines the contrast estimand:
+Suppose we test a planned `late_minus_early` contrast (`[2, 4] s` minus `[0, 1] s`) under `trajectory_mode = "deblur_pspline"`, which sharpens the group curve against the known cross-lag mixing matrix (spectral deblurring) before fitting a penalized spline (P-spline). `contrast_source` lets us choose which curve defines the contrast estimand:
 
 ```{r worked-contrasts, echo=FALSE, fig.width=8.2, fig.height=4.3}
 #| fig-cap: "Early ([0, 1] s) and late ([2, 4] s) contrast windows evaluated on the raw, spectrally deblurred ('unsmoothed'), and deblurred + P-spline smoothed ('multilag') group curves."

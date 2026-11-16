@@ -26,7 +26,7 @@ $$
 
 Here $H$ applies the selected HRF and $Z$ contains nuisance terms. Step 1's pooled AR(1) profile REML and shrunk residual AR($q$) correction define a cascaded AR($p$) temporal correlation model $\Sigma_{\rm cor}$ (evaluated at the exact retained acquisition indices $\Gamma_N[\text{rows}, \text{rows}]$ when frames are censored). The amplitude $\sigma_{\rm obs}$ is the **marginal observation-noise SD**, not the white-noise innovation SD.
 
-In `fit_crossrun_decon()`, `hrf_estimate_gls_noise_sd()` estimates $\sigma_{\rm obs}$ primarily from leverage-standardized, Winsorized GLS residuals after conditioning on the selected HRF and post-selection AR($p$) correlation model (converting innovation scale to stationary marginal scale via `hrf_ar_cascade_info()`). As a standalone estimator for single-run `deconvolve_reglin()`, omitted-event safeguard, and low-degrees-of-freedom fallback, `estimate_decon_noise_sd()` estimates marginal noise amplitude from second differences $d_t = y_t - 2y_{t-1} + y_{t-2}$, which suppress smooth BOLD signal:
+In `deconvolve_crossrun_hrf(..., scaling = "noise_sd")`, MEDuSA estimates $\sigma_{\rm obs}$ primarily from outlier-trimmed, leverage-adjusted task-free GLS residuals (Winsorized GLS residuals) after conditioning on Step 1's cross-fitted HRF and post-selection AR($p$) correlation model, converting white-noise innovation scale to stationary marginal observation scale. As a standalone estimator for single-run `deconvolve_reglin()`, omitted-event safeguard, and low-degrees-of-freedom fallback, MEDuSA estimates marginal noise amplitude from second differences $d_t = y_t - 2y_{t-1} + y_{t-2}$, which suppress smooth BOLD signal (combining sample SD with outlier-resistant median absolute deviation, $\operatorname{MAD}_0$):
 
 $$
 \widehat\sigma_{\rm obs}
@@ -47,7 +47,7 @@ $$
 
 where $\widetilde B_\tau$ incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (`worked/mmom-check.R`), MEDuSA's operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to **`r format(covariance_check, scientific = TRUE, digits = 3)`**.
 
-**Run-centered finite-sample calibration.** Because downstream within-run regressions center trial series within each run, `decon_epoch_regression()` centers the propagated $m \times m$ trial error covariance ($m > 1$ valid trials) and applies a Bessel-like finite-sample calibration:
+**Run-centered finite-sample calibration.** Because downstream within-run regressions center trial series within each run, `decon_epoch_regression()` centers the propagated $m \times m$ trial error covariance ($m > 1$ valid trials) and applies a finite-sample degrees-of-freedom factor $(1 - 1/m)^{-1}$ (analogous to Bessel's sample-variance correction):
 
 $$
 Q_m = I_m - \frac{\mathbf1\mathbf1^\top}{m},\qquad
@@ -128,7 +128,7 @@ If the outcome is another deconvolved brain parcel, pass its squared `se_demixed
 ### 4. Distributional assumptions and scope conditions
 
 1. **Operator covariance propagation is distribution-free up to second moments:** $\operatorname{Cov}(B\varepsilon) = B\operatorname{Cov}(\varepsilon)B^\top$ requires finite second moments and an accurate temporal/spatial noise correlation model, not Gaussianity—though Winsorized/MAD scale factors calibrate to Gaussian efficiency.
-2. **Single-subject M-MOM SEs are conditional model-based estimates:** Within-subject SEs from `repair::fit_mmom()` / `medusa_fit_mmom()` use a normal-error variance formula conditional on first-stage error moments. Across multiple participants, `decon_connectivity_repair()` pools participant slopes via HKSJ random-effects inference so group $p$-values rely on between-participant replication rather than single-subject row independence.
+2. **Single-subject M-MOM SEs are conditional model-based estimates:** Within-subject SEs from `repair::fit_mmom()` / `medusa_fit_mmom()` use a normal-error variance formula conditional on first-stage error moments. Across multiple participants, `decon_connectivity_repair()` pools participant slopes using dispersion-scaled finite-sample random-effects $t$-intervals (Hartung–Knapp–Sidik–Jonkman, HKSJ pooling) so group $p$-values rely on between-participant replication rather than single-subject row independence.
 3. **Zero-mean measurement error vs. regularization bias:** Propagating `se_demixed^2` quantifies observation-noise variance $B\Sigma_\varepsilon B^\top$, **not** source resolution bias $(R - I)s$ from ridge/difference regularization or HRF mismatch. When seed and target parcels experience substantially different temporal smoothing ($R_S \neq R_T$), disattenuating variance alone does not undo unequal resolution; see [Measurement-error models and REPAIR](medusa_connectivity_inference/medusa_connectivity_inference.qmd) for resolution-aware extensions.
 
 <details>

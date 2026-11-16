@@ -21,19 +21,19 @@ borrows information locally within tissue types (SUSAN), and prewhitens both dat
 
 ### How `medusa` implements—and extends—these principles
 
-| Principle | Implementation in `medusa::fit_crossrun_decon()` | Methodological role |
+| Principle | Implementation in `estimate_crossrun_hrf()` & `deconvolve_crossrun_hrf()` | Methodological role |
 |:---|:---|:---|
-| **Separate HRF shape mismatch from noise autocorrelation** | **Two-pass target-excluding REML noise refit:** Pass 1 estimates initial noise under a canonical fallback HRF + free event amplitudes + temporal derivatives; once cross-run HRFs are selected out-of-sample, Pass 2 refits each run's AR($p$) noise model using the selected HRF while keeping HRF selection strictly frozen | Prevents unmodeled fast/slow vascular dispersion from spilling into residuals and pushing $\widehat\rho$ to the upper boundary (`0.90`). |
+| **Separate HRF shape mismatch from noise autocorrelation** | **Two-pass target-excluding REML noise refit:** Pass 1 estimates initial noise under a canonical fallback HRF + free event amplitudes + temporal derivatives; once cross-run HRFs are selected out of sample, Pass 2 refits each run's AR($p$) noise model using the selected HRF while keeping HRF selection strictly frozen | Prevents unmodeled fast/slow vascular dispersion from spilling into residuals and pushing $\widehat\rho$ to the upper boundary (`0.90`). |
 | **Regularize temporal covariance without projection bias** | Pooled AR(1) profile REML on the exact residual subspace $M_X$ + shrunk residual AR($q$) Yule–Walker correction with projection-bias adjustment | Achieves low-variance spectral regularization while accounting analytically for degrees-of-freedom and projection loss from $M_X$. |
-| **Borrow spatially without cancelling opposing task signals** | Averages REML log-likelihood profiles across voxels within each `spatial_groups` parcel rather than averaging raw BOLD time series | Voxels with positive, negative, or null task responses contribute coherently to shared physiological noise estimation. |
-| **Estimate correlation and marginal scale coherently** | `hrf_estimate_gls_noise_sd()` computes leverage-standardized, Winsorized GLS residual scale under the post-selection HRF and AR($p$) cascade, converting innovation SD to stationary marginal `noise_sd` | Eliminates mismatch between temporal whitening correlation $\Sigma_{\rm cor}$ and marginal amplitude $\sigma_{\rm obs}$ in propagated covariance $\Omega = \sigma_{\rm obs}^2 B \Sigma_{\rm cor} B^\top$. |
+| **Borrow spatially without cancelling opposing task signals** | Pools REML log-likelihood profiles across voxels within each parcel (`pooling = "parcel"`) or across concordant tissue neighbors (`pooling = "graph"`) rather than averaging raw BOLD time series | Voxels with positive, negative, or null task responses contribute coherently to shared physiological noise estimation. |
+| **Estimate correlation and marginal scale coherently** | `deconvolve_crossrun_hrf(..., scaling = "noise_sd")` computes outlier-trimmed, leverage-adjusted GLS residual scale (Winsorized GLS residuals) under the post-selection HRF and AR($p$) cascade, converting innovation SD to stationary marginal `noise_sd` | Eliminates mismatch between temporal whitening correlation $\Sigma_{\rm cor}$ and marginal amplitude $\sigma_{\rm obs}$ in propagated covariance $\Omega = \sigma_{\rm obs}^2 B \Sigma_{\rm cor} B^\top$. |
 
 ### Live benchmark 1: Separating HRF mismatch from temporal autocorrelation
 
 Using the [Step 1 simulation](../medusa_step1_hrf_noise.qmd) (3 runs, $\text{TR} = 0.65\text{ s}$, 360 volumes, 24 jittered events/run, 8 voxels each in `Fast`, `Slow`, and `Null` parcels, true noise parameters $\rho = 0.65, \psi_1 = 0.20, \psi_2 = -0.30$), we compare:
 
 - **`Canonical_HRF`:** Single-pass AR($p$) noise estimation locked to a fixed canonical HRF (no post-selection refit).
-- **`Current_MEDuSA`:** Live `fit_crossrun_decon()` with its 2-pass post-selection REML AR($p$) refit (using the out-of-sample cross-run selected HRF, zero target-run leakage).
+- **`Current_MEDuSA`:** `estimate_crossrun_hrf()` with its 2-pass post-selection REML AR($p$) refit (using the out-of-sample cross-run selected HRF, zero target-run leakage).
 - **`Oracle_true_HRF`:** Noise fit conditioned on the exact data-generating HRF.
 - **`Tukey10/15/28` comparators:** Pooled raw-residual Tukey lag tapers ($M \in \{10, 15, 28\}$) under either canonical or selected-HRF mean models.
 
@@ -62,12 +62,12 @@ knitr::kable(x, digits = 3)
 
 Two results stand out clearly:
 
-1. **Post-selection noise refitting eliminates HRF-induced autocorrelation inflation:** Under a misspecified `Canonical_HRF`, unmodeled vascular shape residuals drive $\widehat\rho$ to its upper bound in both active parcels (`acf_RMSE_1_24 = 0.260` in `Fast`, `0.314` in `Slow`). `Current_MEDuSA`'s target-excluding 2-pass refit drops ACF RMSE to **`0.006`** (`Fast`) and **`0.008`** (`Slow`)—matching `Oracle_true_HRF` (`0.006` and `0.008`) without touching target-run HRF selection!
+1. **Post-selection noise refitting eliminates HRF-induced autocorrelation inflation:** Under a misspecified `Canonical_HRF`, unmodeled vascular shape residuals drive $\widehat\rho$ to its upper bound in both active parcels (`acf_RMSE_1_24 = 0.260` in `Fast`, `0.314` in `Slow`). `Current_MEDuSA`'s target-excluding 2-pass refit drops ACF RMSE to **`0.006`** (`Fast`) and **`0.008`** (`Slow`)—matching `Oracle_true_HRF` (`0.006` and `0.008`) without touching target-run HRF selection.
 2. **REML subspace likelihood outperforms raw-residual lag tapering:** Even when given the selected HRF (`Tukey15_selected`), raw-residual Tukey tapering retains `0.090–0.100` ACF RMSE—even on the pure `Null` parcel (`0.100` vs. `0.011` for `Current_MEDuSA`)—because projecting 24 free trial predictors + drift terms out of 360 volumes distorts sample residual autocorrelations ($\operatorname{Cov}(r) = M_X \Sigma M_X^\top$).
 
 ### Live benchmark 2: Coherent marginal scale and propagated readout covariance
 
-What ultimately matters for Step 3–6 inference is not the ACF plot in isolation, but the accuracy of the propagated trial readout covariance $\Omega = \sigma_{\rm obs}^2 B \Sigma_{\rm cor} B^\top$. Evaluating a frozen linear inverse ($\lambda = 0.01$, second-difference penalty) at event onsets, we compare `Canonical_HRF` vs. `Current_MEDuSA` under both the standalone second-difference scale (`d2`, `estimate_decon_noise_sd()`) and MEDuSA's covariance-consistent GLS residual scale (`gls`, `hrf_estimate_gls_noise_sd()`). Ideal SD/SE ratios equal `1.000`, and ideal full-covariance relative Frobenius error equals `0.000`:
+What ultimately matters for Step 3–6 inference is not the ACF plot in isolation, but the accuracy of the propagated trial readout covariance $\Omega = \sigma_{\rm obs}^2 B \Sigma_{\rm cor} B^\top$. Evaluating a frozen linear inverse ($\lambda = 0.01$, second-difference penalty) at event onsets, we compare `Canonical_HRF` vs. `Current_MEDuSA` under both a standalone second-difference noise scale (`d2`) and MEDuSA's covariance-consistent GLS residual scale (`gls`, `scaling = "noise_sd"`). Ideal SD/SE ratios equal `1.000`, and ideal overall matrix root-mean-square error relative to the true covariance norm (relative Frobenius error) equals `0.000`:
 
 ```{r variance-table, echo=FALSE}
 v <- read.csv("variance_check.csv")
@@ -89,13 +89,20 @@ knitr::kable(
 )
 ```
 
-Notice how `Canonical_HRF` suffers from **compensating errors** that mask off-diagonal miscalibration: its overly persistent correlation matrix alone underestimates readout SEs by roughly half (`SE / true (known SD) = 0.48–0.56`), while unmodeled HRF residuals inflate its marginal SD by more than $2\times$ (`GLS SD / true = 2.04–2.28`), leaving diagonal SEs near `1.10–1.14` even though the full trial-by-trial covariance matrix has `21–28%` Frobenius error! By contrast, `Current_MEDuSA` (2-pass REML correlation + Winsorized GLS marginal `noise_sd`) recovers **both** marginal scale (`GLS SD / true = 1.01–1.05`) and correlation shape (`SE / true (known SD) = 0.98–1.01`), cutting full readout covariance Frobenius error down to **`4.3–7.5%`** across all three parcels.
+Notice how `Canonical_HRF` suffers from **compensating errors** that mask off-diagonal miscalibration: its overly persistent correlation matrix alone underestimates readout SEs by roughly half (`SE / true (known SD) = 0.48–0.56`), while unmodeled HRF residuals inflate its marginal SD by more than $2\times$ (`GLS SD / true = 2.04–2.28`), leaving diagonal SEs near `1.10–1.14` even though the full trial-by-trial covariance matrix has `21–28%` relative Frobenius error. By contrast, `Current_MEDuSA` (2-pass REML correlation + outlier-trimmed GLS marginal `noise_sd`) recovers **both** marginal scale (`GLS SD / true = 1.01–1.05`) and correlation shape (`SE / true (known SD) = 0.98–1.01`), cutting full readout covariance error down to **`4.3–7.5%`** across all three parcels.
 
-### Remaining frontiers and practical takeaways
+### Practical takeaways
 
-1. **Keep HRF groups tissue-homogeneous:** In `fit_crossrun_decon()`, `spatial_groups` currently defines both HRF evidence pooling and AR($p$) noise pooling. Avoid lumping high-pulsatility CSF/vascular-rim voxels into cortical gray-matter parcels; local tissue-aware noise neighborhoods ([Parlak et al., 2023](https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2022.1051424/full); [Olszowy et al., 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6428826/)) remain a natural future refinement.
-2. **Match `ar_order` to acquisition TR:** Default `ar_order = "auto"` (up to cascaded AR(3)) works well for standard and moderate multiband TRs ($0.65\text{–}2.0\text{ s}$); ultra-fast TRs ($< 0.5\text{ s}$) with unmodeled cardiac/respiratory aliases should pair physiological regressors (`nuisance_list`) with residual ACF inspection.
-3. **Remember what temporal prewhitening does *not* identify:** Temporal whitening within each parcel calibrates $\Omega_{rr}$, not cross-parcel shared noise $\Omega_{st}$—which is why `fit_crossrun_decon()` also retains task-free `noise_innovations` so Step 4 and Step 6 (`shared_error = "auto"`) can estimate spatial noise covariance directly.
+1. **Keep noise pooling groups tissue-homogeneous:** Under `pooling = "parcel"`, `spatial_groups` defines both HRF evidence pooling and AR($p$) noise pooling. When volumetric parcels span both high-pulsatility pial/CSF-border voxels and quieter interior gray matter, use `pooling = "graph"` ([Spatial Graph Pooling](../../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-bilateral-noise)), which weights noise smoothing by local autocorrelation similarity so pial-rim pulsatility does not bleed into deep gray matter ([Parlak et al., 2023](https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2022.1051424/full); [Olszowy et al., 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6428826/)).
+2. **Match `ar_order` to acquisition TR:** Default `ar_order = "auto"` (up to cascaded AR(3)) works well for standard and moderate multiband TRs ($0.65\text{–}2.0\text{ s}$); ultra-fast TRs ($< 0.5\text{ s}$) with unmodeled cardiac/respiratory aliases should pair physiological regressors (`nuisance`) with residual ACF inspection.
+3. **Remember what temporal prewhitening does *not* identify:** Temporal whitening within each parcel calibrates $\Omega_{rr}$, not cross-parcel shared noise $\Omega_{st}$—which is why `deconvolve_crossrun_hrf()` also retains task-free `noise_innovations` so Step 4 and Step 6 (`shared_error = "auto"`) can estimate spatial noise covariance directly.
+
+<details>
+<summary>Internal R helpers & benchmark scripts</summary>
+
+Inside `R/crossrun_hrf.R` and `R/deconvolve_reglin.R`, the two-pass noise refit and GLS marginal scale are implemented by `fit_crossrun_decon()`, `hrf_estimate_noise()`, and `hrf_estimate_gls_noise_sd()`, while standalone second-difference scaling is implemented by `estimate_decon_noise_sd()`.
+
+</details>
 
 ### Reproducibility
 
