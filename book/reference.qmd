@@ -74,6 +74,10 @@ quarto render
 
 ## Key Methodological References
 
+- Vig, Z. A., & Hallquist, M. N. (2026). REPAIR: Random-effect prediction adjustment for inference in regression (`repair` R package).
+- Fuller, W. A. (1987). *Measurement error models*. Wiley.
+- Skrondal, A., & Laake, P. (2001). Regression among factor scores. *Psychometrika*, 66(4), 563–575. [DOI](https://doi.org/10.1007/BF02296196)
+- Croon, M. A. (2002). Using predicted latent scores in general latent structure models. In G. A. Marcoulides & I. Moustaki (Eds.), *Latent variable and latent structure models* (pp. 195–223). Psychology Press.
 - Bush, K., & Cisler, J. (2013). Decoding neural events from fMRI BOLD signal: a comparison of existing methods and development of a new fast method. *Magnetic Resonance Imaging*, 31(6), 976–989.
 - Woolrich, M. W., Ripley, B. D., Brady, M., & Smith, S. M. (2001). Temporal autocorrelation in univariate linear modeling of FMRI data. *NeuroImage*, 14(6), 1370–1386. [DOI](https://doi.org/10.1006/nimg.2001.0931)
 - Abdulrahman, H., & Henson, R. N. (2016). Effect of trial-to-trial variability on optimal event-related fMRI design. *NeuroImage*, 125, 756–766. [Article](https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/)

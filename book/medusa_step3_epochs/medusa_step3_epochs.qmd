@@ -9,62 +9,168 @@ format:
     code-fold: true
 ---
 
+```{r}
+#| include: false
+d3 <- readRDS("step3_examples.rds")
+pol <- read.csv("policy_metrics.csv")
+dur_tbl <- read.csv("duration_metrics.csv")
+```
+
 ## Overview
 
-Deconvolving a BOLD run in Step 2 produces a continuous time series $\hat{s}_r$ on the acquisition clock—not isolated single-trial numbers. Simply slicing or linearly interpolating $\hat{s}_r$ around each event onset (the legacy alignment route) leaves two systematic distortions: **(1) regularization shrinkage**, which attenuates true trial amplitudes ($g_i < 1$), and **(2) cross-event mixing**, where preceding cues, motor responses, or rapid neighboring trials bleed through the regularized inverse operator $D_r H_r$ into the target readout. Moreover, when an event represents a variable-duration deliberation interval (such as reaction time), a fixed-point readout conflates firing *rate* with time-on-task.
+Step 2 produces a continuous deconvolved time series $\hat{s}_r(t)$ on the acquisition grid, whereas cognitive hypotheses typically concern **event-locked trial responses**—for example, neural activity across lags $-2\text{ s}$ to $+4\text{ s}$ around feedback onset, or sustained deliberation activity across variable reaction times. Because regularized deconvolution smooths slightly across time, simply slicing $\hat{s}_r(t)$ at event timestamps yields readouts that combine the target trial's signal with regularization attenuation and spillover from nearby cues or adjacent trials.
 
-Step 3 (`decon_epoch_regression()`) bridges continuous deconvolution and trial-level modeling by **passing the forward event schedule through the exact frozen Step 2 inverse operator**. For every requested lag $\tau$ around `target_condition`, it integrates local continuous activity via symmetric kernel quadrature, subtracts operator-predicted bleed from non-target events (`demix_other_events = TRUE`), inverts the target-by-target resolution matrix to remove neighbor cross-talk and restore amplitude gain (`demix_target_trials = TRUE`), aligns centered trial covariates through the matched post-demixing operator ($M_{\text{post}}$), and propagates Step 1–2's $\text{AR}(p)$ observation-noise covariance through the entire composite linear map $B_{r,\tau}$ to deliver exact conditional per-trial standard errors (`se_demixed`), Empirical-Bayes precision weights, and within-run ZCA-whitened variables.
+Step 3 (`decon_epoch_regression()`) converts continuous deconvolved activity into **conditionally unbiased, additive-error trial readouts** accompanied by exact propagated measurement uncertainties. Passing the forward event schedule through Step 2's frozen linear operator $D_r$, it samples requested peri-event lags via symmetric kernel quadrature, subtracts spillover from non-target events, inverts target-to-target mixing to restore amplitude gain, and propagates $\text{AR}(p)$ observation noise through the composite operator to deliver per-trial standard errors (`se_demixed`), Empirical-Bayes precision weights, and optional within-run ZCA-whitened variables.
+
+```{r}
+#| eval: false
+#| code-fold: false
+library(medusa)
+
+epochs <- decon_epoch_regression(
+  deconvolution       = decon,
+  covariates          = covariates,
+  events              = events,
+  target_condition    = "feedback",
+  lags                = seq(-2, 4, by = 1),
+  restore_scale       = TRUE,
+  whiten_panel        = TRUE,
+  return_panel        = TRUE
+)
+```
 
 ::: {.callout-note}
 ### Position in the MEDuSA Pipeline
 **Step 2 `decon` object + `events` + optional `covariates` / `trial_durations`** $\longrightarrow$ **Step 3 (`decon_epoch_regression`)** $\longrightarrow$ Within-subject `coefficients` + event-aligned trial `panel` (or combined directly with Step 4 parcel aggregation via `parcel_groups`)
 :::
 
----
-
-## Goals of Step 3
-
-Step 3 accomplishes five core objectives:
-
-1. **Read out event-locked lag trajectories without mutating the acquisition clock:** Sample continuous activity around each target onset $t_i + \tau$ using jitter-tolerant quadrature (`readout_kernel`) while gating out trial-lags that lack causal unmasked BOLD support (`obs_frac_tau < 0.20`).
-2. **De-mix interfering events and adjacent target trials:** Use the stratum resolution operator $D_r H_r$ to subtract preceding/succeeding non-target event bleed (e.g., cues) and invert target-to-target cross-talk while restoring regularization-attenuated amplitude gain.
-3. **Define duration-explicit neural estimands when intervals vary:** Support impulse (`"impulse"`), fixed-window (`"window"`), and RT-matched sustained boxcar (`"duration"`) forward models, distinguishing constant firing **rate** (`duration_scale = "rate"`, baseline-deconfounded from RT) from integrated neural **mass** (`"integral"`).
-4. **Keep predictors and responses in matched operator coordinates:** Transform centered within-run predictors by the post-demixing resolution operator $M_{\text{post}}$ so residual ridge shrinkage at short ISIs never biases trial regression slopes.
-5. **Propagate observation-noise covariance analytically to the trial level:** Compute conditional per-trial measurement SEs (`se_demixed`), lag-1 trial error autocorrelation (`error_ac1`), Empirical-Bayes trial precision weights, and regularized within-run ZCA whitening matrices without Monte Carlo resampling.
-
-**What Step 3 deliberately leaves to Steps 4–6:** Step 3 operates within a single participant's multi-run fit. Combining voxels into parcels is covered in [Step 4]( ../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd ) (which runs inside the same `decon_epoch_regression()` call via `parcel_groups`), population inference across participants is handled in [Step 5](../medusa_step5_group_models/medusa_step5_group_models.qmd), and disattenuating noisy seed predictors is handled in [Step 6](../medusa_step6_connectivity/medusa_step6_connectivity.qmd).
-
-::: {.callout-tip}
-### Descriptive Event Alignment (`align_medusa_ts()`) vs. Operator De-Mixing (`decon_epoch_regression()`)
-When you want **descriptive event-locked interpolation and overlap/censoring auditing** without assuming a forward event design—for example, plotting raw peri-event BOLD waveforms, inspecting blind `deconvolve_nlreg()` / `deconvolve_reglin()` trajectories, or running sensitivity checks under explicit `overlap_policy = "allow" | "truncate" | "exclude"`—use **`align_medusa_ts()`** (or `evt_align_decon_files()` for disk-backed `.csv.gz` / `.rds` archives). `align_medusa_ts()` runs directly on `T × V` matrices, `"medusa_nifti_ts"` bundles (`read_nifti_ts()`), or `deconvolve_crossrun_hrf()` outputs in C++ using the same four readout kernels (`"linear"`, `"boxcar"`, `"triangle"`, `"gaussian"`), gap-fencing (`max_gap`), censoring (`valid = "observation_mask"`), and `epoch_status` / `source_clock` provenance without expanding long `fmri_ts` tables. For primary inferential modeling on `deconvolve_crossrun_hrf()` fits, prefer **`decon_epoch_regression()`**, which retains the Step 2 inverse operator $D_r$ to remove non-target bleed, unmix adjacent target trials, restore regularization gain, and propagate exact analytical `se_demixed` and `precision_weight_cohort`.
-:::
+Following the same measurement-model progression used in two-step multilevel inference (Vig & Hallquist, 2026), the four substeps below move from defining the event source and readout kernel (`3.1`), to writing the epoch measurement model and removing non-target bleed (`3.2`), inverting target mixing onto an additive-error scale (`3.3`), and propagating trial error covariances and precision weights (`3.4`).
 
 ---
 
-## Inputs: What Step 3 Receives and Why
+## Goals, Inputs, and Outputs
+
+### Goals of Step 3
+
+1. **Sample peri-event lag trajectories with explicit duration semantics:** Read out continuous activity around each target event across requested `lags`, supporting brief impulses, fixed windows, and RT-matched sustained intervals (`"rate"` vs. `"integral"`).
+2. **Remove non-target spillover and target-to-target mixing:** Use the Step 2 operator $D_r H_r$ to subtract interfering event bleed (`demix_other_events`) and invert target cross-talk (`demix_target_trials`) while matching centered predictors through the post-demixing operator $M_{\text{post}}$.
+3. **Propagate observation-noise covariance analytically to every trial:** Compute per-trial measurement standard errors (`se_demixed`) and lag-1 trial error correlations (`error_ac1`) directly from the composite linear operator without resampling.
+4. **Construct stabilized trial precision weights and optional ZCA panels:** Combine propagated measurement error with Empirical-Bayes biological trial variance ($\hat{\tau}_{\text{bio}}^2$, stabilized across voxels via bilateral Graph-EB on NIfTI maps) to form cohort-ready weights and decorrelated trial columns.
+
+### Inputs: What Step 3 Receives and Why
 
 | Input | Structure | Why It Is Set Up That Way |
 |---|---|---|
-| `deconvolution` | Full `"crossrun_decon"` S3 object from `deconvolve_crossrun_hrf()` | **Never pass a plain `activity` matrix or saved CSV.** Step 3 needs `deconvolution$hrf_fit`, `scaling`, `settings`, `noise_innovations`, and `frame_weights` to rebuild the exact stratum inverse operator $D_r$ and noise covariance $\Sigma_r$. |
-| `events` & `target_condition` | Optional run-named list of event `data.frame`s (defaults to `hrf_fit`'s events); character scalar naming target events | Keeping *all* task events (cues, decisions, motor responses, feedback) in `events` while naming `target_condition = "feedback"` tells Step 3 which events are targets to read out and which are interfering non-target events whose bleed into target epochs must be subtracted! |
-| `covariates` | `NULL` (covariate-agnostic panel mode), or numeric matrix/`data.frame`/run-named list matching **target event rows** | Supplying `covariates = NULL` builds a reusable, covariate-agnostic de-mixed trial panel (`tau2_mode = "marginal"`) ready for multiple downstream `mixed_by()` formulas or connectivity models. Supplying `covariates` adds within-person precision-weighted and GLS slope tables (`coefficients`) and ZCA-whitened predictor columns. |
-| `lags` & `readout_kernel` | Numeric vector of lag offsets in seconds (e.g., `seq(-2, 4, by = 1)`); `"triangle"`, `"linear"`, `"boxcar"`, or `"gaussian"` | Evaluates event-locked readouts at arbitrary lag offsets without resampling BOLD. Note that in Step 3, evaluating lag $\tau$ shifts *both* the readout window and the assumed target forward source to $t_i + \tau$. |
-| `source_model`, `trial_durations`, `duration_scale` | `"impulse"`, `"window"`, or `"duration"`; optional target duration vector/list (s); `"rate"` or `"integral"` | Explicitly encodes what latent neural shape each trial amplitude multiplies—preventing reaction-time variability from masquerading as amplitude modulation when neural firing rate is constant. |
-| `demix_other_events`, `demix_target_trials`, `demix_within_trial` | Logical flags + `demix_ridge` (`0.05`) & `within_trial_ridge` (`0.06`) | Separates three distinct sources of blur: non-target event bleed, trial-to-trial target overlap, and within-trial cross-lag spread. |
-| `tau2_shrinkage` & `spatial_graph` | `tau2_shrinkage = c("auto", "graph_eb", "eb", "none")`; optional `"medusa_spatial_graph"` (or coordinate/sparse matrix) | Stabilizes per-unit biological trial variance $\hat{\tau}_{\text{bio}}^2$ and sandwich residual scales without smoothing trial slopes $\hat{\beta}$. In voxelwise mode (`aggregate_by_parcel = FALSE`), `"auto"` resolves to `"graph_eb"` whenever `deconvolution` carries a Step 1 CSR graph *or* `voxel_map` coordinates (constructing the 26-connected geodesic CSR graph automatically even when Step 1 kept default `pooling = "voxel"`). In parcel mode (`aggregate_by_parcel = TRUE`), `"auto"` defaults to `"none"`, while setting `tau2_shrinkage = "graph_eb"` explicitly auto-constructs a precision-weighted 3D parcel-centroid Euclidean graph from `deconvolution$voxel_map` (useful for dense parcellations such as Schaefer-400/1000). |
+| `deconvolution` | `"crossrun_decon"` S3 object from `deconvolve_crossrun_hrf()` | Carries `activity` together with `hrf_fit`, `scaling`, `noise_innovations`, and `frame_weights` so Step 3 reconstructs the exact stratum inverse operator $D_r$ and noise covariance $\Sigma_r$. |
+| `events` & `target_condition` | Run-named list of event `data.frame`s (inherited from `hrf_fit` by default); character scalar naming target events | Retaining *all* task events in `events` while naming `target_condition` identifies both the target trials to read out and the non-target events (cues, motor responses) whose spillover into target windows should be subtracted. |
+| `covariates` | `NULL` (covariate-agnostic panel mode), or numeric matrix/`data.frame`/formula/column names matching target events | Passing `covariates = NULL` produces a general-purpose de-mixed `panel` reusable across many downstream Step 5–6 models; supplying `covariates` adds within-participant regression tables (`coefficients`) and paired `*_whitened` predictor columns. |
+| `lags` & `readout_kernel` | Numeric vector of lag offsets in seconds (e.g., `seq(-2, 4, by = 1)`); `"triangle"`, `"linear"`, `"boxcar"`, or `"gaussian"` | Evaluates event-locked readouts at arbitrary offsets without resampling BOLD, shifting both the readout window and modeled target source to $t_i + \tau$. |
+| `source_model`, `trial_durations`, & `duration_scale` | `"impulse"`, `"window"`, or `"duration"`; optional target durations (s); `"rate"` or `"integral"` | Specifies the latent neural waveform represented by each trial amplitude so variable reaction times can be modeled either as firing height (`"rate"`) or time-integrated activity (`"integral"`). |
+| `demix_other_events`, `demix_target_trials`, & `demix_within_trial` | Logical flags + `demix_ridge` (`0.05`) & `within_trial_ridge` (`0.06`) | Separately control non-target subtraction, trial-to-trial target de-mixing, and optional single-subject cross-lag sharpening. |
+| `tau2_shrinkage` & `spatial_graph` | `tau2_shrinkage = c("auto", "graph_eb", "eb", "none")`; optional `"medusa_spatial_graph"` | Stabilizes biological trial variance $\hat{\tau}_{\text{bio}}^2$ and sandwich residual scales without smoothing trial slopes (`"auto"` selects bilateral `"graph_eb"` automatically on voxelwise NIfTI maps). |
 
----
-
-## Outputs: What Step 3 Produces and Why It Is Set Up That Way
-
-`decon_epoch_regression()` returns a named list designed to serve both immediate single-subject inspection (`coefficients`, `summary`) and lossless multi-subject handoffs (`panel` + operator summaries):
+### Outputs: What Step 3 Produces and Why It Is Set Up That Way
 
 | Output Component | Structure | Why It Is Set Up That Way |
 |---|---|---|
-| `panel` | Tidy `data.table` keyed by `run`, `trial`, `event_index`, `onset`, `evt_time`, and `voxel`/`parcel` | **The primary analysis table for Steps 5–6.** Includes both `trial` (1..$m$ target counter within run) *and* `event_index` (exact row index in `events[[r]]`) so behavioral joins never misalign when non-target events are interleaved. Carries `decon_raw`, `decon_demixed`, `se_raw`, `se_demixed`, `precision_weight`, `precision_weight_cohort`, `error_ac1`, `tau2_bio`, `reliability_trial`, `decon_eb`, and optional `*_whitened` columns. |
-| `coefficients` & `summary` | Per-unit × lag × term `data.frame` (`beta_raw`, `beta_corrected`, `beta_unweighted`, `beta_weighted`, `beta_gls`, sandwich SEs, moderated `df`, $t$, $p$); lag-averaged summary | Reporting `beta_raw` alongside `beta_unweighted`, `beta_weighted`, and `beta_gls` under the *same* Step 2 inverse makes it immediately transparent how much of an effect comes from operator de-mixing versus trial precision weighting or ZCA decorrelation. When `tau2_shrinkage` is `"eb"` or `"graph_eb"`, sandwich residual scales (`[scale_unw, scale_pw, scale_gls]`) and `df` incorporate Limma/Smyth empirical-Bayes moderation (`d0 + df_resid`) while keeping slope point estimates strictly unsmoothed. |
-| `lag_resolution` & `lag_error_cor` | Per-unit $L \times L$ symmetric cross-lag point-spread ($C_{\text{sym}}$) and trial error correlation matrices | Stored on the fit object so `medusa_multilag_infer()` (Step 5) can perform group-level spectral deblurring, correlated-SURE P-spline smoothing, and simultaneous Max-$|T|$/TFCE inference across lags without re-running Step 3. |
-| `unit_error_cor` & `parcel_weights` | Empirical-Bayes shrunk unit-by-unit error correlation matrix; normalized voxel weight vectors (when `aggregate_by_parcel = TRUE`) | Preserves cross-region observation-noise correlation for `decon_connectivity_repair(..., shared_error = "auto")` (also embedded per row as `shared_noise_loading` in `panel` so it survives `rbindlist()` and CSV export). |
+| `panel` | Tidy `data.table` keyed by `run`, `trial`, `event_index`, `onset`, `evt_time`, and `voxel`/`parcel` | **Primary trial table for Steps 5–6.** Stores both `trial` (1..$m$ target counter) and `event_index` (row in `events[[r]]`) alongside `decon_raw`, `decon_demixed`, `se_demixed`, `precision_weight`, `precision_weight_cohort`, `error_ac1`, `tau2_bio`, `decon_eb`, and optional `*_whitened` columns. |
+| `coefficients` & `summary` | Per-unit × lag × term `data.frame` (`beta_raw`, `beta_corrected`, `beta_unweighted`, `beta_weighted`, `beta_gls`, SEs, moderated `df`, $t$, $p$); lag summary | Places uncorrected (`beta_raw`) and de-mixed/GLS slopes side by side under the same Step 2 inverse so the impact of operator de-mixing and precision weighting is transparent. |
+| `lag_resolution` & `lag_error_cor` | Per-unit $L \times L$ cross-lag resolution and trial error correlation matrices | Carried forward so `medusa_multilag_infer()` (Step 5) can apply group-level spectral deblurring, P-spline smoothing, and simultaneous bands across lags. |
+| `unit_error_cor` & `parcel_weights` | Empirical-Bayes shrunk unit-by-unit error correlation matrix; voxel weights (when `aggregate_by_parcel = TRUE`) | Supplies task-free cross-region error correlations (`shared_noise_loading` in `panel`) for Step 6 connectivity disattenuation. |
+
+---
+
+## Step-by-Step Walkthrough: Substeps and Choice Points
+
+### 3.1 Define the event-locked neural source and kernel readout
+
+Consider reading out continuous deconvolved activity $\hat{s}_r$ around target event $i$ at timestamp $t_i + \tau$. Because $t_i + \tau$ rarely lands on an exact integer TR, `build_epoch_readout_matrix()` forms a row-normalized weight vector $S_\tau[i, :]$ over nearby acquisition samples (@fig-step3-readout). While `"linear"` uses 2-point bracket interpolation, `"triangle"` (width $1.5 \times \text{TR}$) integrates 9 symmetric quadrature nodes across adjacent samples—respecting sub-TR jitter while attenuating high-frequency inverse noise.
+
+![Acquisition-grid readout weights around an off-grid target timestamp (`20.35 s`, `TR = 1 s`) for `"linear"`, `"boxcar"`, `"triangle"`, and `"gaussian"` kernels.](figures/01-readout.png){#fig-step3-readout width="92%" fig-alt="Four-panel bar plot of acquisition-grid weights for linear, boxcar, triangle, and gaussian readout kernels."}
+
+Alongside the readout window, Step 3 asks a substantive question about **source duration**: what neural time course does trial $i$'s amplitude $\theta_i$ multiply? Suppose deliberation neural activity stays at a constant firing rate (`1.8` units/s) across trials whose reaction times vary from `0.4` to `2.8 s`. Because longer deliberation produces larger integrated BOLD deflections, different source models estimate distinct quantities (@fig-step3-duration):
+
+- **`source_model = "impulse"`** treats every trial as a brief unit impulse, attributing longer-duration BOLD accumulation to higher amplitude and producing a positive slope against RT (`beta = 1.392`).
+- **`source_model = "duration", duration_scale = "rate"`** matches both the forward boxcar and midpoint readout window to each trial's duration `[onset + lag, onset + lag + RT]`, recovering a flat firing-rate slope invariant to RT (`beta = 0.015`, near true `0.00`).
+- **`source_model = "duration", duration_scale = "integral"`** normalizes each forward boxcar to unit area, explicitly estimating **time-integrated neural activity** (`1.8 × duration`, recovering slope `1.806` vs. true `1.800`).
+
+![Same simulated constant-rate variable-duration BOLD series analyzed under three source specifications: impulse height (left), duration-matched rate (middle), and duration-integrated neural mass (right).](figures/05-duration.png){#fig-step3-duration width="98%" fig-alt="Three-panel plot of estimated trial amplitude versus duration under impulse, duration-rate, and duration-integral models."}
+
+**Choice point — Source model (`source_model` & `duration_scale`) and `readout_kernel`:** Pair `readout_kernel = "triangle"` (`readout_width = 1.5 * tr`) with `source_model = "impulse"` for brief phasic events (e.g., feedback delivery). For variable-duration epochs (e.g., choice deliberation), pass `source_model = "duration"` with `trial_durations = rt` and choose `duration_scale = "rate"` to test neural intensity per unit time or `"integral"` to test cumulative activity.
+
+---
+
+### 3.2 Write the epoch measurement model and subtract non-target spillover
+
+Now consider a cue–feedback paradigm where each `Cue` precedes `Feedback` by 1–3 seconds. Let $\theta_T$ denote true target (`Feedback`) trial amplitudes with forward BOLD design $G_\tau$, and $\theta_O$ denote non-target (`Cue`) amplitudes with forward design $G_O$. Applying readout $S_\tau$ to deconvolved activity $\hat{s}_r = D_r y_r$ yields a raw trial readout whose conditional expectation contains two distinct terms:
+
+$$
+\mathbb{E}\bigl[\hat{z}_{\text{raw},\tau} \mid \theta_T, \theta_O\bigr]
+= \underbrace{(S_\tau D_r G_\tau)\,\theta_T}_{\text{attenuated & mixed targets}}
+\;+\;
+\underbrace{(S_\tau D_r G_O)\,\theta_O}_{\text{non-target spillover}}.
+$$
+
+In `simulate_step3.R`, a `Cue_only` voxel responds to cues but has **zero** true feedback slope ($\beta = 0$), while reaction time links cue–feedback spacing to covariate `x`. Because of the second term above, raw feedback readouts in `Cue_only` pick up spurious cue spillover (`beta_raw = -0.115`; @tbl-step3-policies).
+
+Enabling `demix_other_events = TRUE` estimates and subtracts the operator-predicted non-target contribution $(S_\tau D_r G_O) L_{\text{other}} y_r$, forming cleaned readout rows $S_{\text{clean},\tau}$ before target amplitudes are evaluated (@fig-step3-other-events).
+
+![Estimated feedback slopes in the null-feedback `Cue_only` voxel under constant cue amplitude (left) versus trial-varying cue amplitude correlated with `x` (right), comparing default condition-mean de-mixing (`0.05`) against joint trial-level de-mixing (`0.02`).](figures/02-other-events.png){#fig-step3-other-events width="95%" fig-alt="Lag profiles comparing default 0.05 and joint 0.02 demix_ridge policies."}
+
+**Choice point — Non-target subtraction (`demix_other_events` & `demix_ridge`):** Keep `demix_other_events = TRUE`. At the default `demix_ridge = 0.05`, non-target subtraction uses a low-variance **condition-mean** operator (`Cue_only` slope reduced to `-0.006` when cues have constant amplitude; @fig-step3-other-events, left). When an upstream cue is itself strongly modulated trial-by-trial by the *same* behavioral predictor as your target event, lowering `demix_ridge = 0.02` activates joint 2nd-order Tikhonov `(T, O)` trial de-mixing—reducing correlated cue bleed from `0.488` to `0.074` in trade for modestly wider trial SEs (`0.101` vs. `0.070`; @fig-step3-other-events, right).
+
+---
+
+### 3.3 Invert target-to-target mixing to recover an additive-error readout
+
+After removing non-target spillover, the cleaned readout still reflects Step 2's regularization blur across target trials, $K_{\text{clean},\tau} = S_{\text{clean},\tau} D_r G_\tau$. Writing this in the exact measurement-model form of Vig & Hallquist (2026) by adding and subtracting $\theta_T$:
+
+$$
+S_{\text{clean},\tau}\hat{s}_r
+= \theta_T - (I - K_{\text{clean},\tau})\theta_T + S_{\text{clean},\tau} D_r \varepsilon_r.
+$$
+
+Without inverting $K_{\text{clean},\tau}$, diagonal shrinkage ($[K_{\text{clean},\tau}]_{ii} < 1$) and neighbor overlap attenuate the true `0.70` feedback slope in `Target` down to `beta_raw = 0.088` (@tbl-step3-policies). Enabling `demix_target_trials = TRUE` applies a centered-subspace Tikhonov inverse $W_\tau$ with diagonal gain restoration $\tilde{G}_\tau$ (`decon_demixed`), sharpening the 20×20 target resolution matrix toward the identity (@fig-step3-resolution) and recovering the true `0.70` slope cleanly (`Target = 0.705`, `Noisy_target = 0.673`; @fig-step3-target-readout, @tbl-step3-policies). To ensure any small ridge stabilization in $W_\tau$ at rapid ISIs never biases trial regressions, centered covariates are multiplied by the matched post-demixing resolution matrix $M_{\text{post}}$ so predictor and response share identical coordinates.
+
+![Run-centered trial readouts vs. true injected feedback amplitudes in `Target` across raw readout, target-only de-mixing, and full cue + target de-mixing.](figures/03-target-readout.png){#fig-step3-target-readout width="95%" fig-alt="Scatter plots of estimated versus true centered trial amplitudes under three de-mixing policies."}
+
+![Target-by-target resolution matrix $K_\tau$ before (`Raw target response`) and after (`Corrected target response`) Step 3 regularized de-mixing.](figures/04-resolution.png){#fig-step3-resolution width="92%" fig-alt="20x20 heatmaps of raw versus de-mixed target trial resolution matrices."}
+
+```{r}
+#| label: tbl-step3-policies
+#| tbl-cap: "Lag-0 feedback slope recovery (true Target slope = 0.70, Cue_only = 0.00) and conditional trial SE across Step 3 de-mixing policies (`policy_metrics.csv`)."
+knitr::kable(pol, digits = 3, row.names = FALSE,
+  col.names = c("Voxel", "Raw Slope", "Corrected Slope", "Mean Trial SE", "Policy"))
+```
+
+When multiple peri-event lags are requested, adjacent lags within the same trial also share deconvolution smoothness. Setting `demix_within_trial = TRUE` applies an additional cross-lag Tikhonov inverse within each participant, narrowing single-subject lag curves at the cost of larger per-lag SEs (@fig-step3-cross-lag).
+
+![Effect of `demix_within_trial = TRUE` on estimated lag slopes (top) and conditional per-trial measurement SE (bottom).](figures/06-cross-lag.png){#fig-step3-cross-lag width="92%" fig-alt="Comparison of lag slope profiles and conditional SEs with and without cross-lag de-mixing."}
+
+**Choice point — Target and cross-lag de-mixing:** Keep `demix_target_trials = TRUE` in all operator analyses. Leave `demix_within_trial = FALSE` when passing outputs to `medusa_multilag_infer()` in Step 5 (which performs spectral cross-lag deblurring at the group level where SNR is $\sqrt{N}$ higher), and enable `demix_within_trial = TRUE` when inspecting descriptive single-subject curves or fitting single-lag models where sharper lag localization is desired.
+
+---
+
+### 3.4 Propagate observation-noise covariance and construct trial precision weights
+
+Because every operation from centered BOLD to `decon_demixed` is captured in the composite linear map $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, the conditional sampling covariance of the de-mixed trial vector is known analytically:
+$$
+\Omega_{r,\tau} = \operatorname{Cov}(e_{r,\tau} \mid B_{r,\tau}) \propto Q_m B_{r,\tau} \Sigma_{\text{obs},r} B_{r,\tau}^\top Q_m.
+$$
+MEDuSA evaluates $\Omega_{r,\tau}$ in fast factored form (`compute_ar1_operator_factor()`), matching dense matrix multiplication to `r format(d3$cov_error, digits = 3)` and reproducing 2,500-draw Monte Carlo noise SDs trial by trial (`se_demixed`; @fig-step3-se-check).
+
+![Ratio of 2,500-draw Monte Carlo trial SD to analytical `se_demixed` across all 20 target trials in Run 1.](figures/07-se-check.png){#fig-step3-se-check width="90%" fig-alt="Dot plot of simulated SD divided by analytical SE near 1.0 across 20 trials."}
+
+Trials near run boundaries, scrub gaps, or rapid event clusters naturally have larger measurement error $s_{ri}^2 = \texttt{se\_demixed}_{ri}^2$. However, trials also vary due to genuine biological trial-to-trial variability $\tau_{\text{bio}}^2$. Just as composite weights in multilevel moment estimation combine structural disturbance variance with measurement-error variance (Vig & Hallquist, 2026), Step 3 estimates $\hat{\tau}_{\text{bio}}^2$ and forms **Empirical-Bayes composite precision weights** $w_{ri} \propto (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$ (`precision_weight` normalized to mean 1 within unit; `precision_weight_cohort` left unnormalized for multi-subject models), downweighting high-SE trials smoothly without letting a single low-SE trial dominate (@fig-step3-weights). When requested (`whiten_panel = TRUE`), Step 3 also applies a run-mean-preserving regularized ZCA transformation to decorrelate off-diagonal within-run trial errors (@fig-step3-zca).
+
+![Pure measurement-only inverse-variance weights (`precision_weight_op`) versus biological-variance-stabilized Empirical-Bayes weights (`precision_weight`).](figures/08-weights.png){#fig-step3-weights width="90%" fig-alt="Scatter plot of normalized precision weights against trial measurement SE."}
+
+![Within-run total trial correlation matrix $\Sigma_{\text{tot}}$ before and after spectrum-continuous regularized ZCA (`whiten_panel = TRUE`).](figures/09-decorrelation.png){#fig-step3-zca width="92%" fig-alt="20x20 correlation heatmaps before and after regularized ZCA whitening."}
+
+**Choice point — Variance shrinkage (`tau2_shrinkage`), physical units (`restore_scale`), and ZCA (`whiten_panel`):**
+
+- **Variance stabilization (`tau2_shrinkage = "auto"`):** In single-voxel NIfTI analyses (`aggregate_by_parcel = FALSE`), raw per-voxel $\hat{\tau}_{\text{raw}}^2 = \hat{\sigma}_{\text{tot}}^2 - s_{\text{obs}}^2$ has wide sampling variance over 40–80 trials and frequently truncates to zero. `"auto"` automatically activates **bilateral geodesic Graph-EB (`"graph_eb"`)**, shrinking scale-free $\hat{\tau}_{\text{raw}}^2 / s_{\text{obs}}^2$ ratios across concordant neighbors *before* zero-truncation with Isserlis correlated-error discounting, $2.5\sigma$ Efron–Morris hotspot protection, and Smyth sandwich scale moderation—without ever smoothing trial slopes $\hat{\beta}$ (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-step3-grapheb)). In parcel mode (`aggregate_by_parcel = TRUE`), `"auto"` defaults to `"none"`, while setting `"graph_eb"` explicitly builds a 3D parcel-centroid Euclidean graph for fine parcellations (e.g., Schaefer-400/1000).
+- **Scale restoration & ZCA:** Set `restore_scale = TRUE` whenever pooling runs or participants so `decon_demixed` and `se_demixed` return to physical BOLD units, and set `whiten_panel = TRUE` alongside `return_panel = TRUE` to export paired `*_whitened` columns for rapid-ISI designs.
 
 ---
 
@@ -79,108 +185,50 @@ epochs <- decon_epoch_regression(
   events              = events,
   target_condition    = "feedback",
   lags                = seq(-2, 4, by = 1),
-  source_model        = "impulse",       # use "duration" + trial_durations for RT intervals
+  source_model        = "impulse",       # or "duration" + trial_durations for RT intervals
   duration_scale      = "rate",
   readout_kernel      = "triangle",
   readout_width       = 1.5 * tr,
   demix_other_events  = TRUE,
   demix_target_trials = TRUE,
   demix_within_trial  = FALSE,           # FALSE before medusa_multilag_infer(); TRUE for 1-subject curves
-  demix_ridge         = 0.05,            # lower to 0.02 if non-target cues vary strongly with covariates
+  demix_ridge         = 0.05,            # lower to 0.02 if upstream cues covary strongly with covariates
   restore_scale       = TRUE,
   weighting           = "gls",
   tau2_mode           = "auto",
-  tau2_shrinkage      = "auto",          # automatic bilateral "graph_eb" in voxelwise NIfTI mode
-  parcel_groups       = parcel_ids,      # pre-aggregates parcels (Step 4) in one pass; omit for voxelwise maps
+  tau2_shrinkage      = "auto",          # automatic bilateral "graph_eb" on voxelwise NIfTI maps
+  parcel_groups       = parcel_ids,      # omit for voxelwise maps; supply to run Step 4 parcel pooling
   whiten_panel        = TRUE,
   return_panel        = TRUE
 )
 ```
 
-| Argument | Recommended | Package Default | Why Recommended & When to Adjust |
+| Argument | Recommended | Package Default | Summary of Role & When to Adjust |
 |---|---|---|---|
-| `restore_scale` | `TRUE` | `FALSE` | **Critical override for multi-run/group studies:** Step 2 divides each run by its own `noise_sd`. Setting `restore_scale = TRUE` multiplies `activity` back by `scaling[[r]]$scale` so all runs within a participant share physical BOLD units (under Step 1's HRF normalization) while keeping exact `se_demixed` and `precision_weight_cohort` scaling! |
-| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`return_panel = TRUE` when `covariates = NULL`) | Exports `decon_demixed_whitened` and `<var>_whitened` alongside `precision_weight_cohort`, allowing `mixed_by()` in Step 5 to account for both heteroskedastic trial precision and within-run serial trial error correlations. |
-| `demix_other_events` & `demix_ridge` | `TRUE`, `0.05` (`0.02` for trial-varying confounds) | `TRUE`, `0.05` | At `demix_ridge >= 0.03`, non-target subtraction uses a low-variance **condition-mean** operator—ideal when cues have roughly constant amplitude. If an upstream cue varies trial-by-trial with the *same* behavioral predictor as your target event, lower `demix_ridge` to `0.02` to activate joint 2nd-order Tikhonov `(T, O)` de-mixing! |
-| `demix_within_trial` | `FALSE` for Step 5 trajectory pooling; `TRUE` for descriptive curves | `FALSE` | Leave `FALSE` when passing results to `medusa_multilag_infer()`, which performs spectral de-blurring at the group level where SNR is $\sqrt{N}$ higher. Enable `TRUE` (with lags spaced at $\approx 1\times\text{TR}$) when inspecting single-subject lag waveforms. |
-| `source_model` & `duration_scale` | `"impulse"` for brief events; `"duration"` + `"rate"` for RT epochs | `"impulse"`, `"rate"` | Match the source model to the cognitive process: `"duration"` with `duration_scale = "rate"` centers the readout over `[onset + lag, onset + lag + RT]` and de-confounds constant baseline firing rates from trial duration. |
-| `tau2_shrinkage` (voxelwise mode) | `"auto"` (resolves to `"graph_eb"` on NIfTI maps) | `"auto"` | In voxelwise analyses (`aggregate_by_parcel = FALSE`), bilateral geodesic Graph-EB shrinks scale-free $\hat{\tau}_{\text{raw}}^2 / s_{\text{obs}}^2$ ratios *prior* to zero truncation with Isserlis error-correlation discounting, $2.5\sigma$ Efron–Morris hotspot protection, and spatial sandwich scale moderation—eliminating active zero-collapse without smoothing $\hat{\beta}$ (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-step3-grapheb)). |
+| `source_model` & `duration_scale` | `"impulse"` (brief) or `"duration"` + `"rate"` (RTs) | `"impulse"`, `"rate"` | Matches the forward neural boxcar to brief events vs. variable reaction-time intervals (`Substep 3.1`). |
+| `demix_other_events` & `demix_ridge` | `TRUE`, `0.05` (`0.02` for modulated confounds) | `TRUE`, `0.05` | Removes condition-mean non-target spillover at `0.05`, or joint trial-varying spillover at `0.02` (`Substep 3.2`). |
+| `demix_target_trials` & `demix_within_trial` | `TRUE` & `FALSE` | `TRUE` & `FALSE` | Inverts target cross-talk (`Substep 3.3`) while leaving cross-lag deblurring to Step 5's `medusa_multilag_infer()`. |
+| `restore_scale` | `TRUE` | `FALSE` | Multiplies run readouts and SEs back onto physical BOLD units for cross-run and cohort pooling (`Substep 3.4`). |
+| `tau2_shrinkage` | `"auto"` | `"auto"` | Activates bilateral `"graph_eb"` automatically on voxelwise NIfTI maps (`Substep 3.4`); set `"graph_eb"` explicitly in parcel mode for dense 400–1000-parcel atlases. |
+| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`TRUE` if `covariates = NULL`) | Exports the tidy `panel` along with paired within-run ZCA-decorrelated columns (`Substep 3.4`). |
 
 ---
 
-## Step 3 Mechanisms Illustrated
+## Practical Considerations: Descriptive Alignment, Censoring Support, and Scope
 
-```{r}
-#| include: false
-d3 <- readRDS("step3_examples.rds")
-pol <- read.csv("policy_metrics.csv")
-dur_tbl <- read.csv("duration_metrics.csv")
-```
-
-### 1. Kernel Quadrature Readouts and Causal BOLD Support Gating
-
-At each target onset $t_i$ and lag $\tau$, `build_epoch_readout_matrix()` constructs a row-normalized weight vector $S_\tau[i, :]$ over the discrete acquisition grid (@fig-step3-readout). `"linear"` uses 2-point bracket interpolation, whereas `"triangle"` (default, width $1.5 \times \text{TR}$), `"boxcar"`, and `"gaussian"` integrate 9-point symmetric quadrature nodes across adjacent TRs—attenuating high-frequency deconvolution noise while honoring exact sub-TR event jitter.
-
-Crucially, MEDuSA checks **causal BOLD observability** (`obs_frac_tau >= 0.20`): if at least 80% of the forward HRF energy evoked by a source at $t_i + \tau$ falls inside censored frames (`valid_rows == FALSE`) or past the end of the run, `decon_epoch_regression()` marks that trial-lag `NA` rather than fabricating a number from smoothness prior extrapolation!
-
-![Acquisition-grid readout weights around an off-grid target timestamp (`20.35 s`, `TR = 1 s`) for `"linear"`, `"boxcar"`, `"triangle"`, and `"gaussian"` kernels.](figures/01-readout.png){#fig-step3-readout width="92%" fig-alt="Four-panel bar plot of acquisition-grid weights for linear, boxcar, triangle, and gaussian readout kernels."}
-
-### 2. Non-Target Subtraction (`demix_other_events`) & Target De-Mixing (`demix_target_trials`)
-
-Consider a cue–feedback paradigm (`Cue` followed 1–3 s later by `Feedback`) with three simulated voxels (`simulate_step3.R`): `Cue_only` (responds to cues with zero feedback effect), `Target` (true feedback slope `0.70` on `x`), and `Noisy_target` (true slope `0.70`, higher noise). Because RT links cue-to-feedback delay with `x`, uncorrected feedback readouts in `Cue_only` pick up spurious cue bleed (`beta_raw = -0.115`), while `Target` is severely attenuated (`beta_raw = 0.088` vs. truth `0.700`; @tbl-step3-policies, @fig-step3-target-readout).
-
-- **Target de-mixing alone (`target_only`)** restores gain on target overlap (`0.307`) but magnifies unsubtracted cue bleed in `Cue_only` (`-0.401`).
-- **Cue + target de-mixing (`default`, `demix_ridge = 0.05`)** removes constant-amplitude cue bleed (`Cue_only` slope `-0.006`) and recovers the true `0.70` slope cleanly (`Target` = `0.705`, `Noisy_target` = `0.673`), sharpening the 20×20 target resolution matrix toward the identity (@fig-step3-resolution).
-- **What if cues themselves vary trial-by-trial with `x` (`stress_bold`)?** Under strong cue modulation (`1.8 + 0.9 x`), condition-mean subtraction (`demix_ridge = 0.05`) leaves residual cue variation (`Cue_only` = `0.488`), whereas lowering `demix_ridge = 0.02` activates joint 2nd-order Tikhonov `(T, O)` de-mixing—cutting `Cue_only` bleed to `0.074` (`Target` = `0.773`) at the expected cost of ~45% larger trial SEs (`0.101` vs. `0.070`; @fig-step3-other-events).
-
-![Estimated feedback slopes in the null-feedback `Cue_only` voxel under constant cue amplitude (left) versus trial-varying cue amplitude correlated with `x` (right), comparing default condition-mean de-mixing (`0.05`) against joint trial-level de-mixing (`0.02`).](figures/02-other-events.png){#fig-step3-other-events width="95%" fig-alt="Lag profiles comparing default 0.05 and joint 0.02 demix_ridge policies."}
-
-![Run-centered trial readouts vs. true injected feedback amplitudes in `Target` across raw readout, target-only de-mixing, and full cue + target de-mixing.](figures/03-target-readout.png){#fig-step3-target-readout width="95%" fig-alt="Scatter plots of estimated versus true centered trial amplitudes under three de-mixing policies."}
-
-![Target-by-target resolution matrix $K_\tau$ before (`Raw target response`) and after (`Corrected target response`) Step 3 regularized de-mixing.](figures/04-resolution.png){#fig-step3-resolution width="92%" fig-alt="20x20 heatmaps of raw versus de-mixed target trial resolution matrices."}
-
-```{r}
-#| label: tbl-step3-policies
-#| tbl-cap: "Lag-0 feedback slope recovery (true Target slope = 0.70, Cue_only = 0.00) and conditional trial SE across Step 3 de-mixing policies (`policy_metrics.csv`)."
-knitr::kable(pol, digits = 3, row.names = FALSE,
-  col.names = c("Voxel", "Raw Slope", "Corrected Slope", "Mean Trial SE", "Policy"))
-```
-
-### 3. Variable-Duration Epochs: Rate vs. Time-Integrated Activity
-
-When neural activity is sustained at a **constant firing rate** (`1.8` units/s) across variable decision durations (`0.4–2.8 s`), total evoked BOLD scales roughly linearly with duration. How Step 3 parameterizes `source_model` determines what scientific question is answered (@fig-step3-duration):
-
-- **`source_model = "impulse"`** misinterprets longer-duration BOLD accumulation as larger impulse height, creating a strong artificial positive slope against RT (`beta = 1.392`).
-- **`source_model = "duration", duration_scale = "rate"`** matches both the forward boxcar and midpoint readout window to each trial's duration *and* uses a centered-subspace penalty plus Sherman–Morrison rank-1 baseline adjustment so constant firing rate remains invariant to RT (`beta = 0.015`, near true `0.00`!).
-- **`source_model = "duration", duration_scale = "integral"`** normalizes each forward boxcar to unit area, explicitly estimating **time-integrated neural mass** (`1.8 × duration`, recovering slope `1.806` vs. true `1.800`).
-
-![Same simulated constant-rate variable-duration BOLD series analyzed under three source specifications: impulse height (left), duration-matched rate (middle), and duration-integrated neural mass (right).](figures/05-duration.png){#fig-step3-duration width="98%" fig-alt="Three-panel plot of estimated trial amplitude versus duration under impulse, duration-rate, and duration-integral models."}
-
-### 4. Optional Cross-Lag De-Mixing, Exact Analytical SEs, Precision Weights, Bilateral Graph-EB, and ZCA
-
-Enabling `demix_within_trial = TRUE` applies a symmetric 2nd-order Tikhonov inverse across lags, sharpening single-subject lag specificity while increasing conditional lag SEs (@fig-step3-cross-lag). Across all configurations, MEDuSA's $O(m_{\text{obs}} p M)$ AR operator factor `compute_ar1_operator_factor()` reproduces dense matrix covariance $B \Sigma B^\top$ to `r format(d3$cov_error, digits = 3)` and matches 2,500-draw Monte Carlo noise SDs trial by trial (@fig-step3-se-check).
-
-Finally, Step 3 combines per-trial measurement variance $s_{ri}^2 = \text{se\_demixed}_{ri}^2$ with an Empirical-Bayes biological trial variance estimate $\hat{\tau}_{\text{bio}}^2$ so `precision_weight` ($w_{ri} \propto (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$) downweights noisy edge/overlap trials smoothly without letting a single low-SE trial dominate when genuine biological trial variability is large (@fig-step3-weights), while regularized ZCA (`whiten_panel = TRUE`) suppresses off-diagonal within-run trial error correlations (@fig-step3-zca).
-
-In **voxelwise NIfTI mode** (`aggregate_by_parcel = FALSE`), single-voxel method-of-moments estimation $\hat{\tau}_{\text{raw}, u}^2 = \hat{\sigma}_{\text{tot}, u}^2 - s_{\text{obs}, u}^2$ has wide sampling variance across 40–80 trials—causing frequent active zero-collapse ($\hat{\tau}_{\text{bio}, u}^2 = 0$) and positive truncation bias in null cortex. Under `tau2_shrinkage = "auto"` (`"graph_eb"`), `graph_eb_tau2_csr_cpp()` shrinks the *untruncated* dimensionless ratio $\hat{\theta}_u = \hat{\tau}_{\text{raw}, u}^2 / s_{\text{obs}, u}^2$ across bilateral geodesic neighbors prior to $\max(0, \cdot)$, discounting neighbor squared-error correlation via Isserlis' identity ($\operatorname{Corr}(Z_a^2, Z_b^2) = \rho_{ab}^2$), capping shrinkage at $2.5\sigma_u$ (Efron–Morris limited translation) to protect focal hotspots, moderating sandwich residual scales (`moderate_scale_csr_cpp()`), and preserving exact covariate invariance under `tau2_mode = "marginal"`.
-
-![Effect of `demix_within_trial = TRUE` on estimated lag slopes (top) and conditional per-trial measurement SE (bottom).](figures/06-cross-lag.png){#fig-step3-cross-lag width="92%" fig-alt="Comparison of lag slope profiles and conditional SEs with and without cross-lag de-mixing."}
-
-![Ratio of 2,500-draw Monte Carlo trial SD to analytical `se_demixed` across all 20 target trials in Run 1.](figures/07-se-check.png){#fig-step3-se-check width="90%" fig-alt="Dot plot of simulated SD divided by analytical SE near 1.0 across 20 trials."}
-
-![Pure measurement-only inverse-variance weights (`precision_weight_op`) versus biological-variance-stabilized Empirical-Bayes weights (`precision_weight`).](figures/08-weights.png){#fig-step3-weights width="90%" fig-alt="Scatter plot of normalized precision weights against trial measurement SE."}
-
-![Within-run total trial correlation matrix $\Sigma_{\text{tot}}$ before and after spectrum-continuous regularized ZCA (`whiten_panel = TRUE`).](figures/09-decorrelation.png){#fig-step3-zca width="92%" fig-alt="20x20 correlation heatmaps before and after regularized ZCA whitening."}
+1. **When to use descriptive `align_medusa_ts()` vs. inferential `decon_epoch_regression()`:** When you want descriptive peri-event waveform interpolation without a forward de-mixing model—for example, plotting raw peri-event BOLD averages, inspecting blind `deconvolve_nlreg()` / `deconvolve_reglin()` trajectories, or auditing explicit collision rules (`overlap_policy = "allow" | "truncate" | "exclude"`)—use **`align_medusa_ts()`** (or `evt_align_decon_files()` for disk-backed `.csv.gz` archives). For primary inferential modeling on `deconvolve_crossrun_hrf()` outputs, use **`decon_epoch_regression()`**, which removes neighbor mixing and propagates analytical `se_demixed`. (Because `epochs$panel` is already event-aligned, it goes directly to Steps 5–6 without calling `align_medusa_ts()`.)
+2. **Causal BOLD observability gating (`obs_frac_tau >= 0.20`):** If at least 80% of the forward HRF energy evoked by a target event at $t_i + \tau$ falls inside censored frames (`valid_rows == FALSE`) or past the end of the run, Step 3 records that trial-lag as `NA` rather than extrapolating from the smoothness penalty. Always inspect retained trial counts across runs and conditions before group modeling.
+3. **Scope handoff:** Step 3 operates within a single participant. Aggregating voxels into anatomical parcels with spatial noise propagation is covered next in [Step 4](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd) (executed inside the same `decon_epoch_regression(..., parcel_groups = ...)` call), followed by population modeling in [Step 5](../medusa_step5_group_models/medusa_step5_group_models.qmd) and connectivity disattenuation in [Step 6](../medusa_step6_connectivity/medusa_step6_connectivity.qmd).
 
 <details>
-<summary>Mathematical Reference: Composite Epoch Operator & Covariate Matching</summary>
+<summary>Mathematical Reference & Reproduction</summary>
 
 For run $r$, lag $\tau$, valid observation rows $I_r$, and frozen Step 2 inverse $D_r \in \mathbb{R}^{n_r \times m_r}$:
 
 1. **Non-target subtraction:** Let $S_{r,0}$ read out all events at lag 0 and $G_{r,0}$ be their column-centered forward HRF design. `build_other_demix_operator()` forms $L_{\text{other}}$ (condition-mean least squares for `demix_ridge >= 0.03`, or 2nd-order iterated Tikhonov joint inversion for `< 0.03`), yielding cleaned target readout rows $S_{\text{clean},\tau} = S_\tau - (S_\tau D_r G_{r,0,\text{other}}) L_{\text{other}}$.
-2. **Target cross-talk & duration baseline invariance:** Given uncentered and column-centered target forward designs $(G_{\tau,\text{unc}}, G_\tau)$, `solve_duration_demix_operator()` row-normalizes $R_{\text{unc}} = \operatorname{diag}(g_{\text{safe}})^{-1} S_\tau D_r G_{\tau,\text{unc}}$, solves $(R_{\text{unc}}^\top R_{\text{unc}} + \lambda_{\text{demix}} Q_m + 10^{-8} I) W_{\text{unc}} = R_{\text{unc}}^\top \operatorname{diag}(g_{\text{safe}})^{-1}$ (penalizing only centered fluctuations $Q_m = I_m - \frac{1}{m}\mathbf{1}\mathbf{1}^\top$), applies a Sherman–Morrison rank-1 centering update to obtain $W_\tau$, and restores centered diagonal gain $\tilde{G}_\tau$.
-3. **Exact noise propagation & $M_{\text{post}}$ alignment:** The complete linear map from centered run BOLD to de-mixed target trials is $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, with calibrated centered trial error covariance $\Omega_{r,\tau} = \frac{\sigma_{\text{eff}}^2}{1 - 1/m} Q_m B_{r,\tau} C_{\text{obs}} \Sigma_{\text{AR}}[I_r, I_r] C_{\text{obs}}^\top B_{r,\tau}^\top Q_m$. Centered covariates $X_{r,c}$ are multiplied by $M_{\text{post}} = Q_m (\tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r G_\tau) Q_m$ prior to regression and ZCA whitening so predictor and response undergo identical off-diagonal target shrinkage.
-4. **Bilateral Graph-EB variance & scale moderation (`tau2_shrinkage = "graph_eb"`):** Defining untruncated $\hat{\theta}_u = \hat{\tau}_{\text{raw}, u}^2 / s_{\text{obs}, u}^2$ with sampling variance $v_u \approx \frac{2}{\nu_u}(1 + \max(0, \tilde{\theta}_u))^2$, bilateral weights $\alpha_{uv}$ combine geodesic distance, Cauchy pilot-jump stopping, and orthogonalized residual sign concordance (strictly marginal when `tau2_mode = "marginal"`). Discounting neighbor squared-error correlation $\rho_{ab}^2$ yields local prior $(\mu_{\text{loc}, u}, \tau_{\text{prior}, u}^2)$, shrinkage $B_u = v_u / (v_u + \tau_{\text{prior}, u}^2)$, limited-translation posterior $\theta_u^{\text{EM}} = \hat{\theta}_u + \operatorname{clip}(B_u(\mu_{\text{loc}, u} - \hat{\theta}_u), -2.5\sqrt{v_u}, +2.5\sqrt{v_u})$, and $\hat{\tau}_{\text{bio}, u}^2 = s_{\text{obs}, u}^2 \max(0, \theta_u^{\text{EM}})$, followed by bilateral Smyth (2004) log-chisq moderation of sandwich residual scales (`[scale_unw, scale_pw, scale_gls]`) with moderated degrees of freedom $\nu_u^\star = d_{0,u} + \nu_{\text{resid}, u}$.
+2. **Target cross-talk & duration baseline invariance:** Given uncentered and column-centered target forward designs $(G_{\tau,\text{unc}}, G_\tau)$, `solve_duration_demix_operator()` row-normalizes $R_{\text{unc}} = \operatorname{diag}(g_{\text{safe}})^{-1} S_\tau D_r G_{\tau,\text{unc}}$, solves $(R_{\text{unc}}^\top R_{\text{unc}} + \lambda_{\text{demix}} Q_m + 10^{-8} I) W_{\text{unc}} = R_{\text{unc}}^\top \operatorname{diag}(g_{\text{safe}})^{-1}$ (penalizing centered fluctuations $Q_m = I_m - \frac{1}{m}\mathbf{1}\mathbf{1}^\top$), applies a Sherman–Morrison rank-1 centering update to obtain $W_\tau$, and restores centered diagonal gain $\tilde{G}_\tau$.
+3. **Exact noise propagation & $M_{\text{post}}$ alignment:** The composite linear map from centered run BOLD to de-mixed target trials is $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, with centered trial error covariance $\Omega_{r,\tau} = \frac{\sigma_{\text{eff}}^2}{1 - 1/m} Q_m B_{r,\tau} C_{\text{obs}} \Sigma_{\text{AR}}[I_r, I_r] C_{\text{obs}}^\top B_{r,\tau}^\top Q_m$. Centered covariates $X_{r,c}$ are multiplied by $M_{\text{post}} = Q_m (\tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r G_\tau) Q_m$ prior to regression and ZCA whitening.
+4. **Bilateral Graph-EB variance & scale moderation (`tau2_shrinkage = "graph_eb"`):** Defining untruncated $\hat{\theta}_u = \hat{\tau}_{\text{raw}, u}^2 / s_{\text{obs}, u}^2$ with sampling variance $v_u \approx \frac{2}{\nu_u}(1 + \max(0, \tilde{\theta}_u))^2$, bilateral weights $\alpha_{uv}$ combine geodesic distance, Cauchy pilot-jump stopping, and orthogonalized residual sign concordance. Discounting neighbor squared-error correlation $\rho_{ab}^2$ yields local prior $(\mu_{\text{loc}, u}, \tau_{\text{prior}, u}^2)$, shrinkage $B_u = v_u / (v_u + \tau_{\text{prior}, u}^2)$, limited-translation posterior $\theta_u^{\text{EM}} = \hat{\theta}_u + \operatorname{clip}(B_u(\mu_{\text{loc}, u} - \hat{\theta}_u), -2.5\sqrt{v_u}, +2.5\sqrt{v_u})$, and $\hat{\tau}_{\text{bio}, u}^2 = s_{\text{obs}, u}^2 \max(0, \theta_u^{\text{EM}})$, paired with bilateral Smyth (2004) moderation of sandwich residual scales.
 
 [Step 3 simulation script](simulate_step3.R) · [Figure script](figures_step3.R) · [Verification output](verification.txt)
 

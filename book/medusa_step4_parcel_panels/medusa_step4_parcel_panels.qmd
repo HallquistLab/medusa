@@ -9,113 +9,118 @@ format:
     code-fold: true
 ---
 
-## Overview
-
-Most cognitive neuroscience hypotheses are tested at the level of **anatomical regions or functional parcels** rather than noisy individual voxels. However, *where* and *how* you average across voxels matters enormously. Averaging raw BOLD before Step 1 blurs distinct intra-parcel vascular delays and cancels opposite-signed tuning only if signs oppose; conversely, fitting single-trial regressions voxel-by-voxel in Step 3 and averaging noisy beta estimates afterward throws away high-SNR parcel variance estimation (`tau2_bio`), distorts ZCA whitening, and ignores **spatial noise correlations** among neighboring voxels when computing parcel standard errors.
-
-Step 4—executed seamlessly inside `decon_epoch_regression(..., parcel_groups = parcel_ids)`—aggregates continuous deconvolved activity across voxels within each parcel *after* voxel-specific deconvolution (preserving per-stratum HRFs and $\text{AR}(p)$ whiteners) and *before* epoch de-mixing, Empirical-Bayes weighting, and ZCA whitening. Crucially, MEDuSA combines **exact multi-stratum parcel operators** ($\sum_v u_v D_v F_v$) with **task-free whitened `noise_innovations`** from Step 2 to measure true within-parcel spatial noise covariance—avoiding the classic pitfall where shared task-evoked activity inflates estimated parcel noise—and exports a tidy, self-contained `panel` carrying both within-unit (`precision_weight`) and cohort-comparable (`precision_weight_cohort`) weights plus cross-parcel `shared_noise_loading` vectors for Step 5–6 inference.
-
-::: {.callout-note}
-### Position in the MEDuSA Pipeline
-**Step 2 `decon` + `parcel_groups` vector** $\longrightarrow$ **Step 4 (`decon_epoch_regression(..., parcel_groups = ...)` )** $\longrightarrow$ Subject `epochs` list & stacked `group_panel` $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`) & Step 6 (`decon_connectivity_repair`)**
-
-For a volumetric NIfTI benchmark comparing Step 4 parcel-panel inference (`backproject_medusa()`) directly against full-resolution voxelwise Graph-EB mapping (`write_nifti_ts()`) across aligned parcels, shifted individual borders, and sub-parcel focal hotspots, see [Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd).
-:::
-
----
-
-## Goals of Step 4
-
-Step 4 achieves four specific goals when transitioning from voxels to regional analysis panels:
-
-1. **Pool voxels using cross-run SNR-optimal weights (`parcel_weights`):** Weight each parcel's constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task $R^2$, renormalizing automatically if a voxel drops out in one run.
-2. **Propagate true spatial noise correlation without task contamination:** Compute each parcel's effective observation-noise SD from Step 2's **task-free whitened `noise_innovations`** (`\|Z_r (u \odot \sigma)\|_2`), accurately spanning negative, independent, partially shared, and common spatial noise regimes.
-3. **Preserve mixed intra-parcel `(HRF, AR, lambda)` strata exactly:** Accumulate per-stratum forward/inverse operator contributions weighted by $u_v$ whenever voxels inside a parcel belong to different `(HRF, AR, lambda)` strata (for example when Step 1 used `pooling = "graph"` and Step 2 used `lambda_mode = "auto"`), avoiding single-HRF or single-whitener approximation error.
-4. **Package a lossless, identity-safe trial panel for Steps 5–6:** Deliver aligned raw, de-mixed, Empirical-Bayes-shrunk, and ZCA-whitened parcel columns alongside cohort-comparable precision weights and cross-parcel shared-error loadings.
-
-**What Step 4 deliberately leaves to Steps 5–6:** Step 4 produces one participant's parcel panel (and operator summaries). You must attach an explicit participant `id` column (and `session` if longitudinal) before stacking participants with `data.table::rbindlist()` for Step 5–6 population models.
-
----
-
-## Inputs: What Step 4 Receives and Why
-
-In addition to the Step 3 inputs (`deconvolution`, `events`, `target_condition`, `lags`, `covariates`), Step 4 relies on four key spatial and panel inputs:
-
-| Input | Structure | Why It Is Set Up That Way |
-|---|---|---|
-| `parcel_groups` | Named character/factor vector mapping `voxel_ids` to parcel names (automatically sets `aggregate_by_parcel = TRUE`) | Naming elements by `voxel_ids` guarantees exact column alignment even if subsetting occurred earlier; defaults to `hrf_fit$specification$spatial_groups` when `aggregate_by_parcel = TRUE` so Step 1 and Step 4 share identical parcellation boundaries. |
-| `deconvolution$noise_innovations` | Automatic handoff inside `deconvolution` (`n_valid_rows × n_voxels` per run) | Supplies orthonormalized, task-projected AR($p$) innovations from Step 2. Without task-free innovations, any empirical spatial correlation across voxel `activity` series would mistake shared neural responses to the task for shared scanner noise! |
-| `tau2_mode` & `tau2_shrinkage` | `tau2_mode = c("auto", "marginal", "residual")`; `tau2_shrinkage = c("auto", "graph_eb", "eb", "none")` | Controls how latent biological trial-to-trial variance $\hat{\tau}_{\text{bio}}^2$ is estimated on the parcel series to calibrate `precision_weight`, `precision_weight_cohort`, and ZCA (`"marginal"` is covariate-agnostic; `"auto"` blends residual and marginal MoM when covariates are supplied). In parcel mode, `tau2_shrinkage = "auto"` defaults to `"none"` because standard parcels already enjoy high multi-voxel SNR; for dense parcellations (e.g., Schaefer-400/1000), setting `tau2_shrinkage = "graph_eb"` automatically builds a precision-weighted 3D parcel-centroid Euclidean graph from `deconvolution$voxel_map`. |
-| `whiten_panel` & `restore_scale` | Logical flags (`TRUE` recommended for both) | `restore_scale = TRUE` places all runs of a parcel onto physical BOLD units before cross-run pooling, while `whiten_panel = TRUE` computes paired within-run ZCA-decorrelated outcome and predictor columns directly on the parcel covariance $\Sigma_{\text{tot}}$. |
-
----
-
-## Outputs: What Step 4 Produces and Why It Is Set Up That Way
-
-Every column in `epochs$panel` (and companion element on `epochs`) has a specific downstream consumer—understanding **which column to use where** prevents subtle modeling mistakes:
-
-| Panel Column / Object Field | Meaning & Units | Why It Is Set Up That Way & Downstream Role |
-|---|---|---|
-| `run`, `trial`, `event_index`, `onset`, `evt_time`, `parcel` | Composite observation keys (add `id` before stacking subjects!) | `event_index` points to the exact row of `events[[run]]` for safe behavioral joins; `(id, run, event_index, evt_time, parcel)` uniquely identifies every row in `group_panel`. |
-| `decon_raw` vs. `decon_demixed` | Raw kernel readout vs. cue-subtracted, target-demixed, gain-restored readout | **Use `decon_demixed`** (or `decon_demixed_whitened`) as your primary outcome in Step 5 `mixed_by()` and `medusa_multilag_infer()`. Keep `decon_raw` for auditing how much Step 3's operator correction changed the signal. |
-| `se_demixed` & `error_ac1` | Conditional operator-propagated trial SE; adjacent-trial error correlation | Propagates parcel spatial noise + AR($p$) covariance through $B_{r,\tau}$. Passed directly into Step 6 (`decon_connectivity_repair()`) to disattenuate noisy seed predictors! |
-| `precision_weight` vs. `precision_weight_cohort` | Mean-1 normalized inverse total variance vs. **unnormalized** $1 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)$ | Within one participant/parcel, `precision_weight` averages to 1. Across a multi-subject cohort where participants differ in head motion, run count, or fSNR, **use `precision_weight_cohort` in `mixed_by()`** so noisier participants are appropriately downweighted relative to cleaner participants! |
-| `decon_eb` & `reliability_trial` | Empirical-Bayes shrunk readout $\bar{y}_r + \text{rel}_{ri}(y_{ri} - \bar{y}_r)$ | Useful for stabilized single-trial visualization or decoding, **not** as a direct regression outcome (where shrinkage attenuates slopes unless predictors are matched) or uncorrected regression predictor. |
-| `decon_demixed_whitened` & `<var>_whitened` | Paired within-run ZCA-decorrelated outcome & centered predictors (`whiten_panel = TRUE`) | Decorrelates off-diagonal within-run trial errors while preserving marginal trial variance. **Always pair whitened outcomes with whitened predictors** (`decon_demixed_whitened ~ x_whitened`), never mixing whitened and unwhitened variables! |
-| `shared_noise_loading` (list-column) & `epochs$unit_error_cor` | Per-parcel loading vector reproducing cross-parcel noise correlations ($R_{\text{err}} \approx \ell \ell^\top$) | `data.table::rbindlist()` drops matrix attributes attached to individual subject panels. Embedding `shared_noise_loading` as a column ensures cross-parcel noise covariance survives stacking (and full RDS/parquet/CSV workflows) for Step 6 `shared_error = "auto"`! |
-
----
-
-## Recommended Settings
-
-```{r}
-#| eval: false
-#| code-fold: false
-# Recommended participant-level parcel panel call (Steps 3 + 4 combined)
-ep <- decon_epoch_regression(
-  deconvolution       = decon,
-  covariates          = covariates,     # or NULL for covariate-agnostic panel
-  events              = events,
-  target_condition    = "feedback",
-  lags                = seq(-2, 4, by = 1),
-  parcel_groups       = parcel_ids,     # activates aggregate_by_parcel = TRUE
-  source_model        = "impulse",
-  readout_kernel      = "triangle",
-  demix_other_events  = TRUE,
-  demix_target_trials = TRUE,
-  demix_within_trial  = FALSE,          # leave FALSE when feeding medusa_multilag_infer()
-  restore_scale       = TRUE,
-  tau2_mode           = "auto",
-  whiten_panel        = TRUE,
-  return_panel        = TRUE
-)
-
-# Attach participant ID explicitly before stacking across the cohort:
-ep$panel[, id := subject_id]
-```
-
----
-
-## Step 4 Mechanisms Illustrated
-
 ```{r}
 #| include: false
 d4 <- readRDS("step4_examples.rds")
 ```
 
-### 1. Precision- & Evidence-Weighted Voxel Aggregation (and Missing-Voxel Renormalization)
+## Overview
 
-Within each parcel $g$, Step 4 computes fixed cross-run nominal voxel weights $u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / (0.05 + \text{med}(\overline{R}^2_{\text{cv}}))}{\max(\overline{\sigma}_v^2, 0.10\,\text{med}(\overline{\sigma}^2))}$ normalized to $\sum_{v \in g} u_v = 1$. Quieter, task-responsive voxels contribute more than noisy edge voxels.
+Many task-fMRI hypotheses are formulated at the level of **anatomical regions or functional parcels** rather than single voxels. Combining voxels within a parcel boosts trial-level signal-to-noise ratio substantially, provided aggregation happens at the right point in the pipeline: after each voxel's run has been deconvolved under its own HRF and $\text{AR}(p)$ whitener, and before trial-level event de-mixing and precision weighting.
 
-What happens if a voxel becomes invalid in one run (e.g., partial FoV dropout or coil artifact in Run 2)? MEDuSA renormalizes the remaining valid voxels in that run to sum to 1 (@fig-step4-weights). Because renormalization slightly shifts the spatial composition of a small parcel, always inspect `decon$scaling[[r]]$status` when voxel dropout is non-trivial.
+Step 4—executed inside `decon_epoch_regression(..., parcel_groups = parcel_ids)`—pools continuous deconvolved time series within each parcel using cross-run precision and task-support weights, accumulates exact multi-stratum linear operators when intra-parcel voxels differ in HRF or noise stratum, measures spatial noise correlation directly from Step 2's **task-free `noise_innovations`**, and outputs a tidy participant `panel` ready to stack across a cohort for Steps 5 and 6.
+
+```{r}
+#| eval: false
+#| code-fold: false
+library(medusa)
+
+ep <- decon_epoch_regression(
+  deconvolution    = decon,
+  covariates       = covariates,
+  events           = events,
+  target_condition = "feedback",
+  lags             = seq(-2, 4, by = 1),
+  parcel_groups    = parcel_ids,
+  restore_scale    = TRUE,
+  whiten_panel     = TRUE,
+  return_panel     = TRUE
+)
+ep$panel[, id := subject_id]
+```
+
+::: {.callout-note}
+### Position in the MEDuSA Pipeline
+**Step 2 `decon` + `parcel_groups` vector** $\longrightarrow$ **Step 4 (`decon_epoch_regression(..., parcel_groups = ...)` )** $\longrightarrow$ Subject `epochs` list & stacked `group_panel` $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`) & Step 6 (`decon_connectivity_repair`)**
+:::
+
+The walkthrough below develops Step 4 in four substeps: computing SNR-informed voxel weights (`4.1`), combining mixed intra-parcel operator strata (`4.2`), propagating spatial noise correlations without task contamination (`4.3`), and constructing cohort-ready weights and panel columns (`4.4`).
+
+---
+
+## Goals, Inputs, and Outputs
+
+### Goals of Step 4
+
+1. **Aggregate voxels using cross-run SNR-optimal weights (`parcel_weights`):** Weight constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task $R^2$.
+2. **Preserve intra-parcel `(HRF, AR, lambda)` heterogeneity:** Combine per-stratum forward and inverse operators ($\sum_s w_s D_s F_s$) directly rather than approximating a parcel with a single averaged HRF.
+3. **Propagate within- and between-parcel spatial noise correlation accurately:** Estimate parcel measurement noise and cross-parcel error correlations from Step 2's task-free whitened `noise_innovations`.
+4. **Produce a self-contained participant trial panel for cohort inference:** Export aligned de-mixed readouts, conditional standard errors, cohort-comparable precision weights, paired ZCA-whitened variables, and cross-parcel shared-noise loadings.
+
+### Inputs: What Step 4 Receives and Why
+
+In addition to the Step 3 arguments (`deconvolution`, `events`, `target_condition`, `lags`, `covariates`), Step 4 uses four spatial and panel parameters:
+
+| Input | Structure | Why It Is Set Up That Way |
+|---|---|---|
+| `parcel_groups` | Named character/factor vector mapping `voxel_ids` to parcel labels (or `ts$parcel_ids` from `read_nifti_ts()`) | Naming elements by `voxel_ids` guarantees exact column alignment and automatically enables `aggregate_by_parcel = TRUE`. |
+| `deconvolution$noise_innovations` | Carried automatically inside `deconvolution` (`n_valid_rows × n_voxels` per run) | Provides orthonormalized, task-projected $\text{AR}(p)$ innovations from Step 2 so shared task responses across voxels are separated cleanly from shared scanner noise. |
+| `tau2_mode` & `tau2_shrinkage` | `tau2_mode = c("auto", "marginal", "residual")`; `tau2_shrinkage = c("auto", "graph_eb", "eb", "none")` | Govern how parcel biological trial-to-trial variance $\hat{\tau}_{\text{bio}}^2$ is estimated (`"auto"` defaults to `"none"` on standard coarse parcels; setting `"graph_eb"` builds a 3D parcel-centroid Euclidean graph for fine 400–1000-parcel atlases). |
+| `restore_scale` & `whiten_panel` | Logical flags (`TRUE` recommended for both) | Place runs onto physical BOLD units before pooling and export paired within-run ZCA-decorrelated outcome and predictor columns on the parcel covariance. |
+
+### Outputs: What Step 4 Produces and Why It Is Set Up That Way
+
+| Panel Column / Object Field | Meaning & Units | Downstream Role |
+|---|---|---|
+| `run`, `trial`, `event_index`, `onset`, `evt_time`, `parcel` | Composite observation keys (attach `id` before stacking subjects) | `event_index` indexes exact rows of `events[[run]]` for behavioral merges; `(id, run, event_index, evt_time, parcel)` uniquely keys every cohort row. |
+| `decon_raw` & `decon_demixed` | Uncorrected readout vs. de-mixed, gain-restored parcel readout | `decon_demixed` serves as the primary neural outcome in Step 5 and neural predictor/target in Step 6; `decon_raw` provides a comparison baseline. |
+| `se_demixed` & `error_ac1` | Propagated per-trial parcel SE; lag-1 trial error correlation | Quantify conditional sampling uncertainty for Step 5 weights and Step 6 predictor measurement-error subtraction. |
+| `precision_weight` & `precision_weight_cohort` | Within-unit mean-1 weight vs. unnormalized $(\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$ | `precision_weight` weights trials within one person; `precision_weight_cohort` preserves between-participant reliability differences in Step 5 `mixed_by()`. |
+| `decon_eb` & `reliability_trial` | Empirical-Bayes shrunk readout $\bar{y}_r + \text{rel}_{ri}(y_{ri} - \bar{y}_r)$ | Stabilizes single-trial plots and descriptive visualizations using within-run trial reliability. |
+| `decon_demixed_whitened` & `<var>_whitened` | Paired within-run ZCA-decorrelated parcel outcome and centered predictors | Remove residual serial trial error correlation when analyzed as matched pairs in Step 5. |
+| `shared_noise_loading` & `epochs$unit_error_cor` | Per-parcel factor loading vector ($R_{\text{err}} \approx \ell \ell^\top$) and full cross-parcel correlation matrix | Preserve task-free cross-parcel error correlations across `rbindlist()` and `.rds`/Parquet storage for Step 6 `shared_error = "auto"`. |
+
+---
+
+## Step-by-Step Walkthrough: Substeps and Choice Points
+
+### 4.1 Weight voxels within each parcel by cross-run precision and task support
+
+Consider a parcel containing four voxels whose observation-noise SDs range from `0.013` (interior gray matter) to `0.032` (noisy pial edge). An unweighted average gives the noisy edge voxel the same influence as the quietest voxel. Instead, Step 4 forms fixed cross-run voxel weights $u_v$ normalized to $\sum_{v \in g} u_v = 1$:
+
+$$
+u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)}.
+$$
+
+Quieter voxels with stronger cross-fitted Step 1 task $R^2$ receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (@fig-step4-weights).
 
 ![Nominal four-voxel parcel weights in Run 1 (`sd = 0.013, 0.018, 0.022, 0.032`) and automatic renormalization in Run 2 when Voxel 1 is marked invalid.](figures/01-weights.png){#fig-step4-weights width="92%" fig-alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped."}
 
-### 2. Why Task-Free `noise_innovations` Are Essential for Parcel Standard Errors
+**Choice point — Parcel panels (`parcel_groups`) vs. voxelwise Graph-EB mapping:** Parcel aggregation is ideal when hypotheses target network ROIs, multi-lag group trajectories (`medusa_multilag_infer()`), or region-to-region connectivity (`decon_connectivity_repair()`). When effects may occupy small sub-parcel nuclei ($< 15\%$ of a parcel) or cross shifted individual functional boundaries, omit `parcel_groups` to run voxelwise Graph-EB mapping (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-voxel-vs-parcel-guide) for a direct benchmark).
 
-Suppose four voxels in a parcel have weights $u$ and marginal noise SDs $\sigma$. If voxel errors were spatially independent, the parcel noise SD would be $\sigma_{\text{ind}} = \sqrt{\sum_v u_v^2 \sigma_v^2}$ (`0.0091` in `simulate_step4.R`); if all four voxels shared identical noise ($\rho_{\text{spatial}} = 1$), the parcel noise SD would nearly double to $\sigma_{\text{ceil}} = \sum_v u_v \sigma_v$ (`0.0171`)!
+---
 
-If you tried to estimate spatial noise correlation from second differences of deconvolved `activity` ($\Delta^2 \hat{a}$), **shared task-evoked neural activity across the parcel looks just like shared noise**, pegging the estimate near the `0.0171` ceiling even when true noise is independent (`0.000`) or negatively correlated (`-0.20`)! By instead projecting `u * sigma` onto Step 2's **task-free whitened `noise_innovations`** ($\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2$), MEDuSA tracks the true spatial noise SD across all four regimes—including sub-independence negative correlation—to within a few ten-thousandths (@fig-step4-noise, @tbl-step4-noise), and reproduces analytical `se_demixed` to machine precision (`r format(max(d4$metrics$se_check), digits = 3)`).
+### 4.2 Accumulate exact multi-stratum parcel operators
+
+Suppose voxels inside the same parcel belong to different `(HRF, AR, lambda)` strata—for example, when Step 1 used `pooling = "graph"` (separating pial-vein autocorrelation from interior gray matter) and Step 2 used `lambda_mode = "auto"`. Because matrix inversion is nonlinear, deconvolving under a single parcel-averaged HRF $\bar{h} = \frac{1}{2}(h_4 + h_8)$ differs systematically from averaging voxelwise deconvolved series (`r sprintf("%.1f%%", 100 * d4$mixed_ratio)` waveform discrepancy in @fig-step4-mixed: $\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h})F(\bar{h})$).
+
+Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series $\hat{s}_{r,g} = \sum_{v \in g} u_v \hat{s}_{r,v}$ and simultaneously accumulating the exact stratum-weighted forward/inverse operator $\sum_s w_s D_s F_s$ used in Step 3 de-mixing (@fig-step4-mixed).
+
+![Exact multi-stratum parcel reconstruction (`MEDuSA multi-stratum parcel operator`) vs. a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.](figures/03-mixed-hrf.png){#fig-step4-mixed width="92%" fig-alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation."}
+
+---
+
+### 4.3 Estimate spatial noise covariance from task-free innovations
+
+To compute valid parcel standard errors (`se_demixed`), we need the effective observation-noise variance of the weighted parcel combination $\sum_{v \in g} u_v e_v$. For voxel noise SDs $\sigma_v$ and spatial noise correlations $R_{\text{spatial}, uv}$, that variance is
+
+$$
+\sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv}.
+$$
+
+In our 4-voxel example (`simulate_step4.R`), $\sigma_{\text{parcel}}$ equals `0.0091` if voxel errors are independent ($R_{\text{spatial}} = I$), but rises nearly twofold to `0.0171` if all four voxels share common noise ($R_{\text{spatial}} = \mathbf{1}\mathbf{1}^\top$). Estimating spatial correlation from second differences of deconvolved `activity` ($\Delta^2 \hat{a}$) conflates shared task-evoked neural responses with shared noise—pegging estimated noise near the `0.0171` ceiling even when true noise is independent (`0.00`) or negatively correlated (`-0.20`).
+
+By instead projecting $u \odot \sigma$ onto Step 2's **task-free whitened `noise_innovations`** ($\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2$), MEDuSA recovers the true spatial noise SD across all four correlation regimes (@fig-step4-noise, @tbl-step4-noise) and matches analytical `se_demixed` to `r format(max(d4$metrics$se_check), digits = 3)`. Pooling normalized parcel innovation vectors across runs also yields the cross-parcel error correlation matrix `unit_error_cor` and its factor representation `shared_noise_loading` for Step 6.
 
 ![Effective parcel BOLD noise SD across four spatial correlation regimes (`-0.20`, `0.00`, `0.65`, `0.95`): true oracle spatial SD vs. MEDuSA's task-free innovation estimator vs. a naive $\Delta^2$ activity proxy.](figures/02-noise.png){#fig-step4-noise width="95%" fig-alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy."}
 
@@ -129,15 +134,15 @@ knitr::kable(
 )
 ```
 
-### 3. Exact Multi-Stratum Parcel Operators When Intra-Parcel HRFs Differ
+---
 
-When Step 1 uses voxel-level HRF selection (`pooling = "voxel"`) or separate `noise_groups` inside a parcel, two voxels in the same parcel can belong to different `(HRF, AR)` strata (for example, $4\text{ s}$ and $8\text{ s}$ peak delays). Approximating the parcel operator with a single averaged HRF $\bar{h} = \frac{1}{2}(h_4 + h_8)$ produces a `r sprintf("%.1f%%", 100 * d4$mixed_ratio)` waveform discrepancy because matrix inversion is nonlinear: $\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h}) F(\bar{h})$! Step 4 avoids this approximation by accumulating exact stratum-by-stratum forward/inverse products $\sum_s w_s D_s F_s$ (@fig-step4-mixed).
+### 4.4 Compute biological trial variance, cohort weights, and panel columns
 
-![Exact multi-stratum parcel reconstruction (`MEDuSA multi-stratum parcel operator`) vs. a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.](figures/03-mixed-hrf.png){#fig-step4-mixed width="92%" fig-alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation."}
+On the aggregated parcel series, Step 4 estimates biological trial-to-trial variance $\hat{\tau}_{\text{bio}}^2$ and builds three complementary sets of panel columns:
 
-### 4. Working Trial Variance (`tau2_mode`), Empirical-Bayes Shrinkage, and Paired ZCA
-
-On the aggregated parcel series, Step 4 estimates latent trial-to-trial biological variance $\hat{\tau}_{\text{bio}}^2$ (`"marginal"` from run-centered variance, lag-1 trial differences, and MAD minus expected operator noise; `"residual"` from covariate regression residuals minus $\operatorname{tr}((I - P_X)\Omega)$). Different $\hat{\tau}_{\text{bio}}^2$ estimates adjust how steeply `precision_weight` varies across trials (@fig-step4-precision), govern `decon_eb` shrinkage toward the run mean (@fig-step4-shrinkage), and set the biological covariance component $\hat{\tau}_{\text{ZCA}}^2 M_{\text{post}} M_{\text{post}}^\top$ inside paired within-run ZCA whitening (@fig-step4-zca).
+1. **Within-person vs. cohort precision weights (@fig-step4-precision):** Both use composite inverse variance $(\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$. `precision_weight` normalizes to mean 1 within each participant/parcel, whereas `precision_weight_cohort` retains unnormalized inverse variance so Step 5 `mixed_by()` appropriately downweights high-noise scans and participants across the cohort.
+2. **Empirical-Bayes shrunk readouts (`decon_eb`, @fig-step4-shrinkage):** Shrinks noisy individual trials toward the run mean using trial reliability $\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)$ for clean single-trial visualization.
+3. **Paired ZCA-whitened columns (`whiten_panel = TRUE`, @fig-step4-zca):** Applies a run-mean-preserving regularized ZCA map equally to `decon_demixed` and supplied covariates on the parcel covariance $\Sigma_{\text{tot}}$.
 
 ![Relative `precision_weight` vs. `se_demixed` under `"marginal"` and `"residual"` working trial-variance modes.](figures/04-precision.png){#fig-step4-precision width="90%" fig-alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode."}
 
@@ -145,11 +150,62 @@ On the aggregated parcel series, Step 4 estimates latent trial-to-trial biologic
 
 ![Within-run parcel correlation matrix $\Sigma_{\text{tot}}$ before and after paired regularized ZCA (`Nearly common` parcel, Run 1).](figures/06-zca.png){#fig-step4-zca width="92%" fig-alt="27x27 correlation heatmaps before and after regularized ZCA."}
 
-<details>
-<summary>Mathematical Reference: Innovation Spatial Covariance & Cross-Parcel Loadings</summary>
+**Choice point — Working trial variance (`tau2_mode` & `tau2_shrinkage`) and `whiten_panel`:** Use `tau2_mode = "auto"` when `covariates` are supplied at Step 4, or `"marginal"` when building a covariate-agnostic panel (`covariates = NULL`) to reuse across multiple behavioral models. Keep `tau2_shrinkage = "auto"` on standard parcellations (100–200 parcels), or set `tau2_shrinkage = "graph_eb"` on dense 400–1000-parcel atlases to borrow variance precision across 3D parcel centroids.
 
-- **Within-parcel effective noise variance:** Let $Z_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(Z_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ is an unbiased, task-free estimator of parcel observation-noise variance, bounded safely into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
-- **Cross-parcel `shared_noise_loading`:** Normalizing $\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2$ and pooling $\tilde{Z}_r^\top \tilde{Z}_r$ across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk toward zero on noisy off-diagonals, and projected onto the PSD cone) yields `unit_error_cor`, whose principal factor loadings are stored in `panel$shared_noise_loading` for Step 6.
+---
+
+## Recommended Settings
+
+```{r}
+#| eval: false
+#| code-fold: false
+# Participant-level parcel panel call (Steps 3 + 4 combined)
+ep <- decon_epoch_regression(
+  deconvolution       = decon,
+  covariates          = covariates,     # or NULL for a covariate-agnostic panel
+  events              = events,
+  target_condition    = "feedback",
+  lags                = seq(-2, 4, by = 1),
+  parcel_groups       = parcel_ids,     # activates aggregate_by_parcel = TRUE
+  source_model        = "impulse",
+  readout_kernel      = "triangle",
+  demix_other_events  = TRUE,
+  demix_target_trials = TRUE,
+  demix_within_trial  = FALSE,          # leave FALSE before medusa_multilag_infer()
+  restore_scale       = TRUE,
+  tau2_mode           = "auto",
+  tau2_shrinkage      = "auto",         # or "graph_eb" for dense 400-1000 parcel atlases
+  whiten_panel        = TRUE,
+  return_panel        = TRUE
+)
+
+# Attach participant ID before stacking across subjects (or writing partitioned Parquet)
+ep$panel[, id := subject_id]
+```
+
+| Argument | Recommended | Package Default | Summary of Role & When to Adjust |
+|---|---|---|---|
+| `parcel_groups` | `parcel_ids` / `ts$parcel_ids` | `NULL` | Activates Step 4 SNR-weighted continuous parcel aggregation (`Substep 4.1`). |
+| `restore_scale` | `TRUE` | `FALSE` | Places all runs of a parcel onto physical BOLD units so `precision_weight_cohort` is comparable across runs and participants (`Substep 4.4`). |
+| `tau2_mode` | `"auto"` (or `"marginal"` when `covariates = NULL`) | `"auto"` | Estimates parcel biological trial variance for composite trial weights and ZCA (`Substep 4.4`). |
+| `tau2_shrinkage` | `"auto"` (`"graph_eb"` on 400–1000 parcels) | `"auto"` | Defaults to `"none"` on coarse high-SNR parcels; `"graph_eb"` builds a 3D parcel-centroid Euclidean graph from `voxel_map`. |
+| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`TRUE` if `covariates = NULL`) | Exports the complete `panel` alongside paired `*_whitened` columns (`Substep 4.4`). |
+
+---
+
+## Practical Considerations: Voxel Dropout, Role-Specific Columns, and Handoffs
+
+1. **Checking run-to-run voxel coverage:** When partial FoV clipping drops voxels from a small parcel in one run, renormalization shifts the parcel's spatial center slightly; inspect `decon$scaling[[r]]$status` whenever dropout is non-trivial.
+2. **Matching panel columns to their statistical role:** Mirrors the distinction between unshrunk likelihood-only readouts and shrunken EB predictions (Skrondal & Laake, 2001; Vig & Hallquist, 2026):
+   - Use **`decon_demixed`** (with `weights = "precision_weight_cohort"`) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve **`decon_eb`** for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage.
+   - When using ZCA-whitened variables, pair `decon_demixed_whitened` exclusively with matched `<var>_whitened` predictors from the same `(parcel, evt_time)` split.
+3. **Cohort storage handoff:** Attach `id` (and `session` if longitudinal) before combining participants. Saving `subject_epochs` as `.rds` or writing panels to Parquet (`arrow::write_dataset()`) preserves the `shared_noise_loading` list-column for Step 6 alongside scalable disk streaming for Step 5 `mixed_by()`.
+
+<details>
+<summary>Mathematical Reference & Reproduction</summary>
+
+- **Within-parcel effective noise variance:** Let $Z_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(Z_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ estimates parcel observation-noise variance without task contamination, bounded into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
+- **Cross-parcel `shared_noise_loading`:** Normalizing $\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2$ and pooling $\tilde{Z}_r^\top \tilde{Z}_r$ across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk on noisy off-diagonals, and projected onto the PSD cone) yields `unit_error_cor`, whose principal factor loadings are stored in `panel$shared_noise_loading`.
 
 [Step 4 simulation script](simulate_step4.R) · [Figure script](figures_step4.R) · [Parcel noise table](parcel_noise_check.csv)
 

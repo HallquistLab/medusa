@@ -9,123 +9,6 @@ format:
     code-fold: true
 ---
 
-## Overview
-
-Before MEDuSA can deconvolve a BOLD time series into latent neural activity, it must know two properties of the observation process: **(1) the hemodynamic response function (HRF)** that blurs and delays neural events into BOLD fluctuations, and **(2) the temporal autocorrelation structure** of the scanner and physiological noise. Assuming a single canonical HRF across the brain can shift inferred neural timing by several seconds in fast subcortical or slow association regions, while estimating the HRF on the same run that will later be deconvolved risks tuning the vascular filter to noise or circularly inflating trial effects.
-
-Step 1 (`hrf_library()` + `estimate_crossrun_hrf()`) solves this identification problem through **leave-one-run-out cross-fitting** paired with **two-pass post-selection noise estimation**. For each target run $r$, MEDuSA scores a physiologically realistic HRF candidate library exclusively on the participant's *other* runs ($s \neq r$), pools shape evidence across voxels within functional parcels (`pooling = "parcel"`) or local geodesic gray-matter neighborhoods (`pooling = "graph"`) without averaging raw BOLD signals, and shrinks weak or inconsistent task regions back to a prespecified canonical fallback. Once each target run receives its frozen out-of-sample HRF, MEDuSA refits a stationary $\text{AR}(p)$ noise cascade on run $r$'s own task-projected residuals so Step 2 can whiten and invert run $r$ without circularity or HRF-mismatch bias.
-
-::: {.callout-note}
-### Position in the MEDuSA Pipeline
-**Raw preprocessed BOLD + Event schedule** $\longrightarrow$ **Step 1 (`estimate_crossrun_hrf`)** $\longrightarrow$ `hrf_fit` S3 object $\longrightarrow$ **Step 2 (`deconvolve_crossrun_hrf`)**
-:::
-
----
-
-## Goals of Step 1
-
-Step 1 has four specific estimation goals:
-
-1. **Identify regional HRF timing, width, and undershoot out of sample:** Select or smoothly blend candidate HRF shapes for each target run using only training runs ($s \neq r$), preventing target-run overfitting.
-2. **Prevent noise fitting in silent regions:** Require calibrated $F$-test task evidence and cross-run compatibility before departing from the canonical HRF; assign silent or erratic regions cleanly to `fallback_kernel`.
-3. **Separate vascular shape from serial noise covariance:** Estimate run-specific $\text{AR}(p)$ autocorrelation parameters ($\rho, \psi_1, \dots, \psi_4$) *after* projecting out nuisance drift, free trial responses, and HRF derivatives under the selected HRF so unmodeled BOLD waves are never mistaken for $\text{AR}(1)$ persistence.
-4. **Record an auditable forward specification:** Package the run clocks, `valid_rows` masks, nuisance designs, training manifests, candidate scores, composite HRF waveforms, and noise parameters into a single `crossrun_hrf` object so downstream steps never reconstruct timing or masks by guesswork.
-
-**What Step 1 deliberately leaves to later steps:** Step 1 *never* sees your behavioral or computational trial covariates (such as reward prediction error or choice value), *never* modifies the BOLD matrices, and *does not* produce deconvolved activity or trial slopes. Its trial-amplitude designs exist solely as temporary nuisance/signal subspaces for scoring HRFs and isolating noise residuals.
-
----
-
-## Inputs: What Step 1 Receives and Why
-
-Every input to `estimate_crossrun_hrf()` is structured to preserve exact acquisition timing across runs and censoring gaps:
-
-| Input | Structure | Why It Is Set Up That Way |
-|---|---|---|
-| `bold` | Named list of numeric matrices (`time × voxel`), one per run (e.g., `read_nifti_ts()$bold`) | Keeping runs separate (rather than concatenating them) defines the cross-fitting folds ($s \neq r$), accommodates unequal run lengths, and prevents AR filters or HRF tails from bleeding across run boundaries. `read_nifti_ts()` validates shared 3D dimensions, voxel spacing, and `sform`/`qform` affines across runs, masks, and atlases before streaming in-mask voxels directly in C++ into matching `T × V` matrices without materializing 4D R arrays. |
-| `events` | Named list of `data.frame`s (`onset`, optional `duration`, `condition`) matching `names(bold)` | HRF shape cannot be identified blindly without anchor timestamps (shifting $h$ forward and neural timing backward yields identical BOLD). Supplying *all* modeled task events—without behavioral covariates—anchors vascular lag while keeping behavioral hypotheses blind. Zero-row `events[[r]]` (e.g., resting-state runs) are permitted and receive canonical fallback HRFs plus pure-nuisance noise fits. |
-| `tr` & `time_offset` | Positive scalar TR (s); scalar or per-run start time (s) | Maps continuous event times (in seconds) onto discrete acquisition bins via fractional bracket interpolation or sub-bin boxcar occupancy, ensuring off-TR jitter is represented accurately. |
-| `kernel_grid` | Numeric matrix (`L_hrf × K`) from `hrf_library()`, with column 1 as canonical fallback | Pre-discretizing normalized candidate waveforms onto the `tr` grid lets C++ evaluate all $K$ candidates in batched BLAS sweeps and guarantees a known reference shape (`fallback_kernel = 1L`) when task SNR is absent. |
-| `valid_rows` | Optional named list of logical vectors (`length == nrow(bold[[r]])`), or supplied automatically via `nuisance = conf` from `read_fmriprep_confounds()` / `read_fmriprep_subject()` | **Never delete censored TRs before Step 1.** Deleting rows compresses the clock, corrupting causal HRF convolution tails after a scrub gap and pretending separated volumes are lag-1 neighbors. Logical `valid_rows` keeps the physical time grid intact while excluding bad frames from regression and likelihood scoring. At fast multiband TRs ($\text{TR} \lesssim 1.0\text{ s}$), filter the 6 rigid-body motion parameters before computing FD (`motion_bandstop_bpm` or `motion_lowpass_hz`) so chest-wall breathing pseudomotion does not fragment `valid_rows` (see @sec-respiratory-fd-filter). |
-| `nuisance` | Optional named list of numeric matrices (`nrow == nrow(bold[[r]])`), or a `"medusa_confounds"` object | Motion parameters (`24p`/`36p`), CompCor components, or physiological regressors supplied here are combined with an automatic run intercept and linear trend so slow scanner drift and respiratory $B_0$ variance do not masquerade as broad HRFs or $\rho \to 1$ autocorrelation. |
-| `spatial_groups` & `noise_groups` | Named character/factor vectors mapping `voxel_ids` to parcels / tissue classes | Separating `spatial_groups` (functional parcels sharing vascular timing) from optional `noise_groups` (e.g., tissue/ROI classes sharing serial autocorrelation) lets Step 1 pool low-SNR voxel evidence without averaging raw BOLD series that may carry opposite neural signs. |
-| `pooling`, `spatial_graph`, & `parcel_boundary` | `pooling = c("voxel", "parcel", "graph")`; optional `"medusa_spatial_graph"` from `build_spatial_graph()`; `parcel_boundary = c("soft", "hard", "ignore")` (`parcel_cross_weight = 0.35`, `max_neighbors = 32L`, `max_hrf_strata = 48L`, `max_noise_strata = 10L`) | Controls how out-of-sample HRF evidence and REML noise parameters borrow strength across space. For atlas-free NIfTI inputs (`atlas = NULL`), `pooling` defaults to `"voxel"` to preserve single-voxel specificity unless `pooling = "graph"` is requested. When `pooling = "graph"`, `build_spatial_graph()` constructs a 26-connected in-mask geodesic lattice CSR graph (`metric = "geodesic"` when `voxel_map` carries `i, j, k`, preventing cross-sulcal CSF shortcuts) and pools both HRF candidate profiles and pilot $(\hat{\rho}, \log\hat{\sigma})$ noise bilaterally while quantizing prototypes so Step 2 operator caching remains fast. |
-
----
-
-## Outputs: What Step 1 Produces and Why It Is Set Up That Way
-
-`estimate_crossrun_hrf()` returns an S3 object of class `"crossrun_hrf"`. Rather than collapsing everything into a single HRF vector per voxel, its components are separated according to their statistical roles in Steps 2–4:
-
-| Output Component | Structure | Why It Is Set Up That Way |
-|---|---|---|
-| `selected_kernels` | Named list (by target run) of `L_hrf × voxel` matrices | **The actual HRF used in Step 2.** Storing a per-run, per-voxel matrix allows leave-one-run-out cross-fitting (each run gets the HRF learned on *other* runs) and represents continuous `soft_average` composite waveforms that do not correspond to any single column of `kernels`. |
-| `kernel_weights` | Named list of `K × voxel` unit-sum weight matrices | Records the exact Boltzmann + Empirical-Bayes shrinkage weights over library candidates (`kernels %*% kernel_weights[[r]]`, re-normalized under `settings$kernel_normalize`), making soft composites auditable and reproducible. |
-| `selections` | Named list of per-run `data.frame`s (`voxel`, `parcel`, `kernel_index`, `status`, `best_adjusted_partial_r2`, `selected_task_p`, `n_compatible_shapes`, `stability`) | Provides human-readable diagnostics *and* passes out-of-sample task SNR (`best_adjusted_partial_r2`, `selected_task_p`) to Step 2 so `lambda = NULL` tunes deconvolution smoothness only on genuinely task-active units. Note that under `soft_average`, `kernel_index` merely names the highest-weight library column—always inspect `selected_kernels` for the realized shape. |
-| `noise` | Named list of per-run `data.frame`s (`voxel`, `group`, `rho`, `psi1`–`psi4`, `noise_sd`, `method`, `n_voxels`) | Stores **own-run** stationary $\text{AR}(p)$ cascade parameters `(1 - rho B)(1 - sum psi_j B^j)` separately from out-of-sample HRF shapes. Separating `noise` per run allows scanner autocorrelation to vary across runs while grouping voxels with identical `(selected_kernel, ar_vec)` into shared linear-operator strata in Steps 2–3. |
-| `training_runs` & `signal_status` | Named list of training-run ID vectors; per-run sufficiency table | Explicitly documents cross-fitting provenance (verifying target run $r$ was excluded from its HRF decision, or recording contiguous sub-block cross-fitting when `length(bold) == 1L`). |
-| `specification` & `settings` | Stored `events`, `nuisance`, `valid_rows`, `spatial_groups`, `tr`, `kernel_normalize` | Freezes the exact forward timing, masks, and normalization convention so `deconvolve_crossrun_hrf()` and `decon_epoch_regression()` automatically inherit identical clocks and masks without user book-keeping errors. |
-| `spatial`, `voxel_map`, & `geometry` | Resolved `"medusa_spatial_graph"` (`$spatial$graph`) and prototype strata (`pooling = "graph"`), plus carried NIfTI coordinate/header metadata | Passes the sparse CSR neighborhood graph and volumetric NIfTI geometry seamlessly into Step 2 (`lambda_mode = "auto"` SNR stabilization and `write_nifti_ts()`) and Step 3 (`tau2_shrinkage = "graph_eb"` and `backproject_medusa()`). |
-
----
-
-## Recommended Settings
-
-```{r}
-#| eval: false
-#| code-fold: false
-library(medusa)
-
-# 0. Stream preprocessed 4D NIfTI runs + fMRIPrep confounds & BIDS events
-#    (or call read_fmriprep_subject() to discover BOLD, masks, confounds, and events in one step)
-ts <- read_nifti_ts(
-  niftis = c(run1 = "sub01_run1.nii.gz", run2 = "sub01_run2.nii.gz", run3 = "sub01_run3.nii.gz"),
-  mask   = "sub01_mask.nii.gz",
-  atlas  = "schaefer200.nii.gz",
-  tr     = tr
-)
-conf <- read_fmriprep_confounds(
-  c("sub01_run1_desc-confounds_timeseries.tsv",
-    "sub01_run2_desc-confounds_timeseries.tsv",
-    "sub01_run3_desc-confounds_timeseries.tsv"),
-  bold                 = ts,
-  strategy             = "24p",
-  fd_threshold         = 0.3,
-  motion_bandstop_bpm  = c(12, 20),   # recommended at fast multiband TRs (TR <= 1.0 s)
-  motion_filter_target = "fd_only"
-)
-
-# 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)
-candidates <- hrf_library(tr = ts$tr, preset = "medusa")
-
-# 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise
-#    (or pass `bold = ts, pooling = "graph", parcel_boundary = "soft"` directly for geodesic pooling)
-hrf_fit <- estimate_crossrun_hrf(
-  bold            = ts,
-  events          = events,
-  kernel_grid     = candidates,
-  nuisance        = conf,
-  pooling         = "parcel",
-  amplitude_model = "trial",
-  noise_model     = "ar1",
-  evidence        = "calibrated",
-  selection_mode  = "soft_average",
-  return_scores   = TRUE
-)
-```
-
-| Argument | Recommended | Package Default | Why Recommended & When to Adjust |
-|---|---|---|---|
-| `hrf_library(..., preset)` | `"medusa"` | `"custom"` (3 delays × 3 dispersions) | `"medusa"` constructs a maximin-pruned ~44-candidate **3D physiological manifold** spanning fast/narrow/zero-undershoot subcortical HRFs (`peak_delay` down to $2.5\text{ s}$, `dispersion` down to $0.6$, `undershoot_ratio = Inf`) through slow cortical HRFs ($8.0\text{ s}$), normalized by `"positive_lobe"` ($\sum_t \max(h_t, 0) = 1$) so regional undershoot differences do not distort neural gain. Use `"canonical_27"` only when restricting strictly to fixed-undershoot cortical shapes. |
-| `pooling` & `spatial_groups` | `pooling = "graph"` (`parcel_boundary = "soft"`) for volumetric NIfTIs; `pooling = "parcel"` for homogeneous ROIs | `pooling = "voxel"`, `spatial_groups = NULL` | On volumetric NIfTI inputs (`bold = ts`), `pooling = "graph"` builds a 26-connected geodesic CSR graph (`build_spatial_graph()`) and pools out-of-sample HRF evidence and REML noise bilaterally—preventing cross-sulcal bleed, separating pial-vein borders from interior gray matter, and relaxing softly across shifted individual parcel borders (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd)). Default `pooling = "voxel"` stays single-voxel on atlas-free NIfTIs (or uses `"fallback_parcel"` on low-SNR voxels when an atlas is attached), while `pooling = "parcel"` pools uniformly within nominal parcels. |
-| `selection_mode` | `"soft_average"` | `"hard"` | `"soft_average"` forms a Boltzmann-weighted composite HRF across compatible candidates, shrunk toward `fallback_kernel` by parcel departure confidence. Across sub-grid vascular delays and Windkessel–Balloon simulations, `"soft_average"` reduces HRF RMSE by 8–22% and neural latency bias by 20–35% relative to discrete `"hard"` grid snapping. |
-| `amplitude_model` | `"trial"` (for cognitive modulation) or `"condition"` | `"condition"` | `"condition"` fits one amplitude per condition per run and is fast when events evoke a consistent mean response. Switch to `"trial"` whenever trial-by-trial effects can take both positive and negative signs around zero (e.g., signed prediction errors), where a condition mean cancels out! In multi-condition tasks, `"trial"` automatically compares per-condition trial designs to avoid collinearity. |
-| `noise_model` & `evidence` | `"ar1"` & `"calibrated"` | `"ar1"` & `"calibrated"` | Keep both defaults. Note that `noise_model = "ar1"` actually fits a **stationary $\text{AR}(1) \times \text{AR}(q)$ cascade** (up to $\text{AR}(5)$ at fast multiband TRs) via pooled two-pass REML, not just a single-parameter $\text{AR}(1)$! `"calibrated"` enforces $F$-test task gates and cross-run compatibility. |
-| `motion_bandstop_bpm` & `motion_filter_target` (in `read_fmriprep_confounds`) | `c(12, 20)` & `"fd_only"` when $\text{TR} \lesssim 1.0\text{ s}$ | `NULL` & `"fd_only"` | At fast multiband TRs, zero-phase notch filtering of the 6 rigid-body realignment parameters removes chest-wall $B_0$ breathing pseudomotion before computing Power (2012) FD while keeping unfiltered `24p` columns in `nuisance` (`"fd_only"`) so respiratory variance in unfiltered BOLD remains modeled. Leave `NULL` at slow TRs ($\text{TR} \ge 2.0\text{ s}$) unless targeting a known aliased band. |
-
----
-
-## How Step 1 Works in Detail
-
 ```{r}
 #| include: false
 sel <- read.csv("selections.csv")
@@ -135,45 +18,122 @@ resp_tbl <- read.csv("respiratory_fd_metrics.csv")
 ex <- readRDS("step1_examples.rds")
 ```
 
-### 1. Candidate HRF Library and Positive-Lobe Normalization
+## Overview
 
-Every candidate column $h_m$ in `hrf_library()` is evaluated on `seq(0, duration, by = tr)` as a difference of two gamma densities parameterized by peak delay, dispersion, and positive-to-undershoot ratio (`undershoot_ratio = Inf` omits the negative dip altogether for fast subcortical/thalamic responses), with the canonical $(6\text{ s}, 1.0, 6)$ curve placed in **column 1** as the default fallback.
+In task fMRI, neural events are observed through a regional **hemodynamic response function (HRF)** that delays and smooths activity over 15–30 seconds, superimposed on **serially correlated scanner and physiological noise**. Both properties vary across brain territories and scans: sensory and subcortical regions often peak 1–2 seconds earlier than association cortex, while CSF-adjacent cortex exhibits stronger temporal autocorrelation than deep gray matter.
 
-Under `preset = "medusa"`, kernels use **positive-lobe normalization** ($\sum_{t: h_t > 0} h_t = 1$) rather than signed-sum normalization ($\sum_t h_t = 1$). Why? Under signed-sum normalization, a candidate with a deep post-stimulus undershoot has a smaller net sum and is therefore rescaled to a much taller positive peak—artificially shrinking its deconvolved neural amplitude relative to a zero-undershoot candidate! Normalizing by positive-lobe mass keeps unit-impulse neural height comparable across regions with different venous undershoot depths.
+Step 1 (`hrf_library()` + `estimate_crossrun_hrf()`) estimates both components before deconvolution begins. To keep vascular shape estimation independent of the noise in the run being deconvolved, Step 1 uses **leave-one-run-out cross-fitting**: for each target run $r$, it evaluates a physiological library of candidate HRFs using only the participant's *other* runs ($s \neq r$), pools shape evidence across parcels or local cortical neighborhoods, and forms a regularized composite HRF that shrinks smoothly back toward a canonical reference where task signal is weak. Holding that cross-fitted HRF fixed, Step 1 then estimates run $r$'s own stationary $\text{AR}(p)$ noise parameters on task-adjusted residuals.
+
+```{r}
+#| eval: false
+#| code-fold: false
+library(medusa)
+
+candidates <- hrf_library(tr = tr, preset = "medusa")
+hrf_fit <- estimate_crossrun_hrf(
+  bold           = bold,
+  events         = events,
+  tr             = tr,
+  kernel_grid    = candidates,
+  spatial_groups = parcel_ids,
+  pooling        = "parcel",
+  selection_mode = "soft_average"
+)
+```
+
+::: {.callout-note}
+### Position in the MEDuSA Pipeline
+**Preprocessed BOLD + Event schedule** $\longrightarrow$ **Step 1 (`estimate_crossrun_hrf`)** $\longrightarrow$ `hrf_fit` S3 object $\longrightarrow$ **Step 2 (`deconvolve_crossrun_hrf`)**
+:::
+
+The walkthrough below develops Step 1 across four substeps—from defining a single HRF basis curve (`1.1`), to cross-run candidate scoring (`1.2`), spatial evidence pooling (`1.3`), and post-selection $\text{AR}(p)$ noise estimation (`1.4`)—highlighting the modeling choice at each stage.
+
+---
+
+## Goals, Inputs, and Outputs
+
+### Goals of Step 1
+
+1. **Estimate regional HRF timing, dispersion, and undershoot out of sample:** Learn each target run's vascular filter from training runs ($s \neq r$) so filter selection does not adapt to target-run noise.
+2. **Stabilize shape selection in low-SNR regions:** Borrow evidence across parcels or geodesic gray-matter neighborhoods and shrink uncertain regions smoothly toward a canonical reference waveform.
+3. **Separate hemodynamic shape from serial noise autocorrelation:** Fit run-specific $\text{AR}(p)$ cascade parameters ($\rho, \psi_1, \dots, \psi_4$) after projecting out task responses and nuisance drift under the learned HRF.
+4. **Bundle forward timing and noise metadata for downstream steps:** Record run clocks, observation masks, composite HRFs, and noise parameters in a single `"crossrun_hrf"` object carried forward into Steps 2–4.
+
+### Inputs: What Step 1 Receives and Why
+
+| Input | Structure | Why It Is Set Up That Way |
+|---|---|---|
+| `bold` | Named list of numeric matrices (`time × voxel`), one per run, or a `"medusa_nifti_ts"` object from `read_nifti_ts()` / `read_fmriprep_subject()` | Keeping runs as separate list elements defines the leave-one-run-out folds ($s \neq r$), supports unequal run lengths, and prevents AR filters or HRF convolution tails from crossing run boundaries. |
+| `events` | Named list of `data.frame`s (`onset`, optional `duration`, `condition`) matching `names(bold)` (or a combined BIDS event table) | Event timestamps anchor neurovascular delay without needing behavioral or computational trial predictors, keeping downstream hypothesis variables unseen during HRF estimation. |
+| `tr` & `time_offset` | Positive scalar TR (s); scalar or per-run acquisition start time (s) | Maps continuous event times in seconds onto discrete acquisition bins with sub-TR fractional interpolation. |
+| `kernel_grid` | Numeric matrix (`L_hrf × K`) from `hrf_library()`, with column 1 as canonical reference | Pre-discretizes normalized candidate HRF waveforms onto the acquisition `tr` grid for batched evaluation and provides column 1 as a well-defined canonical baseline (`fallback_kernel = 1L`). |
+| `valid_rows` & `nuisance` | Optional per-run logical masks (`length == nrow(bold[[r]])`) and numeric nuisance matrices (or a `"medusa_confounds"` object from `read_fmriprep_confounds()`) | Marking censored frames with `valid_rows = FALSE` keeps every retained volume at its true physical timestamp while excluding high-motion frames from regression and likelihood scoring; `nuisance` removes motion and physiological drift alongside run intercepts and linear trends. |
+| `pooling`, `spatial_groups`, & `spatial_graph` | `pooling = c("voxel", "parcel", "graph")`; optional parcel vector or `"medusa_spatial_graph"` from `build_spatial_graph()` | Specifies how out-of-sample HRF scores and REML noise parameters borrow strength across space—either within nominal parcels (`"parcel"`), across local 26-connected geodesic neighborhoods (`"graph"`), or at single voxels (`"voxel"`). |
+
+### Outputs: What Step 1 Produces and Why It Is Set Up That Way
+
+`estimate_crossrun_hrf()` returns an S3 object of class `"crossrun_hrf"` whose elements map directly to their roles in Steps 2–4:
+
+| Output Component | Structure | Why It Is Set Up That Way |
+|---|---|---|
+| `selected_kernels` | Named list (by target run) of `L_hrf × voxel` matrices | **The realized HRFs used in Step 2.** Storing a waveform matrix per run and voxel accommodates leave-one-run-out folds and represents continuous `soft_average` blends directly. |
+| `kernel_weights` | Named list of `K × voxel` unit-sum weight matrices | Records the candidate weights combining columns of `kernel_grid` into `selected_kernels`, making composite HRFs transparent and reproducible. |
+| `selections` | Named list of per-run `data.frame`s (`voxel`, `parcel`, `kernel_index`, `status`, `best_adjusted_partial_r2`, `selected_task_p`, `n_compatible_shapes`, `stability`) | Summarizes out-of-sample task fit and compatibility diagnostics, and supplies out-of-sample task SNR metrics to Step 2 for automatic regularization tuning. |
+| `noise` | Named list of per-run `data.frame`s (`voxel`, `group`, `rho`, `psi1`–`psi4`, `noise_sd`, `method`, `n_voxels`) | Stores own-run stationary $\text{AR}(p)$ cascade parameters separately per run so scanner autocorrelation can vary across scans while grouping matching `(HRF, AR)` units into shared linear-operator strata. |
+| `training_runs` & `signal_status` | Named list of training-run ID vectors; per-run sufficiency summary | Documents cross-fitting provenance confirming which runs trained each target run's HRF. |
+| `specification`, `spatial`, `voxel_map`, & `geometry` | Stored `events`, `nuisance`, `valid_rows`, `tr`, resolved spatial graph, and NIfTI header geometry | Carries timing, censoring masks, neighborhood topology, and volumetric NIfTI coordinates automatically into Steps 2–5. |
+
+---
+
+## Step-by-Step Walkthrough: Substeps and Choice Points
+
+### 1.1 Construct a physiological HRF candidate library
+
+Consider a single brief neural impulse at $t = 0$. In a vascular territory with impulse response $h$, that event evokes a delayed, smooth BOLD deflection (@fig-step1-forward). Rather than estimating unconstrained free FIR parameters on noisy runs, `hrf_library()` spans plausible neurovascular shapes using a low-dimensional family of two-gamma waveforms varied across **peak delay**, **width (dispersion)**, and **post-stimulus undershoot depth** (@fig-step1-library), placing the standard canonical shape $(6\text{ s}, 1.0, 6)$ in column 1.
 
 ![Three physiological dimensions spanned by `hrf_library(..., preset = "medusa")` under positive-lobe normalization: peak delay (left), width/dispersion (middle), and post-stimulus undershoot depth including zero-undershoot subcortical shapes (right).](figures/01-library.png){#fig-step1-library width="100%" fig-alt="Three-panel plot of positive-lobe-normalized HRF candidates varying peak delay, dispersion, and undershoot ratio."}
 
-Because observed BOLD convolves neural events with the local vascular filter, identical neural event trains produce shifted and broadened BOLD peaks in fast versus slow vascular territories (@fig-step1-forward). Step 1 learns that territory-specific filter before deconvolution begins.
-
 ![Simulated neural event amplitudes (top) and resulting noisy BOLD signals in a fast-HRF versus slow-HRF parcel (bottom) from the Step 1 demonstration (`TR = 0.65 s`).](figures/02-forward.png){#fig-step1-forward width="100%" fig-alt="Top: stem plot of neural event impulses. Bottom: fast and slow BOLD time courses."}
 
-### 2. Leave-One-Run-Out Cross-Fitting (and Single-Run Block Splitting)
+Because deconvolution recovers latent amplitudes relative to the scale of $h$, candidate waveforms require a shared normalization rule. Under `preset = "medusa"`, each candidate is normalized by its **positive-lobe sum** ($\sum_{t: h_t > 0} h_t = 1$). Compared with signed-sum normalization ($\sum_t h_t = 1$), positive-lobe normalization keeps the positive BOLD peak comparable between cortical waveforms with a venous undershoot and subcortical waveforms without one (`undershoot_ratio = Inf`), so regional undershoot differences do not rescale recovered neural amplitudes.
 
-For target run $r$ in a multi-run session ($R \ge 2$), candidate HRF scores are computed exclusively on runs $s \neq r$, while run $r$'s own data are used only after HRF selection to estimate run $r$'s noise covariance (@fig-step1-folds). Perturbing `bold$run1` arbitrarily leaves `hrf_fit$kernel_weights$run1` and `hrf_fit$selected_kernels$run1` unchanged to machine precision (`r format(ex$weight_difference, digits = 3)` in @fig-step1-target-check).
+**Choice point — Candidate library (`preset`):** Use `hrf_library(tr, preset = "medusa")` (~44 maximin-pruned 3D candidates spanning $2.5\text{--}8.0\text{ s}$ delays) as the standard choice across cortical and subcortical studies. Switch to `preset = "canonical_27"` when restricting strictly to cortical delays ($4.0\text{--}8.0\text{ s}$) with a fixed undershoot ratio, or pass a 1-column library (`candidates[, 1, drop = FALSE]`) when benchmarking against a fixed canonical HRF under matched downstream settings.
 
-What if a participant has **only one task run** (`length(bold) == 1L`)? Rather than failing or fitting in-sample, `estimate_crossrun_hrf()` automatically partitions usable observations into contiguous temporal sub-blocks (3 blocks when $n_{\text{valid}} \ge 120$, 2 halves when $40 \le n_{\text{valid}} < 120$), scores candidates on each sub-block against the full causal event design (preserving HRF tails across block boundaries), tests cross-block shape compatibility, and returns a single continuous HRF for the intact run.
+---
+
+### 1.2 Score candidate HRFs out of sample across runs
+
+Suppose a participant completes $R = 3$ task runs. If we selected the best-fitting HRF on Run 1 and immediately deconvolved Run 1 with that selected filter, random noise peaks in Run 1 would pull the filter toward themselves and inflate apparent trial effects. Instead, for each target run $r$, `estimate_crossrun_hrf()` scores the $K$ library candidates exclusively on training runs $s \neq r$ (@fig-step1-folds). Consequently, even strong synthetic perturbations added to `bold$run1` leave Run 1's learned HRF weights unchanged to machine precision (`r format(ex$weight_difference, digits = 3)`; @fig-step1-target-check).
 
 ![Cross-fitting separation in a three-run dataset: candidate HRF evidence for target run $r$ comes strictly from runs $s \neq r$, while serial noise parameters are refit on run $r$ itself.](figures/03-folds.png){#fig-step1-folds width="88%" fig-alt="3x3 grid illustrating leave-one-run-out HRF scoring versus own-run noise estimation."}
 
 ![Invariance verification: adding strong synthetic oscillations to target Run 1 leaves its cross-fitted HRF candidate weights completely unchanged.](figures/09-target-check.png){#fig-step1-target-check width="92%" fig-alt="Overlapping candidate weight profiles for original and perturbed Run 1."}
 
-### 3. Calibrated Evidence Scoring, Amplitude Models, and Spatial Pooling
-
-Within each training run $s \neq r$, MEDuSA whitens the usable rows under a first-pass noise filter, projects out the nuisance subspace $Z_s$, and measures how much residual variance each candidate HRF explains via **degree-of-freedom-adjusted partial $R^2$**, accompanied by an effective-DF Satterthwaite $F$-test (`selected_task_p`).
-
-Two design choices govern whether training runs detect genuine neural signal:
-
-- **Condition-mean vs. trial-wise training designs (`amplitude_model`):** When trial responses fluctuate symmetrically around zero (such as a zero-mean reward prediction error), a single condition-mean regressor cancels positive and negative trials and misses the HRF completely (@fig-step1-signed). Setting `amplitude_model = "trial"` frees per-event amplitudes (evaluating one condition freed at a time in multi-condition schedules) so unsigned trial variance identifies the vascular shape—still without touching external behavioral predictors.
-- **Parcel evidence pooling (`pooling = "parcel"`):** Pooling averages precision-weighted candidate score profiles across voxels in a parcel *after* squaring voxelwise $t$/$R^2$ evidence, so voxels with opposite-signed task effects reinforce rather than cancel one another (@fig-step1-evidence, @fig-step1-pooling). Regions without calibrated task support (`Null` in @fig-step1-evidence) fail the departure gate and fall back cleanly to `hrf_1`.
-- **Geodesic bilateral graph pooling (`pooling = "graph"`):** When individual functional boundaries shift across nominal atlas borders or no parcellation is desired, `pooling = "graph"` pools out-of-sample candidate score profiles over a sparse 26-connected in-mask geodesic lattice graph (`build_spatial_graph()`), weighting neighbors by geodesic Gaussian proximity, soft cross-parcel relaxation (`parcel_boundary = "soft"`, `parcel_cross_weight = 0.35`), and Spearman-disattenuated cross-run profile concordance while calibrating Stouffer–Cauchy gating for local spatial noise correlation ($v_{\text{quad}}^{(-r)}$) and quantizing waveforms into at most `max_hrf_strata = 48L` prototypes (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-bilateral-hrf)).
+On each training run $s \neq r$, MEDuSA whitens usable observations under a first-pass noise filter, projects out nuisance drift, and convolves the event schedule with candidate $h_m$ to compute **degree-of-freedom-adjusted partial $R^2$** and an effective-DF $F$-test (`selected_task_p`; @fig-step1-evidence).
 
 ![Out-of-sample adjusted partial $R^2$ surfaces for target Run 1 across the 27-candidate cortical slice (`Fast` truth: $4.5\text{ s}, 0.9$; `Slow` truth: $7.5\text{ s}, 1.1$; `Null`: pure $\text{AR}(3)$ noise). Crosses mark generating parameters.](figures/04-evidence.png){#fig-step1-evidence width="100%" fig-alt="Heatmaps of out-of-sample adjusted partial R-squared across Fast, Slow, and Null parcels."}
 
-![Zero-mean alternating trial amplitudes (`amplitude_model = "condition"` vs. `"trial"`): freeing trial amplitudes recovers the true $7.5\text{ s}$ HRF where a condition-mean regressor collapses to canonical fallback.](figures/05-signed.png){#fig-step1-signed width="95%" fig-alt="Comparison of generating HRF, condition-amplitude estimate, and free-trial-amplitude estimate."}
+To build that training regression design without touching external behavioral covariates, MEDuSA needs an assumption about how event amplitudes behave across trials:
+
+- Under `amplitude_model = "condition"`, all events of a given condition share one mean amplitude per run. When events evoke a consistent positive (or negative) deflection, this 1-column-per-condition design has maximal degrees of freedom and fast runtime.
+- Under `amplitude_model = "trial"`, each event receives its own free amplitude (evaluating one condition freed at a time in multi-condition designs to avoid collinearity). This allows regions whose responses fluctuate symmetrically around zero—such as signed prediction-error signals whose mean response is zero—to express strong unsigned trial variance and identify their true HRF (@fig-step1-signed).
+
+![Zero-mean alternating trial amplitudes (`amplitude_model = "condition"` vs. `"trial"`): freeing trial amplitudes recovers the true $7.5\text{ s}$ HRF where a condition-mean regressor averages out to zero.](figures/05-signed.png){#fig-step1-signed width="95%" fig-alt="Comparison of generating HRF, condition-amplitude estimate, and free-trial-amplitude estimate."}
+
+**Choice point — Training amplitude model (`amplitude_model`):** Choose `"condition"` when task events evoke a reliable main-effect activation (e.g., visual cues, motor presses, block transitions). Choose `"trial"` whenever key regions may encode zero-mean signed fluctuations around baseline without a strong condition-mean offset.
+
+---
+
+### 1.3 Pool spatial evidence and form a composite HRF
+
+At the single-voxel level, BOLD noise makes discrete candidate selection jittery across neighboring voxels (@fig-step1-pooling). However, averaging raw BOLD time series across a parcel before scoring HRFs can cancel signals if sub-regions carry opposite task signs. Step 1 resolves this by **pooling squared candidate evidence** (precision-weighted adjusted partial $R^2$ profiles) rather than raw time series: voxels with positive and negative task effects both produce positive $R^2$ peaks at the same vascular delay and reinforce one another cleanly.
 
 ![Voxelwise hard selection vs. parcel-pooled selection across heterogeneous voxel noise levels (`0.012` to `0.055`). Parcel pooling eliminates noisy single-voxel jumps.](figures/06-pooling.png){#fig-step1-pooling width="95%" fig-alt="HRF peak times across voxel noise SDs for voxelwise versus parcel pooling."}
 
-Under `selection_mode = "soft_average"`, compatible library candidates are combined via Boltzmann weights scaled by cross-run noise SE and shrunk toward column 1 by Empirical-Bayes departure confidence (@fig-step1-composites).
+Once pooled candidate scores are combined across training runs, Step 1 converts them into a target-run HRF waveform using two calibrated safeguards:
+
+1. **Task-evidence gating and Empirical-Bayes shrinkage:** Regions without calibrated task support across training runs (`Null` in @fig-step1-evidence and `v17` in @tbl-step1-selections) remain at the canonical reference (`fallback_prespecified`), while regions with moderate task support blend smoothly away from column 1 in proportion to departure confidence.
+2. **Soft composite averaging (`selection_mode = "soft_average"`):** Instead of snapping discontinuously to a single grid column (`"hard"`), compatible candidates near the maximum receive Boltzmann weights scaled by cross-run score uncertainty—interpolating vascular delays smoothly between discrete grid points (@fig-step1-composites).
 
 ![Generating HRFs, hard-selected library nodes, and `soft_average` composite HRFs for the `Fast` and `Slow` parcels in Run 1.](figures/07-composites.png){#fig-step1-composites width="95%" fig-alt="Comparison of generating HRF, hard node, and soft composite curves."}
 
@@ -194,16 +154,19 @@ knitr::kable(
 )
 ```
 
-### 4. Two-Pass Post-Selection $\text{AR}(p)$ Noise Refitting
+**Choice point — Spatial pooling (`pooling`) and composite rule (`selection_mode`):** Pair `selection_mode = "soft_average"` with the spatial pooling mode matched to your representation:
 
-In fMRI, task-evoked BOLD responses are smooth low-frequency waves. If noise autocorrelation is estimated under a *misspecified* canonical HRF (for instance, a $6.0\text{ s}$ filter applied to a $4.5\text{ s}$ `Fast` region), unmodeled task-timing residuals leak into the error series and bias $\hat{\rho}$ upward toward the stationarity boundary!
+- `pooling = "parcel"` (with `spatial_groups = parcel_ids`) pools uniformly within predefined ROIs or homogeneous parcels.
+- `pooling = "graph"` (with `parcel_boundary = "soft"`) on volumetric `"medusa_nifti_ts"` inputs builds a 26-connected in-mask geodesic lattice graph (`build_spatial_graph()`), pooling candidate profiles bilaterally across concordant gray-matter neighbors while stopping at sulcal CSF gaps and functional borders (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-bilateral-hrf)).
+- `pooling = "voxel"` keeps single-voxel HRF fits for task-supported voxels (using parcel fallback on low-SNR voxels when an atlas is attached).
 
-To prevent HRF mismatch from corrupting the whitener, `estimate_crossrun_hrf()` performs a **post-selection two-pass REML noise refit** on each run $r$:
+---
 
-1. Using the cross-fitted HRF $\hat{h}^{(-r)}$, `hrf_build_noise_mean_design()` constructs a rich nuisance-and-task projection subspace containing run intercept/trend, user `nuisance`, DF-adaptive $<1/128\text{ Hz}$ DCT cosines, convolved free-trial columns, and 1st/2nd condition HRF Taylor derivatives (degrading gracefully when residual degrees of freedom are tight).
-2. Within contiguous unmasked segments of `valid_rows[[r]]`, MEDuSA pools bias-corrected profile REML across group voxels (or, under `pooling = "graph"`, across a joint bilateral geodesic + $(\Delta\hat{\rho}, \Delta\log\hat{\sigma})$ kernel quantized into `max_noise_strata = 10L` strata so high-$\rho$ pial-vein rim voxels do not contaminate interior gray matter) to select $\hat{\rho} \in [-0.8, 0.9]$ and fits up to $q \le 4$ higher-order innovation-whitened Yule–Walker parameters $(\psi_1, \dots, \psi_q)$ representing $(1 - \rho B)(1 - \sum_{j=1}^q \psi_j B^j)\varepsilon_t = u_t$, followed by a second GLS pass so task projection itself uses the learned covariance.
+### 1.4 Refit run-specific $\text{AR}(p)$ noise covariance on task-adjusted residuals
 
-In our `TR = 0.65 s` simulation with true $\text{AR}(3)$ parameters $(\rho = 0.65, \psi_1 = 0.20, \psi_2 = -0.30)$, refitting noise under the cross-fitted HRF recovers virtually identical cascade parameters across `Fast`, `Slow`, and `Null` parcels (@tbl-step1-noise) and flattens true error autocorrelation across all lags (@fig-step1-noise)—whereas a misspecified fixed canonical HRF distorts the `Fast` parcel's whitener. See the [Woolrich autocorrelation assessment](woolrich_review/woolrich_noise_assessment.qmd) for a side-by-side comparison against FILM-style Tukey tapers.
+With each target run's out-of-sample HRF $\hat{h}^{(-r)}$ fixed, the final substep estimates run $r$'s own serial noise structure. Why wait until after HRF selection to estimate noise? Evoked BOLD waves evolve slowly over time; if residuals were formed under a misspecified canonical HRF (for example, applying a $6.0\text{ s}$ kernel to a $4.5\text{ s}$ `Fast` region), unmodeled task-timing mismatch would leak into the residuals and bias estimated autocorrelation upward.
+
+Using $\hat{h}^{(-r)}$, `estimate_crossrun_hrf()` projects out run intercept/trend, user `nuisance` columns, low-frequency $<1/128\text{ Hz}$ DCT drift cosines, free-trial responses, and HRF Taylor derivatives, then performs a **two-pass pooled REML fit** within contiguous unmasked segments of `valid_rows[[r]]`. Under `noise_model = "ar1"`, this fits a stationary $\text{AR}(1) \times \text{AR}(q)$ cascade $(1 - \rho B)(1 - \sum_{j=1}^q \psi_j B^j)\varepsilon_t = u_t$ ($q \le 4$ selected adaptively for multiband sampling rates). As shown in @tbl-step1-noise and @fig-step1-noise, refitting under the cross-fitted HRF recovers the true $\text{AR}(3)$ cascade ($\rho = 0.65, \psi_1 = 0.20, \psi_2 = -0.30$) accurately across `Fast`, `Slow`, and `Null` parcels and whitens residual autocorrelation across all lags.
 
 ```{r}
 #| label: tbl-step1-noise
@@ -217,34 +180,86 @@ knitr::kable(
 
 ![Mean autocorrelation of known simulation errors in Run 1 (`Fast` vs. `Null` parcels) before whitening, after whitening under a misspecified fixed canonical HRF, and after MEDuSA's post-selection $\text{AR}(p)$ refit.](figures/08-noise.png){#fig-step1-noise width="100%" fig-alt="Error autocorrelation curves comparing unwhitened, fixed-canonical-HRF whitened, and MEDuSA post-selection refit whitened errors."}
 
-### 5. Respiratory Motion Filtering for Fast-TR Censoring {#sec-respiratory-fd-filter}
+**Choice point — Serial noise model (`noise_model`):** Keep `noise_model = "ar1"` with `evidence = "calibrated"`; at fast TRs it automatically accommodates higher-order oscillatory physiological autocorrelation through $\psi_1$–$\psi_4$ while collapsing cleanly to first-order $\text{AR}(1)$ at slower TRs.
 
-At legacy single-band repetition times ($\text{TR} = 2.0\text{--}2.5\text{ s}$, Nyquist $0.20\text{--}0.25\text{ Hz}$), normal adult breathing ($12\text{--}20\text{ breaths/min} \approx 0.20\text{--}0.33\text{ Hz}$) aliases into slower frequencies across interleaved slices. In modern **fast-TR multiband fMRI** ($\text{TR} = 0.60\text{--}1.0\text{ s}$, such as HCP, ABCD, and contemporary 3T/7T cognitive tasks), rigid-body volume realignment resolves every breath directly: chest-wall expansion perturbs the main $B_0$ magnetic field along the phase-encoding axis (`trans_y`) and induces coupled apparent pitch (`rot_x`), generating continuous $0.25\text{--}0.45\text{ mm}$ step-to-step shifts in Power (2012) framewise displacement (FD) *even when the participant's head is physically still* (Fair et al., 2020; Gratton et al., 2020).
+---
 
-In MEDuSA, censoring raw fast-TR FD at a standard $0.25\text{--}0.35\text{ mm}$ cutoff triggers **three compounding failures across Steps 1–3**:
+## Recommended Settings
 
-1. **Step 1 (`estimate_crossrun_hrf`) — Segment fragmentation:** Because a $16\text{ BPM}$ ($3.75\text{ s}$) breathing wave crosses the FD threshold every $2\text{--}3\text{ TRs}$, combining spike dilation (`censor_next = 1L`) with `min_segment_length` shreds `valid_rows` into short, disconnected islands—depleting out-of-sample HRF degrees of freedom and starving the contiguous unmasked lag pairs needed to estimate higher-order $\text{AR}(p)$ parameters ($\psi_1, \dots, \psi_4$).
-2. **Step 2 (`deconvolve_crossrun_hrf`) — Loss of causal BOLD anchors vs. unmodeled $B_0$ variance:** Under `observation_mask = "fit"`, scrubbing clean breathing frames removes observation anchors from $M_{r,o} H_r s$. Conversely, simply raising `fd_threshold` to $0.60\text{ mm}$ lets genuine sub-millimeter head jerks ($0.40\text{--}0.55\text{ mm}$) and their spin-history BOLD transients slip into the inverse unfiltered!
-3. **Step 3 (`decon_epoch_regression`) — Observability drop-outs and inflated trial SEs:** When breathing scrubs $35\text{--}60\%$ of frames around task events, trial-lag readouts fail Step 3's causal BOLD observability gate (`obs_frac_tau < 0.20` $\to$ `NA`) and suffer bloated propagated `se_demixed`.
+Putting all four substeps together on preprocessed NIfTI/fMRIPrep inputs:
 
-`read_fmriprep_confounds()` (and `read_fmriprep_subject()`) resolves this tradeoff directly via **zero-phase forward-backward IIR filtering** of the 6 rigid-body realignment columns (`rot_x`, `rot_y`, `rot_z`, `trans_x`, `trans_y`, `trans_z`) prior to Power (2012) FD calculation, controlled by three design choices:
+```{r}
+#| eval: false
+#| code-fold: false
+library(medusa)
 
-- **Narrowband notch (`motion_bandstop_bpm = c(12, 20)`) vs. Butterworth low-pass (`motion_lowpass_hz = 0.20`):** `motion_bandstop_bpm` applies a zero-phase 2nd-order RBJ biquad notch (`filtfilt`, effective order 4) that excises the respiratory band while preserving broadband sharp step transitions on their original millimeter FD scale (so standard `fd_threshold = 0.30` still catches $0.45\text{ mm}$ head jerks). `motion_lowpass_hz` applies a zero-phase Butterworth low-pass filter; because low-pass smoothing also attenuates the 1-TR edge of genuine sudden jerks, pair `motion_lowpass_hz = 0.20` with a proportionally lowered cutoff (`fd_threshold = 0.15`–`0.20`, following Gratton et al., 2020).
-- **Why `motion_filter_target = "fd_only"` is the default:** Standard `fMRIPrep` BOLD time series (`*_desc-preproc_bold.nii.gz`) have *not* been temporally notch-filtered—they still contain real respiratory $B_0$ signal fluctuations. Keeping `motion_filter_target = "fd_only"` uses the filtered motion parameters **only** to compute `$framewise_displacement` and `valid_rows`, while leaving the `24p`/`36p` columns in `$nuisance` *unfiltered* so Step 1 and Step 2 (`nuisance_mode = "joint"`) project respiratory $B_0$ variance cleanly out of BOLD! Setting `"fd_and_nuisance"` on unfiltered BOLD strips the breathing frequency out of `$nuisance`, leaving respiratory $B_0$ oscillations unmodeled in the residual error.
+# 0. Stream preprocessed 4D NIfTI runs + fMRIPrep confounds & BIDS events
+#    (or call read_fmriprep_subject() to bundle BOLD, masks, confounds, and events in one call)
+ts <- read_nifti_ts(
+  niftis = c(run1 = "sub01_run1.nii.gz", run2 = "sub01_run2.nii.gz", run3 = "sub01_run3.nii.gz"),
+  mask   = "sub01_mask.nii.gz",
+  atlas  = "schaefer200.nii.gz",
+  tr     = tr
+)
+conf <- read_fmriprep_confounds(
+  c("sub01_run1_desc-confounds_timeseries.tsv",
+    "sub01_run2_desc-confounds_timeseries.tsv",
+    "sub01_run3_desc-confounds_timeseries.tsv"),
+  bold                 = ts,
+  strategy             = "24p",
+  fd_threshold         = 0.3,
+  motion_bandstop_bpm  = c(12, 20),   # optional respiratory notch for fast TRs (TR <= 1.0 s)
+  motion_filter_target = "fd_only"
+)
 
-::: {.callout-tip}
-### Nyquist Handling & `BrainGnomes` Interoperability
-When `tr` is slower (e.g., $\text{TR} = 2.0\text{ s}$, Nyquist $= 15\text{ BPM}$), `read_fmriprep_confounds()` automatically detects whether `motion_bandstop_bpm` sits inside a single higher Nyquist zone (folding to the exact aliased stopband with an informative warning) or straddles the Nyquist boundary (warning and falling back safely to unfiltered FD). When ingesting `BrainGnomes` postprocessed confounds that already contain `framewise_displacement_filtered`, `fd_col = "auto"` uses that column automatically and skips duplicate filtering.
-:::
+# 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)
+candidates <- hrf_library(tr = ts$tr, preset = "medusa")
 
-To see all five regimes side by side on the Step 1 multiband clock ($\text{TR} = 0.65\text{ s}$, 3 runs $\times$ 360 volumes, 24 RPE-modulated feedback trials per run, true observation $\sigma = 0.035$, true lag-0 RPE slope $\beta = 0.50$), `simulate_step1.R` injects realistic $\sim 16\text{ BPM}$ ($0.267\text{ Hz}$) respiratory $B_0$ pseudomotion plus two genuine posture-step head jerks per run ($0.47\text{ mm}$ at $69.6\text{ s}$ and $1.18\text{ mm}$ at $111.2\text{ s}$ in Run 1) and carries each `read_fmriprep_confounds()` output through `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf(..., nuisance_mode = "joint")`, and `decon_epoch_regression()` (@fig-step1-respiratory-fd, @fig-step1-respiratory-impact, and @tbl-step1-respiratory-fd):
+# 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise
+hrf_fit <- estimate_crossrun_hrf(
+  bold            = ts,
+  events          = events,
+  kernel_grid     = candidates,
+  nuisance        = conf,
+  pooling         = "graph",          # or "parcel" for uniform ROI pooling
+  parcel_boundary = "soft",
+  amplitude_model = "trial",
+  noise_model     = "ar1",
+  evidence        = "calibrated",
+  selection_mode  = "soft_average",
+  return_scores   = TRUE
+)
+```
 
-- **Unfiltered `FD > 0.30 mm`** scrubs **35.4%** of volumes across clean breathing cycles (Panel B of @fig-step1-respiratory-fd), wiping out **25%** of feedback trials at Step 3's observability gate and inflating lag-0 RPE slope SE by **+38%** (`0.0260` vs. `0.0188`).
-- **Raising the unfiltered cutoff to `0.60 mm`** retains clean breathing frames, *but* misses the genuine $0.47\text{ mm}$ head jerk at $69.6\text{ s}$—allowing its spin-history transient to distort the surrounding epoch (Panel C) and inflating lag-0 RPE slope SE by **+88%** (`0.0354`).
-- **Filtering both FD and nuisance (`fd_and_nuisance`)** censors only the two true head jerks (`98.8%` TRs retained), *but* leaves respiratory $B_0$ modulation unmodeled in BOLD—nearly **doubling** Step 2's estimated `noise_sd` (`0.0676` vs. `0.0350` truth) and **doubling** Step 3's propagated per-trial `se_demixed` (`0.167` vs. `0.084`).
-- **Zero-phase notch (`12–20 BPM`, `> 0.30 mm`, `fd_only`)** and **Butterworth low-pass (`0.20 Hz`, `> 0.15 mm`, `fd_only`)** both suppress breathing pseudomotion while censoring both true head jerks—retaining **98–99%** of volumes and **100%** of trials, recovering true observation noise (`0.0356`), and achieving the tightest downstream slope precision.
+| Argument | Recommended | Package Default | Summary of Role & When to Adjust |
+|---|---|---|---|
+| `hrf_library(..., preset)` | `"medusa"` | `"custom"` (3 × 3 grid) | Spans fast subcortical through slow cortical shapes with positive-lobe normalization (`Substep 1.1`). Use `"canonical_27"` when restricting to fixed-undershoot cortical delays. |
+| `amplitude_model` | `"trial"` (modulated tasks) or `"condition"` | `"condition"` | `"trial"` captures zero-mean signed modulation during HRF scoring (`Substep 1.2`); `"condition"` is faster when events share a consistent sign. |
+| `pooling` & `spatial_groups` | `"graph"` (`parcel_boundary = "soft"`) for NIfTIs; `"parcel"` for homogeneous ROIs | `"voxel"`, `NULL` | `"graph"` pools HRF and REML noise bilaterally along the in-mask cortical ribbon while respecting sulci and functional borders (`Substep 1.3`); `"parcel"` pools uniformly within nominal parcels. |
+| `selection_mode` | `"soft_average"` | `"hard"` | Blends compatible candidates smoothly and shrinks weak-SNR regions toward column 1 (`Substep 1.3`). |
+| `noise_model` & `evidence` | `"ar1"` & `"calibrated"` | `"ar1"` & `"calibrated"` | Fits the two-pass post-selection $\text{AR}(1) \times \text{AR}(q)$ cascade (`Substep 1.4`) with calibrated $F$-test gating. |
+| `motion_bandstop_bpm` (in `read_fmriprep_confounds`) | `c(12, 20)` (`"fd_only"`) when $\text{TR} \lesssim 1.0\text{ s}$ | `NULL` | Suppresses respiratory chest-wall pseudomotion in fast-TR FD censoring while keeping unfiltered `24p` nuisance regressors (`see below`). Leave `NULL` at slower TRs ($\text{TR} \ge 2.0\text{ s}$). |
 
-![Fast-TR ($\text{TR} = 0.65\text{ s}$) respiratory motion filtering in Run 1 (`48–122 s`): (A) Unfiltered Power FD vs. zero-phase Butterworth low-pass (`0.20 Hz`) and RBJ notch (`12–20 BPM`) FD across continuous $\sim 16\text{ BPM}$ breathing and two genuine head jerks; (B) resulting clock-preserving `valid_rows` masks; (C) Step 2 recovered parcel activity showing spin-history distortion when the $0.47\text{ mm}$ jerk slips under a raised `0.60 mm` cutoff and $B_0$ leakage under `fd_and_nuisance`.](figures/10-respiratory-fd.png){#fig-step1-respiratory-fd width="100%" fig-alt="Three-panel plot comparing unfiltered, low-pass, and notch-filtered FD, resulting valid_rows masks, and Step 2 deconvolved parcel activity."}
+---
+
+## Practical Considerations, Special Regimes, and Diagnostics
+
+### Single-run sessions and resting/baseline runs
+
+When a participant has only a **single task run** (`length(bold) == 1L`), `estimate_crossrun_hrf()` automatically partitions usable observations into contiguous temporal sub-blocks (3 blocks when $n_{\text{valid}} \ge 120$, 2 halves when $40 \le n_{\text{valid}} < 120$), scores candidates on each sub-block against the full causal event design, checks cross-block compatibility, and returns a single continuous HRF for the intact run. Runs with zero task events (such as resting-state scans) are also accepted and receive the canonical reference HRF alongside pure-nuisance $\text{AR}(p)$ noise estimates.
+
+### Respiratory motion filtering for fast-TR censoring {#sec-respiratory-fd-filter}
+
+In fast-TR multiband acquisitions ($\text{TR} = 0.60\text{--}1.0\text{ s}$), volume realignment resolves normal breathing ($12\text{--}20\text{ breaths/min} \approx 0.20\text{--}0.33\text{ Hz}$): chest-wall motion perturbs the $B_0$ field along the phase-encoding axis and produces rhythmic $0.25\text{--}0.45\text{ mm}$ fluctuations in raw Power (2012) framewise displacement (FD) even when the head is still (Fair et al., 2020; Gratton et al., 2020). Censoring raw fast-TR FD at $0.30\text{ mm}$ can fragment `valid_rows` into short islands and reduce downstream trial retention, whereas simply raising `fd_threshold` to $0.60\text{ mm}$ misses genuine sub-millimeter head jerks.
+
+`read_fmriprep_confounds()` (and `read_fmriprep_subject()`) addresses this cleanly by applying **zero-phase forward-backward IIR filtering** to the 6 rigid-body realignment parameters before computing FD:
+
+- **Choice of filter:** `motion_bandstop_bpm = c(12, 20)` applies a narrowband 2nd-order RBJ biquad notch (`filtfilt`) that removes the breathing band while preserving sharp step displacements on their original millimeter FD scale (pair with standard `fd_threshold = 0.30`). Alternatively, `motion_lowpass_hz = 0.20` applies a Butterworth low-pass filter (pair with a proportionally lower `fd_threshold = 0.15`–`0.20`, following Gratton et al., 2020).
+- **Keeping nuisance regressors unfiltered (`motion_filter_target = "fd_only"`):** Because standard fMRIPrep BOLD volumes retain real respiratory $B_0$ signal fluctuations, `"fd_only"` filters motion only for FD censoring while keeping unfiltered `24p`/`36p` regressors in `$nuisance` so Steps 1–2 project respiratory $B_0$ variance out of BOLD. (At slower TRs near the Nyquist boundary or on `BrainGnomes` files that already carry `framewise_displacement_filtered`, `read_fmriprep_confounds()` adapts or reuses filtered FD automatically.)
+
+@fig-step1-respiratory-fd, @fig-step1-respiratory-impact, and @tbl-step1-respiratory-fd compare these options on the Step 1 multiband schedule ($\text{TR} = 0.65\text{ s}$, $\sim 16\text{ BPM}$ breathing plus two true head jerks of $0.47\text{ mm}$ and $1.18\text{ mm}$ in Run 1): both `motion_bandstop_bpm = c(12, 20)` and `motion_lowpass_hz = 0.20` with `motion_filter_target = "fd_only"` retain 98–99% of volumes and 100% of trials while censoring both true head jerks and recovering the true `0.035` observation noise SD.
+
+![Fast-TR ($\text{TR} = 0.65\text{ s}$) respiratory motion filtering in Run 1 (`48–122 s`): (A) Unfiltered Power FD vs. zero-phase Butterworth low-pass (`0.20 Hz`) and RBJ notch (`12–20 BPM`) FD across continuous $\sim 16\text{ BPM}$ breathing and two genuine head jerks; (B) resulting clock-preserving `valid_rows` masks; (C) Step 2 recovered parcel activity across censoring regimes.](figures/10-respiratory-fd.png){#fig-step1-respiratory-fd width="100%" fig-alt="Three-panel plot comparing unfiltered, low-pass, and notch-filtered FD, resulting valid_rows masks, and Step 2 deconvolved parcel activity."}
 
 ![End-to-end Steps 1–3 pipeline impact across the five fast-TR censoring regimes (`respiratory_fd_metrics.csv`): retained acquisition volumes, Step 2 observation `noise_sd` recovery against generating truth (`0.035`), Step 3 trial retention after causal BOLD observability gating, and Step 3 lag-0 RPE slope standard error.](figures/11-respiratory-pipeline-impact.png){#fig-step1-respiratory-impact width="100%" fig-alt="Four-panel dot-and-stem chart comparing retained volumes, estimated noise_sd, retained trials, and lag-0 RPE slope SE across five FD censoring regimes."}
 
@@ -259,22 +274,22 @@ knitr::kable(
 )
 ```
 
----
+### Diagnostic checklist and scope handoff to Step 2
 
-## Diagnostic Checklist Before Proceeding to Step 2
+Before passing `hrf_fit` to `deconvolve_crossrun_hrf()` ([Step 2](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)):
 
-1. **Verify target-run exclusion:** Check `hrf_fit$training_runs` to confirm every run's HRF was trained strictly on $s \neq r$ (or sub-block cross-fit if $R = 1$) and inspect `hrf_fit$signal_status` for dropped or zero-event runs.
-2. **Inspect realized composite waveforms, not just `kernel_index`:** Plot `hrf_fit$selected_kernels` for key parcels to check physiological plausibility and fallback rates (`status == "fallback_prespecified"`).
-3. **Audit `hrf_fit$noise`:** Check for widespread boundary hits (`rho == 0.90` or `-0.80`), which usually signal unmodeled drift, motion spikes, or unrecorded task events missing from `events` or `nuisance`.
-4. **Compare raw vs. filtered FD at fast multiband TRs ($\text{TR} \lesssim 1.0\text{ s}$):** Inspect `conf$summary` (`pct_censored`, `mean_fd`, `motion_filtered`) and plot `conf$framewise_displacement_raw[[r]]` against `conf$framewise_displacement[[r]]` to verify that rhythmic chest-wall $B_0$ oscillations are not over-censoring clean volumes while genuine head jerks remain masked.
+1. **Check cross-fitting provenance:** Confirm `hrf_fit$training_runs` lists non-target runs $s \neq r$ and review `hrf_fit$signal_status`.
+2. **Plot realized waveforms (`hrf_fit$selected_kernels`):** Under `soft_average`, `selections$kernel_index` identifies only the top-weight library column, whereas `selected_kernels` shows the actual composite HRF used in Step 2.
+3. **Check `hrf_fit$noise` for stationarity boundary hits:** Widespread $\hat{\rho} = 0.90$ estimates typically point to unmodeled scanner drift, uncensored motion spikes, or omitted task events.
+4. **Scope boundary:** Step 1 estimates the forward neurovascular filter and serial noise structure without modifying `bold` or evaluating behavioral trial hypotheses; continuous latent signal reconstruction begins in Step 2.
 
 <details>
-<summary>Mathematical Details & Edge-Case Rules</summary>
+<summary>Mathematical Details & Reproduction</summary>
 
 - **Cross-fitted evidence pooling:** For candidate $m$ on training run $s \neq r$, whitened nuisance-orthogonalized BOLD $y_{s,\perp}$ is regressed onto whitened candidate design $X_{s,m,\perp}$ (rank $d_{s,m}$ over $n_s$ valid rows), yielding adjusted partial $R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{n_s - p_Z}{n_s - p_Z - d_{s,m}}$. Across training runs, scores are weighted by effective degrees of freedom and checked for sign/peak compatibility (`stability`).
 - **Soft-average shrinkage:** Compatible candidates within `score_margin` receive Boltzmann weights $w_m \propto \exp(\Delta R^2_m / \tau_{\text{SE}})$ blended with column 1 (`(1 - \eta) e_1 + \eta w`), where Empirical-Bayes shrinkage $\eta \in [0, 1]$ approaches 0 as calibrated task $F$-statistics weaken toward the `evidence_alpha` threshold.
-- **Exact gapped covariance:** When `valid_rows[[r]]` masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2's whitener $W_r$ inverts the exact stationary Toeplitz submatrix $\Sigma_{\text{AR}}[I_r, I_r]$ on retained timestamps $I_r$ so multi-TR scrub gaps decay correlation by $\gamma(|t_a - t_b|)$ rather than treating across-gap neighbors as 1 TR apart.
-- **Zero-phase respiratory IIR filtering:** For sampling rate $f_s = 1/\text{TR}$ and stopband $[f_1, f_2] = \text{BPM}/60$ ($f_0 = (f_1 + f_2)/2$, $\Delta f = f_2 - f_1$, $Q = f_0/\Delta f$, $\omega_0 = 2\pi f_0/f_s$, $\alpha = \sin\omega_0/(2Q)$), `read_fmriprep_confounds()` designs the exact RBJ biquad notch transfer function $H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}$ (or bilinear-warped Butterworth poles for `motion_lowpass_hz`) and applies forward-backward Direct Form II Transposed filtering (`filtfilt`) with steady-state companion-matrix initial conditions (`zi`) and boundary reflection padding (`motion_filter_pad = "constant"`) to all 6 realignment parameters before computing $\text{FD}_t = \sum_{d \in \{x,y,z\}} |\Delta \text{trans}_{d,t}| + R_{\text{head}} \sum_{d \in \{x,y,z\}} |\Delta \text{rot}_{d,t}|$.
+- **Exact gapped covariance:** When `valid_rows[[r]]` masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2's whitener $W_r$ inverts the exact stationary Toeplitz submatrix $\Sigma_{\text{AR}}[I_r, I_r]$ on retained timestamps $I_r$ so multi-TR scrub gaps decay correlation by $\gamma(|t_a - t_b|)$.
+- **Zero-phase respiratory IIR filtering:** For sampling rate $f_s = 1/\text{TR}$ and stopband $[f_1, f_2] = \text{BPM}/60$ ($f_0 = (f_1 + f_2)/2$, $\Delta f = f_2 - f_1$, $Q = f_0/\Delta f$, $\omega_0 = 2\pi f_0/f_s$, $\alpha = \sin\omega_0/(2Q)$), `read_fmriprep_confounds()` designs the RBJ biquad notch transfer function $H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}$ (or bilinear-warped Butterworth poles for `motion_lowpass_hz`) and applies forward-backward Direct Form II Transposed filtering (`filtfilt`) with steady-state initial conditions and reflection padding to all 6 realignment parameters before computing Power (2012) FD.
 
 [Step 1 simulation script](simulate_step1.R) · [Figure script](figures_step1.R) · [Selection table](selections.csv) · [Noise table](noise.csv) · [Respiratory FD table](respiratory_fd_metrics.csv)
 
