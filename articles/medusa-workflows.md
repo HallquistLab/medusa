@@ -936,12 +936,14 @@ conf <- read_fmriprep_confounds(
   strategy = "24p",
   fd_threshold = 0.5
 )
-# Or discover BOLD, per-run brain masks, confounds, and BIDS events in one step
-# (for BrainGnomes postprocessed streams, pass `desc = "postproc"` to ingest
-# `*_censor.1D`, `*_templatemask.nii.gz`, and derivative provenance guards automatically):
+# Or discover BOLD, per-run brain masks, confounds, optional fMRIPost-AROMA
+# non-aggressive denoising, and BIDS events in one step (for BrainGnomes
+# postprocessed streams, pass `desc = "postproc"` to ingest `*_censor.1D`,
+# `*_templatemask.nii.gz`, and derivative provenance guards automatically):
 # ts <- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",
 #                             bids_dir = "/study/bids", task = "mid",
-#                             atlas = atlas_path, strategy = "24p", fd_threshold = 0.5)
+#                             aroma = "nonaggressive", strategy = "csf_wm",
+#                             atlas = atlas_path, fd_threshold = 0.5)
 
 # Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both
 # finite nuisance regressors and clock-preserving `valid_rows`; when `ts` comes
@@ -987,13 +989,25 @@ or
 [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
 to apply zero-phase filtering to the 6 rigid-body motion parameters
 before Power (2012) FD censoring while keeping unfiltered nuisance
-regressors (`motion_filter_target = "fd_only"`). When ingesting
-`BrainGnomes` postprocessed derivatives (`desc = "postproc"`),
+regressors (`motion_filter_target = "fd_only"`). When `fMRIPost-AROMA`
+(`*_desc-melodic_mixing.tsv` + `*_desc-aroma_metrics.tsv`) or legacy
+fMRIPrep (`*_desc-MELODIC_mixing.tsv` + `*_AROMAnoiseICs.csv`) outputs
+are available,
+`read_fmriprep_subject(..., aroma = "nonaggressive", strategy = "csf_wm")`
+(or modular
+[`read_fmriprep_aroma()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md) +
+[`apply_aroma()`](https://hallquistlab.github.io/medusa/reference/apply_aroma.md))
+performs in-memory Pruim et al. (2015) partial regression across the
+full MELODIC mixing matrix—retaining shared task-evoked neural variance
+while projecting the identical AROMA operator out of selected nuisance
+regressors (`aroma_clean_nuisance = TRUE`; Lindquist et al., 2019). When
+ingesting `BrainGnomes` postprocessed derivatives (`desc = "postproc"`),
 [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
 inspects `<bold>.json` provenance to reject physically scrubbed
-(`scrub_timepoints`) volumes that would break the acquisition clock and
-defaults `strategy = "none"` when `confound_regression` has already been
-applied upstream. Check the acquisition TR (`ts$tr` or sequence
+(`scrub_timepoints`) volumes that would break the acquisition clock,
+skips duplicate AROMA denoising when `apply_aroma` already ran upstream,
+and defaults `strategy = "none"` when `confound_regression` has already
+been applied upstream. Check the acquisition TR (`ts$tr` or sequence
 metadata) and all event clocks before fitting. When `spatial_fwhm` is
 requested in `estimate_crossrun_hrf(ts, ...)`, world coordinates
 `ts$voxel_map[, c("x", "y", "z")]` are supplied automatically. Chunking

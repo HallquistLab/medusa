@@ -76,8 +76,8 @@ all rows.</p>
 <span>  <span class="va">confounds</span>,</span>
 <span>  bold <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  run_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  strategy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"24p"</span>, <span class="st">"6p"</span>, <span class="st">"12p"</span>, <span class="st">"24p_csf_wm"</span>, <span class="st">"27p"</span>, <span class="st">"36p"</span>, <span class="st">"compcor"</span>, <span class="st">"custom"</span>,</span>
-<span>    <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  strategy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"24p"</span>, <span class="st">"6p"</span>, <span class="st">"12p"</span>, <span class="st">"csf_wm"</span>, <span class="st">"csf_wm_8p"</span>, <span class="st">"24p_csf_wm"</span>, <span class="st">"27p"</span>, <span class="st">"36p"</span>,</span>
+<span>    <span class="st">"compcor"</span>, <span class="st">"custom"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  columns <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  column_pattern <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_compcor <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -107,6 +107,9 @@ all rows.</p>
 <span>  center <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  scale <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  drop_constant <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  aroma <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  aroma_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"nonaggressive"</span>, <span class="st">"aggressive"</span><span class="op">)</span>,</span>
+<span>  aroma_fit_valid <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  na_strings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"n/a"</span>, <span class="st">"N/A"</span>, <span class="st">"NA"</span>, <span class="st">"."</span>, <span class="st">"NaN"</span>, <span class="st">""</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -141,6 +144,11 @@ verify exact volume counts (<code>nrow(confounds) == nrow(bold)</code>).</p></dd
     their temporal derivatives, and quadratic terms (Friston 24-parameter model).</p></li>
 <li><p><code>"12p"</code>: 6 motion parameters + 6 temporal derivatives.</p></li>
 <li><p><code>"6p"</code>: 6 rigid-body motion parameters.</p></li>
+<li><p><code>"csf_wm"</code>: mean <code>csf</code> and <code>white_matter</code> physiological
+    signals (2p model; recommended alongside non-aggressive ICA-AROMA per
+    Pruim et al., 2015 and Parkes et al., 2018).</p></li>
+<li><p><code>"csf_wm_8p"</code>: <code>csf</code> and <code>white_matter</code> with their
+    temporal derivatives and quadratic terms (8p physiological model).</p></li>
 <li><p><code>"24p_csf_wm"</code>: <code>"24p"</code> + <code>csf</code> and <code>white_matter</code>
     with their derivatives and quadratic terms (32p physiological model without GSR).</p></li>
 <li><p><code>"27p"</code>: <code>"24p"</code> + mean <code>csf</code>, <code>white_matter</code>,
@@ -158,9 +166,10 @@ verify exact volume counts (<code>nrow(confounds) == nrow(bold)</code>).</p></dd
 <dt id="arg-columns">columns<a class="anchor" aria-label="anchor" href="#arg-columns"></a></dt>
 <dd><p>Optional character vector of explicit confound column names,
 shorthand sets (<code>"6p"</code>, <code>"12p"</code>, <code>"24p"</code>, <code>"27p"</code>,
-<code>"36p"</code>), or zero-padded index range specifications such as
-<code>"a_comp_cor_&lt;0-4&gt;"</code> or <code>"cosine&lt;0,2-3&gt;"</code> (in addition to
-<code>strategy</code>, or exact set when <code>strategy = "custom"</code>).</p></dd>
+<code>"csf_wm"</code>, <code>"csf_wm_8p"</code>, <code>"36p"</code>), or zero-padded index
+range specifications such as <code>"a_comp_cor_&lt;0-4&gt;"</code> or
+<code>"cosine&lt;0,2-3&gt;"</code> (in addition to <code>strategy</code>, or exact set when
+<code>strategy = "custom"</code>).</p></dd>
 
 
 <dt id="arg-column-pattern">column_pattern<a class="anchor" aria-label="anchor" href="#arg-column-pattern"></a></dt>
@@ -347,6 +356,30 @@ on <code>valid_rows</code>. Default <code>FALSE</code>.</p></dd>
 near-zero variance on <code>valid_rows</code> (such as all-zero outlier columns).</p></dd>
 
 
+<dt id="arg-aroma">aroma<a class="anchor" aria-label="anchor" href="#arg-aroma"></a></dt>
+<dd><p>Optional <code>"medusa_aroma"</code> object from
+<code><a href="read_fmriprep_aroma.html">read_fmriprep_aroma</a></code>. When supplied, applies the matching
+ICA-AROMA projection (<code>aroma_mode</code>) to selected nuisance columns prior
+to final centering and censoring sanitization so subsequent joint nuisance
+regression in <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code> and
+<code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code> cannot re-introduce AROMA motion
+variance into AROMA-denoised BOLD (Lindquist et al., 2019). Framewise
+displacement and <code>valid_rows</code> remain strictly derived from physical
+(or respiratory-filtered) head-motion parameters.</p></dd>
+
+
+<dt id="arg-aroma-mode">aroma_mode<a class="anchor" aria-label="anchor" href="#arg-aroma-mode"></a></dt>
+<dd><p>AROMA regression mode when <code>aroma</code> is supplied:
+<code>"nonaggressive"</code> (default; Pruim et al., 2015 partial regression) or
+<code>"aggressive"</code>.</p></dd>
+
+
+<dt id="arg-aroma-fit-valid">aroma_fit_valid<a class="anchor" aria-label="anchor" href="#arg-aroma-fit-valid"></a></dt>
+<dd><p>Logical; if <code>TRUE</code>, estimates AROMA component
+weights on uncensored <code>valid_rows</code> only rather than full MELODIC run
+timecourses (<code>FALSE</code>, default).</p></dd>
+
+
 <dt id="arg-na-strings">na_strings<a class="anchor" aria-label="anchor" href="#arg-na-strings"></a></dt>
 <dd><p>Character vector of missing-value tokens passed to
 <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread</a></code>. Default <code>c("n/a", "N/A", "NA", ".", "NaN", "")</code>.</p></dd>
@@ -376,6 +409,7 @@ near-zero variance on <code>valid_rows</code> (such as all-zero outlier columns)
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="read_bids_events.html">read_bids_events</a></code>, <code><a href="read_fmriprep_subject.html">read_fmriprep_subject</a></code>,
+  <code><a href="read_fmriprep_aroma.html">read_fmriprep_aroma</a></code>, <code><a href="apply_aroma.html">apply_aroma</a></code>,
   <code><a href="read_nifti_ts.html">read_nifti_ts</a></code>, <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code></p></div>
     </div>
 
@@ -402,13 +436,13 @@ near-zero variance on <code>valid_rows</code> (such as all-zero outlier columns)
 <span class="r-out co"><span class="r-pr">#&gt;</span>    run</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 run1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                file</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 /tmp/Rtmpi4KgsZ/sub-01_task-mid_run-01_1a7a751c42a8_desc-confounds_timeseries.tsv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 /tmp/RtmpPoj5zU/sub-01_task-mid_run-01_19ea42a977f5_desc-confounds_timeseries.tsv</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_volumes n_valid n_censored pct_censored n_fd_outliers n_dvars_outliers</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1         5       3          2           40             1                0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_non_steady_state n_external_censor mean_fd max_fd motion_filtered</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                  1                 0  0.2925   0.92           FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_nuisance_cols</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1              11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   aroma_cleaned n_nuisance_cols</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         FALSE              11</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">f_conf</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

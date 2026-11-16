@@ -5,7 +5,8 @@ runs (`*_desc-preproc_bold.nii.gz` or `*_desc-<desc>_bold.nii.gz`),
 brain or template masks (`*_desc-brain_mask.nii.gz`,
 `*_templatemask.nii.gz`), confound tables
 (`*_desc-confounds_timeseries.tsv`, `*_desc-<desc>_confounds.tsv`),
-optional `*_censor.1D` masks, and optional BIDS event tables
+optional `fMRIPost-AROMA` / legacy ICA-AROMA mixing and classification
+sidecars, optional `*_censor.1D` masks, and optional BIDS event tables
 (`*_events.tsv`), returning a `"medusa_nifti_ts"` object populated with
 C++-extracted `T x V` `$bold` matrices, `$voxel_map`, `$parcel_ids`,
 `$tr`, `$nuisance`, `$valid_rows`, `$confounds`, and `$events` in locked
@@ -41,8 +42,12 @@ read_fmriprep_subject(
   default_condition = NULL,
   exclude_conditions = NULL,
   na_duration = 0,
-  strategy = c("24p", "6p", "12p", "24p_csf_wm", "27p", "36p", "compcor", "custom",
-    "none"),
+  aroma = "none",
+  aroma_dir = NULL,
+  aroma_clean_nuisance = TRUE,
+  aroma_fit_valid = FALSE,
+  strategy = c("24p", "6p", "12p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "27p", "36p",
+    "compcor", "custom", "none"),
   columns = NULL,
   column_pattern = NULL,
   n_compcor = NULL,
@@ -173,15 +178,69 @@ read_fmriprep_subject(
   Event normalization options forwarded to
   [`read_bids_events`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md).
 
+- aroma:
+
+  ICA-AROMA denoising policy applied in memory during ingestion:
+
+  - `"none"` (default): no AROMA projection applied.
+
+  - `"nonaggressive"`: discovers `fMRIPost-AROMA`
+    (`*_desc-melodic_mixing.tsv` + `*_desc-aroma_metrics.tsv`) or legacy
+    fMRIPrep `<= 23.0` (`*_desc-MELODIC_mixing.tsv` +
+    `*_AROMAnoiseICs.csv`) sidecars and applies Pruim et al. (2015)
+    non-aggressive partial regression to `$bold` (and selected
+    `$nuisance` columns when `aroma_clean_nuisance = TRUE`).
+
+  - `"auto"`: applies `"nonaggressive"` AROMA when matching AROMA
+    sidecars exist for all runs and skips silently otherwise.
+
+  - `"aggressive"`: applies full orthogonal removal of rejected AROMA
+    components without protecting accepted signal components.
+
+  - A pre-constructed `"medusa_aroma"` object from
+    [`read_fmriprep_aroma`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md)
+    (applied non-aggressively).
+
+  When `BrainGnomes` provenance indicates `apply_aroma` was already
+  executed upstream on the BOLD derivative, duplicate AROMA regression
+  on `$bold` is skipped automatically.
+
+- aroma_dir:
+
+  Optional path to an `fMRIPost-AROMA` derivatives root (or subject
+  directory). When `NULL`, `read_fmriprep_subject()` searches
+  `fmriprep_dir`, `BrainGnomes` provenance `SourceFiles`, and sibling
+  `fmripost_aroma` / `fmripost-aroma` / `aroma` derivative directories
+  automatically.
+
+- aroma_clean_nuisance:
+
+  Logical; if `TRUE` (default), applies the identical AROMA projection
+  operator to selected `$nuisance` columns so downstream joint
+  regression in
+  [`estimate_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
+  and
+  [`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  cannot re-introduce removed AROMA motion variance (Lindquist et al.,
+  2019).
+
+- aroma_fit_valid:
+
+  Logical; if `TRUE`, estimates AROMA component weights using uncensored
+  `valid_rows` only rather than full MELODIC timecourses (`FALSE`,
+  default).
+
 - strategy, columns, column_pattern, n_compcor, compcor_type,
   include_cosines:
 
   Nuisance selection options forwarded to
-  [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md).
-  When `BrainGnomes` provenance indicates `confound_regression` was
-  already applied to the BOLD derivative and `strategy` is not
-  explicitly specified, `strategy` defaults automatically to `"none"` to
-  avoid double-regressing unfiltered confounds.
+  [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
+  (including `"csf_wm"` and `"csf_wm_8p"` for pairing physiological
+  regressors with `aroma = "nonaggressive"`). When `BrainGnomes`
+  provenance indicates `confound_regression` was already applied to the
+  BOLD derivative and `strategy` is not explicitly specified, `strategy`
+  defaults automatically to `"none"` to avoid double-regressing
+  unfiltered confounds.
 
 - censor:
 
@@ -215,13 +274,16 @@ read_fmriprep_subject(
 ## Value
 
 An S3 object of class `"medusa_nifti_ts"` enriched with `$nuisance`,
-`$valid_rows`, `$confounds` (`"medusa_confounds"`), `$events` (when
-discovered/supplied), and `$bids` provenance metadata.
+`$valid_rows`, `$confounds` (`"medusa_confounds"`), `$aroma` (when AROMA
+is applied), `$events` (when discovered/supplied), and `$bids`
+provenance metadata.
 
 ## See also
 
 [`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
 [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+[`read_fmriprep_aroma`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md),
+[`apply_aroma`](https://hallquistlab.github.io/medusa/reference/apply_aroma.md),
 [`read_bids_events`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md),
 [`estimate_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md),
 [`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)

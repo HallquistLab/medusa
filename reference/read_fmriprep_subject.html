@@ -4,7 +4,8 @@ runs (*_desc-preproc_bold.nii.gz or *_desc-&amp;lt;desc&amp;gt;_bold.nii.gz),
 brain or template masks (*_desc-brain_mask.nii.gz,
 *_templatemask.nii.gz), confound tables
 (*_desc-confounds_timeseries.tsv, *_desc-&amp;lt;desc&amp;gt;_confounds.tsv),
-optional *_censor.1D masks, and optional BIDS event tables
+optional fMRIPost-AROMA / legacy ICA-AROMA mixing and classification
+sidecars, optional *_censor.1D masks, and optional BIDS event tables
 (*_events.tsv), returning a &quot;medusa_nifti_ts&quot; object populated
 with C++-extracted T x V $bold matrices, $voxel_map,
 $parcel_ids, $tr, $nuisance, $valid_rows,
@@ -15,7 +16,8 @@ runs (*_desc-preproc_bold.nii.gz or *_desc-&amp;lt;desc&amp;gt;_bold.nii.gz),
 brain or template masks (*_desc-brain_mask.nii.gz,
 *_templatemask.nii.gz), confound tables
 (*_desc-confounds_timeseries.tsv, *_desc-&amp;lt;desc&amp;gt;_confounds.tsv),
-optional *_censor.1D masks, and optional BIDS event tables
+optional fMRIPost-AROMA / legacy ICA-AROMA mixing and classification
+sidecars, optional *_censor.1D masks, and optional BIDS event tables
 (*_events.tsv), returning a &quot;medusa_nifti_ts&quot; object populated
 with C++-extracted T x V $bold matrices, $voxel_map,
 $parcel_ids, $tr, $nuisance, $valid_rows,
@@ -67,7 +69,8 @@ runs (<code>*_desc-preproc_bold.nii.gz</code> or <code>*_desc-&lt;desc&gt;_bold.
 brain or template masks (<code>*_desc-brain_mask.nii.gz</code>,
 <code>*_templatemask.nii.gz</code>), confound tables
 (<code>*_desc-confounds_timeseries.tsv</code>, <code>*_desc-&lt;desc&gt;_confounds.tsv</code>),
-optional <code>*_censor.1D</code> masks, and optional BIDS event tables
+optional <code>fMRIPost-AROMA</code> / legacy ICA-AROMA mixing and classification
+sidecars, optional <code>*_censor.1D</code> masks, and optional BIDS event tables
 (<code>*_events.tsv</code>), returning a <code>"medusa_nifti_ts"</code> object populated
 with C++-extracted <code>T x V</code> <code>$bold</code> matrices, <code>$voxel_map</code>,
 <code>$parcel_ids</code>, <code>$tr</code>, <code>$nuisance</code>, <code>$valid_rows</code>,
@@ -102,8 +105,12 @@ directly into <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</
 <span>  default_condition <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  exclude_conditions <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  na_duration <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  strategy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"24p"</span>, <span class="st">"6p"</span>, <span class="st">"12p"</span>, <span class="st">"24p_csf_wm"</span>, <span class="st">"27p"</span>, <span class="st">"36p"</span>, <span class="st">"compcor"</span>, <span class="st">"custom"</span>,</span>
-<span>    <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  aroma <span class="op">=</span> <span class="st">"none"</span>,</span>
+<span>  aroma_dir <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  aroma_clean_nuisance <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  aroma_fit_valid <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  strategy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"24p"</span>, <span class="st">"6p"</span>, <span class="st">"12p"</span>, <span class="st">"csf_wm"</span>, <span class="st">"csf_wm_8p"</span>, <span class="st">"24p_csf_wm"</span>, <span class="st">"27p"</span>, <span class="st">"36p"</span>,</span>
+<span>    <span class="st">"compcor"</span>, <span class="st">"custom"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  columns <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  column_pattern <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_compcor <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -237,11 +244,54 @@ or <code>NULL</code> to skip event ingestion (e.g., resting-state).</p></dd>
 <dd><p>Event normalization options forwarded to <code><a href="read_bids_events.html">read_bids_events</a></code>.</p></dd>
 
 
+<dt id="arg-aroma">aroma<a class="anchor" aria-label="anchor" href="#arg-aroma"></a></dt>
+<dd><p>ICA-AROMA denoising policy applied in memory during ingestion:</p><ul><li><p><code>"none"</code> (default): no AROMA projection applied.</p></li>
+<li><p><code>"nonaggressive"</code>: discovers <code>fMRIPost-AROMA</code>
+    (<code>*_desc-melodic_mixing.tsv</code> + <code>*_desc-aroma_metrics.tsv</code>) or
+    legacy fMRIPrep <code>&lt;= 23.0</code> (<code>*_desc-MELODIC_mixing.tsv</code> +
+    <code>*_AROMAnoiseICs.csv</code>) sidecars and applies Pruim et al. (2015)
+    non-aggressive partial regression to <code>$bold</code> (and selected
+    <code>$nuisance</code> columns when <code>aroma_clean_nuisance = TRUE</code>).</p></li>
+<li><p><code>"auto"</code>: applies <code>"nonaggressive"</code> AROMA when matching
+    AROMA sidecars exist for all runs and skips silently otherwise.</p></li>
+<li><p><code>"aggressive"</code>: applies full orthogonal removal of rejected
+    AROMA components without protecting accepted signal components.</p></li>
+<li><p>A pre-constructed <code>"medusa_aroma"</code> object from
+    <code><a href="read_fmriprep_aroma.html">read_fmriprep_aroma</a></code> (applied non-aggressively).</p></li>
+</ul><p>When <code>BrainGnomes</code> provenance indicates <code>apply_aroma</code> was already
+executed upstream on the BOLD derivative, duplicate AROMA regression on
+<code>$bold</code> is skipped automatically.</p></dd>
+
+
+<dt id="arg-aroma-dir">aroma_dir<a class="anchor" aria-label="anchor" href="#arg-aroma-dir"></a></dt>
+<dd><p>Optional path to an <code>fMRIPost-AROMA</code> derivatives root
+(or subject directory). When <code>NULL</code>, <code>read_fmriprep_subject()</code>
+searches <code>fmriprep_dir</code>, <code>BrainGnomes</code> provenance
+<code>SourceFiles</code>, and sibling <code>fmripost_aroma</code> /
+<code>fmripost-aroma</code> / <code>aroma</code> derivative directories automatically.</p></dd>
+
+
+<dt id="arg-aroma-clean-nuisance">aroma_clean_nuisance<a class="anchor" aria-label="anchor" href="#arg-aroma-clean-nuisance"></a></dt>
+<dd><p>Logical; if <code>TRUE</code> (default), applies the
+identical AROMA projection operator to selected <code>$nuisance</code> columns so
+downstream joint regression in <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code> and
+<code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code> cannot re-introduce removed AROMA
+motion variance (Lindquist et al., 2019).</p></dd>
+
+
+<dt id="arg-aroma-fit-valid">aroma_fit_valid<a class="anchor" aria-label="anchor" href="#arg-aroma-fit-valid"></a></dt>
+<dd><p>Logical; if <code>TRUE</code>, estimates AROMA component
+weights using uncensored <code>valid_rows</code> only rather than full MELODIC
+timecourses (<code>FALSE</code>, default).</p></dd>
+
+
 <dt id="arg-strategy-columns-column-pattern-n-compcor-compcor-type-include-cosines">strategy, columns, column_pattern, n_compcor, compcor_type, include_cosines<a class="anchor" aria-label="anchor" href="#arg-strategy-columns-column-pattern-n-compcor-compcor-type-include-cosines"></a></dt>
-<dd><p>Nuisance selection options forwarded to <code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>.
-When <code>BrainGnomes</code> provenance indicates <code>confound_regression</code> was
-already applied to the BOLD derivative and <code>strategy</code> is not explicitly
-specified, <code>strategy</code> defaults automatically to <code>"none"</code> to avoid
+<dd><p>Nuisance selection options forwarded to <code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>
+(including <code>"csf_wm"</code> and <code>"csf_wm_8p"</code> for pairing physiological
+regressors with <code>aroma = "nonaggressive"</code>). When <code>BrainGnomes</code>
+provenance indicates <code>confound_regression</code> was already applied to the
+BOLD derivative and <code>strategy</code> is not explicitly specified,
+<code>strategy</code> defaults automatically to <code>"none"</code> to avoid
 double-regressing unfiltered confounds.</p></dd>
 
 
@@ -270,12 +320,14 @@ options forwarded to <code><a href="read_fmriprep_confounds.html">read_fmriprep_
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An S3 object of class <code>"medusa_nifti_ts"</code> enriched with
   <code>$nuisance</code>, <code>$valid_rows</code>, <code>$confounds</code>
-  (<code>"medusa_confounds"</code>), <code>$events</code> (when discovered/supplied), and
-  <code>$bids</code> provenance metadata.</p>
+  (<code>"medusa_confounds"</code>), <code>$aroma</code> (when AROMA is applied),
+  <code>$events</code> (when discovered/supplied), and <code>$bids</code> provenance
+  metadata.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="read_nifti_ts.html">read_nifti_ts</a></code>, <code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>,
+  <code><a href="read_fmriprep_aroma.html">read_fmriprep_aroma</a></code>, <code><a href="apply_aroma.html">apply_aroma</a></code>,
   <code><a href="read_bids_events.html">read_bids_events</a></code>, <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code>,
   <code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code></p></div>
     </div>

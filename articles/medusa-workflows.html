@@ -1450,12 +1450,14 @@ single call.</p>
 <span>  strategy <span class="op">=</span> <span class="st">"24p"</span>,</span>
 <span>  fd_threshold <span class="op">=</span> <span class="fl">0.5</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co"># Or discover BOLD, per-run brain masks, confounds, and BIDS events in one step</span></span>
-<span><span class="co"># (for BrainGnomes postprocessed streams, pass `desc = "postproc"` to ingest</span></span>
-<span><span class="co"># `*_censor.1D`, `*_templatemask.nii.gz`, and derivative provenance guards automatically):</span></span>
+<span><span class="co"># Or discover BOLD, per-run brain masks, confounds, optional fMRIPost-AROMA</span></span>
+<span><span class="co"># non-aggressive denoising, and BIDS events in one step (for BrainGnomes</span></span>
+<span><span class="co"># postprocessed streams, pass `desc = "postproc"` to ingest `*_censor.1D`,</span></span>
+<span><span class="co"># `*_templatemask.nii.gz`, and derivative provenance guards automatically):</span></span>
 <span><span class="co"># ts &lt;- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",</span></span>
 <span><span class="co">#                             bids_dir = "/study/bids", task = "mid",</span></span>
-<span><span class="co">#                             atlas = atlas_path, strategy = "24p", fd_threshold = 0.5)</span></span>
+<span><span class="co">#                             aroma = "nonaggressive", strategy = "csf_wm",</span></span>
+<span><span class="co">#                             atlas = atlas_path, fd_threshold = 0.5)</span></span>
 <span></span>
 <span><span class="co"># Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both</span></span>
 <span><span class="co"># finite nuisance regressors and clock-preserving `valid_rows`; when `ts` comes</span></span>
@@ -1499,17 +1501,30 @@ inflates raw FD, pass <code>motion_bandstop_bpm = c(12, 18)</code> (or
 <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code> to apply zero-phase filtering to
 the 6 rigid-body motion parameters before Power (2012) FD censoring
 while keeping unfiltered nuisance regressors
-(<code>motion_filter_target = "fd_only"</code>). When ingesting
-<code>BrainGnomes</code> postprocessed derivatives
+(<code>motion_filter_target = "fd_only"</code>). When
+<code>fMRIPost-AROMA</code> (<code>*_desc-melodic_mixing.tsv</code> +
+<code>*_desc-aroma_metrics.tsv</code>) or legacy fMRIPrep
+(<code>*_desc-MELODIC_mixing.tsv</code> +
+<code>*_AROMAnoiseICs.csv</code>) outputs are available,
+<code>read_fmriprep_subject(..., aroma = "nonaggressive", strategy = "csf_wm")</code>
+(or modular <code><a href="../reference/read_fmriprep_aroma.html">read_fmriprep_aroma()</a></code> +
+<code><a href="../reference/apply_aroma.html">apply_aroma()</a></code>) performs in-memory Pruim et al. (2015)
+partial regression across the full MELODIC mixing matrix—retaining
+shared task-evoked neural variance while projecting the identical AROMA
+operator out of selected nuisance regressors
+(<code>aroma_clean_nuisance = TRUE</code>; Lindquist et al., 2019). When
+ingesting <code>BrainGnomes</code> postprocessed derivatives
 (<code>desc = "postproc"</code>), <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code>
 inspects <code>&lt;bold&gt;.json</code> provenance to reject physically
 scrubbed (<code>scrub_timepoints</code>) volumes that would break the
-acquisition clock and defaults <code>strategy = "none"</code> when
-<code>confound_regression</code> has already been applied upstream.
-Check the acquisition TR (<code>ts$tr</code> or sequence metadata) and
-all event clocks before fitting. When <code>spatial_fwhm</code> is
-requested in <code>estimate_crossrun_hrf(ts, ...)</code>, world
-coordinates <code>ts$voxel_map[, c("x", "y", "z")]</code> are supplied
+acquisition clock, skips duplicate AROMA denoising when
+<code>apply_aroma</code> already ran upstream, and defaults
+<code>strategy = "none"</code> when <code>confound_regression</code> has
+already been applied upstream. Check the acquisition TR
+(<code>ts$tr</code> or sequence metadata) and all event clocks before
+fitting. When <code>spatial_fwhm</code> is requested in
+<code>estimate_crossrun_hrf(ts, ...)</code>, world coordinates
+<code>ts$voxel_map[, c("x", "y", "z")]</code> are supplied
 automatically. Chunking the voxel dimension may still be needed for very
 large whole-brain runs, though changes to noise pooling or parcel
 support must be accounted for; splitting voxels arbitrarily need not

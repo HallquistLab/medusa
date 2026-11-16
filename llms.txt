@@ -102,6 +102,10 @@ for producing the HTML vignettes and Quarto book from a checkout.
   : Event-lock and interpolate MEDuSA time-series matrices onto an epoch
   grid
 
+- [`apply_aroma()`](https://hallquistlab.github.io/medusa/reference/apply_aroma.md)
+  : Apply non-aggressive (or aggressive) ICA-AROMA denoising to MEDuSA
+  time-series or confound objects
+
 - [`backproject_medusa()`](https://hallquistlab.github.io/medusa/reference/backproject_medusa.md)
   : Backproject parcel-level MEDuSA coefficients onto a 4D NIfTI brain
   mask
@@ -206,6 +210,10 @@ for producing the HTML vignettes and Quarto book from a checkout.
 - [`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md)
   : Read and normalize BIDS event files for MEDuSA HRF, deconvolution,
   and alignment workflows
+
+- [`read_fmriprep_aroma()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md)
+  : Read ICA-AROMA mixing matrices and component classifications for
+  MEDuSA denoising
 
 - [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
   : Read fMRIPrep or postprocessed confound tables into clock-preserving

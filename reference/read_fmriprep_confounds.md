@@ -20,8 +20,8 @@ read_fmriprep_confounds(
   confounds,
   bold = NULL,
   run_names = NULL,
-  strategy = c("24p", "6p", "12p", "24p_csf_wm", "27p", "36p", "compcor", "custom",
-    "none"),
+  strategy = c("24p", "6p", "12p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "27p", "36p",
+    "compcor", "custom", "none"),
   columns = NULL,
   column_pattern = NULL,
   n_compcor = NULL,
@@ -51,6 +51,9 @@ read_fmriprep_confounds(
   center = TRUE,
   scale = FALSE,
   drop_constant = TRUE,
+  aroma = NULL,
+  aroma_mode = c("nonaggressive", "aggressive"),
+  aroma_fit_valid = FALSE,
   na_strings = c("n/a", "N/A", "NA", ".", "NaN", "")
 )
 ```
@@ -89,6 +92,13 @@ read_fmriprep_confounds(
 
   - `"6p"`: 6 rigid-body motion parameters.
 
+  - `"csf_wm"`: mean `csf` and `white_matter` physiological signals (2p
+    model; recommended alongside non-aggressive ICA-AROMA per Pruim et
+    al., 2015 and Parkes et al., 2018).
+
+  - `"csf_wm_8p"`: `csf` and `white_matter` with their temporal
+    derivatives and quadratic terms (8p physiological model).
+
   - `"24p_csf_wm"`: `"24p"` + `csf` and `white_matter` with their
     derivatives and quadratic terms (32p physiological model without
     GSR).
@@ -110,10 +120,10 @@ read_fmriprep_confounds(
 - columns:
 
   Optional character vector of explicit confound column names, shorthand
-  sets (`"6p"`, `"12p"`, `"24p"`, `"27p"`, `"36p"`), or zero-padded
-  index range specifications such as `"a_comp_cor_<0-4>"` or
-  `"cosine<0,2-3>"` (in addition to `strategy`, or exact set when
-  `strategy = "custom"`).
+  sets (`"6p"`, `"12p"`, `"24p"`, `"27p"`, `"csf_wm"`, `"csf_wm_8p"`,
+  `"36p"`), or zero-padded index range specifications such as
+  `"a_comp_cor_<0-4>"` or `"cosine<0,2-3>"` (in addition to `strategy`,
+  or exact set when `strategy = "custom"`).
 
 - column_pattern:
 
@@ -292,6 +302,32 @@ read_fmriprep_confounds(
   Logical; if `TRUE` (default), removes columns with near-zero variance
   on `valid_rows` (such as all-zero outlier columns).
 
+- aroma:
+
+  Optional `"medusa_aroma"` object from
+  [`read_fmriprep_aroma`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md).
+  When supplied, applies the matching ICA-AROMA projection
+  (`aroma_mode`) to selected nuisance columns prior to final centering
+  and censoring sanitization so subsequent joint nuisance regression in
+  [`estimate_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
+  and
+  [`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
+  cannot re-introduce AROMA motion variance into AROMA-denoised BOLD
+  (Lindquist et al., 2019). Framewise displacement and `valid_rows`
+  remain strictly derived from physical (or respiratory-filtered)
+  head-motion parameters.
+
+- aroma_mode:
+
+  AROMA regression mode when `aroma` is supplied: `"nonaggressive"`
+  (default; Pruim et al., 2015 partial regression) or `"aggressive"`.
+
+- aroma_fit_valid:
+
+  Logical; if `TRUE`, estimates AROMA component weights on uncensored
+  `valid_rows` only rather than full MELODIC run timecourses (`FALSE`,
+  default).
+
 - na_strings:
 
   Character vector of missing-value tokens passed to
@@ -331,6 +367,8 @@ The `"medusa_confounds"` object can be passed directly as
 
 [`read_bids_events`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md),
 [`read_fmriprep_subject`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md),
+[`read_fmriprep_aroma`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md),
+[`apply_aroma`](https://hallquistlab.github.io/medusa/reference/apply_aroma.md),
 [`read_nifti_ts`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
 [`estimate_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
 
@@ -358,12 +396,12 @@ conf$summary
 #>    run
 #> 1 run1
 #>                                                                                file
-#> 1 /tmp/Rtmpi4KgsZ/sub-01_task-mid_run-01_1a7a751c42a8_desc-confounds_timeseries.tsv
+#> 1 /tmp/RtmpPoj5zU/sub-01_task-mid_run-01_19ea42a977f5_desc-confounds_timeseries.tsv
 #>   n_volumes n_valid n_censored pct_censored n_fd_outliers n_dvars_outliers
 #> 1         5       3          2           40             1                0
 #>   n_non_steady_state n_external_censor mean_fd max_fd motion_filtered
 #> 1                  1                 0  0.2925   0.92           FALSE
-#>   n_nuisance_cols
-#> 1              11
+#>   aroma_cleaned n_nuisance_cols
+#> 1         FALSE              11
 unlink(f_conf)
 ```
