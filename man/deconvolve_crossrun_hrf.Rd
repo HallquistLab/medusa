@@ -100,8 +100,12 @@ An S3 list of class \code{"crossrun_decon"} with \code{activity}
   penalty vector \code{settings$lambda_by_voxel} ready for 1-line 3D NIfTI
   export via \code{\link{write_nifti_ts}}, and SNR tier summary table
   \code{settings$lambda_strata} when stratified), standardized
-  \code{noise_innovations}, per-run observation \code{frame_weights}, and
-  optional NIfTI \code{voxel_map} and \code{geometry} metadata (enabling
+  \code{noise_innovations}, cached uncensored \code{bold_obs} (for
+  \eqn{\le 16{,}384} voxels) or compact \eqn{m_r \times 64}
+  \code{whitened_sketch} factors (above \eqn{16{,}384} voxels, enabling
+  bold-free Stage-3 \code{"poet_covreg"} shared-error estimation without
+  retaining full 4D BOLD arrays), per-run observation \code{frame_weights},
+  and optional NIfTI \code{voxel_map} and \code{geometry} metadata (enabling
   direct \code{\link{write_nifti_ts}} export without an external reference
   file). Activity matrices retain voxel IDs and carry \code{tr},
   \code{time_offset}, and \code{observation_mask} attributes for subsequent

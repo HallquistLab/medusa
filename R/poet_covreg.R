@@ -1,6 +1,33 @@
 # Subspace-Debiased Adaptive-POET + Multi-Lag Toeplitz & General-W_s
 # LTZ-Gated Continuous Covariance Regression (v3 Architecture)
 # and Post-Hoc Voxel-to-Parcel Panel Aggregation
+#
+# Architectural summary:
+#   1. Stationary spatial error correlation (`poet_shrink_spikes()`, `poet_regularize_cor()`):
+#      Subspace-debiased residual cross-products orthogonal to convolved trial,
+#      duration, and HRF-derivative designs M_s (with exact tr(M_{s_g} M_{s_h})
+#      df correction), Marchenko-Pastur + Tracy-Widom pervasive factor shrinkage
+#      (Fan, Liao & Mincheva, 2013), and Empirical-Bayes idiosyncratic firm
+#      thresholding with PSD correlation projection.
+#   2. Multi-lag Toeplitz & dynamic covariance regression (`medusa_fit_shared_error_covreg()`):
+#      Tukey-Hanning tapered multi-lag error cross-spectra, run-scale EB
+#      harmonization, and Liu-Tang-Zhang (LTZ) spatial-chi-square gated dynamic
+#      variance envelopes across task drive, trial covariates, Step-2 rWLS
+#      transient bursts, and frame-level `variance_confounds` (FD, DVARS, RVT)
+#      with exact Schur-complement baseline restoration when null confound
+#      columns are gated out.
+#   3. Whole-brain scalability (`max_exact_units = 512L`):
+#      Automatically switches from exact P x P mode (`mode = "exact"`, <= 512
+#      units) to a dual-space factor representation (`mode = "lowrank_voxel"`,
+#      > 512 units; using `deconvolution$bold_obs` <= 16,384 voxels or compact
+#      `deconvolution$whitened_sketch` > 16,384 voxels) without allocating V x V
+#      matrices.
+#   4. Panel embeddings & post-hoc aggregation (`aggregate_decon_panel()`):
+#      Embeds Block-PAF per-trial factors (`shared_noise_vec`, `lag_noise_vec`,
+#      `trial_cor_vec`) onto `panel` (preserving pipe-delimited CSV/.csv.gz
+#      round-trips via `medusa_write_table()` / `medusa_read_table()`) so
+#      stacked-panel `decon_connectivity_repair()` and post-hoc voxel-to-parcel
+#      aggregation retain shared-error parity with full operator objects.
 
 .poet_firm_threshold <- function(x, t1, t2) {
   ax <- abs(x)
@@ -3274,6 +3301,23 @@ medusa_fit_shared_error_covreg <- function(
 #'   parcel-level result list with \code{panel}, \code{parcel_weights},
 #'   \code{unit_error_cor}, and \code{shared_error_model}. If \code{x} is a
 #'   \code{data.frame}/\code{data.table}, a parcel-aggregated \code{data.table}.
+#' @details
+#'   When parcel assignments are fixed prior to Stage 3, passing
+#'   \code{parcel_groups} directly to \code{\link{decon_epoch_regression}}
+#'   (\code{aggregate_by_parcel = TRUE}) is fastest because Stage-3 de-mixing and
+#'   exact \eqn{P \times P} POET covariance regression run once on the parcel
+#'   series. Use \code{aggregate_decon_panel()} when you have already fit a
+#'   voxelwise panel (\code{aggregate_by_parcel = FALSE}, including whole-brain
+#'   \code{lowrank_voxel} panels or saved RDS/Parquet/CSV tables) and want to
+#'   collapse voxels into one or more parcellations post-hoc without re-running
+#'   deconvolution: intra-parcel voxel error correlations are propagated via the
+#'   vector norms \eqn{\|\sum_{v \in g} w_v \mathbf{s}_{v,i}\|_2} of
+#'   \code{shared_noise_vec} (or the attached \code{shared_error_model}) so
+#'   parcel \code{se_demixed} and inter-parcel error covariances remain
+#'   calibrated for \code{\link{decon_connectivity_repair}} and
+#'   \code{\link{mixed_by}}.
+#' @seealso \code{\link{decon_epoch_regression}}, \code{\link{decon_connectivity_repair}},
+#'   \code{\link{mixed_by}}
 #' @export
 aggregate_decon_panel <- function(
   x,

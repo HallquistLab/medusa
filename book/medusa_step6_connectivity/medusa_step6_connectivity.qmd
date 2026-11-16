@@ -5,7 +5,9 @@ subtitle: "Correcting predictor measurement error and shared regional noise in n
 
 ```{r setup, include=FALSE}
 d <- read.csv("ppi_summary.csv")
+d_poet <- read.csv("poet_covreg_step6_summary.csv")
 p <- function(s, m, col = "mean") d[d$scenario == s & d$method == m, col]
+pp <- function(tm, m, col = "mean") d_poet[d_poet$term == tm & d_poet$method == m, col]
 fmt <- function(x, digits = 3) formatC(x, format = "f", digits = digits)
 pct <- function(x) paste0(fmt(100 * x, 1), "%")
 ```
@@ -14,7 +16,7 @@ pct <- function(x) paste0(fmt(100 * x, 1), "%")
 
 Whereas Step 5 places deconvolved neural activity on the left-hand side as an outcome (`Neural ~ Behavior`), **Step 6 moves a deconvolved parcel readout onto the right-hand side (`Target ~ Seed + Task + Seed:Task` or `Behavior ~ Seed`) to test trial-to-trial functional connectivity and psychophysiological interaction (PPI).**
 
-When an estimated quantity with trial-level sampling error is used as a regression predictor, two measurement properties directly affect structural slopes (Fuller, 1987; Vig & Hallquist, 2026): predictor measurement error inflates the observed design variance $X^\top X$ (attenuating both main connectivity and PPI interaction slopes toward zero), and any shared scanner or physiological noise between seed and target shifts the cross-product $X^\top Y$. Step 6 (`decon_connectivity_repair()`, backed by `medusa_fit_mmom()`) subtracts Step 4's analytical per-trial error variances (`se_demixed^2`) and task-free cross-parcel noise correlations (`unit_error_cor` / `shared_noise_loading`) from each participant's sample cross-products while guarding against unstable small denominators in noisy scans (**Modified Method of Moments with Step-up Regularization, M-MOMS**), and then aggregates participant slopes across the cohort using finite-sample random-effects $t$-intervals scaled by observed between-participant slope dispersion (**Hartung–Knapp–Sidik–Jonkman, HKSJ** pooling).
+When an estimated quantity with trial-level sampling error is used as a regression predictor, two measurement properties directly affect structural slopes (Fuller, 1987; Vig & Hallquist, 2026): predictor measurement error inflates the observed design variance $X^\top X$ (attenuating both main connectivity and PPI interaction slopes toward zero), and any shared scanner or physiological noise between seed and target shifts the cross-product $X^\top Y$. Step 6 (`decon_connectivity_repair()`, backed by `medusa_fit_mmom()`) subtracts Step 4's analytical per-trial error variances (`se_demixed^2`) alongside stationary and dynamic cross-parcel error covariances from the **Adaptive-POET + covariance-regression engine** (`shared_error_model` / `shared_noise_vec`) while guarding against unstable small denominators in noisy scans (**Modified Method of Moments with Step-up Regularization, M-MOMS**), computes cross-trial sandwich standard errors and Satterthwaite degrees of freedom (`crosstrial_se = TRUE`, supporting calibrated single-subject $N = 1$ inference), and aggregates participant slopes across cohorts using **Hartung–Knapp–Sidik–Jonkman (HKSJ)** random-effects $t$-intervals.
 
 ```{r}
 #| eval: false
@@ -31,13 +33,14 @@ ppi <- decon_connectivity_repair(
   test_ppi             = TRUE,
   orthogonalize_seed_x = FALSE,
   shared_error         = "auto",
+  crosstrial_se        = TRUE,
   method               = "mmoms"
 )
 ```
 
 ::: {.callout-note}
 ### Position in the MEDuSA Pipeline
-[**Step 4 (`subject_epochs` / `group_panel` + `se_demixed` + `unit_error_cor`)**](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd) $\longrightarrow$ **Step 6 (`decon_connectivity_repair` / `medusa_fit_mmom`)** $\longrightarrow$ Disattenuated participant & cohort connectivity / PPI slopes
+[**Step 4 (`subject_epochs` / `group_panel` + `se_demixed` + `shared_error_model` / `shared_noise_vec`)**](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd) $\longrightarrow$ **Step 6 (`decon_connectivity_repair` / `medusa_fit_mmom`)** $\longrightarrow$ Disattenuated participant ($N = 1$ Satterthwaite) & cohort (HKSJ) connectivity / PPI slopes
 :::
 
 The walkthrough below develops Step 6 in four substeps directly paralleling the REPAIR two-step moment framework: specifying the latent structural equation (`6.1`), constructing the trial-specific error covariance matrices (`6.2`), estimating participant slopes via regularized M-MOMS (`6.3`), and pooling across participants (`6.4`).
@@ -49,25 +52,25 @@ The walkthrough below develops Step 6 in four substeps directly paralleling the 
 ### Goals of Step 6
 
 1. **Disattenuate noisy neural predictors and PPI product terms:** Construct per-trial predictor measurement-error covariance blocks $\Psi_i$—capturing both heteroskedastic interaction error $x_i^2 s_i^2$ and off-diagonal seed–interaction error covariance $x_i s_i^2$—and subtract them from observed design moments.
-2. **Account for stationary cross-parcel shared measurement error:** Subtract expected seed–target error covariance $\operatorname{Cov}(u_i, v_i)$ (`shared_error = "auto"`) estimated from Step 4's task-free `noise_innovations`.
+2. **Account for stationary and dynamic cross-parcel shared measurement error:** Subtract expected per-trial seed–target error covariance $\operatorname{Cov}(u_i, v_i \mid x_i, w_i)$ (`shared_error = "auto"`) estimated by Step 4's subspace-debiased Adaptive-POET + LTZ-gated dynamic covariance-regression engine across task drive, covariates, Step-2 `rwls` bursts, and frame-level `variance_confounds`.
 3. **Support clear direct and residualized-seed PPI parameterizations:** Allow analysts to choose explicitly between unresidualized seed coupling (`orthogonalize_seed_x = FALSE`) and task-residualized seed coupling with exact error-covariance projection (`orthogonalize_seed_x = TRUE`).
-4. **Pool participant connectivity estimates with calibrated random-effects uncertainty:** Aggregate participant M-MOMS slopes at the group level via leverage-guarded HKSJ random-effects inference.
+4. **Deliver calibrated single-subject ($N = 1$) and cohort uncertainty:** Compute cross-trial ($i \neq j$) hybrid operator + gated onset-kernel sandwich SEs and Satterthwaite `df` within each participant (`crosstrial_se = TRUE`), and pool across cohorts ($S \ge 2$) via leverage-guarded HKSJ random-effects inference.
 
 ### Inputs: What Step 6 Receives and Why
 
 | Input | Structure | Why Step 6 Uses It |
 |:---|:---|:---|
-| **`panel_dt`** | Named `subject_epochs` list (preferred) or stacked `group_panel` (`data.table` / `.rds` / Parquet) | Pairs seed and target trial readouts by `(id, run, trial)` while supplying `se_demixed` and Step 4's cross-parcel noise correlations (`$unit_error_cor` on `subject_epochs`, or `$panel$shared_noise_loading` on stacked panels). |
+| **`panel_dt`** | Named `subject_epochs` list (preferred), stacked `group_panel`, `.rds` / Parquet, or pipe-delimited CSV/`.csv.gz` from `medusa_write_table()` | Pairs seed and target trial readouts by `(id, run, trial)` while supplying `se_demixed` and Step 4's shared-error model (`$shared_error_model` on `subject_epochs`, or automatically restored Block-PAF list-columns `shared_noise_vec`, `lag_noise_vec`, and `trial_cor_vec` on stacked/CSV panels). |
 | **`seed_region`, `target_region`, `seed_lag`, `target_lag`** | Parcel names and peri-event lags (e.g., `seed_lag = 0, target_lag = 0` or lagged `seed_lag = 0, target_lag = 1`) | Select the paired seed readout $\widehat{z}_{S,i}$ and target readout $\widehat{z}_{T,i}$ along with their trial-specific measurement SEs. |
 | **`covariates` & `test_ppi`** | Character vector of centered task covariates; logical `test_ppi` | When `test_ppi = TRUE`, the first element of `covariates` defines the error-free psychological modulator $x_i$ forming `seed:x`, while any additional covariates enter as additive controls. |
-| **`shared_error` & `method`** | `shared_error = c("auto", "supplied", "zero")`; `method = c("mmoms", "mmom", "naive_unweighted")` | Govern cross-parcel error subtraction and moment-matrix conditioning. |
+| **`shared_error`, `crosstrial_se`, & `method`** | `shared_error = c("auto", "supplied", "zero")`; `crosstrial_se = TRUE`; `method = c("mmoms", "mmom", "naive_unweighted")` | Govern stationary + dynamic cross-parcel error subtraction, cross-trial sandwich SE calibration, and moment-matrix conditioning. |
 
 ### Outputs: What Step 6 Produces and Why It Is Set Up That Way
 
 | Output component | Structure & key columns | Role |
 |:---|:---|:---|
-| **`$group`** | `data.table` per modeled term (`seed_c`, task covariates, interaction): `estimate`, `std.error`, `statistic`, `df`, `p.value`, `conf.low`, `conf.high`, `tau2`, `n_subjects` | Reports HKSJ random-effects population slope estimates and 95% $t$-intervals anchored to participant degrees of freedom. |
-| **`$subjects`** | `data.table` per `(id, term)`: `estimate`, `std.error`, `n_trials`, `r_shared_error`, `lambda_prelim`, `lambda_final`, `alpha_prelim`, `alpha_final`, `converged` | Exposes each participant's M-MOMS slope, working cross-parcel error correlation (`r_shared_error`), and any step-up regularization constants. |
+| **`$group`** | `data.table` per modeled term (`seed_c`, task covariates, interaction): `estimate`, `std.error`, `statistic`, `df`, `p.value`, `conf.low`, `conf.high`, `tau2`, `n_subjects` | Reports HKSJ random-effects population slope estimates and 95% $t$-intervals when $S \ge 2$ (or cross-trial Satterthwaite $t$-inference when $N = 1$). |
+| **`$subjects`** | `data.table` per `(id, term)`: `estimate`, `std.error`, `df`, `n_trials`, `r_shared_error`, `lambda_prelim`, `lambda_final`, `alpha_prelim`, `alpha_final`, `converged` | Exposes each participant's M-MOMS slope, cross-trial sandwich SE and Satterthwaite `df`, working cross-parcel error correlation (`r_shared_error`), and step-up regularization constants. |
 | **`$augmented_panel`** | Optional paired trial `data.table` (`return_augmented_panel = TRUE`) | Provides the exact centered/paired trial columns and error variances for custom plots or sensitivity curves. |
 
 ---
@@ -103,9 +106,9 @@ $$
 
 Two properties follow immediately from $\Psi_i$: interaction error variance scales heteroskedastically with $x_i^2 s_{S,i}^2$, and whenever $x_i \neq 0$, the predictor and interaction errors covary with signed entry $x_i s_{S,i}^2$.
 
-At the same time, scanner drift, physiological pulsatility, and vascular proximity can induce correlated observation error $\operatorname{Cov}(u_i, v_i \mid x_i) = c_i$ between seed and target parcels, shifting the observed cross-moment $X_i Y_i$ by $[c_i,\, 0,\, x_i c_i]^\top$. Under `shared_error = "auto"`, Step 6 estimates stationary per-trial cross-error covariance $c_i = \widehat{r}_{ST}\, s_{S,i} s_{T,i}$ automatically from Step 4's task-free innovation correlation $\widehat{r}_{ST}$ (`unit_error_cor`, or the inner product of `shared_noise_loading` vectors, combined with cross-lag error correlation when `seed_lag != target_lag`).
+At the same time, scanner drift, physiological pulsatility, head micro-movements, and vascular proximity can induce correlated observation error $\operatorname{Cov}(u_i, v_i \mid x_i, w_i) = c_i$ between seed and target parcels—including **trial-varying** error covariance when physiological arousal or respiration fluctuates with task demands—shifting the observed cross-moment $X_i Y_i$ by $[c_i,\, 0,\, x_i c_i]^\top$. Under `shared_error = "auto"`, Step 6 evaluates per-trial $(s_{S,i}^2, s_{T,i}^2, c_i)$ directly from Step 4's **Adaptive-POET + LTZ-gated dynamic covariance-regression model** (`shared_error_model` in operator mode, or inner products of the per-trial Block-PAF vectors `shared_noise_vec` and `lag_noise_vec` on stacked/CSV panels, projected onto the positive semi-definite cone).
 
-**Choice point — Cross-parcel shared error (`shared_error`):** Use `shared_error = "auto"` as the standard setting, and compare against `shared_error = "zero"` to see how much stationary background noise correlation contributed to the raw coupling estimate.
+**Choice point — Cross-parcel shared error (`shared_error`):** Use `shared_error = "auto"` (paired with `shared_error_method = "poet_covreg"` and `variance_confounds` in Step 4) as the standard setting, and compare against `shared_error = "zero"` to see how much stationary and dynamic background noise correlation contributed to the raw coupling estimate.
 
 ---
 
@@ -171,6 +174,7 @@ ppi <- decon_connectivity_repair(
   use_whitened            = FALSE,
   orthogonalize_seed_x    = FALSE,
   shared_error            = "auto",
+  crosstrial_se           = TRUE,
   method                  = "mmoms",
   region_col              = "parcel",
   id_col                  = "id"
@@ -181,22 +185,45 @@ ppi$group
 
 | Parameter | Package default | Recommended setting | Summary of Role & When to Adjust |
 |:---|:---|:---|:---|
-| **`panel_dt`** | Required | Named `subject_epochs` list (or `.rds` / Parquet `group_panel`) | Preserves Step 4 cross-parcel noise metadata (`unit_error_cor` and `shared_noise_loading`; see [worked handoff check](../worked-example.qmd#sec-worked-handoff)). |
+| **`panel_dt`** | Required | Named `subject_epochs` list (or `.rds` / Parquet / `medusa_write_table()` CSV `group_panel`) | Preserves Step 4 POET + covariance-regression metadata (`shared_error_model` or `shared_noise_vec` / `lag_noise_vec` / `trial_cor_vec`; see [worked handoff check](../worked-example.qmd#sec-worked-handoff)). |
 | **`orthogonalize_seed_x`** | `TRUE` | `FALSE` (direct model) or `TRUE` (residualized-seed model) | Selects direct symmetric `Seed + x + Seed:x` vs. task-residualized seed modulation (`Substep 6.1`). |
 | **`control_target_seed_lag`** | `FALSE` | `TRUE` when `target_lag > seed_lag` | Controls for baseline target activity at `seed_lag` in lagged connectivity models (`Substep 6.1`). |
-| **`shared_error`** | `"auto"` | `"auto"` + `"zero"` comparison | Subtracts stationary cross-parcel measurement-error covariance learned from Step 1–4 task-free innovations (`Substep 6.2`). |
+| **`shared_error`** | `"auto"` | `"auto"` + `"zero"` comparison | Subtracts stationary and dynamic cross-parcel measurement-error covariance learned by Step 4's `poet_covreg` engine (`Substep 6.2`). |
+| **`crosstrial_se`** | `TRUE` | `TRUE` | Computes cross-trial ($i \neq j$) hybrid operator + gated onset-kernel sandwich SEs and Satterthwaite `df` (essential for single-subject $N = 1$ precision neuroimaging). |
 | **`method`** | `"mmoms"` | `"mmoms"` (report alongside `"naive_unweighted"`) | Stabilizes error-subtracted predictor matrices in noisy participants while disattenuating slopes (`Substep 6.3`). |
 | **`use_whitened`** | `FALSE` | `FALSE` | Keeps seed, target, and `Seed:x` in matched unwhitened run-centered coordinates (separate within-parcel decorrelation/ZCA matrices $T_S \neq T_T$ do not commute with product terms). |
 
 ---
 
-## Practical Diagnostics, Shared-Error Sensitivity, and Scope
+## Practical Diagnostics, Dynamic POET Covariance Regression, and Scope
 
-### Evaluating sensitivity to condition-dependent shared noise
+### Resolving dynamic task- & confound-modulated shared noise (`poet_covreg`) vs. unmeasured sensitivity
 
-Stationary `shared_error = "auto"` subtracts baseline cross-parcel noise correlation $\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T$, which protects main-effect `seed` connectivity. What if physiological or motion noise correlation between two regions *changes sign or magnitude with task condition*—for instance, condition-locked breath-holding or head motion during $x_i = +1$ trials (`Shared-error null` in @fig-ppi, right: $\beta_P = 0$, $\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2$, zero run-wide average correlation)?
+What happens when physiological or motion noise correlation between two regions *changes magnitude with task condition or respiration*—for instance, condition-locked breath-holding or head motion during high-$x_i$ trials?
 
-Because $\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0$, naive regression already shows a positive artifact (`r fmt(p("Shared-error null", "Naive"))`), and dividing by the disattenuated denominator $X^\top X - \sum \Psi_i$ without knowing the condition-flipped cross-error magnifies it (`r fmt(p("Shared-error null", "M-MOMS"))`), returning to zero (`r fmt(p("Shared-error null", "Known-error moments"))`) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across plausible condition-modulated cross-error correlations $r(x)$ (@fig-sensitivity)—paired with physiological/motion nuisance modeling in Steps 1–2 and a negative-control reference parcel—makes it transparent how large a condition-locked artifact would need to be to account for an observed PPI.
+Two distinct regimes arise depending on what data are available:
+
+1. **Full MEDuSA pipeline with multi-parcel BOLD & `variance_confounds` (`poet_covreg`):** When `decon_epoch_regression(..., shared_error_method = "poet_covreg", variance_confounds = conf)` has access to multi-parcel whitened residuals ($P = 9$ parcels) and frame-level variance envelopes (`FD`, `DVARS`, `RVT`), Adaptive-POET + LTZ-gated covariance regression estimates trial-varying cross-parcel error moments $c_i$ directly—and embeds them onto `panel$shared_noise_vec` so even a CSV-exported stacked table retains full parity with operator mode. In @tbl-poet-step6 (`Dynamic Shared-Noise Null`: 24 cohorts of $S = 16$ participants, zero true coupling or PPI, pervasive physiological factor plus RVT-modulated bursts and two pure-null confound columns), ignoring shared error (`Zero Shared Error`) yields strong false main coupling (`r fmt(pp("seed_c", "Zero Shared Error"))`, **`r pct(pp("seed_c", "Zero Shared Error", "reject"))`** false positives) and stationary-only shrinkage (`Legacy Stationary (auto)`) still inflates Type I error (`r fmt(pp("seed_c", "Legacy Stationary (auto)"))`, **`r pct(pp("seed_c", "Legacy Stationary (auto)", "reject"))`** false positives). **`POET + CovReg`** eliminates the bias in **both** operator mode and CSV-restored stacked mode (`seed_c` mean **`r fmt(pp("seed_c", "POET + CovReg (Operator)"))`** / **`r fmt(pp("seed_c", "POET + CovReg (CSV Panel)"))`**, **`r pct(pp("seed_c", "POET + CovReg (Operator)", "reject"))`** Type I error, **`r pct(pp("seed_c", "POET + CovReg (Operator)", "coverage"))`** coverage; `seed_c:x_c` **`r pct(pp("seed_c:x_c", "POET + CovReg (Operator)", "coverage"))`** coverage). Likewise, in single-subject ($N = 1$) rapid-ITI scans (`mean ITI = 2.2 s`), enabling `crosstrial_se = TRUE` accounts for serial trial error correlation via Satterthwaite `df` (`r fmt(pp("seed_c", "N=1 Cross-Trial SE (crosstrial_se=TRUE)", "mean_df"), 1)` vs. `Inf`), improving CI coverage from **`r pct(pp("seed_c", "N=1 Diagonal SE (crosstrial_se=FALSE)", "coverage"))`** to **`r pct(pp("seed_c", "N=1 Cross-Trial SE (crosstrial_se=TRUE)", "coverage"))`** (see the [15-Study Validation Suite](../library/medusa_validation_suite.html) Pillar 15 for full multi-regime power and calibration curves).
+
+```{r}
+#| label: tbl-poet-step6
+#| tbl-cap: "End-to-end Step 1–6 calibration under dynamic task/RVT-modulated shared noise (S = 16 cohorts, P = 9 parcels, true connectivity = 0, true PPI = 0) and single-subject (N = 1) rapid-ITI serial overlap."
+#| echo: false
+tab_p <- data.frame(
+  Regime = d_poet$regime,
+  Term = d_poet$term,
+  Estimator = d_poet$method,
+  Mean = fmt(d_poet$mean, 3),
+  RMSE = fmt(d_poet$rmse, 3),
+  `Mean df` = ifelse(d_poet$mean_df > 500, "Inf", fmt(d_poet$mean_df, 1)),
+  `Reject (p <= .05)` = pct(d_poet$reject),
+  `95% CI Coverage` = pct(d_poet$coverage),
+  check.names = FALSE
+)
+knitr::kable(tab_p, align = c("l", "l", "l", "r", "r", "r", "r", "r"))
+```
+
+2. **Bare two-parcel tables or unmeasured pairwise-only confounds (post-hoc sensitivity curve):** If a panel was stripped of shared-error columns—or if a purely local, unmeasured vascular artifact flips correlation exclusively between two adjacent regions (`Shared-error null` in @fig-ppi, right: bare 2-parcel table with $\beta_P = 0$, $\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2$, zero run-wide average correlation, and no multi-parcel or `variance_confounds` signature)—then $\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0$ produces a positive naive artifact (`r fmt(p("Shared-error null", "Naive"))`) that predictor disattenuation magnifies (`r fmt(p("Shared-error null", "M-MOMS"))`), returning to zero (`r fmt(p("Shared-error null", "Known-error moments"))`) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across hypothesized condition-modulated cross-error correlations $r(x)$ (@fig-sensitivity) makes transparent how extreme an unmeasured local artifact would need to be to explain an observed PPI.
 
 ![Sensitivity curve in the shared-error null scenario: implied population PPI slope as a function of hypothesized condition-dependent cross-error correlation amplitude (crossing zero at the generating value 0.65).](ppi_sensitivity.png){#fig-sensitivity fig-alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65."}
 

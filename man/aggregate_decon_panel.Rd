@@ -56,3 +56,23 @@ Empirical-Bayes \code{tau2_bio} / \code{precision_weight}, and any attached
 \code{shared_error_model} for downstream \code{\link{decon_connectivity_repair}}
 or \code{\link{mixed_by}} analyses.
 }
+\details{
+When parcel assignments are fixed prior to Stage 3, passing
+  \code{parcel_groups} directly to \code{\link{decon_epoch_regression}}
+  (\code{aggregate_by_parcel = TRUE}) is fastest because Stage-3 de-mixing and
+  exact \eqn{P \times P} POET covariance regression run once on the parcel
+  series. Use \code{aggregate_decon_panel()} when you have already fit a
+  voxelwise panel (\code{aggregate_by_parcel = FALSE}, including whole-brain
+  \code{lowrank_voxel} panels or saved RDS/Parquet/CSV tables) and want to
+  collapse voxels into one or more parcellations post-hoc without re-running
+  deconvolution: intra-parcel voxel error correlations are propagated via the
+  vector norms \eqn{\|\sum_{v \in g} w_v \mathbf{s}_{v,i}\|_2} of
+  \code{shared_noise_vec} (or the attached \code{shared_error_model}) so
+  parcel \code{se_demixed} and inter-parcel error covariances remain
+  calibrated for \code{\link{decon_connectivity_repair}} and
+  \code{\link{mixed_by}}.
+}
+\seealso{
+\code{\link{decon_epoch_regression}}, \code{\link{decon_connectivity_repair}},
+  \code{\link{mixed_by}}
+}

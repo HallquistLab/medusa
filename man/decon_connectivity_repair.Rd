@@ -75,12 +75,16 @@ Empirical-Bayes shrunk predictor on likelihood-only outcome),
 subtraction), or \code{"naive_unweighted"} (unweighted OLS).}
 
 \item{shared_error}{Policy for cross-parcel shared observation-error covariance
-between seed and target readouts: \code{"auto"} (default; propagates Stage-2/3
-Empirical-Bayes prewhitened innovation correlation \code{unit_error_cor} or
-\code{shared_noise_loading}), \code{"zero"} (assumes zero cross-parcel noise
-correlation while still propagating same-parcel cross-lag error correlation when
-\code{control_target_seed_lag = TRUE}), or \code{"supplied"} (reads per-trial raw
-seed--target error covariance from \code{err_xy_col}).}
+between seed and target readouts: \code{"auto"} (default; propagates the
+Stage-3 Adaptive-POET + dynamic covariance-regression
+\code{shared_error_model} when operator objects are supplied, or the
+embedded per-trial Block-PAF factor columns \code{shared_noise_vec},
+\code{lag_noise_vec}, and \code{trial_cor_vec}---falling back to stationary
+\code{unit_error_cor} / \code{shared_noise_loading} on legacy panels),
+\code{"zero"} (assumes zero cross-parcel noise correlation while still
+propagating same-parcel cross-lag error correlation when
+\code{control_target_seed_lag = TRUE}), or \code{"supplied"} (reads per-trial
+raw seed--target error covariance from \code{err_xy_col}).}
 
 \item{err_xy_col}{Optional column name supplying per-trial raw seed--target error
 covariance when \code{shared_error = "supplied"}.}
@@ -125,9 +129,11 @@ estimation weights.}
 }
 \value{
 A list of class \code{"medusa_connectivity_repair"} containing
-  \code{group} (group-level random-effects meta-analytic inference table),
-  \code{subjects} (per-subject estimates, SEs, and REPAIR diagnostics),
-  optional \code{panel_repair}, and \code{settings}.
+  \code{group} (group-level HKSJ random-effects meta-analytic inference table,
+  or single-subject cross-trial Satterthwaite \eqn{t}-inference table when
+  \eqn{N = 1}), \code{subjects} (per-subject estimates, SEs, Satterthwaite
+  \code{df}, and REPAIR diagnostics), optional \code{panel_repair}, and
+  \code{settings}.
 }
 \description{
 Estimates trial-by-trial seed-to-target neural connectivity, directed lagged
@@ -139,4 +145,8 @@ method-of-moments (\code{M-MOMS} / \code{M-MOM}) framework of Vig & Hallquist
 exact heteroscedastic predictor and outcome error covariances,including the
 rank-1 interaction error block for PPI (\code{seed * x}) and dual predictor
 error variances for Granger-style auto-lag controls (\code{targ_t0}).
+}
+\seealso{
+\code{\link{decon_epoch_regression}}, \code{\link{aggregate_decon_panel}},
+  \code{\link{medusa_fit_mmom}}, \code{\link{medusa_between_subject_repair}}
 }

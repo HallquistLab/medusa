@@ -3,7 +3,9 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8,
                       fig.height = 4.5, fig.align = "center")
 library(medusa)
 library(ggplot2)
-needed <- c("read_nifti_ts", "write_nifti_ts", "build_spatial_graph", "align_medusa_ts",
+needed <- c("read_nifti_ts", "write_nifti_ts", "read_fmriprep_subject",
+            "read_fmriprep_confounds", "read_fmriprep_aroma", "apply_aroma",
+            "build_spatial_graph", "align_medusa_ts",
             "estimate_crossrun_hrf", "deconvolve_crossrun_hrf", "decon_epoch_regression",
             "mixed_by", "medusa_multilag_infer", "decon_connectivity_repair")
 stopifnot(all(vapply(needed, exists, logical(1),
@@ -305,7 +307,7 @@ knitr::kable(
 #                  run2 = "/study/sub01/run2_preprocessed.nii.gz",
 #                  run3 = "/study/sub01/run3_preprocessed.nii.gz")
 # mask_path <- "/study/sub01/analysis_mask.nii.gz"
-# atlas_path <- "/study/sub01/schaefer200_registered.nii.gz"
+# atlas_path <- "/study/sub01/parcellation_atlas.nii.gz"
 # 
 # ts <- read_nifti_ts(
 #   niftis = nifti_paths,
@@ -330,12 +332,30 @@ knitr::kable(
 #   strategy = "24p",
 #   fd_threshold = 0.5
 # )
-# # Or discover BOLD, per-run brain masks, confounds, and BIDS events in one step
-# # (for BrainGnomes postprocessed streams, pass `desc = "postproc"` to ingest
-# # `*_censor.1D`, `*_templatemask.nii.gz`, and derivative provenance guards automatically):
+# 
+# # Optional modular non-aggressive ICA-AROMA (fMRIPost-AROMA or legacy fMRIPrep <= 23.0):
+# # applies the identical partial-regression operator to BOLD and selected confounds
+# # so Step 1-2 nuisance projection cannot re-introduce motion variance (Lindquist et al., 2019):
+# # aroma <- read_fmriprep_aroma(
+# #   c("/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-01_desc-melodic_mixing.tsv",
+# #     "/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-02_desc-melodic_mixing.tsv",
+# #     "/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-03_desc-melodic_mixing.tsv"),
+# #   bold = ts
+# # )
+# # ts   <- apply_aroma(ts, aroma, mode = "nonaggressive")
+# # conf <- read_fmriprep_confounds(confound_paths, bold = ts, strategy = "csf_wm",
+# #                                 aroma = aroma, fd_threshold = 0.5)
+# 
+# # Or discover BOLD, per-run brain masks, confounds, optional fMRIPost-AROMA
+# # non-aggressive denoising, and BIDS events in one step (for BrainGnomes
+# # postprocessed streams, pass `desc = "postproc"` to ingest `*_censor.1D`,
+# # `*_templatemask.nii.gz`, and derivative provenance guards automatically):
 # # ts <- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",
-# #                             bids_dir = "/study/bids", task = "mid",
-# #                             atlas = atlas_path, strategy = "24p", fd_threshold = 0.5)
+# #                             bids_dir = "/study/bids",
+# #                             aroma_dir = "/study/derivatives/fmripost-aroma",
+# #                             task = "mid", aroma = "nonaggressive",
+# #                             aroma_clean_nuisance = TRUE, strategy = "csf_wm",
+# #                             atlas = atlas_path, fd_threshold = 0.5)
 # 
 # # Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both
 # # finite nuisance regressors and clock-preserving `valid_rows`; when `ts` comes
