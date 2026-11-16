@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -298,6 +298,11 @@ window.Quarto = {
  <span class="menu-text" id="quarto-sidebar-section-4-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reporting.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Reporting MEDuSA in Empirical Papers and Reviewer FAQ</span></a>
+  </div>
+</li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
@@ -710,7 +715,7 @@ Figure&nbsp;9.2: Sensitivity curve in the shared-error null scenario: implied po
 <section id="reporting-checklist-and-scope-boundaries" class="level3">
 <h3 class="anchored" data-anchor-id="reporting-checklist-and-scope-boundaries">Reporting checklist and scope boundaries</h3>
 <ol type="1">
-<li><strong>Report circuit, lag, and estimand choices:</strong> Document <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_seed_lag</code>, and multiplicity adjustment across region pairs.</li>
+<li><strong>Report circuit, lag, and estimand choices:</strong> Document <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_seed_lag</code>, and multiplicity adjustment across region pairs (see <a href="../reporting.html">Appendix A: Reporting MEDuSA in Empirical Papers</a> for an adaptable <em>Methods</em> template).</li>
 <li><strong>Present naive and M-MOMS side by side:</strong> Include <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> and summarize <code>ppi$subjects</code> (<code>r_shared_error</code>, <code>alpha_final</code>, <code>lambda_final</code>, participant/trial counts, and convergence; see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a> for side-by-side participant connectivity distributions under intact vs.&nbsp;stripped <code>shared_error</code> metadata).</li>
 <li><strong>Scope boundaries:</strong> Just as in Vig &amp; Hallquist (2026), Step 6 treats first-stage error variances (<code>se_demixed^2</code>) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences (<span class="math inline">\(K_S \neq K_T\)</span>). For mathematical derivations and full-covariance extensions, see <a href="../medusa_standard_errors_mmom.html">Propagating BOLD Noise into Trial Standard Errors</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity Beyond Per-Trial Disattenuation</a>.</li>
 </ol>

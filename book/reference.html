@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Appendix A — Package Architecture, Source Reports, and Reproduction – MEDuSA</title>
+<title>Appendix B — Package Architecture, Source Reports, and Reproduction – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -71,7 +71,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./evidence.html" rel="prev">
+<link href="./reporting.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -153,7 +153,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./reference.html">Appendices</a></li><li class="breadcrumb-item"><a href="./reference.html"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./reporting.html">Appendices</a></li><li class="breadcrumb-item"><a href="./reference.html"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -299,6 +299,11 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reporting.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Reporting MEDuSA in Empirical Papers and Reviewer FAQ</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
   </div>
 </li>
@@ -316,7 +321,7 @@ window.Quarto = {
   <ul>
   <li><a href="#relationship-to-the-medusa-r-package" id="toc-relationship-to-the-medusa-r-package" class="nav-link active" data-scroll-target="#relationship-to-the-medusa-r-package">Relationship to the <code>medusa</code> R Package</a></li>
   <li><a href="#reproducing-all-simulations-figures-and-the-book" id="toc-reproducing-all-simulations-figures-and-the-book" class="nav-link" data-scroll-target="#reproducing-all-simulations-figures-and-the-book">Reproducing All Simulations, Figures, and the Book</a></li>
-  <li><a href="#companion-archives-library" id="toc-companion-archives-library" class="nav-link" data-scroll-target="#companion-archives-library">Companion Archives (<code>library/</code>)</a></li>
+  <li><a href="#companion-validation-suite-library" id="toc-companion-validation-suite-library" class="nav-link" data-scroll-target="#companion-validation-suite-library">Companion Validation Suite (<code>library/</code>)</a></li>
   <li><a href="#key-methodological-references" id="toc-key-methodological-references" class="nav-link" data-scroll-target="#key-methodological-references">Key Methodological References</a></li>
   </ul>
 </nav>
@@ -324,9 +329,9 @@ window.Quarto = {
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./reference.html">Appendices</a></li><li class="breadcrumb-item"><a href="./reference.html"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./reporting.html">Appendices</a></li><li class="breadcrumb-item"><a href="./reference.html"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title">Appendix A — Package Architecture, Source Reports, and Reproduction</h1>
+<h1 class="title">Appendix B — Package Architecture, Source Reports, and Reproduction</h1>
 <p class="subtitle lead">Pipeline function map, simulation regeneration commands, and methodological bibliography</p>
 </div>
 
@@ -449,11 +454,10 @@ Show full simulation and figure regeneration commands
 <span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </section>
-<section id="companion-archives-library" class="level2">
-<h2 class="anchored" data-anchor-id="companion-archives-library">Companion Archives (<code>library/</code>)</h2>
+<section id="companion-validation-suite-library" class="level2">
+<h2 class="anchored" data-anchor-id="companion-validation-suite-library">Companion Validation Suite (<code>library/</code>)</h2>
 <ul>
-<li><strong>14-Study Validation Suite:</strong> <a href="library/medusa_validation_suite.html">Rendered HTML</a> · <a href="library/medusa_validation_suite.qmd">Quarto source</a> — comprehensive multi-study simulation benchmarks from the <code>medusa_simulation</code> validation repository.</li>
-<li><strong>Historical Pipeline Primers:</strong> <a href="library/medusa_pipeline_primer_audited.html">Audited pipeline primer</a> (<a href="library/medusa_pipeline_primer_audited.qmd">source</a>), <a href="library/medusa_pipeline_primer.html">original primer</a> (<a href="library/medusa_pipeline_primer.qmd">source</a>, <a href="library/medusa_pipeline_primer_audit.md">audit notes</a>), and <a href="library/other_agent_original_verbatim.qmd">verbatim archive</a>.</li>
+<li><strong>14-Study Validation Suite:</strong> <a href="library/medusa_validation_suite.html">Rendered HTML</a> · <a href="library/medusa_validation_suite.qmd">Quarto source</a> — comprehensive multi-study simulation benchmarks evaluating end-to-end pipeline configurations across realistic event schedules, neurovascular heterogeneity, artifact bursts, censoring masks, and cohort sizes (synthesized in <a href="./evidence.html">What Validation Proves</a>).</li>
 </ul>
 </section>
 <section id="key-methodological-references" class="level2">
@@ -469,6 +473,8 @@ Show full simulation and figure regeneration commands
 <li>Abdulrahman, H., &amp; Henson, R. N. (2016). Effect of trial-to-trial variability on optimal event-related fMRI design. <em>NeuroImage</em>, 125, 756–766. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/">Article</a></li>
 <li>Marra, G., &amp; Wood, S. N. (2012). Coverage properties of confidence intervals for generalized additive model components. <em>Scandinavian Journal of Statistics</em>, 39(1), 53–74.</li>
 <li>Kuznetsova, A., Brockhoff, P. B., &amp; Christensen, R. H. B. (2017). <code>lmerTest</code> package: tests in linear mixed effects models. <em>Journal of Statistical Software</em>, 82(13), 1–26. <a href="https://www.jstatsoft.org/article/view/v082i13">Article</a></li>
+<li>McLaren, D. G., Ries, M. L., Xu, G., &amp; Johnson, S. C. (2012). A generalized form of context-dependent psychophysiological interactions (gPPI): A comparison to standard approaches. <em>NeuroImage</em>, 61(4), 1277–1286. <a href="https://doi.org/10.1016/j.neuroimage.2012.03.068">DOI</a></li>
+<li>Sassenhagen, J., &amp; Draschkow, D. (2019). Cluster-based permutation tests of MEG/EEG data do not establish significance of effect latency or location. <em>Psychophysiology</em>, 56(6), e13335. <a href="https://doi.org/10.1111/psyp.13335">DOI</a></li>
 <li>Benjamini, Y., &amp; Yekutieli, D. (2001). The control of the false discovery rate in multiple testing under dependency. <em>Annals of Statistics</em>, 29(4), 1165–1188. <a href="https://doi.org/10.1214/aos/1013699998">Article</a></li>
 <li>Cole, M. W., Ito, T., Schultz, D., Mill, R., Chen, R., &amp; Cocuzza, C. (2019). Task activations produce spurious but systematic inflation of task functional connectivity estimates. <em>NeuroImage</em>, 189, 1–18. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/">Article</a></li>
 <li>Power, J. D., Barnes, K. A., Snyder, A. Z., Schlaggar, B. L., &amp; Petersen, S. E. (2012). Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion. <em>NeuroImage</em>, 59(3), 2142–2154. <a href="https://doi.org/10.1016/j.neuroimage.2011.10.018">DOI</a></li>
@@ -964,8 +970,8 @@ Show full simulation and figure regeneration commands
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="./evidence.html" class="pagination-link" aria-label="What Validation Proves—and Building Study-Specific Checks">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></span>
+      <a href="./reporting.html" class="pagination-link" aria-label="Reporting MEDuSA in Empirical Papers and Reviewer FAQ">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Reporting MEDuSA in Empirical Papers and Reviewer FAQ</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">

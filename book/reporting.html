@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Appendix A — Reporting MEDuSA in Empirical Papers and Reviewer FAQ – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./reference.html" rel="next">
+<link href="./evidence.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./reporting.html">Appendices</a></li><li class="breadcrumb-item"><a href="./reporting.html"><span class="chapter-title">Reporting MEDuSA in Empirical Papers and Reviewer FAQ</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Spatial and volumetric workflows</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Methodological deep dives</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_multilag_calibration/medusa_multilag_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reporting.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Reporting MEDuSA in Empirical Papers and Reviewer FAQ</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#stage-by-stage-reporting-checklist" id="toc-stage-by-stage-reporting-checklist" class="nav-link" data-scroll-target="#stage-by-stage-reporting-checklist">1. Stage-by-Stage Reporting Checklist</a>
+  <ul class="collapse">
+  <li><a href="#extracting-cohort-qc-descriptives-in-r" id="toc-extracting-cohort-qc-descriptives-in-r" class="nav-link" data-scroll-target="#extracting-cohort-qc-descriptives-in-r">Extracting Cohort QC Descriptives in R</a></li>
+  </ul></li>
+  <li><a href="#adaptable-manuscript-methods-templates" id="toc-adaptable-manuscript-methods-templates" class="nav-link" data-scroll-target="#adaptable-manuscript-methods-templates">2. Adaptable Manuscript <em>Methods</em> Templates</a>
+  <ul class="collapse">
+  <li><a href="#template-a-steps-04-ingestion-cross-run-hrf-learning-deconvolution-and-parcel-readout" id="toc-template-a-steps-04-ingestion-cross-run-hrf-learning-deconvolution-and-parcel-readout" class="nav-link" data-scroll-target="#template-a-steps-04-ingestion-cross-run-hrf-learning-deconvolution-and-parcel-readout">Template A: Steps 0–4 — Ingestion, Cross-Run HRF Learning, Deconvolution, and Parcel Readout</a></li>
+  <li><a href="#template-b-step-5-population-multilevel-and-peri-event-trajectory-inference" id="toc-template-b-step-5-population-multilevel-and-peri-event-trajectory-inference" class="nav-link" data-scroll-target="#template-b-step-5-population-multilevel-and-peri-event-trajectory-inference">Template B: Step 5 — Population Multilevel and Peri-Event Trajectory Inference</a></li>
+  <li><a href="#template-c-step-6-trial-level-functional-connectivity-and-ppi" id="toc-template-c-step-6-trial-level-functional-connectivity-and-ppi" class="nav-link" data-scroll-target="#template-c-step-6-trial-level-functional-connectivity-and-ppi">Template C: Step 6 — Trial-Level Functional Connectivity and PPI</a></li>
+  </ul></li>
+  <li><a href="#peer-review-faq-common-questions-and-misconceptions" id="toc-peer-review-faq-common-questions-and-misconceptions" class="nav-link" data-scroll-target="#peer-review-faq-common-questions-and-misconceptions">3. Peer-Review FAQ: Common Questions and Misconceptions</a>
+  <ul class="collapse">
+  <li><a href="#q1.-does-evaluating-peri-event-lags-every-0.5-s-or-1.0-s-mean-medusa-achieves-sub-tr-neural-temporal-resolution" id="toc-q1.-does-evaluating-peri-event-lags-every-0.5-s-or-1.0-s-mean-medusa-achieves-sub-tr-neural-temporal-resolution" class="nav-link" data-scroll-target="#q1.-does-evaluating-peri-event-lags-every-0.5-s-or-1.0-s-mean-medusa-achieves-sub-tr-neural-temporal-resolution">Q1. Does evaluating peri-event lags every 0.5 s or 1.0 s mean MEDuSA achieves sub-TR neural temporal resolution?</a></li>
+  <li><a href="#q2.-isnt-estimating-the-hrf-from-the-participants-own-task-scans-circular-double-dipping" id="toc-q2.-isnt-estimating-the-hrf-from-the-participants-own-task-scans-circular-double-dipping" class="nav-link" data-scroll-target="#q2.-isnt-estimating-the-hrf-from-the-participants-own-task-scans-circular-double-dipping">Q2. Isn’t estimating the HRF from the participant’s own task scans circular (“double dipping”)?</a></li>
+  <li><a href="#q3.-how-does-medusa-differ-from-mumford-et-al.-2012-lss-beta-series-or-a-standard-parametric-glm" id="toc-q3.-how-does-medusa-differ-from-mumford-et-al.-2012-lss-beta-series-or-a-standard-parametric-glm" class="nav-link" data-scroll-target="#q3.-how-does-medusa-differ-from-mumford-et-al.-2012-lss-beta-series-or-a-standard-parametric-glm">Q3. How does MEDuSA differ from Mumford et al.&nbsp;(2012) LSS beta-series or a standard parametric GLM?</a></li>
+  <li><a href="#q4.-empirical-bayes-shrunken-decon_eb-has-lower-trial-wise-msewhy-shouldnt-i-use-it-as-the-outcome-in-mixed_by" id="toc-q4.-empirical-bayes-shrunken-decon_eb-has-lower-trial-wise-msewhy-shouldnt-i-use-it-as-the-outcome-in-mixed_by" class="nav-link" data-scroll-target="#q4.-empirical-bayes-shrunken-decon_eb-has-lower-trial-wise-msewhy-shouldnt-i-use-it-as-the-outcome-in-mixed_by">Q4. Empirical-Bayes shrunken <code>decon_eb</code> has lower trial-wise MSE—why shouldn’t I use it as the outcome in <code>mixed_by()</code>?</a></li>
+  <li><a href="#q5.-why-set-restore_scale-true-in-step-3-if-step-2-already-standardized-each-run-with-scaling-noise_sd" id="toc-q5.-why-set-restore_scale-true-in-step-3-if-step-2-already-standardized-each-run-with-scaling-noise_sd" class="nav-link" data-scroll-target="#q5.-why-set-restore_scale-true-in-step-3-if-step-2-already-standardized-each-run-with-scaling-noise_sd">Q5. Why set <code>restore_scale = TRUE</code> in Step 3 if Step 2 already standardized each run with <code>scaling = "noise_sd"</code>?</a></li>
+  <li><a href="#q6.-how-does-step-6-m-moms-ppi-differ-from-standard-gppi-mclaren-et-al.-2012-or-lss-beta-series-correlations" id="toc-q6.-how-does-step-6-m-moms-ppi-differ-from-standard-gppi-mclaren-et-al.-2012-or-lss-beta-series-correlations" class="nav-link" data-scroll-target="#q6.-how-does-step-6-m-moms-ppi-differ-from-standard-gppi-mclaren-et-al.-2012-or-lss-beta-series-correlations">Q6. How does Step 6 M-MOMS PPI differ from standard gPPI (McLaren et al., 2012) or LSS beta-series correlations?</a></li>
+  <li><a href="#q7.-can-i-interpret-the-first-lag-with-p_tfce-.05-as-the-exact-onset-time-of-a-neural-effect" id="toc-q7.-can-i-interpret-the-first-lag-with-p_tfce-.05-as-the-exact-onset-time-of-a-neural-effect" class="nav-link" data-scroll-target="#q7.-can-i-interpret-the-first-lag-with-p_tfce-.05-as-the-exact-onset-time-of-a-neural-effect">Q7. Can I interpret the first lag with <code>p_tfce &lt; .05</code> as the exact onset time of a neural effect?</a></li>
+  <li><a href="#q8.-does-sobolev-smoothing-across-motion-censored-frames-hallucinate-trial-observations-inside-scrubbed-gaps" id="toc-q8.-does-sobolev-smoothing-across-motion-censored-frames-hallucinate-trial-observations-inside-scrubbed-gaps" class="nav-link" data-scroll-target="#q8.-does-sobolev-smoothing-across-motion-censored-frames-hallucinate-trial-observations-inside-scrubbed-gaps">Q8. Does Sobolev smoothing across motion-censored frames “hallucinate” trial observations inside scrubbed gaps?</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./reporting.html">Appendices</a></li><li class="breadcrumb-item"><a href="./reporting.html"><span class="chapter-title">Reporting MEDuSA in Empirical Papers and Reviewer FAQ</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Appendix A — Reporting MEDuSA in Empirical Papers and Reviewer FAQ</h1>
+<p class="subtitle lead">Stage-by-stage reporting checklist, adaptable Methods templates, and answers to common peer-review questions</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>Clear methodological reporting serves two goals in empirical task-fMRI papers: it allows readers to reproduce every analytical choice from raw BIDS/<code>fMRIPrep</code> derivatives to group statistics, and it preempts common peer-review concerns about hemodynamic circularity, motion scrubbing, trial overlap, and measurement-error propagation.</p>
+<p>This appendix provides three practical resources for manuscript preparation:</p>
+<ol type="1">
+<li>A <strong>stage-by-stage reporting checklist</strong> (<a href="#tbl-reporting-checklist" class="quarto-xref">Table&nbsp;<span>A.1</span></a>) paired with a short R snippet to extract cohort-level quality-control numbers.</li>
+<li><strong>Adaptable <em>Methods</em> prose templates</strong> covering Steps 0–4 preprocessing/deconvolution, Step 5 multilevel and trajectory inference, and Step 6 connectivity/PPI disattenuation.</li>
+<li>A <strong>Peer-Review FAQ</strong> addressing eight methodological questions frequently raised by cognitive neuroscience reviewers.</li>
+</ol>
+<hr>
+</section>
+<section id="stage-by-stage-reporting-checklist" class="level2">
+<h2 class="anchored" data-anchor-id="stage-by-stage-reporting-checklist">1. Stage-by-Stage Reporting Checklist</h2>
+<div id="tbl-reporting-checklist" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-reporting-checklist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;A.1: Essential methodological details to report at each stage of an empirical MEDuSA analysis.
+</figcaption>
+<div aria-describedby="tbl-reporting-checklist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Pipeline stage</th>
+<th style="text-align: left;">Quantities &amp; settings to report in <em>Methods</em> / <em>Supplement</em></th>
+<th style="text-align: left;">Where to inspect in <code>medusa</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Step 0 · Design, BIDS/<code>fMRIPrep</code> &amp; Denoising</strong></td>
+<td style="text-align: left;">Number of runs (<span class="math inline">\(R\)</span>), trial counts per condition, inter-phase / ITI jitter ranges, <code>TR</code>, output space &amp; atlas parcellation, confound strategy (<code>"24p"</code>, <code>"csf_wm"</code> + <code>aroma = "nonaggressive"</code> with <code>aroma_clean_nuisance = TRUE</code>), respiratory FD filter (<code>motion_bandstop_bpm</code>), FD threshold, mean/SD <code>%</code> censored volumes, dummy-scan masking (<code>include_non_steady_state = TRUE</code>), and explicit retention of missed/timeout events</td>
+<td style="text-align: left;"><code>sub$tr</code>, <code>sub$confounds$summary</code>, <code>table(sub$events$run, sub$events$condition)</code> (<a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Step 1 · Cross-Run HRF &amp; <span class="math inline">\(\text{AR}(p)\)</span> Noise</strong></td>
+<td style="text-align: left;">Candidate HRF manifold (<code>hrf_library(preset = "medusa")</code>, positive-lobe normalization), out-of-sample cross-run fold structure (<span class="math inline">\(s \neq r\)</span>), spatial pooling mode (<code>pooling = "parcel"</code> or <code>"graph"</code>), two-pass REML <span class="math inline">\(\text{AR}(p)\)</span> order (<code>ar_order = "auto"</code>), and <code>%</code> of units hitting the <code>0.90</code> stationarity bound</td>
+<td style="text-align: left;"><code>hrf_fit$training_runs</code>, <code>hrf_fit$selections</code>, <code>hrf_fit$noise</code> (<a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Step 2 · Continuous Deconvolution</strong></td>
+<td style="text-align: left;">Smoothness penalty (<code>penalty = "sobolev"</code>), observation-noise standardization (<code>scaling = "noise_sd"</code>), cross-run SNR-stratified smoothing (<code>lambda_mode = "auto"</code>), adaptive glitch downweighting (<code>rwls = "auto"</code>), <code>observation_mask = "fit"</code>, and median conditional self-gain</td>
+<td style="text-align: left;"><code>diagnose_crossrun_recovery(decon, events)$summary</code> (<a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Step 3 · Epoch Readout &amp; Demixing</strong></td>
+<td style="text-align: left;">Target condition, peri-event lag grid (<code>lags</code>), neural source model (<code>"impulse"</code> vs.&nbsp;<code>"duration"</code> + <code>"rate"</code> or <code>"integral"</code>), readout kernel &amp; width, collateral and target demixing (<code>demix_other_events</code>, <code>demix_target_trials</code>, <code>demix_ridge</code>), <code>min_bold_coverage</code> threshold (<code>0.20</code>), and <code>%</code> of trial-lags gated to <code>NA</code></td>
+<td style="text-align: left;"><code>epochs$panel</code> (<code>is.na(decon_demixed)</code>, <code>se_demixed</code>) (<a href="./medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Step 4 · Parcel Panels &amp; Weights</strong></td>
+<td style="text-align: left;">Physical scale restoration (<code>restore_scale = TRUE</code>), biological variance mode (<code>tau2_mode</code>, <code>tau2_shrinkage</code>), outcome column (<code>decon_demixed</code>), cohort precision weights (<code>precision_weight_cohort</code>), and whether within-run ZCA whitening (<code>whiten_panel = TRUE</code>) was used</td>
+<td style="text-align: left;"><code>epochs$panel</code>, <code>epochs$unit_error_cor</code> (<a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">Step 4</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Step 5 · Group &amp; Trajectory Models</strong></td>
+<td style="text-align: left;">Within-person vs.&nbsp;between-person predictor decomposition (<code>x_within</code>, <code>x_mean</code>), random-effects structure (<code>(1 + x_within || id) + (1 | id:run)</code>), REML Satterthwaite <code>df</code> (<code>lmerTest</code>) &amp; singularity handling; for trajectories: <code>trajectory_mode</code>, <code>contrast_source = "unsmoothed"</code>, <code>n_perm</code>, and study-wide multiplicity family (<code>"holm"</code> or <code>"BY"</code>)</td>
+<td style="text-align: left;"><code>group_models$coef_df_reml</code>, <code>traj$coefficients</code>, <code>traj$contrasts</code>, <code>traj$latency</code> (<a href="./medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Step 6 · Connectivity &amp; PPI</strong></td>
+<td style="text-align: left;"><code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_seed_lag</code>, estimator (<code>method = "mmoms"</code> reported alongside <code>"naive_unweighted"</code>), cross-parcel error subtraction (<code>shared_error = "auto"</code>), HKSJ random-effects <span class="math inline">\(t\)</span>-intervals, convergence/step-up summary, and condition-dependent shared-error sensitivity</td>
+<td style="text-align: left;"><code>ppi$group</code>, <code>ppi$subjects</code> (<code>r_shared_error</code>, <code>alpha_final</code>, <code>converged</code>) (<a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<section id="extracting-cohort-qc-descriptives-in-r" class="level3">
+<h3 class="anchored" data-anchor-id="extracting-cohort-qc-descriptives-in-r">Extracting Cohort QC Descriptives in R</h3>
+<p>Before drafting your <em>Methods</em> section, summarize censoring, deconvolution gain, and trial retention across your analyzed cohort (<span class="math inline">\(s = 1, \dots, S\)</span>):</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Assuming `subject_bundles` (Step 0), `subject_decons` (Step 2), and `subject_epochs` (Step 4) are named lists:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>censor_pct <span class="ot">&lt;-</span> <span class="fu">unlist</span>(<span class="fu">lapply</span>(subject_bundles, <span class="cf">function</span>(x) x<span class="sc">$</span>confounds<span class="sc">$</span>summary<span class="sc">$</span>pct_censored))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>self_gain  <span class="ot">&lt;-</span> <span class="fu">unlist</span>(<span class="fu">lapply</span>(<span class="fu">names</span>(subject_decons), <span class="cf">function</span>(id) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diagnose_crossrun_recovery</span>(subject_decons[[id]], <span class="at">events =</span> subject_bundles[[id]]<span class="sc">$</span>events)<span class="sc">$</span>summary<span class="sc">$</span>mean_gain</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>}))</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>gated_pct  <span class="ot">&lt;-</span> <span class="fu">sapply</span>(subject_epochs, <span class="cf">function</span>(ep) <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(<span class="fu">is.na</span>(ep<span class="sc">$</span>panel<span class="sc">$</span>decon_demixed)))</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Censored volumes: M = %.1f%% (SD = %.1f%%)</span><span class="sc">\n</span><span class="st">Conditional self-gain: Mdn = %.2f (IQR = %.2f)</span><span class="sc">\n</span><span class="st">Gated trial-lags: M = %.1f%% (SD = %.1f%%)</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mean</span>(censor_pct), <span class="fu">sd</span>(censor_pct),</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">median</span>(self_gain, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="fu">IQR</span>(self_gain, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mean</span>(gated_pct), <span class="fu">sd</span>(gated_pct)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<hr>
+</section>
+</section>
+<section id="adaptable-manuscript-methods-templates" class="level2">
+<h2 class="anchored" data-anchor-id="adaptable-manuscript-methods-templates">2. Adaptable Manuscript <em>Methods</em> Templates</h2>
+<p>Replace bracketed placeholders (<code>[...]</code>) with your study’s acquisition and design parameters, and omit optional clauses that do not apply to your analysis.</p>
+<section id="template-a-steps-04-ingestion-cross-run-hrf-learning-deconvolution-and-parcel-readout" class="level3">
+<h3 class="anchored" data-anchor-id="template-a-steps-04-ingestion-cross-run-hrf-learning-deconvolution-and-parcel-readout">Template A: Steps 0–4 — Ingestion, Cross-Run HRF Learning, Deconvolution, and Parcel Readout</h3>
+<blockquote class="blockquote">
+<p><strong>Single-trial fMRI deconvolution and parcel panel construction.</strong> Preprocessed BOLD time series (<code>fMRIPrep</code> <code>[vXX.X]</code>, <code>[MNI152NLin2009cAsym]</code>, <code>TR = [0.80] s</code>, <code>[R = 4]</code> runs per participant) were analyzed in R using the <code>medusa</code> package (<code>[v0.1.0]</code>; Hallquist, 2026). Within each run, <code>[non-aggressive ICA-AROMA denoising was applied to BOLD volumes and matched CSF/WM nuisance regressors (Pruim et al., 2015; Lindquist et al., 2019), and]</code> <code>[24-parameter head-motion regressors plus cosine drift bases]</code> were projected on an intact acquisition clock (<code>read_fmriprep_subject()</code>). <code>[To prevent respiration-induced pseudomotion from triggering false framewise-displacement (FD) scrubs at sub-second TR, realignment parameters were notch-filtered across 12–20 breaths/min prior to computing FD (Fair et al., 2020).]</code> Initial non-steady-state volumes and frames exceeding <code>FD &gt; [0.3 / 0.5] mm</code> (<code>M = [X.X]%</code>, <code>SD = [X.X]%</code> of volumes) were masked via clock-preserving observation weights (<code>valid_rows</code>) rather than physically concatenating runs, and missed/timeout trials were retained as a separate nuisance event condition in the forward schedule.</p>
+<p>Regional hemodynamic response functions (HRFs) were estimated out of sample across runs (<code>estimate_crossrun_hrf()</code>) over a three-dimensional physiological HRF library (<code>hrf_library(preset = "medusa")</code>, positive-lobe normalized) pooled within <code>[Schaefer 200-parcel regions / bilateral cortical-ribbon neighborhoods]</code>. Conditioned on each run’s out-of-sample selected HRF, temporal noise autocorrelation was refit in a second restricted-maximum-likelihood (REML) <span class="math inline">\(\text{AR}(p)\)</span> pass (<code>ar_order = "auto"</code>). Continuous latent neural activity was reconstructed on the acquisition grid via prewhitened, Sobolev-penalized generalized least squares (<code>deconvolve_crossrun_hrf()</code>, <code>scaling = "noise_sd"</code>), using monotone SNR-stratified cross-run generalized cross-validation (<code>lambda_mode = "auto"</code>) and task-protected outlier downweighting (<code>rwls = "auto"</code>).</p>
+<p>Event-locked trial estimates around <code>[feedback onset]</code> (<code>lags = [-2 to +6 s]</code>) were extracted via <code>decon_epoch_regression()</code> (<code>source_model = ["impulse" / "duration"]</code>, <code>readout_kernel = "triangle"</code>, <code>restore_scale = TRUE</code>), subtracting collateral spillover from non-target task phases (<code>demix_other_events = TRUE</code>) and inverting target-to-target hemodynamic mixing (<code>demix_target_trials = TRUE</code>, <code>demix_ridge = [0.05]</code>) to place trial readouts (<code>decon_demixed</code>) on an additive measurement-error scale (Vig &amp; Hallquist, 2026). Voxels were aggregated into anatomical parcels using cross-run precision weights while propagating stationary temporal and spatial noise innovations into run-centered trial standard errors (<code>se_demixed</code>) and cross-parcel error correlations (<code>unit_error_cor</code>). Trial-lags with fewer than 20% unmasked causal HRF support (<code>min_bold_coverage = 0.20</code>; <code>[X.X]%</code> of trials) were recorded as missing (<code>NA</code>).</p>
+</blockquote>
+<hr>
+</section>
+<section id="template-b-step-5-population-multilevel-and-peri-event-trajectory-inference" class="level3">
+<h3 class="anchored" data-anchor-id="template-b-step-5-population-multilevel-and-peri-event-trajectory-inference">Template B: Step 5 — Population Multilevel and Peri-Event Trajectory Inference</h3>
+<blockquote class="blockquote">
+<p><strong>Group-level trial and trajectory inference.</strong> Time-varying behavioral predictors (<code>[reward prediction error, RPE]</code>) were decomposed into within-person centered fluctuations (<code>[rpe_within]</code>) and person-level means (<code>[rpe_mean]</code>).</p>
+<p><em>[Option 1 — Planned lag or duration mixed models (<code>mixed_by()</code>):]</em> At each <code>[parcel and planned lag]</code>, unshrunken trial readouts (<code>decon_demixed</code>) were fit using linear mixed-effects models (<code>mixed_by()</code> via <code>lmerTest</code>; Kuznetsova et al., 2017) weighted by normalized inverse total trial variance (<code>weights = "precision_weight_cohort"</code>), with random intercepts and within-person slopes per participant and nested run intercepts (<code>decon_demixed ~ rpe_within + rpe_mean + (1 + rpe_within || id) + (1 | id:run)</code>). Degrees of freedom were estimated via Satterthwaite’s approximation, and <span class="math inline">\(p\)</span>-values across <code>[P = 200 parcels]</code> were controlled using <code>[Holm familywise error / Benjamini–Yekutieli false discovery rate]</code> adjustment.</p>
+<p><em>[Option 2 — Joint multi-lag trajectory inference (<code>medusa_multilag_infer()</code>):]</em> Full peri-event lag profiles (<code>[-2 to +6 s]</code>) were modeled jointly using <code>medusa_multilag_infer()</code> (<code>trajectory_mode = "auto"</code>), combining spectral cross-lag deblurring and uncertainty-propagated penalized splines with <code>[799]</code> finite-sample studentized Wishart draws across available participant lag sets. Within each trajectory, simultaneous 95% confidence bands (<code>Max-|T|</code>), 1D threshold-free cluster-enhanced (<code>1D TFCE</code>) <span class="math inline">\(p\)</span>-values, and Mahalanobis epoch omnibus tests (<code>omnibus_p</code>) were computed; planned window contrasts (<code>[late 3–5 s minus early 0–2 s]</code>) were evaluated on unsmoothed lag estimates (<code>contrast_source = "unsmoothed"</code>). Across tested parcels, epoch-wide discovery was controlled by applying <code>[Holm / Benjamini–Yekutieli]</code> correction to <code>omnibus_p</code>.</p>
+</blockquote>
+<hr>
+</section>
+<section id="template-c-step-6-trial-level-functional-connectivity-and-ppi" class="level3">
+<h3 class="anchored" data-anchor-id="template-c-step-6-trial-level-functional-connectivity-and-ppi">Template C: Step 6 — Trial-Level Functional Connectivity and PPI</h3>
+<blockquote class="blockquote">
+<p><strong>Measurement-error-corrected trial connectivity and PPI.</strong> Trial-to-trial seed–target coupling and psychophysiological interaction (<code>Target ~ Seed + [Modulator] + Seed:[Modulator]</code>) between <code>[seed parcel]</code> and <code>[target parcel(s)]</code> were estimated using <code>decon_connectivity_repair()</code> (<code>method = "mmoms"</code>, <code>shared_error = "auto"</code>, <code>orthogonalize_seed_x = [FALSE / TRUE]</code>, <code>use_whitened = FALSE</code>). Within each participant, run-centered predictor measurement-error covariance blocks <span class="math inline">\(\Psi_i\)</span> constructed from squared trial standard errors (<code>se_demixed^2</code>) were subtracted from sample design cross-products (<span class="math inline">\(X^\top X\)</span>), while stationary cross-parcel error covariances estimated from task-free deconvolution innovations (<code>unit_error_cor</code>) were subtracted from predictor–outcome cross-products (<span class="math inline">\(X^\top Y\)</span>) with step-up positive-definiteness regularization (Modified Method of Moments with Step-up Regularization, M-MOMS; Fuller, 1987; Vig &amp; Hallquist, 2026). Participant-level M-MOMS slopes were pooled across the cohort (<span class="math inline">\(S = [N]\)</span>) using leverage-guarded Hartung–Knapp–Sidik–Jonkman (HKSJ) random-effects <span class="math inline">\(t\)</span>-intervals, reported alongside uncorrected ordinary least-squares (<code>"naive_unweighted"</code>) estimates and sensitivity analyses across hypothesized condition-dependent cross-error correlations.</p>
+</blockquote>
+<hr>
+</section>
+</section>
+<section id="peer-review-faq-common-questions-and-misconceptions" class="level2">
+<h2 class="anchored" data-anchor-id="peer-review-faq-common-questions-and-misconceptions">3. Peer-Review FAQ: Common Questions and Misconceptions</h2>
+<section id="q1.-does-evaluating-peri-event-lags-every-0.5-s-or-1.0-s-mean-medusa-achieves-sub-tr-neural-temporal-resolution" class="level3">
+<h3 class="anchored" data-anchor-id="q1.-does-evaluating-peri-event-lags-every-0.5-s-or-1.0-s-mean-medusa-achieves-sub-tr-neural-temporal-resolution">Q1. Does evaluating peri-event lags every 0.5 s or 1.0 s mean MEDuSA achieves sub-TR neural temporal resolution?</h3>
+<p><strong>No.</strong> Evaluating lags on a fine peri-event grid (or across jittered sub-TR event onsets) provides smooth <em>phase alignment</em> relative to stimulus onset, not unlimited neural frequency bandwidth. Because hemodynamic convolution <span class="math inline">\(H_r\)</span> is a strong low-pass filter and Step 2 applies a positive smoothness penalty <span class="math inline">\(\lambda_v &gt; 0\)</span> to keep variance finite, recovered neural activity <span class="math inline">\(\widehat{a}_r(t)\)</span> has a finite temporal point-spread width determined by the resolution operator <span class="math inline">\(R_r = D_r M_{r,o} H_r\)</span>. You can report that effective bandwidth transparently via <code>diagnose_crossrun_recovery(decon)</code> (<code>mean_gain</code>) and rely on <code>medusa_multilag_infer(..., trajectory_mode = "auto")</code> for regularized cross-lag deblurring (<a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>; <a href="./medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a>).</p>
+</section>
+<section id="q2.-isnt-estimating-the-hrf-from-the-participants-own-task-scans-circular-double-dipping" class="level3">
+<h3 class="anchored" data-anchor-id="q2.-isnt-estimating-the-hrf-from-the-participants-own-task-scans-circular-double-dipping">Q2. Isn’t estimating the HRF from the participant’s own task scans circular (“double dipping”)?</h3>
+<p><strong>No, for two independent reasons.</strong> First, <code>estimate_crossrun_hrf()</code> is strictly <strong>out of sample across runs</strong>: the HRF kernel applied to deconvolve run <span class="math inline">\(r\)</span> is selected exclusively from non-target runs <span class="math inline">\(s \neq r\)</span>. Second, HRF selection evaluates overall task-evoked variance explained by event <em>occurrences</em> without access to downstream trial-by-trial behavioral modulators (<code>rpe_within</code>), group contrasts, or connectivity targets. Pass-2 <span class="math inline">\(\text{AR}(p)\)</span> noise refitting on run <span class="math inline">\(r\)</span> keeps the cross-fitted HRF completely frozen (<a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>; <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Autocorrelation Prewhitening</a>).</p>
+</section>
+<section id="q3.-how-does-medusa-differ-from-mumford-et-al.-2012-lss-beta-series-or-a-standard-parametric-glm" class="level3">
+<h3 class="anchored" data-anchor-id="q3.-how-does-medusa-differ-from-mumford-et-al.-2012-lss-beta-series-or-a-standard-parametric-glm">Q3. How does MEDuSA differ from Mumford et al.&nbsp;(2012) LSS beta-series or a standard parametric GLM?</h3>
+<p>On slow, well-spaced, single-phase designs where the canonical HRF matches regional vasculature, parametric GLMs, LSS beta-series, and MEDuSA yield closely aligned group inferences. They diverge in three common cognitive neuroscience settings (<a href="./foundations.html#sec-glm-fir-lss-comparison">Conceptual foundations §5</a>): (1) rapid multi-phase trials (<code>cue</code> <span class="math inline">\(\to\)</span> variable-RT <code>decision</code> <span class="math inline">\(\to\)</span> <code>feedback</code>), where separate LSS regressions omit modulators on neighboring phases and absorb cue/RT confounds; (2) regions with non-canonical HRF peak delays or dispersion, which MEDuSA learns out of sample per parcel; and (3) biphasic or delayed post-event dynamics that collapse to near zero under a single canonical GLM impulse but emerge clearly across a continuous peri-event lag trajectory.</p>
+</section>
+<section id="q4.-empirical-bayes-shrunken-decon_eb-has-lower-trial-wise-msewhy-shouldnt-i-use-it-as-the-outcome-in-mixed_by" class="level3">
+<h3 class="anchored" data-anchor-id="q4.-empirical-bayes-shrunken-decon_eb-has-lower-trial-wise-msewhy-shouldnt-i-use-it-as-the-outcome-in-mixed_by">Q4. Empirical-Bayes shrunken <code>decon_eb</code> has lower trial-wise MSE—why shouldn’t I use it as the outcome in <code>mixed_by()</code>?</h3>
+<p>Minimum mean-squared error for <em>individual trial predictions</em> is not the same goal as unbiased <em>structural slope estimation</em> across trials (Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026). Because <code>decon_eb</code> shrinks noisy deviations toward the parcel mean by reliability factor <span class="math inline">\(\kappa_{ri} = \widehat{\tau}^2 / (\widehat{\tau}^2 + s_{ri}^2) &lt; 1\)</span>, entering <code>decon_eb</code> on the left-hand side of a regression multiplies the true population slope by <span class="math inline">\(\bar{\kappa} &lt; 1\)</span>—attenuating group effects by 30–60% when single-trial fMRI reliability is moderate (<a href="./medusa_qc_gallery/medusa_qc_gallery.html#sec-qc-step34">QC Gallery Pair 3</a>). Entering unshrunk <code>decon_demixed</code> with <code>weights = "precision_weight_cohort"</code> avoids shrinkage bias while still downweighting noisy trials and runs optimally.</p>
+</section>
+<section id="q5.-why-set-restore_scale-true-in-step-3-if-step-2-already-standardized-each-run-with-scaling-noise_sd" class="level3">
+<h3 class="anchored" data-anchor-id="q5.-why-set-restore_scale-true-in-step-3-if-step-2-already-standardized-each-run-with-scaling-noise_sd">Q5. Why set <code>restore_scale = TRUE</code> in Step 3 if Step 2 already standardized each run with <code>scaling = "noise_sd"</code>?</h3>
+<p>Standardizing each run by its marginal observation-noise SD <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span> <em>inside Step 2</em> places the data fidelity term and smoothness penalty <span class="math inline">\(\lambda_v \|P a_r\|^2\)</span> on a dimensionless SNR scale so GCV smoothing behaves consistently across scanners and runs. If left in noise-SD units for Step 3–5, however, a noisy high-motion run (<span class="math inline">\(\widehat{\sigma}_{\text{obs}} = 2.0\)</span>) would have its true neural signal divided by twice as much as a clean run (<span class="math inline">\(\widehat{\sigma}_{\text{obs}} = 1.0\)</span>), shrinking its amplitude relative to clean runs. Setting <code>restore_scale = TRUE</code> multiplies both <code>decon_demixed</code> and <code>se_demixed</code> back by <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span>, placing every run of a parcel onto common physical BOLD units while letting <code>se_demixed</code> and <code>precision_weight_cohort</code> downweight noisy runs cleanly (<a href="./medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a>; <a href="./medusa_standard_errors_mmom.html">Propagating BOLD Noise into Trial SEs</a>).</p>
+</section>
+<section id="q6.-how-does-step-6-m-moms-ppi-differ-from-standard-gppi-mclaren-et-al.-2012-or-lss-beta-series-correlations" class="level3">
+<h3 class="anchored" data-anchor-id="q6.-how-does-step-6-m-moms-ppi-differ-from-standard-gppi-mclaren-et-al.-2012-or-lss-beta-series-correlations">Q6. How does Step 6 M-MOMS PPI differ from standard gPPI (McLaren et al., 2012) or LSS beta-series correlations?</h3>
+<p>Standard BOLD-level PPI multiplies noisy BOLD (or MAP-deconvolved point estimates) by task regressors without accounting for two opposing trial-level error biases: (a) random estimation variance <span class="math inline">\(s_{S,i}^2\)</span> in the seed readout <em>attenuates</em> both baseline connectivity and PPI interaction slopes toward zero, and (b) correlated physiological, vascular, or motion noise shared across brain regions (<span class="math inline">\(r_{ST} &gt; 0\)</span>) <em>inflates</em> apparent coupling. <code>decon_connectivity_repair()</code> forms the interaction on de-mixed trial readouts, subtracts analytical seed error moments <span class="math inline">\(\Psi_i(s_{S,i}^2)\)</span> from <span class="math inline">\(X^\top X\)</span>, subtracts cross-parcel innovation covariance from <span class="math inline">\(X^\top Y\)</span> (<code>shared_error = "auto"</code>), protects small-sample matrix conditioning (<code>method = "mmoms"</code>), and pools participant slopes via HKSJ <span class="math inline">\(t\)</span>-intervals (<a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>; <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity Beyond Per-Trial Disattenuation</a>).</p>
+</section>
+<section id="q7.-can-i-interpret-the-first-lag-with-p_tfce-.05-as-the-exact-onset-time-of-a-neural-effect" class="level3">
+<h3 class="anchored" data-anchor-id="q7.-can-i-interpret-the-first-lag-with-p_tfce-.05-as-the-exact-onset-time-of-a-neural-effect">Q7. Can I interpret the first lag with <code>p_tfce &lt; .05</code> as the exact onset time of a neural effect?</h3>
+<p><strong>No.</strong> Just as in cluster-based permutation testing for EEG/MEG and spatial fMRI (<a href="https://onlinelibrary.wiley.com/doi/10.1111/psyp.13335">Sassenhagen &amp; Draschkow, 2019</a>), 1D threshold-free cluster enhancement (<code>p_tfce</code>) integrates contiguous extent and height across lags to boost sensitivity to sustained deflections; its error guarantee applies to the cluster-enhanced statistic rather than exact onset boundaries. When you want strict familywise localization at individual lags of a trajectory, inspect <strong><code>p_maxT</code></strong> and the simultaneous band <code>[conf.low.sim, conf.high.sim]</code>; when you want continuous timing summaries (peak lag, center-of-mass latency, or full-width at half-maximum), report <code>$latency</code> bootstrap intervals from <code>medusa_multilag_infer()</code> (<a href="./medusa_multilag_calibration/medusa_multilag_calibration.html">Simultaneous Bands Across Lags</a>).</p>
+</section>
+<section id="q8.-does-sobolev-smoothing-across-motion-censored-frames-hallucinate-trial-observations-inside-scrubbed-gaps" class="level3">
+<h3 class="anchored" data-anchor-id="q8.-does-sobolev-smoothing-across-motion-censored-frames-hallucinate-trial-observations-inside-scrubbed-gaps">Q8. Does Sobolev smoothing across motion-censored frames “hallucinate” trial observations inside scrubbed gaps?</h3>
+<p><strong>No.</strong> Under <code>observation_mask = "fit"</code>, censored frames (<code>valid_rows == FALSE</code>) contribute zero data weight during Step 2 while keeping acquisition timestamps exact. In Step 3, <code>decon_epoch_regression()</code> computes the exact fraction of each trial-lag’s forward HRF energy supported by unmasked BOLD frames: if fewer than 20% of causal HRF support was observed (<code>min_bold_coverage = 0.20</code>), that trial-lag is gated directly to <code>NA</code>; if partial scrubbing occurred inside the HRF window, the propagated sandwich variance <span class="math inline">\(\Omega_{r,\tau}\)</span> automatically inflates <code>se_demixed</code> for that specific trial so downstream precision weights downweight it proportionately (<a href="./medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a>; <a href="./medusa_qc_gallery/medusa_qc_gallery.html#sec-qc-step34">QC Gallery Pair 3</a>).</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="./evidence.html" class="pagination-link" aria-label="What Validation Proves—and Building Study-Specific Checks">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./reference.html" class="pagination-link" aria-label="Package Architecture, Source Reports, and Reproduction">
+        <span class="nav-page-text"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -2,74 +2,78 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/index.html</loc>
-    <lastmod>2026-11-16T14:50:52.985Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.268Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/foundations.html</loc>
-    <lastmod>2026-11-16T14:50:52.985Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.268Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/worked-example.html</loc>
-    <lastmod>2026-11-16T14:50:53.196Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.494Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step0_design_bids/medusa_step0_design_bids.html</loc>
-    <lastmod>2026-11-16T14:50:53.156Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.444Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step1_hrf_noise/medusa_step1_hrf_noise.html</loc>
-    <lastmod>2026-11-16T14:50:53.161Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.450Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step2_deconvolution/medusa_step2_deconvolution.html</loc>
-    <lastmod>2026-11-16T14:50:53.169Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.459Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step3_epochs/medusa_step3_epochs.html</loc>
-    <lastmod>2026-11-16T14:50:53.174Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.467Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step4_parcel_panels/medusa_step4_parcel_panels.html</loc>
-    <lastmod>2026-11-16T14:50:53.183Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.478Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step5_group_models/medusa_step5_group_models.html</loc>
-    <lastmod>2026-11-16T14:50:53.186Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.483Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step6_connectivity/medusa_step6_connectivity.html</loc>
-    <lastmod>2026-11-16T14:50:53.196Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.494Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_qc_gallery/medusa_qc_gallery.html</loc>
-    <lastmod>2026-11-16T14:50:53.146Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.430Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html</loc>
-    <lastmod>2026-11-16T14:50:53.152Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.438Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html</loc>
-    <lastmod>2026-11-16T14:50:53.164Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.453Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_standard_errors_mmom.html</loc>
-    <lastmod>2026-11-16T14:50:53.154Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.441Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_multilag_calibration/medusa_multilag_calibration.html</loc>
-    <lastmod>2026-11-16T14:50:53.144Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.427Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/medusa_connectivity_inference/medusa_connectivity_inference.html</loc>
-    <lastmod>2026-11-16T14:50:53.135Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.418Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/evidence.html</loc>
-    <lastmod>2026-11-16T14:50:52.984Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.268Z</lastmod>
+  </url>
+  <url>
+    <loc>https://hallquistlab.github.io/medusa/book/reporting.html</loc>
+    <lastmod>2026-11-16T16:34:08.494Z</lastmod>
   </url>
   <url>
     <loc>https://hallquistlab.github.io/medusa/book/reference.html</loc>
-    <lastmod>2026-11-16T14:50:53.196Z</lastmod>
+    <lastmod>2026-11-16T16:34:08.494Z</lastmod>
   </url>
 </urlset>
