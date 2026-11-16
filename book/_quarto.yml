@@ -45,6 +45,7 @@ book:
         - medusa_connectivity_inference/medusa_connectivity_inference.qmd
         - evidence.qmd
   appendices:
+    - reporting.qmd
     - reference.qmd
 
 format:
