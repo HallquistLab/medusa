@@ -66,9 +66,9 @@ The walkthrough below develops Step 6 in four substeps directly paralleling the 
 
 | Output component | Structure & key columns | Role |
 |:---|:---|:---|
-| **`$group`** | `data.table` per modeled term (`seed`, task covariates, `ppi`): `estimate`, `std.error`, `statistic`, `df`, `p.value`, `conf.low`, `conf.high`, `tau2`, `n_subjects` | Reports HKSJ random-effects population slope estimates and 95% $t$-intervals anchored to participant degrees of freedom. |
-| **`$subjects`** | `data.table` per `(id, term)`: `estimate`, `std.error`, `n_trials`, `r_shared_error`, `shared_error_source`, `regularization_lambda`, `converged` | Exposes each participant's M-MOMS slope, working cross-parcel error correlation (`r_shared_error`), metadata source, and any step-up regularization constants. |
-| **`$panel_repair`** | Optional paired trial `data.table` (`return_panel = TRUE`) | Provides the exact centered/paired trial columns and error variances for custom plots or sensitivity curves. |
+| **`$group`** | `data.table` per modeled term (`seed_c`, task covariates, interaction): `estimate`, `std.error`, `statistic`, `df`, `p.value`, `conf.low`, `conf.high`, `tau2`, `n_subjects` | Reports HKSJ random-effects population slope estimates and 95% $t$-intervals anchored to participant degrees of freedom. |
+| **`$subjects`** | `data.table` per `(id, term)`: `estimate`, `std.error`, `n_trials`, `r_shared_error`, `lambda_prelim`, `lambda_final`, `alpha_prelim`, `alpha_final`, `converged` | Exposes each participant's M-MOMS slope, working cross-parcel error correlation (`r_shared_error`), and any step-up regularization constants. |
+| **`$augmented_panel`** | Optional paired trial `data.table` (`return_augmented_panel = TRUE`) | Provides the exact centered/paired trial columns and error variances for custom plots or sensitivity curves. |
 
 ---
 
@@ -84,10 +84,10 @@ $$
 
 Each coefficient answers a distinct biological question: $\beta_S$ is baseline trial-to-trial seed–target coupling at the mean of $x_i$ ($x_i = 0$), $\beta_x$ absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and $\beta_P$ is the **PPI slope**—how much seed–target coupling changes per unit change in $x_i$ (for $x_i \in \{-1, +1\}$, $2\beta_P$ is the slope difference between task conditions).
 
-**Choice point — Seed parameterization (`orthogonalize_seed_x`) and lagged control (`control_target_at_seed_lag`):**
+**Choice point — Seed parameterization (`orthogonalize_seed_x`) and lagged control (`control_target_seed_lag`):**
 
 - **Direct vs. residualized seed (`orthogonalize_seed_x`):** Setting `orthogonalize_seed_x = FALSE` (recommended when testing the direct structural equation above) enters centered $\theta_{S,i}$ and $x_i$ symmetrically without altering quadratic task structure. Setting `orthogonalize_seed_x = TRUE` first residualizes the seed against `covariates` (projecting `diag(se_demixed^2)` through $P D_u P^\top$) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to $x_i$, residualizing shifts the product column by a term proportional to $x_i^2$.
-- **Concurrent vs. lagged Granger-style coupling (`control_target_at_seed_lag`):** When `target_lag > seed_lag`, setting `control_target_at_seed_lag = TRUE` includes target activity at `seed_lag` as an additional error-corrected neural predictor so $\beta_S$ and $\beta_P$ test whether seed activity predicts *subsequent change* in the target parcel.
+- **Concurrent vs. lagged Granger-style coupling (`control_target_seed_lag`):** When `target_lag > seed_lag`, setting `control_target_seed_lag = TRUE` includes target activity at `seed_lag` as an additional error-corrected neural predictor so $\beta_S$ and $\beta_P$ test whether seed activity predicts *subsequent change* in the target parcel.
 
 ---
 
@@ -183,7 +183,7 @@ ppi$group
 |:---|:---|:---|:---|
 | **`panel_dt`** | Required | Named `subject_epochs` list (or `.rds` / Parquet `group_panel`) | Preserves Step 4 cross-parcel noise metadata (`unit_error_cor` and `shared_noise_loading`; see [worked handoff check](../worked-example.qmd#sec-worked-handoff)). |
 | **`orthogonalize_seed_x`** | `TRUE` | `FALSE` (direct model) or `TRUE` (residualized-seed model) | Selects direct symmetric `Seed + x + Seed:x` vs. task-residualized seed modulation (`Substep 6.1`). |
-| **`control_target_at_seed_lag`** | `FALSE` | `TRUE` when `target_lag > seed_lag` | Controls for baseline target activity at `seed_lag` in lagged connectivity models (`Substep 6.1`). |
+| **`control_target_seed_lag`** | `FALSE` | `TRUE` when `target_lag > seed_lag` | Controls for baseline target activity at `seed_lag` in lagged connectivity models (`Substep 6.1`). |
 | **`shared_error`** | `"auto"` | `"auto"` + `"zero"` comparison | Subtracts stationary cross-parcel measurement-error covariance learned from Step 1–4 task-free innovations (`Substep 6.2`). |
 | **`method`** | `"mmoms"` | `"mmoms"` (report alongside `"naive_unweighted"`) | Stabilizes error-subtracted predictor matrices in noisy participants while disattenuating slopes (`Substep 6.3`). |
 | **`use_whitened`** | `FALSE` | `FALSE` | Keeps seed, target, and `Seed:x` in matched unwhitened run-centered coordinates (separate within-parcel decorrelation/ZCA matrices $T_S \neq T_T$ do not commute with product terms). |
@@ -202,8 +202,8 @@ Because $\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0$, naive regression already 
 
 ### Reporting checklist and scope boundaries
 
-1. **Report circuit, lag, and estimand choices:** Document `seed_region`, `target_region`, `seed_lag`, `target_lag`, `orthogonalize_seed_x`, `control_target_at_seed_lag`, and multiplicity adjustment across region pairs.
-2. **Present naive and M-MOMS side by side:** Include `"naive_unweighted"` alongside `"mmoms"` and summarize `ppi$subjects` (`r_shared_error`, `shared_error_source`, participant/trial counts, and any step-up regularization).
+1. **Report circuit, lag, and estimand choices:** Document `seed_region`, `target_region`, `seed_lag`, `target_lag`, `orthogonalize_seed_x`, `control_target_seed_lag`, and multiplicity adjustment across region pairs.
+2. **Present naive and M-MOMS side by side:** Include `"naive_unweighted"` alongside `"mmoms"` and summarize `ppi$subjects` (`r_shared_error`, `alpha_final`, `lambda_final`, participant/trial counts, and convergence; see the [Visual QC Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd) for side-by-side participant connectivity distributions under intact vs. stripped `shared_error` metadata).
 3. **Scope boundaries:** Just as in Vig & Hallquist (2026), Step 6 treats first-stage error variances (`se_demixed^2`) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences ($K_S \neq K_T$). For mathematical derivations and full-covariance extensions, see [From BOLD noise to M-MOM error variances](../medusa_standard_errors_mmom.qmd) and [Measurement-error models and REPAIR](../medusa_connectivity_inference/medusa_connectivity_inference.qmd).
 
 ---
