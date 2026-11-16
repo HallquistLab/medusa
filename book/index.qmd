@@ -13,7 +13,7 @@ Imagine a reinforcement-learning task in which participants decide when to respo
 
 Michael Hallquist’s 2022 MEDuSA Quant Talk introduced the clock-task motivation for placing deconvolution, event alignment, and multilevel modeling into a unified sequence. This book documents how the standalone `medusa` R package implements that framework end to end—walking through the statistical logic, modeling choices, and practical diagnostics at each stage.
 
-## Why use MEDuSA—and how does the six-step pipeline fit together?
+## Why use MEDuSA—and how does the pipeline fit together?
 
 Common fMRI analysis strategies each address part of the problem:
 
@@ -22,11 +22,14 @@ Common fMRI analysis strategies each address part of the problem:
 - **Single-trial GLMs (LSS / LSA)** estimate one scalar amplitude per event under an assumed HRF, rather than a continuous event-locked trajectory across lags with cross-fitted vascular timing.
 - **Blind deconvolution** (`deconvolve_nlreg()`, `deconvolve_reglin()`) reconstructs continuous time series without event timestamps, leaving neurovascular delay, task-free noise scaling, and trial-level error covariances unanchored.
 
+For a side-by-side simulation comparing Parametric GLM, Condition-Modulated FIR, LSS beta-series, and MEDuSA across single-phase, rapid multi-phase RL, and biphasic neural regimes, see [Conceptual foundations §5](foundations.qmd#sec-glm-fir-lss-comparison).
+
 MEDuSA combines **out-of-sample event-informed neurovascular identification** with **continuous regularized linear deconvolution** and **operator-propagated trial inference**. Because every linear transformation from raw BOLD to trial readouts is retained explicitly, downstream epoch regressions, parcel aggregations, multilevel models, and connectivity estimators carry both the *resolution matrix* (how neighboring events and lags mix in expectation) and the *propagated error covariance* (how observation noise varies and correlates across trials, lags, and parcels).
 
 | Pipeline step | Primary `medusa` function(s) | Core question answered |
 |---|---|---|
-| [1. Estimate Cross-Run HRF & Noise](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd) | `read_fmriprep_subject()`, `read_fmriprep_confounds()`, `read_nifti_ts()`, `build_spatial_graph()`, `hrf_library()`, `estimate_crossrun_hrf()` | How do we ingest BIDS/fMRIPrep inputs on an intact acquisition clock (including [fast-TR respiratory FD filtering](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-respiratory-fd-filter)) and learn each parcel's or cortical neighborhood's HRF and AR($p$) noise out of sample? |
+| [0. Task Design & BIDS/fMRIPrep Ingestion](medusa_step0_design_bids/medusa_step0_design_bids.qmd) | `read_fmriprep_subject()`, `read_bids_events()`, `read_fmriprep_confounds()`, `read_nifti_ts()` | How should runs and inter-phase jitter be scheduled for trial-level identifiability, and how do we ingest BIDS events, `fMRIPrep` confounds, dummy scans, and missed trials onto an intact acquisition clock? |
+| [1. Estimate Cross-Run HRF & Noise](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd) | `build_spatial_graph()`, `hrf_library()`, `estimate_crossrun_hrf()` | How do we learn each parcel's or cortical neighborhood's HRF out of sample and estimate run-specific AR($p$) noise covariance (including [fast-TR respiratory FD filtering](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-respiratory-fd-filter))? |
 | [2. Deconvolve Continuous Signal](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd) | `deconvolve_crossrun_hrf()`, `diagnose_crossrun_recovery()`, `write_nifti_ts()` | What continuous latent time course is supported on the acquisition grid when event-informed GLS regression calibrates noise scaling, outlier weights, and SNR-stratified GCV smoothing (`lambda_mode = "auto"`)? |
 | [3. Align Epochs & De-Mix Overlap](medusa_step3_epochs/medusa_step3_epochs.qmd) | `decon_epoch_regression()`, `align_medusa_ts()` | How do we read out event-locked lags, remove non-target spillover, invert target-to-target mixing to recover additive trial error, model variable durations, and compute per-trial standard errors? |
 | [4. Assemble Parcel Panels](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd) | `decon_epoch_regression(..., parcel_groups = ...)` | How do we pool voxels into parcels using cross-run precision weights while propagating spatial noise correlations, cohort weights, and paired ZCA-whitened columns? |
@@ -36,7 +39,7 @@ MEDuSA combines **out-of-sample event-informed neurovascular identification** wi
 ## How to read this book
 
 1. Begin with [Conceptual foundations](foundations.qmd) for the unifying measurement-and-structural framework ($y \to \hat{s} \to \hat{z}$) and [A worked analysis](worked-example.qmd) for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.
-2. Read the six chapters in **The six steps**. Each chapter opens with a thumbnail **Overview** and clean **Goals, Inputs, and Outputs** tables, walks step by step through each **Substep and Choice Point** from simple intuition to the full estimator, summarizes **Recommended Settings**, and closes with **Practical Considerations, Diagnostics, and Scope**.
+2. Read the seven chapters in **The MEDuSA pipeline** (Steps 0–6). Each chapter opens with a thumbnail **Overview** and clean **Goals, Inputs, and Outputs** tables, walks step by step through each **Substep and Choice Point** from simple intuition to the full estimator, summarizes **Recommended Settings**, and closes with **Practical Considerations, Diagnostics, and Scope**.
 3. Explore [Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows](medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd) for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (`write_nifti_ts()`), and parcel-wise panel backprojection (`backproject_medusa()`) visualized with `ggbrain`.
 4. Consult **Measurement models and evidence** for deeper derivations of [M-MOM standard-error propagation](medusa_standard_errors_mmom.qmd), [latent connectivity measurement models](medusa_connectivity_inference/medusa_connectivity_inference.qmd), [multi-lag calibration](medusa_pr62_calibration/medusa_pr62_calibration.qmd), [autocorrelation estimation](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd), and [validation benchmarks](evidence.qmd).
 

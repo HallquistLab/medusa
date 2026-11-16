@@ -43,7 +43,7 @@ hrf_fit <- estimate_crossrun_hrf(
 
 ::: {.callout-note}
 ### Position in the MEDuSA Pipeline
-**Preprocessed BOLD + Event schedule** $\longrightarrow$ **Step 1 (`estimate_crossrun_hrf`)** $\longrightarrow$ `hrf_fit` S3 object $\longrightarrow$ **Step 2 (`deconvolve_crossrun_hrf`)**
+[**Step 0 (`read_fmriprep_subject` / Task & Clock Setup)**](../medusa_step0_design_bids/medusa_step0_design_bids.qmd) $\longrightarrow$ **Step 1 (`estimate_crossrun_hrf`)** $\longrightarrow$ `hrf_fit` S3 object $\longrightarrow$ [**Step 2 (`deconvolve_crossrun_hrf`)**](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)
 :::
 
 The walkthrough below develops Step 1 across four substeps—from defining a single HRF basis curve (`1.1`), to cross-run candidate scoring (`1.2`), spatial evidence pooling (`1.3`), and post-selection $\text{AR}(p)$ noise estimation (`1.4`)—highlighting the modeling choice at each stage.
@@ -156,7 +156,7 @@ knitr::kable(
 
 **Choice point — Spatial pooling (`pooling`) and composite rule (`selection_mode`):** Pair `selection_mode = "soft_average"` with the spatial pooling mode matched to your representation:
 
-- `pooling = "parcel"` (with `spatial_groups = parcel_ids`) pools uniformly within predefined ROIs or homogeneous parcels.
+- `pooling = "parcel"` (with `spatial_groups = parcel_ids`) pools uniformly within predefined ROIs or homogeneous parcels. By default (`min_parcel_voxels = 5L`), parcels with fewer than 5 voxels retain the canonical fallback waveform to avoid noisy small-parcel switches; lower `min_parcel_voxels` explicitly (e.g., `2L` or `3L`) when targeting tiny subcortical nuclei at standard $2\text{--}3\text{ mm}$ resolution.
 - `pooling = "graph"` (with `parcel_boundary = "soft"`) on volumetric `"medusa_nifti_ts"` inputs builds a 26-connected in-mask geodesic lattice graph (`build_spatial_graph()`), pooling candidate profiles bilaterally across concordant gray-matter neighbors while stopping at sulcal CSF gaps and functional borders (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-bilateral-hrf)).
 - `pooling = "voxel"` keeps single-voxel HRF fits for task-supported voxels (using parcel fallback on low-SNR voxels when an atlas is attached).
 

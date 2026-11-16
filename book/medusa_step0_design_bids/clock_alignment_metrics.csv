@@ -1,0 +1,4 @@
+handling,hrf_peak_sec,lag0_beta,lag0_se,apparent_peak_lag
+Intact clock + valid_rows mask (Recommended),3.12781954887218,0.644398991459246,0.0281980983100022,0
+Deleted 4 dummy TRs + explicit time_offset = 4 s,3.12781954887218,0.644419036139554,0.0281980372794327,0
+Deleted 4 dummy TRs without time_offset (Clock shifted),2.40601503759399,0.032613201113477,0.0152381712445973,-4

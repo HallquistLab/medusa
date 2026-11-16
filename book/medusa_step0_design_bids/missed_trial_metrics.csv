@@ -1,0 +1,4 @@
+strategy,est_noise_sd,est_ar1_rho,lag0_beta,lag0_se,matched_rows
+Keep 'missed_feedback' in events + event_index join (Recommended),0.0292616839934448,0.4634,0.644398991459246,0.0281980983100022,45
+Delete missed trials from events.tsv (Timeout BOLD unmodeled),0.0458276380128443,0.6824,0.325262905441329,0.0494453932520842,45
+Misaligned join on target counter `trial` == `trial_number`,0.0292616839934448,0.4634,0.24063295649752,0.108554337782109,39

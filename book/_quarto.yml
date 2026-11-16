@@ -24,8 +24,9 @@ book:
     - index.qmd
     - foundations.qmd
     - worked-example.qmd
-    - part: "The six steps"
+    - part: "The MEDuSA pipeline"
       chapters:
+        - medusa_step0_design_bids/medusa_step0_design_bids.qmd
         - medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd
         - medusa_step2_deconvolution/medusa_step2_deconvolution.qmd
         - medusa_step3_epochs/medusa_step3_epochs.qmd
