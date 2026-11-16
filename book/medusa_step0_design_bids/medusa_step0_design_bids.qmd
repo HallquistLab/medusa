@@ -9,6 +9,7 @@ db_tbl <- read.csv("design_benchmarks.csv")
 qc_tbl <- read.csv("confounds_qc_summary.csv")
 clock_tbl <- read.csv("clock_alignment_metrics.csv")
 missed_tbl <- read.csv("missed_trial_metrics.csv")
+aroma_tbl <- read.csv("aroma_denoising_metrics.csv")
 ex0 <- readRDS("step0_examples.rds")
 fmt <- function(x, d = 3) sprintf(paste0("%.", d, "f"), x)
 ```
@@ -48,7 +49,7 @@ hrf_fit    <- estimate_crossrun_hrf(sub01, kernel_grid = candidates, pooling = "
 **Task Schedule + BIDS/`fMRIPrep` Files** $\longrightarrow$ **Step 0 (`read_fmriprep_subject`)** $\longrightarrow$ `"medusa_nifti_ts"` subject bundle $\longrightarrow$ [**Step 1 (`estimate_crossrun_hrf`)**](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd)
 :::
 
-The walkthrough below develops Step 0 across four substeps—from planning run structure and inter-phase jitter (`0.1`), to ingesting BIDS and `fMRIPrep` files on an intact acquisition clock (`0.2`), handling missed or timeout trials (`0.3`), and joining computational model variables safely via `event_index` (`0.4`).
+The walkthrough below develops Step 0 across five substeps—from planning run structure and inter-phase jitter (`0.1`), to ingesting BIDS and `fMRIPrep` files on an intact acquisition clock (`0.2`), handling missed or timeout trials (`0.3`), joining computational model variables safely via `event_index` (`0.4`), and denoising motion-contaminated runs with non-aggressive ICA-AROMA and matched nuisance projection (`0.5`).
 
 ---
 
@@ -68,7 +69,8 @@ The walkthrough below develops Step 0 across four substeps—from planning run s
 | `fmriprep_dir` & `sub` | Root `fMRIPrep` derivatives directory and subject label (with or without `"sub-"` prefix) | Automatically discovers `*_desc-preproc_bold.nii.gz`, per-run `*_desc-brain_mask.nii.gz`, and `*_desc-confounds_timeseries.tsv` across single-session or multi-session (`ses-*`) layouts. |
 | `bids_dir` & `task` | Raw BIDS root (defaults to `dirname(fmriprep_dir)` when nested under `derivatives/`) and task name | Locates matching `*_events.tsv` schedules and JSON sidecars (`RepetitionTime`, `StartTime`), handling run labels consistently across `run-1` and `run-01` zero-padding conventions. |
 | `space`, `res`, & `atlas` | Template space substring (e.g., `"MNI152NLin2009cAsym"`), optional resolution tag, and optional 3D integer/labeled NIfTI parcellation | Filters BOLD derivatives when multiple output spaces exist and maps retained gray-matter voxels directly onto `parcel_ids` for parcel pooling ([Step 1](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd) and [Step 4](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd)). |
-| `strategy`, `fd_threshold`, & `include_non_steady_state` | Confound regression preset (`"6p"`, `"24p"`, `"36p"`, `"compcor"`, `"24p_csf_wm"`) and framewise censoring rules | Converts BIDS `"n/a"` strings on derivative lag columns cleanly to `0`, drops linearly dependent nuisance columns per run, and builds logical `valid_rows` masks without shifting volume timestamps. |
+| `strategy`, `fd_threshold`, & `include_non_steady_state` | Confound regression preset (`"6p"`, `"24p"`, `"36p"`, `"compcor"`, `"csf_wm"`, `"csf_wm_8p"`, `"24p_csf_wm"`, `"none"`) and framewise censoring rules | Converts BIDS `"n/a"` strings on derivative lag columns cleanly to `0`, drops linearly dependent nuisance columns per run, and builds logical `valid_rows` masks without shifting volume timestamps. |
+| `aroma`, `aroma_dir`, & `aroma_clean_nuisance` | Optional ICA-AROMA mode (`"none"`, `"nonaggressive"`, `"auto"`, `"aggressive"`), optional `fMRIPost-AROMA` derivatives root, and matched confound projection flag | Discovers `fMRIPost-AROMA` (`*_desc-melodic_mixing.tsv` + `*_desc-aroma_metrics.tsv`) or legacy `fMRIPrep` AROMA tables, denoises BOLD via Pruim et al. (2015) partial regression, and projects the identical AROMA operator out of `$nuisance` (Lindquist et al., 2019). |
 | External model covariates (optional) | Trial-level behavioral, RL, or drift-diffusion table keyed by `(id, run, event_index)` (or extra columns inside `*_events.tsv`) | Keeps Steps 1–2 blind to downstream hypothesis predictors while supporting exact trial matching in Step 3 (`decon_epoch_regression()`). |
 
 ### Outputs: What Step 0 Produces and Why It Is Set Up That Way
@@ -82,6 +84,7 @@ The walkthrough below develops Step 0 across four substeps—from planning run s
 | `parcel_ids` | Named vector of parcel labels across the $V$ columns | Supplies `spatial_groups` / `parcel_groups` automatically to Steps 1, 3, and 4 when an `atlas` is provided. |
 | `events` | Standardized `data.frame` (`run`, `onset`, `duration`, `condition`, plus all extra BIDS trial columns) | Normalizes BIDS `trial_type` to `condition`, converts `"n/a"` durations to `0` impulses while retaining numeric covariates, and aligns run names to `names(bold)`. |
 | `confounds`, `nuisance`, & `valid_rows` | `"medusa_confounds"` object plus per-run nuisance matrices and logical masks (`TRUE` = keep, `FALSE` = censor) | Passed automatically when `estimate_crossrun_hrf(sub01, ...)` is called, with `$confounds$summary` providing a run-by-run censoring and motion QC table. |
+| `aroma` (when `aroma != "none"`) | Provenance list (`mode`, `fit_valid`, `clean_nuisance`, and `$summary` component table) | Audits total, accepted, and rejected MELODIC components per run and confirms whether `$nuisance` received matched AROMA projection. |
 
 ---
 
@@ -225,15 +228,87 @@ panel_merged <- merge(
 
 ---
 
+### 0.5 Denoise motion-contaminated runs with non-aggressive ICA-AROMA {#sec-nonaggressive-aroma}
+
+Beginning in `fMRIPrep >= 23.1`, spatial-ICA motion denoising moved out of `fMRIPrep` into standalone **`fMRIPost-AROMA`**, which writes each run's full MELODIC time-course matrix (`*_desc-melodic_mixing.tsv`) and component labels (`*_desc-aroma_metrics.tsv`; or `*_desc-MELODIC_mixing.tsv` + `*_AROMAnoiseICs.csv` in legacy `fMRIPrep <= 23.0`) while leaving un-denoised `*_desc-preproc_bold.nii.gz` on disk so downstream pipelines control spatial smoothing and nuisance regression order.
+
+When incorporating ICA-AROMA into task-fMRI deconvolution, two seemingly natural shortcuts introduce substantial distortion:
+
+1. **Pitfall 1 — Aggressive AROMA strips task-correlated neural signal (Pruim et al., 2015):** In decision and reinforcement-learning tasks, participants often move slightly in sync with salient task events—pressing a button on choice trials or flinching at unexpected feedback. Appending 30–60 rejected `aroma_motion_*` columns directly into `$nuisance` (or projecting rejected components out of BOLD orthogonally without the accepted components) removes *all* variance shared between head motion and convolved task activity, attenuating downstream trial slopes while consuming dozens of degrees of freedom per run. **Non-aggressive ICA-AROMA** avoids this by fitting *both* accepted neural components and rejected motion components jointly to each voxel and subtracting **only** the unique contribution assigned to the rejected motion components.
+2. **Pitfall 2 — Uncleaned physiological confounds re-inject removed motion into BOLD (Lindquist et al., 2019):** Even after BOLD is properly cleaned via non-aggressive AROMA, tissue nuisance time series in `*_desc-confounds_timeseries.tsv` (such as `csf` and `white_matter`) were extracted from the *un-denoised* scan and still carry strong motion contamination. If raw, uncleaned `csf`/`white_matter` columns are passed into Steps 1–2 (`nuisance_mode = "joint"`), regressing AROMA-cleaned BOLD onto motion-contaminated confounds projects those removed motion artifacts **right back into the BOLD residuals and deconvolved neural series**, re-inflating observation `noise_sd` and trial standard errors.
+
+MEDuSA handles both requirements automatically—either in a single `read_fmriprep_subject()` call or step by step via `read_fmriprep_aroma()` and `apply_aroma()`:
+
+```{r}
+#| eval: false
+#| code-fold: false
+# Option A: Turnkey subject ingestion with non-aggressive ICA-AROMA + matched CSF/WM cleaning
+# (auto-discovers co-located or sibling `derivatives/fmripost-aroma/` files even when
+# fMRIPost-AROMA omits `space-*` entities from mixing/metrics filenames)
+sub01_aroma <- read_fmriprep_subject(
+  fmriprep_dir             = "/path/to/derivatives/fmriprep",
+  bids_dir                 = "/path/to/bids",
+  aroma_dir                = "/path/to/derivatives/fmripost-aroma", # optional; auto-discovered when sibling
+  sub                      = "01",
+  task                     = "learn",
+  space                    = "MNI152NLin6Asym",
+  atlas                    = "/path/to/schaefer_200_mni6.nii.gz",
+  aroma                    = "nonaggressive",
+  aroma_clean_nuisance     = TRUE,      # projects identical AROMA operator out of $nuisance
+  strategy                 = "csf_wm",  # physiological pairing without redundant 24p motion terms
+  fd_threshold             = 0.5,
+  include_non_steady_state = TRUE
+)
+print(sub01_aroma$aroma$summary)
+
+# Option B: Modular assembly on custom NIfTI + confound inputs
+aroma      <- read_fmriprep_aroma(mixing_files, bold = ts)
+ts_clean   <- apply_aroma(ts, aroma, mode = "nonaggressive")
+conf_clean <- read_fmriprep_confounds(
+  confound_files, bold = ts_clean, strategy = "csf_wm",
+  aroma = aroma, fd_threshold = 0.5     # computes physical FD first, then AROMA-cleans csf/wm
+)
+```
+
+@fig-step0-aroma and @tbl-step0-aroma compare all four regimes end to end across Steps 0–3 on a three-run simulated BIDS + `fMRIPrep` + `fMRIPost-AROMA` participant (`true noise_sd = 0.030`, `true lag-0 RPE slope = 0.650`, `2` accepted neural ICs + `6` rejected motion ICs per run, including one feedback-locked motion component correlated $r \approx 0.62$ with convolved RPE):
+
+- **Without AROMA (`aroma = "none"`, `csf_wm` only):** Unremoved motion inflates Step 2 `noise_sd` more than three-fold (`r fmt(aroma_tbl$est_noise_sd[1])` vs. `0.030`) and biases the lag-0 RPE slope upward to `r fmt(aroma_tbl$lag0_beta[1])`.
+- **Aggressive AROMA (`aroma = "aggressive"`):** Orthogonal removal of the task-correlated motion IC strips shared task variance, attenuating the lag-0 RPE slope by `r round(100 * abs(aroma_tbl$lag0_bias[2]) / 0.65)`% down to `r fmt(aroma_tbl$lag0_beta[2])`.
+- **Non-aggressive AROMA + uncleaned `csf_wm` (`aroma_clean_nuisance = FALSE`):** Regressing raw motion-contaminated `csf`/`white_matter` columns out of AROMA-cleaned BOLD re-injects pure motion ICs (`R2_mot = ` `r fmt(aroma_tbl$resid_motion_r2[3], 2)` vs. `r fmt(aroma_tbl$resid_motion_r2[4], 2)`), inflating Step 2 `noise_sd` back up to `r fmt(aroma_tbl$est_noise_sd[3])` and nearly tripling the lag-0 standard error (`r fmt(aroma_tbl$lag0_se[3])` vs. `r fmt(aroma_tbl$lag0_se[4])`).
+- **Non-aggressive AROMA + matched `csf_wm` (`aroma = "nonaggressive"`, `aroma_clean_nuisance = TRUE`):** Recovers the generating observation noise (`r fmt(aroma_tbl$est_noise_sd[4])` vs. `0.030`) and an unbiased, high-precision lag-0 RPE slope (`r fmt(aroma_tbl$lag0_beta[4])`, $\text{SE} = `r fmt(aroma_tbl$lag0_se[4])`$).
+
+![End-to-end impact of ICA-AROMA mode and matched nuisance orthogonalization across Steps 0–3 (`aroma_denoising_metrics.csv`, true observation `noise_sd = 0.030`, true lag-0 feedback RPE slope = `0.650`): (A) Step 3 recovered peri-event RPE trajectory (`-2` to `+4 s`) under task-correlated head motion; (B) Step 2 observation `noise_sd` and post-nuisance pure-motion variance ($R^2_{\text{mot}}$), showing artifact re-injection when `csf_wm` confounds are left uncleaned (`aroma_clean_nuisance = FALSE`; Lindquist et al., 2019); (C) Step 3 lag-0 RPE slope and 95% confidence interval.](figures/04-nonaggressive-aroma.png){#fig-step0-aroma width="100%" fig-alt="Three-panel comparison showing aggressive AROMA attenuating the lag-0 RPE slope to 0.39, uncleaned csf_wm re-injecting motion variance (noise_sd = 0.092), no AROMA biasing the slope to 1.02, and non-aggressive AROMA with matched csf_wm recovering 0.63 with noise_sd = 0.030."}
+
+```{r}
+#| label: tbl-step0-aroma
+#| tbl-cap: "Step 2 noise recovery, post-nuisance motion contamination, and Step 3 lag-0 feedback RPE recovery across ICA-AROMA and confound-cleaning regimes (true observation noise_sd = 0.0300; true lag-0 RPE slope = 0.650)."
+knitr::kable(
+  aroma_tbl,
+  col.names = c("AROMA & Confound Regime", "Est. noise_sd", "Post-Nuisance Motion R2", "Lag-0 Beta", "Lag-0 SE", "Lag-0 Bias"),
+  digits = c(0, 4, 3, 3, 4, 3),
+  row.names = FALSE
+)
+```
+
+**Choice point — Pairing `aroma`, `strategy`, frame censoring, and `BrainGnomes` provenance:**
+
+- **Recommended `strategy` with AROMA:** Pair `aroma = "nonaggressive"` (or `aroma = "auto"` in mixed cohorts where only some subjects/sessions have AROMA outputs) with **`strategy = "csf_wm"`** (mean `csf` + `white_matter`; Parkes et al., 2018) or `"csf_wm_8p"` (adding temporal derivatives and quadratics of `csf`/`white_matter`). Avoid pairing AROMA with `"24p"` or `"36p"` expansion, whose realignment derivatives largely duplicate the motion subspace already removed by ICA-AROMA while consuming extra degrees of freedom.
+- **Combining AROMA with FD censoring (and fast-TR respiratory filtering):** Linear spatial ICA removes continuous head-motion and edge artifacts effectively, whereas abrupt multi-millimeter head jerks cause nonlinear slice-wise spin-history disruptions that no fixed spatial map captures completely. Because `read_fmriprep_confounds()` evaluates `framewise_displacement` (including optional fast-TR `motion_bandstop_bpm = c(12, 20)` notch filtering; [Step 1 §1.5](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-respiratory-fd-filter)) *before* AROMA projection, keeping `fd_threshold = 0.5` (or `0.3` with respiratory filtering) masks severe jerks in `valid_rows` while `aroma_fit_valid = FALSE` (default) fits the full-scan MELODIC time series on its native clock (`aroma_fit_valid = TRUE` optionally restricts the partial regression to `valid_rows`).
+- **Automatic `BrainGnomes` provenance protection (`desc = "postproc"`):** When ingesting postprocessed `BrainGnomes` streams, `read_fmriprep_subject()` inspects `<bold>.json` sidecar metadata (`inspect_braingnomes_provenance()`): it halts with a clear diagnostic if `scrub_timepoints` physically deleted volumes from the clock, skips duplicate AROMA projection with a warning if `apply_aroma` already ran upstream, and defaults `strategy = "none"` when `confound_regression` was already applied.
+
+---
+
 ## Recommended Settings
 
-For multi-run BIDS + `fMRIPrep` task studies, ingest each participant with `read_fmriprep_subject()` (looping over subject IDs in batch scripts) and inspect `$confounds$summary` before launching Step 1:
+For multi-run BIDS + `fMRIPrep` task studies, ingest each participant with `read_fmriprep_subject()` (looping over subject IDs in batch scripts) and inspect `$confounds$summary` (and `$aroma$summary` when using ICA-AROMA) before launching Step 1:
 
 ```{r}
 #| eval: false
 #| code-fold: false
 library(medusa)
 
+# Standard fMRIPrep ingestion (or set aroma = "nonaggressive", strategy = "csf_wm"
+# when fMRIPost-AROMA / legacy AROMA outputs are available; see Substep 0.5)
 sub_obj <- read_fmriprep_subject(
   fmriprep_dir             = fmriprep_dir,
   bids_dir                 = bids_dir,
@@ -242,13 +317,14 @@ sub_obj <- read_fmriprep_subject(
   space                    = "MNI152NLin2009cAsym",
   atlas                    = atlas_nii_path,
   mask_policy              = "intersect",
+  aroma                    = "none",     # or "nonaggressive" (paired with strategy = "csf_wm")
   strategy                 = "24p",
   fd_threshold             = 0.5,        # or 0.3 with motion_bandstop_bpm = c(12, 20) for fast TR
   include_non_steady_state = TRUE
 )
 
 # Quick pre-flight check before Step 1
-print(sub_obj$confounds$summary[, c("run", "n_volumes", "pct_censored", "n_non_steady_state", "mean_fd")])
+print(sub_obj$confounds$summary[, c("run", "n_volumes", "pct_censored", "n_non_steady_state", "mean_fd", "aroma_cleaned")])
 table(sub_obj$events$run, sub_obj$events$condition)
 ```
 
@@ -257,7 +333,8 @@ table(sub_obj$events$run, sub_obj$events$condition)
 | Run structure & phase jitter | $R \ge 3$ runs; jitter correlated adjacent phases across $\ge 1.0\text{--}4.5\text{ s}$ | Gives Step 1 $\ge 2$ independent training runs per cross-fitting fold and decouples adjacent neural phases in Step 3 `(T, O)` de-mixing. |
 | `mask_policy` | `"intersect"` | Guarantees identical voxel/parcel membership across runs within each participant. |
 | `include_non_steady_state` | `TRUE` (with intact 4D BOLD volumes) | Masks initial `non_steady_state_outlier*` dummy frames via `valid_rows` without shifting event timestamps relative to volume 1. |
-| `strategy` & `fd_threshold` | `"24p"` + `fd_threshold = 0.5` (standard TR) or `0.3` + `motion_bandstop_bpm = c(12, 20)` (fast TR $\le 1\text{ s}$) | Removes rigid-body motion and spin-history terms while censoring genuine head jerks on an intact clock. |
+| `aroma` & `aroma_clean_nuisance` | `"nonaggressive"` + `TRUE` + `strategy = "csf_wm"` when AROMA exists; `"none"` + `"24p"` otherwise | Removes motion ICs via partial regression without stripping task-correlated neural signal (Pruim et al., 2015) or re-injecting motion through uncleaned confounds (Lindquist et al., 2019). |
+| `fd_threshold` & `motion_bandstop_bpm` | `0.5` (standard TR) or `0.3` + `motion_bandstop_bpm = c(12, 20)` (fast TR $\le 1\text{ s}$) | Censors genuine spin-history head jerks on an intact clock without scrubbing normal fast-TR breathing oscillations. |
 | Missed / timeout trials | Retain in `events` as separate condition (`"missed_feedback"`) | Models evoked salience/visual BOLD waves in Steps 1–2 and subtracts their collateral tail in Step 3 rather than inflating residual noise. |
 | External trial-table joins | Merge on `c("id", "run", "event_index")` (or `trial_number` stored in `events.tsv`) | Prevents silent row shifts between `panel$trial` (`1..m_valid`) and task `trial_number` (`1..N_total`) when missed trials occur. |
 
@@ -273,11 +350,17 @@ Before passing `sub_obj` into `estimate_crossrun_hrf()` ([Step 1](../medusa_step
 4. **Scope handoff:** Step 0 assembles validated, clock-aligned run matrices, spatial metadata, censoring masks, and complete event schedules without fitting any statistical parameters; out-of-sample HRF identification and $\text{AR}(p)$ noise estimation begin in [Step 1](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd). For side-by-side visual examples of dummy-volume clock shifts and TR-index onset errors, see the [Visual QC and Troubleshooting Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd#sec-qc-step01).
 
 <details>
-<summary>Simulation Details & Reproduction</summary>
+<summary>Mathematical & Simulation Details</summary>
 
+- **Non-aggressive ICA-AROMA oblique projector (`apply_aroma()`):** Let $M \in \mathbb{R}^{T_r \times C}$ denote a run's MELODIC mixing matrix partitioned into accepted components $M_{\text{acc}}$ and rejected noise components $M_{\text{rej}}$ (`classification == "rejected"`), and let $\tilde{M} = M - \mathbf{1}\bar{m}_I^\top$ center each component on the fitting frame index set $I$ (all frames when `fit_valid = FALSE`, or `valid_rows` when `fit_valid = TRUE`). `apply_aroma(..., mode = "nonaggressive")` solves the SVD-stabilized joint least-squares system $[\mathbf{1}, \tilde{M}][\hat{\mu}^\top; \hat{B}^\top]^\top = Y$ on $I$ and subtracts **only** the centered rejected block across all $T_r$ rows (preserving each voxel's baseline mean $\hat{\mu}$ while avoiding intercept shifts when component sample means are nonzero):
+  $$
+  Y_{\text{nonagg}} = Y - \tilde{M}_{\text{rej}}\hat{B}_{\text{rej}} = P_{\text{aroma}} Y + (I - P_{\text{aroma}})\mathbf{1}\hat{\mu}^\top, \qquad P_{\text{aroma}} = I - \tilde{M}_{\text{rej}}\bigl[(\tilde{M}^\top \tilde{M})^+ \tilde{M}^\top\bigr]_{\text{rej}}.
+  $$
+  When `aroma_clean_nuisance = TRUE`, `read_fmriprep_confounds()` applies the identical partial-regression operator $P_{\text{aroma}}$ (followed by column re-centering and rank pruning) to the selected nuisance matrix $Z_r$ so subsequent joint nuisance projection in Steps 1–2 operates strictly within the AROMA-cleaned subspace (Lindquist et al., 2019). By contrast, `mode = "aggressive"` applies the orthogonal projector $I - \tilde{M}_{\text{rej}}(\tilde{M}_{\text{rej}}^\top \tilde{M}_{\text{rej}})^+ \tilde{M}_{\text{rej}}^\top$, which strips neural signal proportional to $\tilde{M}_{\text{rej}}^\top x_{\text{task}} \neq 0$.
 - **Part 1 (Design & Jitter Benchmarks):** 20 Monte Carlo replications per condition (`TR = 1.0 s`, generating HRF peak `3.13 s`, `AR(1)` $\rho = 0.45$, 6 voxels in `Target_Parcel` with cue response $1.2 + 0.45 c_i$ and feedback response $0.9 + 0.60\,\text{RPE}_i$, 6 voxels in `CueOnly_Parcel` with cue response $1.4 + 0.55 c_i$ and zero feedback response, $\operatorname{Cor}(c_i, \text{RPE}_i) = 0.50$). Run-structure comparisons hold total trials fixed at 60 (`1×60`, `2×30`, `3×20`, `4×15`) with elevated noise on Run 1 (`2.1×` baseline SD) to reflect realistic inter-run scan quality variation.
 - **Part 2 (On-Disk BIDS + `fMRIPrep` Ingestion):** Builds a complete temporary BIDS + `fMRIPrep` subject directory (`3` runs $\times$ `240` 4D NIfTI volumes, 3D masks, 2-parcel `atlas.nii.gz`, `*_bold.json`, `*_desc-confounds_timeseries.tsv` with `4` `non_steady_state_outlier` columns and FD spikes, and `*_events.tsv` with `18` trials/run including `3` `"missed_feedback"` timeouts and `"n/a"` tokens) and ingests it live via `read_fmriprep_subject()`.
+- **Part 3 (On-Disk `fMRIPost-AROMA` Benchmark):** Builds a 3-run BIDS + `fMRIPrep` (`space-MNI152NLin6Asym_res-2`) + sibling `derivatives/fmripost-aroma/` (`*_res-2_desc-melodic_mixing.tsv` + `*_desc-aroma_metrics.tsv`, `2` accepted neural ICs + `6` rejected motion ICs including `IC_3` correlated $r = 0.62$ with convolved feedback RPE, shared physiological `csf`/`white_matter` noise contaminated by motion ICs, and `AR(1)` $\sigma_{\text{obs}} = 0.030$, $\rho = 0.45$) subject and runs all four AROMA/confound regimes end to end through Steps 0–3.
 
-[Step 0 simulation script](simulate_step0.R) · [Figure script](figures_step0.R) · [Design benchmarks CSV](design_benchmarks.csv) · [Confounds QC CSV](confounds_qc_summary.csv) · [Clock alignment CSV](clock_alignment_metrics.csv) · [Missed-trial metrics CSV](missed_trial_metrics.csv)
+[Step 0 simulation script](simulate_step0.R) · [Figure script](figures_step0.R) · [Design benchmarks CSV](design_benchmarks.csv) · [Confounds QC CSV](confounds_qc_summary.csv) · [Clock alignment CSV](clock_alignment_metrics.csv) · [Missed-trial metrics CSV](missed_trial_metrics.csv) · [AROMA denoising CSV](aroma_denoising_metrics.csv)
 
 </details>
