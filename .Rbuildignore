@@ -6,6 +6,7 @@
 ^\.github$
 ^_pkgdown\.yml$
 ^docs$
+^documentation$
 ^book$
 ^pkgdown$
 ^COEFFICIENT_RECOVERY_VALIDATION\.md$

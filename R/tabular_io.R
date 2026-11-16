@@ -147,11 +147,83 @@ arrow_read_parquet_impl <- function(
     qry <- dplyr::select(qry, tidyselect::all_of(cols_use))
   }
   out <- dplyr::collect(qry)
-  if (isTRUE(as_data_table)) {
+  out <- if (isTRUE(as_data_table)) {
     data.table::as.data.table(out)
   } else {
     as.data.frame(out)
   }
+  restore_panel_vec_cols(out)
+}
+
+# Parse serialized pipe/semicolon-delimited (or scalar/empty) panel vector columns back to list<numeric>
+parse_serialized_vec_col <- function(col) {
+  if (is.list(col)) {
+    return(lapply(col, function(v) {
+      vn <- as.numeric(v)
+      vn[!is.finite(vn)] <- 0.0
+      vn
+    }))
+  }
+  n <- length(col)
+  if (n == 0L) return(list())
+  if (is.logical(col)) {
+    return(replicate(n, numeric(0L), simplify = FALSE))
+  }
+  if (is.numeric(col)) {
+    num_v <- as.numeric(col)
+    return(lapply(num_v, function(v) if (is.finite(v)) v else numeric(0L)))
+  }
+  if (is.factor(col)) col <- as.character(col)
+  if (is.character(col)) {
+    out <- replicate(n, numeric(0L), simplify = FALSE)
+    trimmed <- trimws(col)
+    ok <- !is.na(trimmed) & nzchar(trimmed) & (trimmed != "NA")
+    if (any(ok)) {
+      s_ok <- trimmed[ok]
+      delim <- if (any(grepl("|", s_ok, fixed = TRUE))) {
+        "|"
+      } else if (any(grepl(";", s_ok, fixed = TRUE))) {
+        ";"
+      } else if (any(grepl(",", s_ok, fixed = TRUE))) {
+        ","
+      } else {
+        "|"
+      }
+      parts <- strsplit(s_ok, delim, fixed = TRUE)
+      out[ok] <- lapply(parts, function(p) {
+        if (!length(p)) return(numeric(0L))
+        vn <- suppressWarnings(as.numeric(p))
+        vn[!is.finite(vn)] <- 0.0
+        vn
+      })
+    }
+    return(out)
+  }
+  replicate(n, numeric(0L), simplify = FALSE)
+}
+
+restore_panel_vec_cols <- function(
+  df,
+  cols = c("shared_noise_vec", "trial_cor_vec", "lag_noise_vec")
+) {
+  if (!is.data.frame(df) || nrow(df) == 0L) return(df)
+  hit <- intersect(cols, names(df))
+  if (!length(hit)) return(df)
+  needs_parse <- vapply(hit, function(cn) {
+    col_c <- df[[cn]]
+    !is.list(col_c) || inherits(col_c, "arrow_list") || inherits(col_c, "vctrs_list_of")
+  }, logical(1L))
+  if (!any(needs_parse)) return(df)
+  if (data.table::is.data.table(df)) {
+    for (cn in hit[needs_parse]) {
+      data.table::set(df, j = cn, value = parse_serialized_vec_col(df[[cn]]))
+    }
+  } else {
+    for (cn in hit[needs_parse]) {
+      df[[cn]] <- I(parse_serialized_vec_col(df[[cn]]))
+    }
+  }
+  df
 }
 
 medusa_write_table <- function(df, path) {
@@ -162,7 +234,7 @@ medusa_write_table <- function(df, path) {
   } else if (grepl("\\.rds$", path, ignore.case = TRUE)) {
     saveRDS(df, file = path)
   } else {
-    data.table::fwrite(df, file = path, na = "NA")
+    data.table::fwrite(df, file = path, na = "NA", sep2 = c("", "|", ""))
   }
   invisible(path)
 }
@@ -203,7 +275,7 @@ medusa_read_table <- function(
     } else {
       as.data.frame(obj)
     }
-    return(apply_split_filter_dt(out, split_filter))
+    return(restore_panel_vec_cols(apply_split_filter_dt(out, split_filter)))
   }
 
   if (grepl("\\.(csv|tsv|dat|txt)(\\.(gz|bz2))?$", path, ignore.case = TRUE, perl = TRUE)) {
@@ -226,7 +298,8 @@ medusa_read_table <- function(
     } else {
       data.table::fread(path, data.table = isTRUE(as_data_table))
     }
-    return(apply_split_filter_dt(out, split_filter))
+    out <- apply_split_filter_dt(out, split_filter)
+    return(restore_panel_vec_cols(out))
   }
 
   stop("Unable to sort out this data input: ", path, call. = FALSE)

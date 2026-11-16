@@ -2188,10 +2188,15 @@ align_medusa_aroma_to_runs <- function(aroma, resolved_runs, n_time = NULL) {
 #'     \item \code{framewise_displacement_raw}: Run-named list of unfiltered FD
 #'       vectors when \code{motion_bandstop_bpm} or \code{motion_lowpass_hz} is
 #'       requested (\code{NULL} otherwise).
+#'     \item \code{variance_confounds}: Run-named list of numeric frame-level
+#'       variance-envelope matrices (\code{framewise_displacement},
+#'       \code{std_dvars}/\code{dvars}, and optional \code{rvt}) for
+#'       \code{\link{decon_epoch_regression}}.
 #'   }
 #'   The \code{"medusa_confounds"} object can be passed directly as
 #'   \code{nuisance = conf} to \code{\link{estimate_crossrun_hrf}} (automatically
-#'   supplying both \code{nuisance} and \code{valid_rows}) or as
+#'   supplying both \code{nuisance} and \code{valid_rows}), as
+#'   \code{variance_confounds = conf} to \code{\link{decon_epoch_regression}}, or as
 #'   \code{valid = conf} to \code{\link{align_medusa_ts}}.
 #'
 #' @seealso \code{\link{read_bids_events}}, \code{\link{read_fmriprep_subject}},
@@ -2406,7 +2411,7 @@ read_fmriprep_confounds <- function(
   strategy_cols <- confound_strategy_columns(strategy)
 
   n_runs <- length(resolved_runs)
-  nuis_list <- raw_nuis_list <- valid_list <- fd_list <- fd_raw_list <- stats::setNames(vector("list", n_runs), resolved_runs)
+  nuis_list <- raw_nuis_list <- valid_list <- fd_list <- fd_raw_list <- vc_list <- stats::setNames(vector("list", n_runs), resolved_runs)
   sum_rows <- vector("list", n_runs)
 
   for (r in seq_len(n_runs)) {
@@ -2652,6 +2657,56 @@ read_fmriprep_confounds <- function(
     valid_list[[r]] <- valid_r
     fd_list[[r]] <- fd_vec
 
+    # Extract non-negative/physiological variance envelopes (FD, std_dvars/dvars, RVT) for Stage-3 covariance regression
+    vc_cols_r <- list()
+    if (n_vol > 0L && any(is.finite(fd_vec))) {
+      fd_vc <- as.numeric(fd_vec)
+      if (!is.finite(fd_vc[1L])) fd_vc[1L] <- 0.0
+      bad_fd <- !is.finite(fd_vc)
+      if (any(bad_fd)) {
+        fin_fd <- fd_vc[!bad_fd]
+        fd_vc[bad_fd] <- if (length(fin_fd)) stats::median(fin_fd) else 0.0
+      }
+      fd_vc <- pmax(0.0, fd_vc)
+      if (n_vol >= 2L && is.finite(stats::sd(fd_vc)) && stats::sd(fd_vc) > 1e-10) {
+        vc_cols_r[["framewise_displacement"]] <- fd_vc
+      }
+    }
+    dv_cand <- if (!is.null(dvars_col) && nzchar(dvars_col) && (dvars_col %in% names(df))) {
+      dvars_col
+    } else {
+      intersect(c("std_dvars", "dvars"), names(df))[1L]
+    }
+    if (!is.na(dv_cand) && n_vol > 0L) {
+      dv_vc <- tryCatch(coerce_bids_numeric_col(df[[dv_cand]], dv_cand, run_label), error = function(e) NULL)
+      if (!is.null(dv_vc) && any(is.finite(dv_vc))) {
+        fin_dv <- dv_vc[is.finite(dv_vc)]
+        med_dv <- if (length(fin_dv)) stats::median(fin_dv) else 0.0
+        dv_vc[!is.finite(dv_vc)] <- med_dv
+        dv_vc <- pmax(0.0, dv_vc)
+        if (n_vol >= 2L && is.finite(stats::sd(dv_vc)) && stats::sd(dv_vc) > 1e-10) {
+          vc_cols_r[[dv_cand]] <- dv_vc
+        }
+      }
+    }
+    for (phys_cn in intersect(c("rvt", "respiratory_volume_per_time"), names(df))) {
+      if (n_vol > 0L) {
+        ph_vc <- tryCatch(coerce_bids_numeric_col(df[[phys_cn]], phys_cn, run_label), error = function(e) NULL)
+        if (!is.null(ph_vc) && any(is.finite(ph_vc))) {
+          fin_ph <- ph_vc[is.finite(ph_vc)]
+          ph_vc[!is.finite(ph_vc)] <- if (length(fin_ph)) stats::median(fin_ph) else 0.0
+          if (n_vol >= 2L && is.finite(stats::sd(ph_vc)) && stats::sd(ph_vc) > 1e-10) {
+            vc_cols_r[[phys_cn]] <- ph_vc
+          }
+        }
+      }
+    }
+    vc_list[[r]] <- if (length(vc_cols_r) > 0L) {
+      do.call(cbind, vc_cols_r)
+    } else {
+      matrix(numeric(0L), nrow = n_vol, ncol = 0L)
+    }
+
     # 2. Nuisance regressor selection & finite sanitization
     if (identical(strategy, "none") && is.null(columns) && is.null(column_pattern) && n_compcor == 0L) {
       z_mat <- matrix(numeric(0L), nrow = n_vol, ncol = 0L)
@@ -2798,6 +2853,7 @@ read_fmriprep_confounds <- function(
       summary = summary_df,
       framewise_displacement = fd_list,
       framewise_displacement_raw = if (wants_motion_filter) fd_raw_list else NULL,
+      variance_confounds = vc_list,
       settings = list(
         strategy = strategy,
         fd_threshold = fd_threshold,

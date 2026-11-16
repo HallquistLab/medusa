@@ -31,7 +31,10 @@ decon_epoch_regression(
   whiten_panel = FALSE,
   return_epochs = FALSE,
   return_panel = FALSE,
-  run_col = "run"
+  run_col = "run",
+  variance_confounds = NULL,
+  shared_error_method = c("poet_covreg", "legacy", "none"),
+  bold = NULL
 )
 }
 \arguments{
@@ -224,6 +227,25 @@ covariate columns for downstream \code{mixed_by()} modeling. Defaults to
 
 \item{run_col}{Column name in \code{events} identifying runs when \code{events}
 is supplied as a combined multi-run \code{data.frame}. Default \code{"run"}.}
+
+\item{variance_confounds}{Optional frame-level variance confound envelopes
+(e.g., framewise displacement, \code{std_dvars}/\code{dvars}, RVT) for
+LTZ-gated heteroskedastic covariance regression with exact Schur-complement
+restoration when confound columns are gated out. Accepts a
+\code{"medusa_confounds"} object from \code{\link{read_fmriprep_confounds}},
+a \code{"medusa_nifti_ts"} object with \code{$confounds} from
+\code{\link{read_fmriprep_subject}}, a per-run list of numeric
+matrices/\code{data.frame}s/vectors, a multi-run \code{data.frame} containing
+\code{run_col}, or (for single-run fits) a numeric matrix/\code{data.frame}/vector.}
+
+\item{shared_error_method}{Shared cross-unit and dynamic error covariance
+estimator: \code{"poet_covreg"} (default; v3 Subspace-Debiased Adaptive-POET
++ Multi-Lag Toeplitz & General-\eqn{W_s} Covariance Regression),
+\code{"legacy"} (stationary innovation shrinkage), or \code{"none"}.}
+
+\item{bold}{Optional list of per-run BOLD matrices (not required when
+\code{deconvolution} comes from current \code{\link{deconvolve_crossrun_hrf}},
+which caches observed/sketched prewhitened series automatically).}
 }
 \value{
 A list with \code{coefficients} (per voxel/parcel, lag, and predictor

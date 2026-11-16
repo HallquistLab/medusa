@@ -27,12 +27,16 @@ decon_connectivity_repair(
   se_col = NULL,
   eb_col = NULL,
   modulator = NULL,
-  return_augmented_panel = FALSE
+  return_augmented_panel = FALSE,
+  crosstrial_se = TRUE
 )
 }
 \arguments{
-\item{panel_dt}{A \code{data.frame} or \code{data.table} returned in
-\code{$panel} by \code{\link{decon_epoch_regression}}.}
+\item{panel_dt}{A \code{\link{decon_epoch_regression}} result list, a
+trial-level \code{data.frame}/\code{data.table} (including CSV, \code{.csv.gz},
+Parquet, or RDS panels where pipe-delimited list columns are automatically
+restored), a list of per-subject results/panels, or a file path (or character
+vector of file paths) readable by \code{medusa_read_table()}.}
 
 \item{seed_region}{Character scalar naming the seed region/parcel/voxel.}
 
@@ -112,6 +116,12 @@ unmixed trial states before error correction) and \code{TRUE} for
 trial panel augmented with moment-preserving REPAIR predictor columns
 (\code{seed_repair}, \code{ppi_repair}, \code{repair_weight}) that reproduce
 subject-level \code{M-MOMS} slopes in weighted least squares / \code{lmer()}.}
+
+\item{crosstrial_se}{Logical; if \code{TRUE} (default), computes cross-trial
+(\eqn{i \neq j}) hybrid operator + gated onset-kernel sandwich standard errors
+and Satterthwaite effective degrees of freedom (\code{df}) for single-subject
+(\eqn{N = 1}) and subject-level inference while keeping diagonal M-MOMS
+estimation weights.}
 }
 \value{
 A list of class \code{"medusa_connectivity_repair"} containing

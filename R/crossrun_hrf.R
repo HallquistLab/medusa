@@ -2139,6 +2139,172 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
         attr(z_innov_r, "rwls_whitened") <- TRUE
       }
     }
+
+    bold_obs_r <- if (store_innov) y[rows, , drop = FALSE] else NULL
+    sketch_r <- NULL
+    if (!store_innov && length(rows) >= 16L && length(ok_cols) >= 1L) {
+      m_sk <- length(rows)
+      K_sk <- min(m_sk, 64L)
+      fw_sk <- if (length(w_r) == m_sk && any(w_r < 0.03)) ifelse(as.numeric(w_r) < 0.03, as.numeric(w_r), 1.0) else NULL
+      has_fw_sk <- !is.null(fw_sk) && any(fw_sk < 1.0 - 1e-6)
+      e_rw_sk <- NULL
+      if (has_fw_sk && rwls_space != "innovation") {
+        w_cl_sk <- pmin(pmax(fw_sk, 1e-4), 1.0)
+        act_sk <- which(w_cl_sk < 1.0 - 1e-6)
+        if (length(act_sk) > 0L) {
+          e_rw_sk <- matrix(0.0, m_sk, length(act_sk))
+          e_rw_sk[cbind(act_sk, seq_along(act_sk))] <- sqrt(pmax(1.0 / w_cl_sk[act_sk] - 1.0, 0.0))
+        }
+      }
+      sup_sk <- if (length(w_r) == m_sk) which(as.numeric(w_r) < 0.85) else integer(0L)
+      w_sup2_sk <- if (length(sup_sk)) pmin(1.0, pmax(0.0, as.numeric(w_r[sup_sk])^2)) else numeric(0L)
+
+      nuis_sk <- if (!is.null(hrf_fit$specification$nuisance) && length(hrf_fit$specification$nuisance) >= r &&
+                     !is.null(hrf_fit$specification$nuisance[[r]])) {
+        hrf_fit$specification$nuisance[[r]]
+      } else matrix(numeric(), n, 0L)
+      z_sk_base <- cbind(intercept = 1, trend = seq(-1, 1, length.out = n), nuis_sk)
+      mask_sk_bool <- seq_len(n) %in% rows
+      off_sk <- if (length(hrf_fit$settings$time_offset) >= r) hrf_fit$settings$time_offset[r] else 0.0
+
+      str_keys_ok <- unique(strata[status == "ok"])
+      str_M_cache <- stats::setNames(vector("list", length(str_keys_ok)), str_keys_ok)
+      Gram_raw <- matrix(0.0, m_sk, m_sk)
+      s2_raw_v <- rep(NA_real_, n_vox)
+      s2_rob_v <- rep(NA_real_, n_vox)
+      s_blk_v <- numeric(n_vox)
+      df_vox_v <- rep(NA_real_, n_vox)
+
+      eval_stratum_E_blk <- function(y_sub, sp_m) {
+        wb_y <- hrf_apply_whitening(y_sub, rows = rows, ar_vec = sp_m$ar_op, unit_marginal = TRUE)
+        if (!is.null(sp_m$whiten_fn)) wb_y <- sp_m$whiten_fn(wb_y)
+        E_b <- sp_m$M_s %*% wb_y
+        E_rb <- E_b
+        if (length(sp_m$ok_lev_idx) >= 16L) {
+          ok_l <- sp_m$ok_lev_idx
+          inv_s <- sp_m$inv_sd
+          for (jj in seq_len(ncol(E_b))) {
+            zl <- E_b[ok_l, jj] * inv_s
+            s0 <- stats::mad(zl, center = 0.0)
+            if (is.finite(s0) && s0 > .Machine$double.eps) {
+              E_rb[ok_l, jj] <- (sign(zl) * pmin(abs(zl), 4.0 * s0) / sqrt(0.99944)) / inv_s
+              E_b[ok_l, jj] <- (sign(zl) * pmin(abs(zl), 12.0 * s0)) / inv_s
+            }
+          }
+        }
+        list(E = E_b, E_rob = E_rb)
+      }
+
+      for (key in str_keys_ok) {
+        columns <- which(strata == key & status == "ok")
+        ar_op <- if (!is.null(strat$get_ar)) strat$get_ar(columns[1L]) else rho[columns[1L]]
+        k_vec <- as.numeric(strat$get_kernel(columns[1L]))
+        x_gls_sk <- z_sk_base[rows, , drop = FALSE]
+        x_tr_sk <- NULL
+        if (!is.null(hrf_fit$specification$events[[r]]) && m_sk >= 20L) {
+          md_sk <- hrf_build_noise_mean_design(n, hrf_fit$specification$events[[r]],
+            hrf_fit$settings$tr, off_sk, k_vec, z_sk_base, mask_sk_bool)
+          x_gls_sk <- md_sk$design[rows, , drop = FALSE]
+          if (!isTRUE(md_sk$used_trial_design) && !is.null(md_sk$trial_design) && ncol(md_sk$trial_design) > 0L) {
+            td_f <- md_sk$trial_design
+            x_tr_sk <- cbind(td_f, diff1_cols(td_f))[rows, , drop = FALSE]
+          }
+        }
+        wb_d <- hrf_apply_whitening(
+          list(wx = x_gls_sk, wt = x_tr_sk, we = e_rw_sk),
+          rows = rows, ar_vec = ar_op, unit_marginal = TRUE
+        )
+        whiten_fn <- NULL
+        if (has_fw_sk) {
+          if (rwls_space == "innovation") {
+            sw_s <- sqrt(pmax(fw_sk, 1e-8))
+            whiten_fn <- function(mat_in) if (is.null(mat_in)) NULL else sweep(mat_in, 1L, sw_s, "*")
+          } else if (!is.null(wb_d$we) && ncol(wb_d$we) > 0L) {
+            sv_we <- hrf_safe_svd(wb_d$we, nv = 0L)
+            pos_we <- if (length(sv_we$d)) sv_we$d > 1e-8 else logical(0L)
+            if (any(pos_we)) {
+              u_we <- sv_we$u[, pos_we, drop = FALSE]
+              fac_we <- 1.0 / sqrt(1.0 + sv_we$d[pos_we]^2) - 1.0
+              whiten_fn <- function(mat_in) {
+                if (is.null(mat_in)) return(NULL)
+                mat_in + u_we %*% sweep(crossprod(u_we, mat_in), 1L, fac_we, "*")
+              }
+            }
+          }
+          if (!is.null(whiten_fn)) {
+            wb_d$wx <- whiten_fn(wb_d$wx)
+            if (!is.null(wb_d$wt)) wb_d$wt <- whiten_fn(wb_d$wt)
+          }
+        }
+        nrm_d <- sqrt(colSums(wb_d$wx^2)); nrm_d[nrm_d == 0] <- 1.0
+        sv_d <- hrf_safe_svd(sweep(wb_d$wx, 2L, nrm_d, "/"), nv = 0L)
+        rk_d <- if (length(sv_d$d) && sv_d$d[1L] > 0) sum(sv_d$d > 1e-8 * sv_d$d[1L]) else 0L
+        df_d <- m_sk - rk_d
+        Q_d <- if (rk_d > 0L) sv_d$u[, seq_len(rk_d), drop = FALSE] else matrix(0.0, m_sk, 0L)
+        if (!is.null(wb_d$wt) && df_d > 24L) {
+          wt_d <- if (rk_d > 0L) wb_d$wt - Q_d %*% crossprod(Q_d, wb_d$wt) else wb_d$wt
+          nt_d <- sqrt(colSums(wt_d^2)); pos_td <- nt_d > 1e-8
+          if (any(pos_td)) {
+            sv_td <- hrf_safe_svd(sweep(wt_d[, pos_td, drop = FALSE], 2L, nt_d[pos_td], "/"), nv = 0L)
+            rk_td <- min(max(0L, df_d - 24L), if (length(sv_td$d) && sv_td$d[1L] > 0) sum(sv_td$d > 0.06 * sv_td$d[1L]) else 0L)
+            if (rk_td > 0L) Q_d <- cbind(Q_d, sv_td$u[, seq_len(rk_td), drop = FALSE])
+          }
+        }
+        M_d <- diag(m_sk) - tcrossprod(Q_d)
+        lev_d <- pmin(0.95, pmax(0.0, 1.0 - diag(M_d)))
+        ok_lev_idx <- which((1.0 - lev_d) > 0.10)
+        sp_m <- list(
+          ar_op = ar_op,
+          M_s = M_d,
+          df_s = max(1.0, sum(diag(M_d))),
+          ok_lev_idx = ok_lev_idx,
+          inv_sd = if (length(ok_lev_idx)) (1.0 / sqrt(1.0 - lev_d[ok_lev_idx])) else numeric(0L),
+          whiten_fn = whiten_fn
+        )
+        str_M_cache[[key]] <- sp_m
+
+        for (indices in split(columns, ceiling(seq_along(columns) / batch_size))) {
+          eb <- eval_stratum_E_blk(y[rows, indices, drop = FALSE], sp_m)
+          s2_raw_b <- colSums(eb$E^2)
+          s2_rob_b <- colSums(eb$E_rob^2)
+          s2_raw_v[indices] <- s2_raw_b / sp_m$df_s
+          s2_rob_v[indices] <- s2_rob_b / sp_m$df_s
+          df_vox_v[indices] <- sp_m$df_s
+          if (length(sup_sk) > 0L) {
+            ex_b <- matrix(pmax(0.0, eb$E[sup_sk, , drop = FALSE]^2 - eb$E_rob[sup_sk, , drop = FALSE]^2),
+                           nrow = length(sup_sk), ncol = length(indices))
+            s_blk_v[indices] <- colSums((1.0 - w_sup2_sk) * ex_b)
+          }
+          inv_nrm_b <- 1.0 / sqrt(pmax(s2_rob_b, 1e-16))
+          Gram_raw <- Gram_raw + tcrossprod(sweep(eb$E_rob, 2L, inv_nrm_b, "*"))
+        }
+      }
+
+      eg_sk <- eigen(0.5 * (Gram_raw + t(Gram_raw)), symmetric = TRUE)
+      U_sk <- eg_sk$vectors[, seq_len(K_sk), drop = FALSE]
+      B_sk <- matrix(0.0, K_sk, n_vox, dimnames = list(NULL, colnames(y)))
+      B_rob_sk <- matrix(0.0, K_sk, n_vox, dimnames = list(NULL, colnames(y)))
+      for (key in str_keys_ok) {
+        columns <- which(strata == key & status == "ok")
+        sp_m <- str_M_cache[[key]]
+        for (indices in split(columns, ceiling(seq_along(columns) / batch_size))) {
+          eb <- eval_stratum_E_blk(y[rows, indices, drop = FALSE], sp_m)
+          B_sk[, indices] <- crossprod(U_sk, eb$E)
+          B_rob_sk[, indices] <- crossprod(U_sk, eb$E_rob)
+        }
+      }
+      sketch_r <- list(
+        rows = rows,
+        U_sk = U_sk,
+        B_sk = B_sk,
+        B_rob_sk = B_rob_sk,
+        s2_raw = s2_raw_v,
+        s2_rob = s2_rob_v,
+        s_blocked = s_blk_v,
+        df_vox = df_vox_v
+      )
+    }
+
     frame_weights[[r]] <- w_r
     precomputed_nsd[[r]] <- coh_nsd_r
     run_prep[[r]] <- list(
@@ -2148,6 +2314,8 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
       status = status,
       coh_nsd = coh_nsd_r,
       z_innov = z_innov_r,
+      bold_obs = bold_obs_r,
+      sketch = sketch_r,
       w_r = w_r
     )
   }
@@ -2212,8 +2380,8 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     hrf_selection = "frozen_crossrun", nuisance_mode = nuisance_mode,
     observation_mask = observation_mask, noise_model = hrf_fit$settings$noise_model,
     rwls = rwls_mode, rwls_space = rwls_space)
-  activity <- scaling_tables <- noise_innovations <- vector("list", length(bold))
-  names(activity) <- names(scaling_tables) <- names(noise_innovations) <- names(bold)
+  activity <- scaling_tables <- noise_innovations <- bold_obs <- whitened_sketch <- vector("list", length(bold))
+  names(activity) <- names(scaling_tables) <- names(noise_innovations) <- names(bold_obs) <- names(whitened_sketch) <- names(bold)
   operators <- new.env(parent = emptyenv())
   cached_design <- NULL
   cache_keys <- character(); cache_bytes <- 0
@@ -2308,10 +2476,15 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     if (!is.null(geometry)) attr(out, "geometry") <- geometry
     activity[[r]] <- out
     noise_innovations[[r]] <- z_innov_r
+    bold_obs[[r]] <- prep_r$bold_obs
+    whitened_sketch[[r]] <- prep_r$sketch
     scaling_tables[[r]] <- data.frame(run = names(bold)[r], voxel = colnames(y),
       status = status, center = centers, scale = divisors, noise_sd = noise_sds,
       scaling = scaling, noise_rho = rho, lambda = lambda_by_voxel, n_observations = length(rows))
   }
+  if (all(vapply(noise_innovations, is.null, logical(1L)))) noise_innovations <- NULL
+  if (all(vapply(bold_obs, is.null, logical(1L)))) bold_obs <- NULL
+  if (all(vapply(whitened_sketch, is.null, logical(1L)))) whitened_sketch <- NULL
   structure(
     list(
       activity = activity,
@@ -2319,6 +2492,8 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
       hrf_fit = hrf_fit,
       settings = settings,
       noise_innovations = noise_innovations,
+      bold_obs = bold_obs,
+      whitened_sketch = whitened_sketch,
       frame_weights = frame_weights,
       voxel_map = voxel_map,
       geometry = geometry
