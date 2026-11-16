@@ -900,10 +900,14 @@ without coercing numeric covariates, run ordering matched to `ts`),
 [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md)
 builds clock-preserving `valid_rows` masks and finite `nuisance`
 matrices from `*_desc-confounds_timeseries.tsv` **without deleting
-censored TRs**, and
+censored TRs**,
+[`read_fmriprep_aroma()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md) +
+[`apply_aroma()`](https://hallquistlab.github.io/medusa/reference/apply_aroma.md)
+implement in-memory non-aggressive ICA-AROMA partial regression across
+`fMRIPost-AROMA` or legacy fMRIPrep mixing matrices, and
 [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
-discovers and bundles BOLD, brain masks, confounds, and BIDS events in a
-single call.
+discovers and bundles BOLD, brain masks, confounds, optional AROMA
+components, and BIDS events in a single call.
 
 ``` r
 
@@ -936,13 +940,29 @@ conf <- read_fmriprep_confounds(
   strategy = "24p",
   fd_threshold = 0.5
 )
+
+# Optional modular non-aggressive ICA-AROMA (fMRIPost-AROMA or legacy fMRIPrep <= 23.0):
+# applies the identical partial-regression operator to BOLD and selected confounds
+# so Step 1-2 nuisance projection cannot re-introduce motion variance (Lindquist et al., 2019):
+# aroma <- read_fmriprep_aroma(
+#   c("/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-01_desc-melodic_mixing.tsv",
+#     "/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-02_desc-melodic_mixing.tsv",
+#     "/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-03_desc-melodic_mixing.tsv"),
+#   bold = ts
+# )
+# ts   <- apply_aroma(ts, aroma, mode = "nonaggressive")
+# conf <- read_fmriprep_confounds(confound_paths, bold = ts, strategy = "csf_wm",
+#                                 aroma = aroma, fd_threshold = 0.5)
+
 # Or discover BOLD, per-run brain masks, confounds, optional fMRIPost-AROMA
 # non-aggressive denoising, and BIDS events in one step (for BrainGnomes
 # postprocessed streams, pass `desc = "postproc"` to ingest `*_censor.1D`,
 # `*_templatemask.nii.gz`, and derivative provenance guards automatically):
 # ts <- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",
-#                             bids_dir = "/study/bids", task = "mid",
-#                             aroma = "nonaggressive", strategy = "csf_wm",
+#                             bids_dir = "/study/bids",
+#                             aroma_dir = "/study/derivatives/fmripost-aroma",
+#                             task = "mid", aroma = "nonaggressive",
+#                             aroma_clean_nuisance = TRUE, strategy = "csf_wm",
 #                             atlas = atlas_path, fd_threshold = 0.5)
 
 # Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both
@@ -1152,7 +1172,7 @@ write_nifti_ts(t_vec, "sub01_feedback_rpe_t_lag0.nii.gz", reference = decon_vox,
 
 | Handoff | Settings to record | Check before proceeding |
 |----|----|----|
-| Input to HRF/noise fit | TR, offsets, masks, candidate library, `pooling` (`"voxel"`, `"parcel"`, `"graph"`), `spatial_groups` / `spatial_graph` | Confirm clocks, retained acquisition indices, target-run exclusion for HRF selection, geodesic vs. Euclidean neighborhood topology (`hrf_fit$spatial$graph`), gap-local AR($`p`$) noise fits, and fallback strata. |
+| Input to HRF/noise fit | TR, offsets, masks, AROMA & confound strategy (`aroma`, `aroma_clean_nuisance`, `motion_bandstop_bpm`), candidate library, `pooling` (`"voxel"`, `"parcel"`, `"graph"`), `spatial_groups` / `spatial_graph` | Confirm clocks, retained acquisition indices, matched AROMA projection across BOLD and `nuisance` (`aroma_clean_nuisance = TRUE`) plus `<bold>.json` provenance guards, target-run exclusion for HRF selection, geodesic vs. Euclidean neighborhood topology (`hrf_fit$spatial$graph`), gap-local AR($`p`$) noise fits, and fallback strata. |
 | HRF/noise fit to inverse | `lambda` / `lambda_mode` (`"auto"`, `"global"`, `"stratified"`), penalty, nuisance mode, scaling | In PRs 62 & 64+, `scaling = "noise_sd"` estimates **marginal observation-noise** SD ($`\sigma_{\text{marg}}`$) via leverage-adjusted Winsorized GLS residuals, and `lambda = NULL` (`lambda_mode = "auto"`) pools FDR-gated, PAVA-monotone GCV across usable runs (`decon$settings$lambda_strata`). Examine estimated scales, fit residuals, and tuning diagnostics. |
 | Inverse to event measurements | Source duration and units, readout, demixing, `tau2_shrinkage`, target condition and lag grid | Verify event-row identity, causal BOLD observability (`obs_frac_tau >= 0.20`), matched $`M_{\text{post}}`$ covariate alignment, bilateral `"graph_eb"` variance stabilization in voxelwise mode, and rate versus integrated activity for duration models. |
 | Event measurements to parcel panel | Parcel labels, `restore_scale`, `tau2_mode`, `whiten_panel` | Audit usable voxels, task-free `noise_innovations` spatial covariance, and retained trials by run. Distinguish within-run `precision_weight` from cohort-comparable `precision_weight_cohort` and retain `shared_noise_loading` for connectivity. |

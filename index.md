@@ -23,10 +23,12 @@ remotes::install_github("HallquistLab/medusa")
 
 ## Core Workflow
 
-1.  **NIfTI/BIDS matrix I/O, spatial graph, cross-run HRF & AR($`p`$)
-    noise estimation:**
+1.  **NIfTI/BIDS matrix I/O, non-aggressive ICA-AROMA, spatial graph,
+    cross-run HRF & AR($`p`$) noise estimation:**
     [`read_fmriprep_subject()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md),
     [`read_fmriprep_confounds()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+    [`read_fmriprep_aroma()`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_aroma.md),
+    [`apply_aroma()`](https://hallquistlab.github.io/medusa/reference/apply_aroma.md),
     [`read_bids_events()`](https://hallquistlab.github.io/medusa/reference/read_bids_events.md),
     [`read_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/read_nifti_ts.md),
     [`write_nifti_ts()`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md),

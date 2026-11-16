@@ -410,42 +410,48 @@ window.Quarto = {
 <td style="text-align: left;">Keep full 4D runs and mask dummy frames via <code>valid_rows</code> (<code>include_non_steady_state = TRUE</code>), or set <code>time_offset = k * tr</code> (<a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a>)</td>
 </tr>
 <tr class="even">
+<td style="text-align: left;">Task slopes attenuate under task-correlated motion, or <code>noise_sd</code> stays elevated after ICA-AROMA</td>
+<td style="text-align: left;"><code>sub01$aroma$summary</code> &amp; <code>decon$scaling[[r]]$noise_sd</code></td>
+<td style="text-align: left;">Aggressive AROMA stripped shared task-motion variance (Pruim et al., 2015), or uncleaned <code>csf</code>/<code>white_matter</code> confounds re-injected removed motion ICs during Step 1–2 nuisance projection (Lindquist et al., 2019)</td>
+<td style="text-align: left;">Use <code>aroma = "nonaggressive"</code> with <code>aroma_clean_nuisance = TRUE</code> and <code>strategy = "csf_wm"</code> (<a href="../medusa_step0_design_bids/medusa_step0_design_bids.html#sec-nonaggressive-aroma">Step 0 §0.5</a>)</td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;">Virtually all parcels fail Step 1 task screening (<code>selected_task_p &gt; 0.10</code>) and lag-0 slopes vanish</td>
 <td style="text-align: left;"><code>range(events$onset)</code> vs.&nbsp;<code>(nrow(Y) - 1) * tr</code></td>
 <td style="text-align: left;">Event onsets were supplied in <strong>TR indices</strong> (or milliseconds) rather than physical <strong>seconds</strong>, compressing or stretching the forward design</td>
 <td style="text-align: left;">Convert <code>onset</code> and <code>duration</code> to seconds before calling <code>estimate_crossrun_hrf()</code> (<a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a>)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Large fraction of parcels/voxels pile up at <code>rho = 0.90</code> in Step 1</td>
 <td style="text-align: left;">Histogram of <code>hrf_fit$noise[[r]]$rho[, 1]</code></td>
 <td style="text-align: left;">Unmodeled scanner shim shifts, low-frequency drift, or respiratory alias forces <span class="math inline">\(\text{AR}(1)\)</span> autocorrelation onto its stationarity upper bound</td>
 <td style="text-align: left;">Include cosine/polynomial drift (<code>drift_order = 2</code> or <code>fMRIPrep</code> cosines), mask motion spikes via <code>valid_rows</code>, and use <code>motion_bandstop_bpm</code> for fast-TR runs (<a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Deconvolved time series <span class="math inline">\(\widehat{a}_r(t)\)</span> looks overly flat and Step 3 peaks are blunted</td>
 <td style="text-align: left;"><code>diagnose_crossrun_recovery(decon, events)$summary$mean_gain</code></td>
 <td style="text-align: left;">Penalty <span class="math inline">\(\lambda_v\)</span> was fixed too high (e.g., manual override), collapsing conditional self-gain toward zero</td>
 <td style="text-align: left;">Leave <code>lambda = NULL</code> so Step 2 tunes <span class="math inline">\(\lambda_v\)</span> automatically per series via GCV/REML (<a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Sharp positive/negative ringing lobes appear <span class="math inline">\(\pm 6\text{--}10\text{ s}\)</span> around isolated frames</td>
 <td style="text-align: left;">Continuous trace <code>decon$deconvolved[[r]]</code> overlaid on <code>confounds</code> FD</td>
 <td style="text-align: left;">Uncensored head-motion or coil spike with <code>rwls = "none"</code> rings through the inverse Toeplitz filter <span class="math inline">\(D_r\)</span></td>
 <td style="text-align: left;">Pass FD censor mask via <code>valid_rows</code> and keep adaptive <code>rwls = "auto"</code> enabled in Step 2 (<a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Individual trials show sharp <code>se_demixed</code> spikes or <code>NA</code> estimates</td>
 <td style="text-align: left;">Trial index vs.&nbsp;<code>panel$se_demixed</code> and <code>is.na(panel$decon_demixed)</code></td>
 <td style="text-align: left;">Censoring inside a trial’s causal HRF window reduces Fisher information (elevating <code>se_demixed</code>) or drops BOLD support below <code>min_bold_coverage</code> (<code>NA</code>)</td>
 <td style="text-align: left;">Expected protective behavior: retain <code>precision_weight_cohort</code> so noisy trials are downweighted automatically; exclude entire runs only when censoring is pervasive (<code>&gt; 25–30%</code>) (<a href="../medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a>)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Group fixed-effect slopes in Step 5 appear ~30–60% smaller than expected</td>
 <td style="text-align: left;">Model formula outcome column (<code>decon_eb</code> vs.&nbsp;<code>decon_demixed</code>)</td>
 <td style="text-align: left;">Empirical-Bayes shrunken <code>decon_eb</code> was entered as a regression outcome, shrinking group slopes by the trial reliability factor</td>
 <td style="text-align: left;">Always enter <code>decon_demixed</code> + <code>weights = "precision_weight_cohort"</code> when neural activity is the outcome; reserve <code>decon_eb</code> for visualization or standalone predictor summaries (<a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">Step 4</a>)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Step 5 slope flips sign or has <code>df</code> in the thousands; Step 6 connectivity is inflated or attenuated</td>
 <td style="text-align: left;">Step 5 formula &amp; <code>df</code>; Step 6 <code>ppi$subjects$r_shared_error</code></td>
 <td style="text-align: left;">Uncentered <code>x_raw</code> conflates trait and state slopes; omitting <code>(1 + x_within || id)</code> treats trials as independent; stripping <code>unit_error_cor</code> (<code>shared_error = "zero"</code>) disattenuates shared noise</td>

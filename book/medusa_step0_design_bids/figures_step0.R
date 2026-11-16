@@ -201,4 +201,84 @@ p3b <- ggplot(ms_tbl, aes(x = lag0_beta, y = short_lbl, color = short_lbl)) +
 ggsave("figures/03-missed-trials-handling.png", (p3a | p3b) + plot_layout(widths = c(1.2, 1)),
        width = 11.2, height = 4.9, dpi = 175, bg = "white")
 
+# ------------------------------------------------------------------------------
+# Figure 4: Non-Aggressive ICA-AROMA & Matched Nuisance Projection
+# ------------------------------------------------------------------------------
+ap <- copy(d$aroma_profiles)
+aroma_lvls <- c(
+  "Non-aggressive AROMA + matched csf_wm (Recommended)",
+  "Non-aggressive AROMA + uncleaned csf_wm",
+  "Aggressive AROMA (aroma = 'aggressive')",
+  "No AROMA (csf_wm only)"
+)
+ap[, regime := factor(regime, levels = aroma_lvls)]
+aroma_cols <- c(
+  "Non-aggressive AROMA + matched csf_wm (Recommended)" = "#1B6CA8",
+  "Non-aggressive AROMA + uncleaned csf_wm"             = "#2A7F62",
+  "Aggressive AROMA (aroma = 'aggressive')"             = "#B35806",
+  "No AROMA (csf_wm only)"                              = "#C0392B"
+)
+
+p4a <- ggplot(ap, aes(x = lag, y = beta, color = regime, linetype = regime)) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey65") +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "grey65") +
+  geom_hline(yintercept = 0.65, linetype = "dashed", color = "#2A7F62", alpha = 0.65) +
+  geom_line(linewidth = 1.0) +
+  geom_point(size = 2.2) +
+  scale_color_manual(values = aroma_cols) +
+  scale_linetype_manual(values = c("solid", "dashed", "solid", "solid")) +
+  scale_x_continuous(breaks = -2:4) +
+  guides(color = guide_legend(nrow = 4), linetype = guide_legend(nrow = 4)) +
+  labs(
+    title = "A. Step 3 RPE Trajectory (Task-Correlated Motion)",
+    x = "Peri-event lag relative to feedback (s)",
+    y = "Estimated RPE slope (true = 0.65 at lag 0)",
+    color = NULL, linetype = NULL
+  ) +
+  theme_step0 +
+  theme(legend.text = element_text(size = 10.5), legend.key.height = unit(0.42, "cm"))
+
+at <- copy(d$aroma_tbl)
+short_aroma <- c(
+  "No AROMA\n(csf_wm only)",
+  "Aggressive AROMA\n(aroma = 'aggressive')",
+  "Non-aggr. AROMA +\nuncleaned csf_wm",
+  "Non-aggr. AROMA +\nmatched csf_wm (Rec.)"
+)
+at[, short_lbl := factor(short_aroma, levels = short_aroma)]
+at[, col_hex := c("#C0392B", "#B35806", "#2A7F62", "#1B6CA8")]
+
+p4b1 <- ggplot(at, aes(x = est_noise_sd, y = short_lbl)) +
+  geom_vline(xintercept = 0.030, linetype = "dashed", color = "#2A7F62", linewidth = 0.85) +
+  geom_segment(aes(x = 0, xend = est_noise_sd, yend = short_lbl), color = at$col_hex, linewidth = 0.95) +
+  geom_point(color = at$col_hex, size = 3.0) +
+  geom_text(
+    aes(label = sprintf("R2_mot = %.2f", resid_motion_r2)),
+    hjust = -0.14, size = 3.1, color = "grey25"
+  ) +
+  scale_x_continuous(limits = c(0, max(at$est_noise_sd) * 1.38)) +
+  labs(
+    title = "B. Step 2 Noise SD (True = 0.030) & Post-Nuisance Motion R2",
+    x = "Estimated observation noise_sd",
+    y = NULL
+  ) +
+  theme_step0
+
+p4b2 <- ggplot(at, aes(x = lag0_beta, y = short_lbl)) +
+  geom_vline(xintercept = 0.65, linetype = "dashed", color = "#2A7F62", linewidth = 0.85) +
+  geom_errorbar(
+    aes(xmin = lag0_beta - 1.96 * lag0_se, xmax = lag0_beta + 1.96 * lag0_se),
+    orientation = "y", width = 0.22, linewidth = 0.95, color = at$col_hex
+  ) +
+  geom_point(color = at$col_hex, size = 3.0) +
+  labs(
+    title = "C. Step 3 Lag-0 RPE Slope & 95% CI (True = 0.65)",
+    x = "Lag-0 RPE slope (95% CI)",
+    y = NULL
+  ) +
+  theme_step0
+
+p4_full <- (p4a | (p4b1 / p4b2)) + plot_layout(widths = c(1.15, 1.0))
+ggsave("figures/04-nonaggressive-aroma.png", p4_full, width = 12.0, height = 6.5, dpi = 175, bg = "white")
+
 cat("Saved Step 0 figures.\n")

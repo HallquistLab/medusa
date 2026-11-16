@@ -328,6 +328,7 @@ window.Quarto = {
   <li><a href="#ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" id="toc-ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" class="nav-link" data-scroll-target="#ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock">0.2 Ingest BIDS and fMRIPrep derivatives on an intact acquisition clock</a></li>
   <li><a href="#keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" id="toc-keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" class="nav-link" data-scroll-target="#keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule">0.3 Keep missed responses, timeouts, and catch trials in the event schedule</a></li>
   <li><a href="#join-computational-model-covariates-safely-via-event_index" id="toc-join-computational-model-covariates-safely-via-event_index" class="nav-link" data-scroll-target="#join-computational-model-covariates-safely-via-event_index">0.4 Join computational model covariates safely via <code>event_index</code></a></li>
+  <li><a href="#sec-nonaggressive-aroma" id="toc-sec-nonaggressive-aroma" class="nav-link" data-scroll-target="#sec-nonaggressive-aroma">0.5 Denoise motion-contaminated runs with non-aggressive ICA-AROMA</a></li>
   </ul></li>
   <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
   <li><a href="#practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" id="toc-practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" class="nav-link" data-scroll-target="#practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1">Practical Considerations, Pre-Flight QC Checklist, and Handoff to Step 1</a></li>
@@ -396,7 +397,7 @@ window.Quarto = {
 <p><strong>Task Schedule + BIDS/<code>fMRIPrep</code> Files</strong> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 0 (<code>read_fmriprep_subject</code>)</strong> <span class="math inline">\(\longrightarrow\)</span> <code>"medusa_nifti_ts"</code> subject bundle <span class="math inline">\(\longrightarrow\)</span> <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html"><strong>Step 1 (<code>estimate_crossrun_hrf</code>)</strong></a></p>
 </div>
 </div>
-<p>The walkthrough below develops Step 0 across four substeps—from planning run structure and inter-phase jitter (<code>0.1</code>), to ingesting BIDS and <code>fMRIPrep</code> files on an intact acquisition clock (<code>0.2</code>), handling missed or timeout trials (<code>0.3</code>), and joining computational model variables safely via <code>event_index</code> (<code>0.4</code>).</p>
+<p>The walkthrough below develops Step 0 across five substeps—from planning run structure and inter-phase jitter (<code>0.1</code>), to ingesting BIDS and <code>fMRIPrep</code> files on an intact acquisition clock (<code>0.2</code>), handling missed or timeout trials (<code>0.3</code>), joining computational model variables safely via <code>event_index</code> (<code>0.4</code>), and denoising motion-contaminated runs with non-aggressive ICA-AROMA and matched nuisance projection (<code>0.5</code>).</p>
 <hr>
 </section>
 <section id="goals-inputs-and-outputs" class="level2">
@@ -438,10 +439,15 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td><code>strategy</code>, <code>fd_threshold</code>, &amp; <code>include_non_steady_state</code></td>
-<td>Confound regression preset (<code>"6p"</code>, <code>"24p"</code>, <code>"36p"</code>, <code>"compcor"</code>, <code>"24p_csf_wm"</code>) and framewise censoring rules</td>
+<td>Confound regression preset (<code>"6p"</code>, <code>"24p"</code>, <code>"36p"</code>, <code>"compcor"</code>, <code>"csf_wm"</code>, <code>"csf_wm_8p"</code>, <code>"24p_csf_wm"</code>, <code>"none"</code>) and framewise censoring rules</td>
 <td>Converts BIDS <code>"n/a"</code> strings on derivative lag columns cleanly to <code>0</code>, drops linearly dependent nuisance columns per run, and builds logical <code>valid_rows</code> masks without shifting volume timestamps.</td>
 </tr>
 <tr class="odd">
+<td><code>aroma</code>, <code>aroma_dir</code>, &amp; <code>aroma_clean_nuisance</code></td>
+<td>Optional ICA-AROMA mode (<code>"none"</code>, <code>"nonaggressive"</code>, <code>"auto"</code>, <code>"aggressive"</code>), optional <code>fMRIPost-AROMA</code> derivatives root, and matched confound projection flag</td>
+<td>Discovers <code>fMRIPost-AROMA</code> (<code>*_desc-melodic_mixing.tsv</code> + <code>*_desc-aroma_metrics.tsv</code>) or legacy <code>fMRIPrep</code> AROMA tables, denoises BOLD via Pruim et al.&nbsp;(2015) partial regression, and projects the identical AROMA operator out of <code>$nuisance</code> (Lindquist et al., 2019).</td>
+</tr>
+<tr class="even">
 <td>External model covariates (optional)</td>
 <td>Trial-level behavioral, RL, or drift-diffusion table keyed by <code>(id, run, event_index)</code> (or extra columns inside <code>*_events.tsv</code>)</td>
 <td>Keeps Steps 1–2 blind to downstream hypothesis predictors while supporting exact trial matching in Step 3 (<code>decon_epoch_regression()</code>).</td>
@@ -485,6 +491,11 @@ window.Quarto = {
 <td><code>confounds</code>, <code>nuisance</code>, &amp; <code>valid_rows</code></td>
 <td><code>"medusa_confounds"</code> object plus per-run nuisance matrices and logical masks (<code>TRUE</code> = keep, <code>FALSE</code> = censor)</td>
 <td>Passed automatically when <code>estimate_crossrun_hrf(sub01, ...)</code> is called, with <code>$confounds$summary</code> providing a run-by-run censoring and motion QC table.</td>
+</tr>
+<tr class="even">
+<td><code>aroma</code> (when <code>aroma != "none"</code>)</td>
+<td>Provenance list (<code>mode</code>, <code>fit_valid</code>, <code>clean_nuisance</code>, and <code>$summary</code> component table)</td>
+<td>Audits total, accepted, and rejected MELODIC components per run and confirms whether <code>$nuisance</code> received matched AROMA projection.</td>
 </tr>
 </tbody>
 </table>
@@ -913,29 +924,162 @@ Whenever a run contains missed responses or catch trials (for example, 15 valid 
 </div>
 <hr>
 </section>
+<section id="sec-nonaggressive-aroma" class="level3">
+<h3 class="anchored" data-anchor-id="sec-nonaggressive-aroma">0.5 Denoise motion-contaminated runs with non-aggressive ICA-AROMA</h3>
+<p>Beginning in <code>fMRIPrep &gt;= 23.1</code>, spatial-ICA motion denoising moved out of <code>fMRIPrep</code> into standalone <strong><code>fMRIPost-AROMA</code></strong>, which writes each run’s full MELODIC time-course matrix (<code>*_desc-melodic_mixing.tsv</code>) and component labels (<code>*_desc-aroma_metrics.tsv</code>; or <code>*_desc-MELODIC_mixing.tsv</code> + <code>*_AROMAnoiseICs.csv</code> in legacy <code>fMRIPrep &lt;= 23.0</code>) while leaving un-denoised <code>*_desc-preproc_bold.nii.gz</code> on disk so downstream pipelines control spatial smoothing and nuisance regression order.</p>
+<p>When incorporating ICA-AROMA into task-fMRI deconvolution, two seemingly natural shortcuts introduce substantial distortion:</p>
+<ol type="1">
+<li><strong>Pitfall 1 — Aggressive AROMA strips task-correlated neural signal (Pruim et al., 2015):</strong> In decision and reinforcement-learning tasks, participants often move slightly in sync with salient task events—pressing a button on choice trials or flinching at unexpected feedback. Appending 30–60 rejected <code>aroma_motion_*</code> columns directly into <code>$nuisance</code> (or projecting rejected components out of BOLD orthogonally without the accepted components) removes <em>all</em> variance shared between head motion and convolved task activity, attenuating downstream trial slopes while consuming dozens of degrees of freedom per run. <strong>Non-aggressive ICA-AROMA</strong> avoids this by fitting <em>both</em> accepted neural components and rejected motion components jointly to each voxel and subtracting <strong>only</strong> the unique contribution assigned to the rejected motion components.</li>
+<li><strong>Pitfall 2 — Uncleaned physiological confounds re-inject removed motion into BOLD (Lindquist et al., 2019):</strong> Even after BOLD is properly cleaned via non-aggressive AROMA, tissue nuisance time series in <code>*_desc-confounds_timeseries.tsv</code> (such as <code>csf</code> and <code>white_matter</code>) were extracted from the <em>un-denoised</em> scan and still carry strong motion contamination. If raw, uncleaned <code>csf</code>/<code>white_matter</code> columns are passed into Steps 1–2 (<code>nuisance_mode = "joint"</code>), regressing AROMA-cleaned BOLD onto motion-contaminated confounds projects those removed motion artifacts <strong>right back into the BOLD residuals and deconvolved neural series</strong>, re-inflating observation <code>noise_sd</code> and trial standard errors.</li>
+</ol>
+<p>MEDuSA handles both requirements automatically—either in a single <code>read_fmriprep_subject()</code> call or step by step via <code>read_fmriprep_aroma()</code> and <code>apply_aroma()</code>:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Option A: Turnkey subject ingestion with non-aggressive ICA-AROMA + matched CSF/WM cleaning</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (auto-discovers co-located or sibling `derivatives/fmripost-aroma/` files even when</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># fMRIPost-AROMA omits `space-*` entities from mixing/metrics filenames)</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>sub01_aroma <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_subject</span>(</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">fmriprep_dir             =</span> <span class="st">"/path/to/derivatives/fmriprep"</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">bids_dir                 =</span> <span class="st">"/path/to/bids"</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">aroma_dir                =</span> <span class="st">"/path/to/derivatives/fmripost-aroma"</span>, <span class="co"># optional; auto-discovered when sibling</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub                      =</span> <span class="st">"01"</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">task                     =</span> <span class="st">"learn"</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">space                    =</span> <span class="st">"MNI152NLin6Asym"</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">atlas                    =</span> <span class="st">"/path/to/schaefer_200_mni6.nii.gz"</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">aroma                    =</span> <span class="st">"nonaggressive"</span>,</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">aroma_clean_nuisance     =</span> <span class="cn">TRUE</span>,      <span class="co"># projects identical AROMA operator out of $nuisance</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">strategy                 =</span> <span class="st">"csf_wm"</span>,  <span class="co"># physiological pairing without redundant 24p motion terms</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">fd_threshold             =</span> <span class="fl">0.5</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">include_non_steady_state =</span> <span class="cn">TRUE</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(sub01_aroma<span class="sc">$</span>aroma<span class="sc">$</span>summary)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Option B: Modular assembly on custom NIfTI + confound inputs</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>aroma      <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_aroma</span>(mixing_files, <span class="at">bold =</span> ts)</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>ts_clean   <span class="ot">&lt;-</span> <span class="fu">apply_aroma</span>(ts, aroma, <span class="at">mode =</span> <span class="st">"nonaggressive"</span>)</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>conf_clean <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_confounds</span>(</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  confound_files, <span class="at">bold =</span> ts_clean, <span class="at">strategy =</span> <span class="st">"csf_wm"</span>,</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">aroma =</span> aroma, <span class="at">fd_threshold =</span> <span class="fl">0.5</span>     <span class="co"># computes physical FD first, then AROMA-cleans csf/wm</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="#fig-step0-aroma" class="quarto-xref">Figure&nbsp;<span>3.4</span></a> and <a href="#tbl-step0-aroma" class="quarto-xref">Table&nbsp;<span>3.5</span></a> compare all four regimes end to end across Steps 0–3 on a three-run simulated BIDS + <code>fMRIPrep</code> + <code>fMRIPost-AROMA</code> participant (<code>true noise_sd = 0.030</code>, <code>true lag-0 RPE slope = 0.650</code>, <code>2</code> accepted neural ICs + <code>6</code> rejected motion ICs per run, including one feedback-locked motion component correlated <span class="math inline">\(r \approx 0.62\)</span> with convolved RPE):</p>
+<ul>
+<li><strong>Without AROMA (<code>aroma = "none"</code>, <code>csf_wm</code> only):</strong> Unremoved motion inflates Step 2 <code>noise_sd</code> more than three-fold (0.097 vs.&nbsp;<code>0.030</code>) and biases the lag-0 RPE slope upward to 1.018.</li>
+<li><strong>Aggressive AROMA (<code>aroma = "aggressive"</code>):</strong> Orthogonal removal of the task-correlated motion IC strips shared task variance, attenuating the lag-0 RPE slope by 40% down to 0.393.</li>
+<li><strong>Non-aggressive AROMA + uncleaned <code>csf_wm</code> (<code>aroma_clean_nuisance = FALSE</code>):</strong> Regressing raw motion-contaminated <code>csf</code>/<code>white_matter</code> columns out of AROMA-cleaned BOLD re-injects pure motion ICs (<code>R2_mot =</code> 0.20 vs.&nbsp;0.01), inflating Step 2 <code>noise_sd</code> back up to 0.092 and nearly tripling the lag-0 standard error (0.065 vs.&nbsp;0.024).</li>
+<li><strong>Non-aggressive AROMA + matched <code>csf_wm</code> (<code>aroma = "nonaggressive"</code>, <code>aroma_clean_nuisance = TRUE</code>):</strong> Recovers the generating observation noise (0.030 vs.&nbsp;<code>0.030</code>) and an unbiased, high-precision lag-0 RPE slope (0.632, <span class="math inline">\(\text{SE} = 0.024\)</span>).</li>
+</ul>
+<div id="fig-step0-aroma" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Three-panel comparison showing aggressive AROMA attenuating the lag-0 RPE slope to 0.39, uncleaned csf_wm re-injecting motion variance (noise_sd = 0.092), no AROMA biasing the slope to 1.02, and non-aggressive AROMA with matched csf_wm recovering 0.63 with noise_sd = 0.030.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-step0-aroma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/04-nonaggressive-aroma.png" class="img-fluid figure-img" style="width:100.0%" alt="Three-panel comparison showing aggressive AROMA attenuating the lag-0 RPE slope to 0.39, uncleaned csf_wm re-injecting motion variance (noise_sd = 0.092), no AROMA biasing the slope to 1.02, and non-aggressive AROMA with matched csf_wm recovering 0.63 with noise_sd = 0.030.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step0-aroma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3.4: End-to-end impact of ICA-AROMA mode and matched nuisance orthogonalization across Steps 0–3 (<code>aroma_denoising_metrics.csv</code>, true observation <code>noise_sd = 0.030</code>, true lag-0 feedback RPE slope = <code>0.650</code>): (A) Step 3 recovered peri-event RPE trajectory (<code>-2</code> to <code>+4 s</code>) under task-correlated head motion; (B) Step 2 observation <code>noise_sd</code> and post-nuisance pure-motion variance (<span class="math inline">\(R^2_{\text{mot}}\)</span>), showing artifact re-injection when <code>csf_wm</code> confounds are left uncleaned (<code>aroma_clean_nuisance = FALSE</code>; Lindquist et al., 2019); (C) Step 3 lag-0 RPE slope and 95% confidence interval.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  aroma_tbl,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"AROMA &amp; Confound Regime"</span>, <span class="st">"Est. noise_sd"</span>, <span class="st">"Post-Nuisance Motion R2"</span>, <span class="st">"Lag-0 Beta"</span>, <span class="st">"Lag-0 SE"</span>, <span class="st">"Lag-0 Bias"</span>),</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">4</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">3</span>),</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-step0-aroma" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step0-aroma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;3.5: Step 2 noise recovery, post-nuisance motion contamination, and Step 3 lag-0 feedback RPE recovery across ICA-AROMA and confound-cleaning regimes (true observation noise_sd = 0.0300; true lag-0 RPE slope = 0.650).
+</figcaption>
+<div aria-describedby="tbl-step0-aroma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">AROMA &amp; Confound Regime</th>
+<th style="text-align: right;">Est. noise_sd</th>
+<th style="text-align: right;">Post-Nuisance Motion R2</th>
+<th style="text-align: right;">Lag-0 Beta</th>
+<th style="text-align: right;">Lag-0 SE</th>
+<th style="text-align: right;">Lag-0 Bias</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">No AROMA (csf_wm only)</td>
+<td style="text-align: right;">0.0974</td>
+<td style="text-align: right;">0.053</td>
+<td style="text-align: right;">1.018</td>
+<td style="text-align: right;">0.0615</td>
+<td style="text-align: right;">0.368</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Aggressive AROMA (aroma = ‘aggressive’)</td>
+<td style="text-align: right;">0.0429</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.393</td>
+<td style="text-align: right;">0.0228</td>
+<td style="text-align: right;">-0.257</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Non-aggressive AROMA + uncleaned csf_wm</td>
+<td style="text-align: right;">0.0925</td>
+<td style="text-align: right;">0.198</td>
+<td style="text-align: right;">0.688</td>
+<td style="text-align: right;">0.0647</td>
+<td style="text-align: right;">0.038</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Non-aggressive AROMA + matched csf_wm (Recommended)</td>
+<td style="text-align: right;">0.0301</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">0.632</td>
+<td style="text-align: right;">0.0236</td>
+<td style="text-align: right;">-0.018</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<p><strong>Choice point — Pairing <code>aroma</code>, <code>strategy</code>, frame censoring, and <code>BrainGnomes</code> provenance:</strong></p>
+<ul>
+<li><strong>Recommended <code>strategy</code> with AROMA:</strong> Pair <code>aroma = "nonaggressive"</code> (or <code>aroma = "auto"</code> in mixed cohorts where only some subjects/sessions have AROMA outputs) with <strong><code>strategy = "csf_wm"</code></strong> (mean <code>csf</code> + <code>white_matter</code>; Parkes et al., 2018) or <code>"csf_wm_8p"</code> (adding temporal derivatives and quadratics of <code>csf</code>/<code>white_matter</code>). Avoid pairing AROMA with <code>"24p"</code> or <code>"36p"</code> expansion, whose realignment derivatives largely duplicate the motion subspace already removed by ICA-AROMA while consuming extra degrees of freedom.</li>
+<li><strong>Combining AROMA with FD censoring (and fast-TR respiratory filtering):</strong> Linear spatial ICA removes continuous head-motion and edge artifacts effectively, whereas abrupt multi-millimeter head jerks cause nonlinear slice-wise spin-history disruptions that no fixed spatial map captures completely. Because <code>read_fmriprep_confounds()</code> evaluates <code>framewise_displacement</code> (including optional fast-TR <code>motion_bandstop_bpm = c(12, 20)</code> notch filtering; <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-respiratory-fd-filter">Step 1 §1.5</a>) <em>before</em> AROMA projection, keeping <code>fd_threshold = 0.5</code> (or <code>0.3</code> with respiratory filtering) masks severe jerks in <code>valid_rows</code> while <code>aroma_fit_valid = FALSE</code> (default) fits the full-scan MELODIC time series on its native clock (<code>aroma_fit_valid = TRUE</code> optionally restricts the partial regression to <code>valid_rows</code>).</li>
+<li><strong>Automatic <code>BrainGnomes</code> provenance protection (<code>desc = "postproc"</code>):</strong> When ingesting postprocessed <code>BrainGnomes</code> streams, <code>read_fmriprep_subject()</code> inspects <code>&lt;bold&gt;.json</code> sidecar metadata (<code>inspect_braingnomes_provenance()</code>): it halts with a clear diagnostic if <code>scrub_timepoints</code> physically deleted volumes from the clock, skips duplicate AROMA projection with a warning if <code>apply_aroma</code> already ran upstream, and defaults <code>strategy = "none"</code> when <code>confound_regression</code> was already applied.</li>
+</ul>
+<hr>
+</section>
 </section>
 <section id="recommended-settings" class="level2">
 <h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
-<p>For multi-run BIDS + <code>fMRIPrep</code> task studies, ingest each participant with <code>read_fmriprep_subject()</code> (looping over subject IDs in batch scripts) and inspect <code>$confounds$summary</code> before launching Step 1:</p>
+<p>For multi-run BIDS + <code>fMRIPrep</code> task studies, ingest each participant with <code>read_fmriprep_subject()</code> (looping over subject IDs in batch scripts) and inspect <code>$confounds$summary</code> (and <code>$aroma$summary</code> when using ICA-AROMA) before launching Step 1:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>sub_obj <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_subject</span>(</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">fmriprep_dir             =</span> fmriprep_dir,</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">bids_dir                 =</span> bids_dir,</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub                      =</span> sub_id,</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">task                     =</span> <span class="st">"learn"</span>,</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">space                    =</span> <span class="st">"MNI152NLin2009cAsym"</span>,</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">atlas                    =</span> atlas_nii_path,</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">mask_policy              =</span> <span class="st">"intersect"</span>,</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">strategy                 =</span> <span class="st">"24p"</span>,</span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">fd_threshold             =</span> <span class="fl">0.5</span>,        <span class="co"># or 0.3 with motion_bandstop_bpm = c(12, 20) for fast TR</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">include_non_steady_state =</span> <span class="cn">TRUE</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick pre-flight check before Step 1</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(sub_obj<span class="sc">$</span>confounds<span class="sc">$</span>summary[, <span class="fu">c</span>(<span class="st">"run"</span>, <span class="st">"n_volumes"</span>, <span class="st">"pct_censored"</span>, <span class="st">"n_non_steady_state"</span>, <span class="st">"mean_fd"</span>)])</span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sub_obj<span class="sc">$</span>events<span class="sc">$</span>run, sub_obj<span class="sc">$</span>events<span class="sc">$</span>condition)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard fMRIPrep ingestion (or set aroma = "nonaggressive", strategy = "csf_wm"</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co"># when fMRIPost-AROMA / legacy AROMA outputs are available; see Substep 0.5)</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>sub_obj <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_subject</span>(</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">fmriprep_dir             =</span> fmriprep_dir,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">bids_dir                 =</span> bids_dir,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub                      =</span> sub_id,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">task                     =</span> <span class="st">"learn"</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">space                    =</span> <span class="st">"MNI152NLin2009cAsym"</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">atlas                    =</span> atlas_nii_path,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">mask_policy              =</span> <span class="st">"intersect"</span>,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">aroma                    =</span> <span class="st">"none"</span>,     <span class="co"># or "nonaggressive" (paired with strategy = "csf_wm")</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">strategy                 =</span> <span class="st">"24p"</span>,</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">fd_threshold             =</span> <span class="fl">0.5</span>,        <span class="co"># or 0.3 with motion_bandstop_bpm = c(12, 20) for fast TR</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">include_non_steady_state =</span> <span class="cn">TRUE</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick pre-flight check before Step 1</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(sub_obj<span class="sc">$</span>confounds<span class="sc">$</span>summary[, <span class="fu">c</span>(<span class="st">"run"</span>, <span class="st">"n_volumes"</span>, <span class="st">"pct_censored"</span>, <span class="st">"n_non_steady_state"</span>, <span class="st">"mean_fd"</span>, <span class="st">"aroma_cleaned"</span>)])</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sub_obj<span class="sc">$</span>events<span class="sc">$</span>run, sub_obj<span class="sc">$</span>events<span class="sc">$</span>condition)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -962,16 +1106,21 @@ Whenever a run contains missed responses or catch trials (for example, 15 valid 
 <td>Masks initial <code>non_steady_state_outlier*</code> dummy frames via <code>valid_rows</code> without shifting event timestamps relative to volume 1.</td>
 </tr>
 <tr class="even">
-<td><code>strategy</code> &amp; <code>fd_threshold</code></td>
-<td><code>"24p"</code> + <code>fd_threshold = 0.5</code> (standard TR) or <code>0.3</code> + <code>motion_bandstop_bpm = c(12, 20)</code> (fast TR <span class="math inline">\(\le 1\text{ s}\)</span>)</td>
-<td>Removes rigid-body motion and spin-history terms while censoring genuine head jerks on an intact clock.</td>
+<td><code>aroma</code> &amp; <code>aroma_clean_nuisance</code></td>
+<td><code>"nonaggressive"</code> + <code>TRUE</code> + <code>strategy = "csf_wm"</code> when AROMA exists; <code>"none"</code> + <code>"24p"</code> otherwise</td>
+<td>Removes motion ICs via partial regression without stripping task-correlated neural signal (Pruim et al., 2015) or re-injecting motion through uncleaned confounds (Lindquist et al., 2019).</td>
 </tr>
 <tr class="odd">
+<td><code>fd_threshold</code> &amp; <code>motion_bandstop_bpm</code></td>
+<td><code>0.5</code> (standard TR) or <code>0.3</code> + <code>motion_bandstop_bpm = c(12, 20)</code> (fast TR <span class="math inline">\(\le 1\text{ s}\)</span>)</td>
+<td>Censors genuine spin-history head jerks on an intact clock without scrubbing normal fast-TR breathing oscillations.</td>
+</tr>
+<tr class="even">
 <td>Missed / timeout trials</td>
 <td>Retain in <code>events</code> as separate condition (<code>"missed_feedback"</code>)</td>
 <td>Models evoked salience/visual BOLD waves in Steps 1–2 and subtracts their collateral tail in Step 3 rather than inflating residual noise.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>External trial-table joins</td>
 <td>Merge on <code>c("id", "run", "event_index")</code> (or <code>trial_number</code> stored in <code>events.tsv</code>)</td>
 <td>Prevents silent row shifts between <code>panel$trial</code> (<code>1..m_valid</code>) and task <code>trial_number</code> (<code>1..N_total</code>) when missed trials occur.</td>
@@ -991,13 +1140,17 @@ Whenever a run contains missed responses or catch trials (for example, 15 valid 
 </ol>
 <details>
 <summary>
-Simulation Details &amp; Reproduction
+Mathematical &amp; Simulation Details
 </summary>
 <ul>
+<li><strong>Non-aggressive ICA-AROMA oblique projector (<code>apply_aroma()</code>):</strong> Let <span class="math inline">\(M \in \mathbb{R}^{T_r \times C}\)</span> denote a run’s MELODIC mixing matrix partitioned into accepted components <span class="math inline">\(M_{\text{acc}}\)</span> and rejected noise components <span class="math inline">\(M_{\text{rej}}\)</span> (<code>classification == "rejected"</code>), and let <span class="math inline">\(\tilde{M} = M - \mathbf{1}\bar{m}_I^\top\)</span> center each component on the fitting frame index set <span class="math inline">\(I\)</span> (all frames when <code>fit_valid = FALSE</code>, or <code>valid_rows</code> when <code>fit_valid = TRUE</code>). <code>apply_aroma(..., mode = "nonaggressive")</code> solves the SVD-stabilized joint least-squares system <span class="math inline">\([\mathbf{1}, \tilde{M}][\hat{\mu}^\top; \hat{B}^\top]^\top = Y\)</span> on <span class="math inline">\(I\)</span> and subtracts <strong>only</strong> the centered rejected block across all <span class="math inline">\(T_r\)</span> rows (preserving each voxel’s baseline mean <span class="math inline">\(\hat{\mu}\)</span> while avoiding intercept shifts when component sample means are nonzero): <span class="math display">\[
+Y_{\text{nonagg}} = Y - \tilde{M}_{\text{rej}}\hat{B}_{\text{rej}} = P_{\text{aroma}} Y + (I - P_{\text{aroma}})\mathbf{1}\hat{\mu}^\top, \qquad P_{\text{aroma}} = I - \tilde{M}_{\text{rej}}\bigl[(\tilde{M}^\top \tilde{M})^+ \tilde{M}^\top\bigr]_{\text{rej}}.
+\]</span> When <code>aroma_clean_nuisance = TRUE</code>, <code>read_fmriprep_confounds()</code> applies the identical partial-regression operator <span class="math inline">\(P_{\text{aroma}}\)</span> (followed by column re-centering and rank pruning) to the selected nuisance matrix <span class="math inline">\(Z_r\)</span> so subsequent joint nuisance projection in Steps 1–2 operates strictly within the AROMA-cleaned subspace (Lindquist et al., 2019). By contrast, <code>mode = "aggressive"</code> applies the orthogonal projector <span class="math inline">\(I - \tilde{M}_{\text{rej}}(\tilde{M}_{\text{rej}}^\top \tilde{M}_{\text{rej}})^+ \tilde{M}_{\text{rej}}^\top\)</span>, which strips neural signal proportional to <span class="math inline">\(\tilde{M}_{\text{rej}}^\top x_{\text{task}} \neq 0\)</span>.</li>
 <li><strong>Part 1 (Design &amp; Jitter Benchmarks):</strong> 20 Monte Carlo replications per condition (<code>TR = 1.0 s</code>, generating HRF peak <code>3.13 s</code>, <code>AR(1)</code> <span class="math inline">\(\rho = 0.45\)</span>, 6 voxels in <code>Target_Parcel</code> with cue response <span class="math inline">\(1.2 + 0.45 c_i\)</span> and feedback response <span class="math inline">\(0.9 + 0.60\,\text{RPE}_i\)</span>, 6 voxels in <code>CueOnly_Parcel</code> with cue response <span class="math inline">\(1.4 + 0.55 c_i\)</span> and zero feedback response, <span class="math inline">\(\operatorname{Cor}(c_i, \text{RPE}_i) = 0.50\)</span>). Run-structure comparisons hold total trials fixed at 60 (<code>1×60</code>, <code>2×30</code>, <code>3×20</code>, <code>4×15</code>) with elevated noise on Run 1 (<code>2.1×</code> baseline SD) to reflect realistic inter-run scan quality variation.</li>
 <li><strong>Part 2 (On-Disk BIDS + <code>fMRIPrep</code> Ingestion):</strong> Builds a complete temporary BIDS + <code>fMRIPrep</code> subject directory (<code>3</code> runs <span class="math inline">\(\times\)</span> <code>240</code> 4D NIfTI volumes, 3D masks, 2-parcel <code>atlas.nii.gz</code>, <code>*_bold.json</code>, <code>*_desc-confounds_timeseries.tsv</code> with <code>4</code> <code>non_steady_state_outlier</code> columns and FD spikes, and <code>*_events.tsv</code> with <code>18</code> trials/run including <code>3</code> <code>"missed_feedback"</code> timeouts and <code>"n/a"</code> tokens) and ingests it live via <code>read_fmriprep_subject()</code>.</li>
+<li><strong>Part 3 (On-Disk <code>fMRIPost-AROMA</code> Benchmark):</strong> Builds a 3-run BIDS + <code>fMRIPrep</code> (<code>space-MNI152NLin6Asym_res-2</code>) + sibling <code>derivatives/fmripost-aroma/</code> (<code>*_res-2_desc-melodic_mixing.tsv</code> + <code>*_desc-aroma_metrics.tsv</code>, <code>2</code> accepted neural ICs + <code>6</code> rejected motion ICs including <code>IC_3</code> correlated <span class="math inline">\(r = 0.62\)</span> with convolved feedback RPE, shared physiological <code>csf</code>/<code>white_matter</code> noise contaminated by motion ICs, and <code>AR(1)</code> <span class="math inline">\(\sigma_{\text{obs}} = 0.030\)</span>, <span class="math inline">\(\rho = 0.45\)</span>) subject and runs all four AROMA/confound regimes end to end through Steps 0–3.</li>
 </ul>
-<p><a href="simulate_step0.R">Step 0 simulation script</a> · <a href="figures_step0.R">Figure script</a> · <a href="design_benchmarks.csv">Design benchmarks CSV</a> · <a href="confounds_qc_summary.csv">Confounds QC CSV</a> · <a href="clock_alignment_metrics.csv">Clock alignment CSV</a> · <a href="missed_trial_metrics.csv">Missed-trial metrics CSV</a></p>
+<p><a href="simulate_step0.R">Step 0 simulation script</a> · <a href="figures_step0.R">Figure script</a> · <a href="design_benchmarks.csv">Design benchmarks CSV</a> · <a href="confounds_qc_summary.csv">Confounds QC CSV</a> · <a href="clock_alignment_metrics.csv">Clock alignment CSV</a> · <a href="missed_trial_metrics.csv">Missed-trial metrics CSV</a> · <a href="aroma_denoising_metrics.csv">AROMA denoising CSV</a></p>
 </details>
 
 

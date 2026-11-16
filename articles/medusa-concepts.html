@@ -973,19 +973,29 @@ error control under schedule and duration confounds:</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><strong>Stage 0: Cross-Run Scaling</strong></td>
+<td><strong>Stage 0: Derivative Ingestion, Motion/AROMA
+Orthogonalization &amp; Cross-Run Scaling</strong></td>
 <td>
+<code>read_fmriprep_subject(..., include_non_steady_state = TRUE)</code>
+(with
+<code>aroma = "nonaggressive", aroma_clean_nuisance = TRUE, strategy = "csf_wm"</code>
+when ICA-AROMA is available, or <code>strategy = "24p"</code>; plus
+<code>motion_bandstop_bpm = c(12, 20)</code> at fast TRs) +
 <code>scaling = "noise_sd"</code> in
 <code><a href="../reference/deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf()</a></code> +
 <code>restore_scale = TRUE</code> in
 <code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code>
 </td>
-<td>Normalizes runs by <strong>marginal observation-noise SD</strong>
+<td>Keeps 4D BOLD runs on an intact acquisition clock via
+<code>valid_rows</code>, applies Pruim et al. (2015) partial regression
+across the full MELODIC mixing matrix while projecting the identical
+AROMA operator out of physiological
+<code>csf</code>/<code>white_matter</code> regressors so downstream
+nuisance projection never re-introduces motion variance (<a href="https://doi.org/10.1002/hbm.24528" class="external-link">Lindquist et al., 2019</a>),
+and normalizes runs by <strong>marginal observation-noise SD</strong>
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>σ</mi><mtext mathvariant="normal">marg</mtext></msub><annotation encoding="application/x-tex">\sigma_{\text{marg}}</annotation></semantics></math>,
 estimated via leverage-standardized Winsorized GLS residuals rather than
-AR innovation SD or total signal <code>"zscore"</code>), preventing task
-modulation variance, low-frequency drift, or motion spikes from
-compressing run amplitudes.</td>
+AR innovation SD or total signal <code>"zscore"</code>).</td>
 </tr>
 <tr class="even">
 <td><strong>Stage 1: HRF &amp; Noise Estimation</strong></td>
@@ -1122,6 +1132,12 @@ here.</li>
 <strong>Selection and inference:</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2841687/" class="external-link">Kriegeskorte et
 al., 2009, Nature Neuroscience 12:535–540</a>. Read before choosing
 settings or regions using the effect you intend to test.</li>
+<li>
+<strong>Non-aggressive ICA-AROMA and modular confound
+projection:</strong> <a href="https://doi.org/10.1016/j.neuroimage.2015.02.064" class="external-link">Pruim et al.,
+2015, NeuroImage 112:267–277</a> and <a href="https://doi.org/10.1002/hbm.24528" class="external-link">Lindquist et al., 2019, Human
+Brain Mapping 40:2358–2374</a>. Read before combining ICA motion
+denoising with downstream nuisance regression.</li>
 </ol>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

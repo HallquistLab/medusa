@@ -1417,9 +1417,12 @@ handling without coercing numeric covariates, run ordering matched to
 clock-preserving <code>valid_rows</code> masks and finite
 <code>nuisance</code> matrices from
 <code>*_desc-confounds_timeseries.tsv</code> <strong>without deleting
-censored TRs</strong>, and <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code>
-discovers and bundles BOLD, brain masks, confounds, and BIDS events in a
-single call.</p>
+censored TRs</strong>, <code><a href="../reference/read_fmriprep_aroma.html">read_fmriprep_aroma()</a></code> +
+<code><a href="../reference/apply_aroma.html">apply_aroma()</a></code> implement in-memory non-aggressive ICA-AROMA
+partial regression across <code>fMRIPost-AROMA</code> or legacy fMRIPrep
+mixing matrices, and <code><a href="../reference/read_fmriprep_subject.html">read_fmriprep_subject()</a></code> discovers and
+bundles BOLD, brain masks, confounds, optional AROMA components, and
+BIDS events in a single call.</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nifti_paths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>run1 <span class="op">=</span> <span class="st">"/study/sub01/run1_preprocessed.nii.gz"</span>,</span>
 <span>                 run2 <span class="op">=</span> <span class="st">"/study/sub01/run2_preprocessed.nii.gz"</span>,</span>
@@ -1450,13 +1453,29 @@ single call.</p>
 <span>  strategy <span class="op">=</span> <span class="st">"24p"</span>,</span>
 <span>  fd_threshold <span class="op">=</span> <span class="fl">0.5</span></span>
 <span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Optional modular non-aggressive ICA-AROMA (fMRIPost-AROMA or legacy fMRIPrep &lt;= 23.0):</span></span>
+<span><span class="co"># applies the identical partial-regression operator to BOLD and selected confounds</span></span>
+<span><span class="co"># so Step 1-2 nuisance projection cannot re-introduce motion variance (Lindquist et al., 2019):</span></span>
+<span><span class="co"># aroma &lt;- read_fmriprep_aroma(</span></span>
+<span><span class="co">#   c("/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-01_desc-melodic_mixing.tsv",</span></span>
+<span><span class="co">#     "/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-02_desc-melodic_mixing.tsv",</span></span>
+<span><span class="co">#     "/study/derivatives/fmripost-aroma/sub-01/func/sub-01_task-mid_run-03_desc-melodic_mixing.tsv"),</span></span>
+<span><span class="co">#   bold = ts</span></span>
+<span><span class="co"># )</span></span>
+<span><span class="co"># ts   &lt;- apply_aroma(ts, aroma, mode = "nonaggressive")</span></span>
+<span><span class="co"># conf &lt;- read_fmriprep_confounds(confound_paths, bold = ts, strategy = "csf_wm",</span></span>
+<span><span class="co">#                                 aroma = aroma, fd_threshold = 0.5)</span></span>
+<span></span>
 <span><span class="co"># Or discover BOLD, per-run brain masks, confounds, optional fMRIPost-AROMA</span></span>
 <span><span class="co"># non-aggressive denoising, and BIDS events in one step (for BrainGnomes</span></span>
 <span><span class="co"># postprocessed streams, pass `desc = "postproc"` to ingest `*_censor.1D`,</span></span>
 <span><span class="co"># `*_templatemask.nii.gz`, and derivative provenance guards automatically):</span></span>
 <span><span class="co"># ts &lt;- read_fmriprep_subject("/study/derivatives/fmriprep", sub = "01",</span></span>
-<span><span class="co">#                             bids_dir = "/study/bids", task = "mid",</span></span>
-<span><span class="co">#                             aroma = "nonaggressive", strategy = "csf_wm",</span></span>
+<span><span class="co">#                             bids_dir = "/study/bids",</span></span>
+<span><span class="co">#                             aroma_dir = "/study/derivatives/fmripost-aroma",</span></span>
+<span><span class="co">#                             task = "mid", aroma = "nonaggressive",</span></span>
+<span><span class="co">#                             aroma_clean_nuisance = TRUE, strategy = "csf_wm",</span></span>
 <span><span class="co">#                             atlas = atlas_path, fd_threshold = 0.5)</span></span>
 <span></span>
 <span><span class="co"># Pass `ts`, `trial_df`, and `conf` directly (`nuisance = conf` supplies both</span></span>
@@ -1678,11 +1697,17 @@ variances (<code>"graph_eb"</code>) and sandwich residual scales.</p>
 <tbody>
 <tr class="odd">
 <td>Input to HRF/noise fit</td>
-<td>TR, offsets, masks, candidate library, <code>pooling</code>
-(<code>"voxel"</code>, <code>"parcel"</code>, <code>"graph"</code>),
-<code>spatial_groups</code> / <code>spatial_graph</code>
+<td>TR, offsets, masks, AROMA &amp; confound strategy
+(<code>aroma</code>, <code>aroma_clean_nuisance</code>,
+<code>motion_bandstop_bpm</code>), candidate library,
+<code>pooling</code> (<code>"voxel"</code>, <code>"parcel"</code>,
+<code>"graph"</code>), <code>spatial_groups</code> /
+<code>spatial_graph</code>
 </td>
-<td>Confirm clocks, retained acquisition indices, target-run exclusion
+<td>Confirm clocks, retained acquisition indices, matched AROMA
+projection across BOLD and <code>nuisance</code>
+(<code>aroma_clean_nuisance = TRUE</code>) plus
+<code>&lt;bold&gt;.json</code> provenance guards, target-run exclusion
 for HRF selection, geodesic vs. Euclidean neighborhood topology
 (<code>hrf_fit$spatial$graph</code>), gap-local
 AR(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>)
