@@ -280,10 +280,17 @@ decon_epoch_regression(
   (`panel`) with columns `run`, `trial`, `event_index`, `onset`,
   `evt_time`, `voxel` (plus `id`/`session` when present on `events`, and
   `parcel` when `aggregate_by_parcel = TRUE`), `decon_raw`,
-  `decon_demixed`, `se_raw`, `se_demixed`, `precision_weight`,
-  `precision_weight_op`, `precision_weight_raw`, `error_ac1`,
-  `tau2_bio`, and the covariate columns for downstream
-  [`mixed_by()`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)
+  `decon_demixed`, `decon_eb`, `se_raw`, `se_demixed`,
+  `precision_weight`, `precision_weight_cohort`, `precision_weight_op`,
+  `precision_weight_raw`, `error_ac1`, `tau2_bio`, the covariate
+  columns, and (under `shared_error_method = "poet_covreg"`) Block-PAF
+  list-columns `shared_noise_vec`, `lag_noise_vec` (multi-lag fits), and
+  `trial_cor_vec` (plus legacy `shared_noise_loading`) for downstream
+  [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md),
+  [`medusa_multilag_infer`](https://hallquistlab.github.io/medusa/reference/medusa_multilag_infer.md),
+  [`aggregate_decon_panel`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md),
+  or
+  [`decon_connectivity_repair`](https://hallquistlab.github.io/medusa/reference/decon_connectivity_repair.md)
   modeling. Defaults to `TRUE` when `covariates = NULL` and
   `return_epochs = FALSE`.
 
@@ -324,7 +331,10 @@ decon_epoch_regression(
 
 A list with `coefficients` (per voxel/parcel, lag, and predictor term),
 `summary` (averaged across usable units per lag and term), optional
-`epochs`, optional `panel`, and `settings`.
+`epochs`, optional `panel`, `lag_resolution`, `lag_error_cor`,
+`unit_error_cor`, `shared_error_model` (when
+`shared_error_method = "poet_covreg"`), optional `parcel_weights`, and
+`settings`.
 
 ## Details
 
@@ -359,55 +369,84 @@ and trial-level cognitive neuroscience models in five stages:
     lag-by-lag resolution inverse while preserving cross-trial operator
     covariance structure.
 
-5.  **Analytical Uncertainty, Precision Weights & Null-Mode-Damped ZCA
+5.  **Analytical Uncertainty, Adaptive-POET Covariance Regression & ZCA
     Whitening:** Propagates observation-level AR(1) noise covariance
     through the composite linear readout/de-mixing operator
     \\\mathbf{B}\_{r,\tau}\\ to obtain exact per-trial standard errors
     (`se_demixed`), adjacent-trial error autocorrelation (`error_ac1`),
-    Empirical-Bayes precision weights (`precision_weight`),
-    covariance-propagated sandwich SEs (`se_weighted`), and
-    null-mode-damped, Bartlett-adaptive within-run ZCA-whitened
-    variables for
+    Empirical-Bayes precision weights (`precision_weight`,
+    `precision_weight_cohort`), covariance-propagated sandwich SEs
+    (`se_weighted`), and null-mode-damped, Bartlett-adaptive within-run
+    ZCA-whitened variables for
     [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md).
+    Under `shared_error_method = "poet_covreg"`, fits a
+    subspace-debiased Adaptive-POET + Tukey-Hanning multi-lag Toeplitz
+    and LTZ-gated dynamic covariance-regression model (automatically
+    switching above 512 units to a voxel-safe dual-space factor
+    representation that avoids \\V \times V\\ allocations) and embeds
+    per-trial shared-error factors onto `panel` for
+    [`decon_connectivity_repair`](https://hallquistlab.github.io/medusa/reference/decon_connectivity_repair.md)
+    and
+    [`aggregate_decon_panel`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md).
 
 ## Recommended Best-Practice Configuration
 
-Across the 5-pillar MEDuSA Monte Carlo validation suite (amplitude
-recovery, temporal alignment, inter-region connectivity, factorial power
-surfaces, and biophysical Windkessel-Balloon + `fmrisim` scanner
-realism), the recommended end-to-end configuration is:
+Across the MEDuSA Monte Carlo validation suite (amplitude recovery,
+temporal alignment, inter-region connectivity, factorial power surfaces,
+and biophysical Windkessel-Balloon + `fmrisim` scanner realism), the
+recommended end-to-end configuration follows one shared Steps 0–3
+backbone with estimand-specific downstream modes:
 
-1.  **Stage 0–1 (HRF Estimation):** Use
-    `hrf_library(tr, preset = "medusa")` (pruned 3D physiological
-    manifold spanning fast/narrow/minimal-undershoot subcortical through
-    slow cortical HRFs with positive-lobe normalization; ~44 candidates,
-    or `preset = "canonical_27"` for the 27-candidate fixed-undershoot
-    canonical grid) and
+1.  **Stage 0–1 (Ingestion & HRF Estimation):** Ingest BIDS / `fMRIPrep`
+    data via
+    [`read_fmriprep_subject`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md)
+    (or
+    [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+    which extracts frame-level `$variance_confounds` automatically). Use
+    `hrf_library(tr, preset = "medusa")` and
     [`estimate_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
     with `noise_model = "ar1"`, `evidence = "calibrated"`,
-    `selection_mode = "soft_average"` (evidence-weighted HRF kernel
-    averaging across locally supported shapes), and parcel labels in
+    `selection_mode = "soft_average"`, and parcel labels in
     `spatial_groups`.
 
 2.  **Stage 2 (Deconvolution):** Use
     [`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md)
     with `lambda = NULL` (adaptive prewhitened GCV tuning),
-    `scaling = "noise_sd"` (AR(1) innovation noise SD rather than total
-    `"zscore"` variance), and `penalty = "sobolev"`.
+    `scaling = "noise_sd"`, `penalty = "sobolev"`, and `rwls = "auto"`
+    (automatically caching `bold_obs` up to 16,384 voxels or a compact
+    `whitened_sketch` above 16,384 voxels so `bold` need not be passed
+    again in Stage 3).
 
-3.  **Stage 3 (Epoch De-Mixing, Parcel Pre-Aggregation & Whitening):**
-    Use
-    `decon_epoch_regression(..., demix_other_events = TRUE, demix_target_trials = TRUE, restore_scale = TRUE, weighting = "gls", aggregate_by_parcel = TRUE, whiten_panel = TRUE, return_panel = TRUE)`.
-    Enable `demix_within_trial = TRUE` with `lags` spaced at
-    \\1\times\mathrm{TR}\\ when estimating multi-lag waveforms
-    \\\beta(\tau)\\ (if `lags` is sampled finer than
-    \\1\times\mathrm{TR}\\, `within_trial_ridge` is automatically scaled
-    by \\(\mathrm{TR}/\Delta\tau)^2\\ to prevent sub-TR collinearity
-    amplification), and set `source_model = "duration"`
-    (`duration_scale = "rate"`) when modeling variable-duration (RT)
-    epochs.
+3.  **Stage 3 (Epoch De-Mixing, Parcel Aggregation & Shared-Error
+    Engine):** Use
+    `decon_epoch_regression(..., demix_other_events = TRUE, demix_target_trials = TRUE, restore_scale = TRUE, weighting = "gls", aggregate_by_parcel = TRUE, shared_error_method = "poet_covreg", variance_confounds = conf, whiten_panel = TRUE, return_panel = TRUE)`.
+    If you first fit voxelwise panels (`aggregate_by_parcel = FALSE`),
+    you can collapse them post-hoc to any parcellation with exact
+    shared-error propagation via
+    [`aggregate_decon_panel`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md).
+    Leave `demix_within_trial = FALSE` when feeding
+    [`medusa_multilag_infer`](https://hallquistlab.github.io/medusa/reference/medusa_multilag_infer.md)
+    (enable `TRUE` only for single-subject lag sharpening), and set
+    `source_model = "duration"` (`duration_scale = "rate"`) when
+    modeling variable-duration (RT) epochs.
 
-4.  **Stage 4 (Group Mixed-Effects Inference):** Pass both the
-    ZCA-whitened panel columns and precision weights to
-    [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md):
-    `mixed_by(panel, decon_demixed_whitened ~ x_whitened + (1 + x_whitened | id), weights = "precision_weight")`.
+4.  **Stage 4–6 (Group Mixed-Effects, Multi-Lag & Connectivity
+    Inference):** For scalar behavioral models, pass
+    `weights = "precision_weight_cohort"` (and matched `*_whitened`
+    columns when desired) to
+    [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md).
+    For peri-event trajectories, use
+    [`medusa_multilag_infer`](https://hallquistlab.github.io/medusa/reference/medusa_multilag_infer.md)
+    with `contrast_source = "unsmoothed"`. For seed-to-target
+    connectivity and PPI, pass `subject_epochs` or a stacked/CSV/Parquet
+    `panel` (serialized via `medusa_write_table()` to preserve
+    pipe-delimited shared-error list-columns) to
+    `decon_connectivity_repair(..., method = "mmoms", shared_error = "auto", use_whitened = FALSE, crosstrial_se = TRUE)`.
+
+## See also
+
+[`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
+[`aggregate_decon_panel`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md),
+[`decon_connectivity_repair`](https://hallquistlab.github.io/medusa/reference/decon_connectivity_repair.md),
+[`medusa_multilag_infer`](https://hallquistlab.github.io/medusa/reference/medusa_multilag_infer.md),
+[`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)

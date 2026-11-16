@@ -127,6 +127,28 @@ or <code>"supplied"</code>.</p></dd>
   <code>unit_error_cor</code>, and <code>shared_error_model</code>. If <code>x</code> is a
   <code>data.frame</code>/<code>data.table</code>, a parcel-aggregated <code>data.table</code>.</p>
     </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>When parcel assignments are fixed prior to Stage 3, passing
+  <code>parcel_groups</code> directly to <code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code>
+  (<code>aggregate_by_parcel = TRUE</code>) is fastest because Stage-3 de-mixing and
+  exact \(P \times P\) POET covariance regression run once on the parcel
+  series. Use <code>aggregate_decon_panel()</code> when you have already fit a
+  voxelwise panel (<code>aggregate_by_parcel = FALSE</code>, including whole-brain
+  <code>lowrank_voxel</code> panels or saved RDS/Parquet/CSV tables) and want to
+  collapse voxels into one or more parcellations post-hoc without re-running
+  deconvolution: intra-parcel voxel error correlations are propagated via the
+  vector norms \(\|\sum_{v \in g} w_v \mathbf{s}_{v,i}\|_2\) of
+  <code>shared_noise_vec</code> (or the attached <code>shared_error_model</code>) so
+  parcel <code>se_demixed</code> and inter-parcel error covariances remain
+  calibrated for <code><a href="decon_connectivity_repair.html">decon_connectivity_repair</a></code> and
+  <code><a href="mixed_by.html">mixed_by</a></code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code>, <code><a href="decon_connectivity_repair.html">decon_connectivity_repair</a></code>,
+  <code><a href="mixed_by.html">mixed_by</a></code></p></div>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

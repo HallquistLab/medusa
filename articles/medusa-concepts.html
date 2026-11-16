@@ -940,6 +940,27 @@ whitening +
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(K)</annotation></semantics></math>
 encompassing</td>
 </tr>
+<tr class="odd">
+<td>v3 Shared-Error Engine</td>
+<td>Dynamic task/motion-modulated cross-parcel noise in PPI,
+single-subject
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N=1</annotation></semantics></math>)
+serial connectivity SEs, and whole-brain voxel-to-parcel
+aggregation</td>
+<td>Subspace-debiased Adaptive-POET + multi-lag Toeplitz &amp; LTZ-gated
+covariance regression (<code>shared_error_method = "poet_covreg"</code>,
+<code>variance_confounds</code>), bold-free <code>bold_obs</code> /
+<code>whitened_sketch</code> handoff +
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>&gt;</mo><mn>512</mn></mrow><annotation encoding="application/x-tex">&gt;512</annotation></semantics></math>-unit
+<code>lowrank_voxel</code> mode, Block-PAF list-columns
+(<code>shared_noise_vec</code>, <code>lag_noise_vec</code>,
+<code>trial_cor_vec</code>) with CSV/<code>.csv.gz</code> round-trip
+restoration, <code>crosstrial_se = TRUE</code>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N=1</annotation></semantics></math>
+&amp; group sandwich SEs), and post-hoc
+<code><a href="../reference/aggregate_decon_panel.html">aggregate_decon_panel()</a></code>
+</td>
+</tr>
 </tbody>
 </table>
 <p>These features are available through <strong>two interfaces</strong>,
@@ -987,12 +1008,15 @@ when ICA-AROMA is available, or <code>strategy = "24p"</code>; plus
 <code><a href="../reference/decon_epoch_regression.html">decon_epoch_regression()</a></code>
 </td>
 <td>Keeps 4D BOLD runs on an intact acquisition clock via
-<code>valid_rows</code>, applies Pruim et al. (2015) partial regression
-across the full MELODIC mixing matrix while projecting the identical
-AROMA operator out of physiological
-<code>csf</code>/<code>white_matter</code> regressors so downstream
-nuisance projection never re-introduces motion variance (<a href="https://doi.org/10.1002/hbm.24528" class="external-link">Lindquist et al., 2019</a>),
-and normalizes runs by <strong>marginal observation-noise SD</strong>
+<code>valid_rows</code> (while extracting frame-level
+<code>$variance_confounds</code> such as FD, DVARS, and RVT for Stage
+3), applies Pruim et al. (2015) partial regression across the full
+MELODIC mixing matrix while projecting the identical AROMA operator out
+of physiological <code>csf</code>/<code>white_matter</code> regressors
+so downstream nuisance projection never re-introduces motion variance
+(<a href="https://doi.org/10.1002/hbm.24528" class="external-link">Lindquist et al.,
+2019</a>), and normalizes runs by <strong>marginal observation-noise
+SD</strong>
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>σ</mi><mtext mathvariant="normal">marg</mtext></msub><annotation encoding="application/x-tex">\sigma_{\text{marg}}</annotation></semantics></math>,
 estimated via leverage-standardized Winsorized GLS residuals rather than
 AR innovation SD or total signal <code>"zscore"</code>).</td>
@@ -1019,32 +1043,40 @@ whitening.</td>
 </tr>
 <tr class="odd">
 <td><strong>Stage 2: Deconvolution</strong></td>
-<td><code>deconvolve_crossrun_hrf(..., lambda = NULL, penalty = "sobolev", backend = "cpp")</code></td>
+<td><code>deconvolve_crossrun_hrf(..., lambda = NULL, penalty = "sobolev", rwls = "auto", backend = "cpp")</code></td>
 <td>Combines amplitude, first-difference, and second-difference
 smoothness penalties under exact stationary/gapped
 AR(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>)-GLS
-prewhitening. By default (<code>lambda = NULL</code>),
-<code>hrf_tune_decon_lambda()</code> pools across all usable runs in an
-order-invariant manner to select
+prewhitening and task-guarded <code>rwls = "auto"</code> glitch
+weighting, while caching <code>bold_obs</code>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≤</mo><mn>16</mn><mo>,</mo><mn>384</mn></mrow><annotation encoding="application/x-tex">\le 16{,}384</annotation></semantics></math>
+voxels) or compact <code>whitened_sketch</code> factors
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>&gt;</mo><mn>16</mn><mo>,</mo><mn>384</mn></mrow><annotation encoding="application/x-tex">&gt; 16{,}384</annotation></semantics></math>
+voxels) for bold-free Stage-3 shared-error estimation. By default
+(<code>lambda = NULL</code>), <code>hrf_tune_decon_lambda()</code> pools
+across all usable runs in an order-invariant manner to select
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>λ</mi><annotation encoding="application/x-tex">\lambda</annotation></semantics></math>
 via gain-calibrated, task-weighted adaptive prewhitened GCV over
 <code>lambda_grid</code>.</td>
 </tr>
 <tr class="even">
-<td><strong>Stage 3: Epoch De-Mixing, Parcel Pre-Aggregation &amp;
-Duration Modeling</strong></td>
-<td><code>decon_epoch_regression(..., demix_other_events = TRUE, demix_target_trials = TRUE, restore_scale = TRUE, aggregate_by_parcel = TRUE, tau2_mode = "marginal", whiten_panel = TRUE, return_panel = TRUE)</code></td>
+<td><strong>Stage 3: Epoch De-Mixing, Parcel Aggregation &amp;
+Shared-Error Engine</strong></td>
+<td>
+<code>decon_epoch_regression(..., demix_other_events = TRUE, demix_target_trials = TRUE, restore_scale = TRUE, aggregate_by_parcel = TRUE, shared_error_method = "poet_covreg", variance_confounds = conf, tau2_mode = "auto", whiten_panel = TRUE, return_panel = TRUE)</code>
+(or post-hoc <code><a href="../reference/aggregate_decon_panel.html">aggregate_decon_panel()</a></code>)</td>
 <td>Subtracts preceding event bleed (<code>demix_ridge = 0.05</code>, or
 <code>&lt; 0.03</code> for trial-varying non-target confounds), restores
 per-trial target gain with matched
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>M</mi><mtext mathvariant="normal">post</mtext></msub><annotation encoding="application/x-tex">M_{\text{post}}</annotation></semantics></math>
 covariate alignment, gates unobservable boundary/gap trials
-(<code>obs_frac_tau &lt; 0.20</code>), and aggregates parcels using
-inverse-variance + HRF-evidence weights, exact multi-stratum operators,
-and task-free Step-1 <code>noise_innovations</code> spatial covariance
-(retaining <code>shared_noise_loading</code>). Leave
-<code>demix_within_trial = FALSE</code> when feeding
-<code><a href="../reference/medusa_multilag_infer.html">medusa_multilag_infer()</a></code>, and set
+(<code>obs_frac_tau &lt; 0.20</code>), aggregates parcels using
+inverse-variance + HRF-evidence weights and exact multi-stratum
+operators, and fits subspace-debiased Adaptive-POET + LTZ-gated dynamic
+covariance regression (embedding <code>shared_noise_vec</code>,
+<code>lag_noise_vec</code>, and <code>trial_cor_vec</code> onto
+<code>panel</code>). Leave <code>demix_within_trial = FALSE</code> when
+feeding <code><a href="../reference/medusa_multilag_infer.html">medusa_multilag_infer()</a></code>, and set
 <code>source_model = "duration"</code>
 (<code>duration_scale = "rate"</code>) for reaction-time epochs.</td>
 </tr>
@@ -1054,7 +1086,7 @@ Inference</strong></td>
 <td>
 <code>mixed_by(..., weights = "precision_weight_cohort")</code>,
 <code><a href="../reference/medusa_multilag_infer.html">medusa_multilag_infer()</a></code>, and
-<code>decon_connectivity_repair(..., use_whitened = FALSE, shared_error = "auto")</code>
+<code>decon_connectivity_repair(..., use_whitened = FALSE, shared_error = "auto", crosstrial_se = TRUE)</code>
 </td>
 <td>Uses <code>precision_weight_cohort</code> to preserve both per-trial
 and between-participant precision in <code><a href="../reference/mixed_by.html">mixed_by()</a></code> (paired
@@ -1064,9 +1096,12 @@ multi-covariate/Level-2 trajectory de-blurring, Marra–Wood simultaneous
 bands, and unbiased window contrasts
 (<code>contrast_source = "unsmoothed"</code>); and unwhitened
 <code>decon_demixed</code> + <code>se_demixed</code> +
-<code>shared_error = "auto"</code> in
-<code><a href="../reference/decon_connectivity_repair.html">decon_connectivity_repair()</a></code> for M-MOMS disattenuation and
-cross-parcel shared-noise correction.</td>
+<code>shared_error = "auto"</code> + <code>crosstrial_se = TRUE</code>
+in <code><a href="../reference/decon_connectivity_repair.html">decon_connectivity_repair()</a></code> for M-MOMS disattenuation,
+stationary &amp; dynamic cross-parcel shared-error subtraction,
+single-subject
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N=1</annotation></semantics></math>)
+Satterthwaite SEs, and cohort HKSJ random-effects pooling.</td>
 </tr>
 </tbody>
 </table>

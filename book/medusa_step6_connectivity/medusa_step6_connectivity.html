@@ -335,9 +335,9 @@ window.Quarto = {
   <li><a href="#pool-participant-slopes-and-compare-against-naive-regression" id="toc-pool-participant-slopes-and-compare-against-naive-regression" class="nav-link" data-scroll-target="#pool-participant-slopes-and-compare-against-naive-regression">6.4 Pool participant slopes and compare against naive regression</a></li>
   </ul></li>
   <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
-  <li><a href="#practical-diagnostics-shared-error-sensitivity-and-scope" id="toc-practical-diagnostics-shared-error-sensitivity-and-scope" class="nav-link" data-scroll-target="#practical-diagnostics-shared-error-sensitivity-and-scope">Practical Diagnostics, Shared-Error Sensitivity, and Scope</a>
+  <li><a href="#practical-diagnostics-dynamic-poet-covariance-regression-and-scope" id="toc-practical-diagnostics-dynamic-poet-covariance-regression-and-scope" class="nav-link" data-scroll-target="#practical-diagnostics-dynamic-poet-covariance-regression-and-scope">Practical Diagnostics, Dynamic POET Covariance Regression, and Scope</a>
   <ul class="collapse">
-  <li><a href="#evaluating-sensitivity-to-condition-dependent-shared-noise" id="toc-evaluating-sensitivity-to-condition-dependent-shared-noise" class="nav-link" data-scroll-target="#evaluating-sensitivity-to-condition-dependent-shared-noise">Evaluating sensitivity to condition-dependent shared noise</a></li>
+  <li><a href="#resolving-dynamic-task--confound-modulated-shared-noise-poet_covreg-vs.-unmeasured-sensitivity" id="toc-resolving-dynamic-task--confound-modulated-shared-noise-poet_covreg-vs.-unmeasured-sensitivity" class="nav-link" data-scroll-target="#resolving-dynamic-task--confound-modulated-shared-noise-poet_covreg-vs.-unmeasured-sensitivity">Resolving dynamic task- &amp; confound-modulated shared noise (<code>poet_covreg</code>) vs.&nbsp;unmeasured sensitivity</a></li>
   <li><a href="#reporting-checklist-and-scope-boundaries" id="toc-reporting-checklist-and-scope-boundaries" class="nav-link" data-scroll-target="#reporting-checklist-and-scope-boundaries">Reporting checklist and scope boundaries</a></li>
   </ul></li>
   <li><a href="#reproduce-the-step-6-demonstrations" id="toc-reproduce-the-step-6-demonstrations" class="nav-link" data-scroll-target="#reproduce-the-step-6-demonstrations">Reproduce the Step 6 Demonstrations</a></li>
@@ -370,7 +370,7 @@ window.Quarto = {
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
 <p>Whereas Step 5 places deconvolved neural activity on the left-hand side as an outcome (<code>Neural ~ Behavior</code>), <strong>Step 6 moves a deconvolved parcel readout onto the right-hand side (<code>Target ~ Seed + Task + Seed:Task</code> or <code>Behavior ~ Seed</code>) to test trial-to-trial functional connectivity and psychophysiological interaction (PPI).</strong></p>
-<p>When an estimated quantity with trial-level sampling error is used as a regression predictor, two measurement properties directly affect structural slopes (Fuller, 1987; Vig &amp; Hallquist, 2026): predictor measurement error inflates the observed design variance <span class="math inline">\(X^\top X\)</span> (attenuating both main connectivity and PPI interaction slopes toward zero), and any shared scanner or physiological noise between seed and target shifts the cross-product <span class="math inline">\(X^\top Y\)</span>. Step 6 (<code>decon_connectivity_repair()</code>, backed by <code>medusa_fit_mmom()</code>) subtracts Step 4’s analytical per-trial error variances (<code>se_demixed^2</code>) and task-free cross-parcel noise correlations (<code>unit_error_cor</code> / <code>shared_noise_loading</code>) from each participant’s sample cross-products while guarding against unstable small denominators in noisy scans (<strong>Modified Method of Moments with Step-up Regularization, M-MOMS</strong>), and then aggregates participant slopes across the cohort using finite-sample random-effects <span class="math inline">\(t\)</span>-intervals scaled by observed between-participant slope dispersion (<strong>Hartung–Knapp–Sidik–Jonkman, HKSJ</strong> pooling).</p>
+<p>When an estimated quantity with trial-level sampling error is used as a regression predictor, two measurement properties directly affect structural slopes (Fuller, 1987; Vig &amp; Hallquist, 2026): predictor measurement error inflates the observed design variance <span class="math inline">\(X^\top X\)</span> (attenuating both main connectivity and PPI interaction slopes toward zero), and any shared scanner or physiological noise between seed and target shifts the cross-product <span class="math inline">\(X^\top Y\)</span>. Step 6 (<code>decon_connectivity_repair()</code>, backed by <code>medusa_fit_mmom()</code>) subtracts Step 4’s analytical per-trial error variances (<code>se_demixed^2</code>) alongside stationary and dynamic cross-parcel error covariances from the <strong>Adaptive-POET + covariance-regression engine</strong> (<code>shared_error_model</code> / <code>shared_noise_vec</code>) while guarding against unstable small denominators in noisy scans (<strong>Modified Method of Moments with Step-up Regularization, M-MOMS</strong>), computes cross-trial sandwich standard errors and Satterthwaite degrees of freedom (<code>crosstrial_se = TRUE</code>, supporting calibrated single-subject <span class="math inline">\(N = 1\)</span> inference), and aggregates participant slopes across cohorts using <strong>Hartung–Knapp–Sidik–Jonkman (HKSJ)</strong> random-effects <span class="math inline">\(t\)</span>-intervals.</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -384,8 +384,9 @@ window.Quarto = {
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi             =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x =</span> <span class="cn">FALSE</span>,</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error         =</span> <span class="st">"auto"</span>,</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">method               =</span> <span class="st">"mmoms"</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">crosstrial_se        =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">method               =</span> <span class="st">"mmoms"</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -397,7 +398,7 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><strong>Step 4 (<code>subject_epochs</code> / <code>group_panel</code> + <code>se_demixed</code> + <code>unit_error_cor</code>)</strong></a> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 6 (<code>decon_connectivity_repair</code> / <code>medusa_fit_mmom</code>)</strong> <span class="math inline">\(\longrightarrow\)</span> Disattenuated participant &amp; cohort connectivity / PPI slopes</p>
+<p><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><strong>Step 4 (<code>subject_epochs</code> / <code>group_panel</code> + <code>se_demixed</code> + <code>shared_error_model</code> / <code>shared_noise_vec</code>)</strong></a> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 6 (<code>decon_connectivity_repair</code> / <code>medusa_fit_mmom</code>)</strong> <span class="math inline">\(\longrightarrow\)</span> Disattenuated participant (<span class="math inline">\(N = 1\)</span> Satterthwaite) &amp; cohort (HKSJ) connectivity / PPI slopes</p>
 </div>
 </div>
 <p>The walkthrough below develops Step 6 in four substeps directly paralleling the REPAIR two-step moment framework: specifying the latent structural equation (<code>6.1</code>), constructing the trial-specific error covariance matrices (<code>6.2</code>), estimating participant slopes via regularized M-MOMS (<code>6.3</code>), and pooling across participants (<code>6.4</code>).</p>
@@ -409,9 +410,9 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="goals-of-step-6">Goals of Step 6</h3>
 <ol type="1">
 <li><strong>Disattenuate noisy neural predictors and PPI product terms:</strong> Construct per-trial predictor measurement-error covariance blocks <span class="math inline">\(\Psi_i\)</span>—capturing both heteroskedastic interaction error <span class="math inline">\(x_i^2 s_i^2\)</span> and off-diagonal seed–interaction error covariance <span class="math inline">\(x_i s_i^2\)</span>—and subtract them from observed design moments.</li>
-<li><strong>Account for stationary cross-parcel shared measurement error:</strong> Subtract expected seed–target error covariance <span class="math inline">\(\operatorname{Cov}(u_i, v_i)\)</span> (<code>shared_error = "auto"</code>) estimated from Step 4’s task-free <code>noise_innovations</code>.</li>
+<li><strong>Account for stationary and dynamic cross-parcel shared measurement error:</strong> Subtract expected per-trial seed–target error covariance <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i, w_i)\)</span> (<code>shared_error = "auto"</code>) estimated by Step 4’s subspace-debiased Adaptive-POET + LTZ-gated dynamic covariance-regression engine across task drive, covariates, Step-2 <code>rwls</code> bursts, and frame-level <code>variance_confounds</code>.</li>
 <li><strong>Support clear direct and residualized-seed PPI parameterizations:</strong> Allow analysts to choose explicitly between unresidualized seed coupling (<code>orthogonalize_seed_x = FALSE</code>) and task-residualized seed coupling with exact error-covariance projection (<code>orthogonalize_seed_x = TRUE</code>).</li>
-<li><strong>Pool participant connectivity estimates with calibrated random-effects uncertainty:</strong> Aggregate participant M-MOMS slopes at the group level via leverage-guarded HKSJ random-effects inference.</li>
+<li><strong>Deliver calibrated single-subject (<span class="math inline">\(N = 1\)</span>) and cohort uncertainty:</strong> Compute cross-trial (<span class="math inline">\(i \neq j\)</span>) hybrid operator + gated onset-kernel sandwich SEs and Satterthwaite <code>df</code> within each participant (<code>crosstrial_se = TRUE</code>), and pool across cohorts (<span class="math inline">\(S \ge 2\)</span>) via leverage-guarded HKSJ random-effects inference.</li>
 </ol>
 </section>
 <section id="inputs-what-step-6-receives-and-why" class="level3">
@@ -427,8 +428,8 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><strong><code>panel_dt</code></strong></td>
-<td style="text-align: left;">Named <code>subject_epochs</code> list (preferred) or stacked <code>group_panel</code> (<code>data.table</code> / <code>.rds</code> / Parquet)</td>
-<td style="text-align: left;">Pairs seed and target trial readouts by <code>(id, run, trial)</code> while supplying <code>se_demixed</code> and Step 4’s cross-parcel noise correlations (<code>$unit_error_cor</code> on <code>subject_epochs</code>, or <code>$panel$shared_noise_loading</code> on stacked panels).</td>
+<td style="text-align: left;">Named <code>subject_epochs</code> list (preferred), stacked <code>group_panel</code>, <code>.rds</code> / Parquet, or pipe-delimited CSV/<code>.csv.gz</code> from <code>medusa_write_table()</code></td>
+<td style="text-align: left;">Pairs seed and target trial readouts by <code>(id, run, trial)</code> while supplying <code>se_demixed</code> and Step 4’s shared-error model (<code>$shared_error_model</code> on <code>subject_epochs</code>, or automatically restored Block-PAF list-columns <code>shared_noise_vec</code>, <code>lag_noise_vec</code>, and <code>trial_cor_vec</code> on stacked/CSV panels).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code></strong></td>
@@ -441,9 +442,9 @@ window.Quarto = {
 <td style="text-align: left;">When <code>test_ppi = TRUE</code>, the first element of <code>covariates</code> defines the error-free psychological modulator <span class="math inline">\(x_i\)</span> forming <code>seed:x</code>, while any additional covariates enter as additive controls.</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><strong><code>shared_error</code> &amp; <code>method</code></strong></td>
-<td style="text-align: left;"><code>shared_error = c("auto", "supplied", "zero")</code>; <code>method = c("mmoms", "mmom", "naive_unweighted")</code></td>
-<td style="text-align: left;">Govern cross-parcel error subtraction and moment-matrix conditioning.</td>
+<td style="text-align: left;"><strong><code>shared_error</code>, <code>crosstrial_se</code>, &amp; <code>method</code></strong></td>
+<td style="text-align: left;"><code>shared_error = c("auto", "supplied", "zero")</code>; <code>crosstrial_se = TRUE</code>; <code>method = c("mmoms", "mmom", "naive_unweighted")</code></td>
+<td style="text-align: left;">Govern stationary + dynamic cross-parcel error subtraction, cross-trial sandwich SE calibration, and moment-matrix conditioning.</td>
 </tr>
 </tbody>
 </table>
@@ -462,12 +463,12 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong><code>$group</code></strong></td>
 <td style="text-align: left;"><code>data.table</code> per modeled term (<code>seed_c</code>, task covariates, interaction): <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code>, <code>tau2</code>, <code>n_subjects</code></td>
-<td style="text-align: left;">Reports HKSJ random-effects population slope estimates and 95% <span class="math inline">\(t\)</span>-intervals anchored to participant degrees of freedom.</td>
+<td style="text-align: left;">Reports HKSJ random-effects population slope estimates and 95% <span class="math inline">\(t\)</span>-intervals when <span class="math inline">\(S \ge 2\)</span> (or cross-trial Satterthwaite <span class="math inline">\(t\)</span>-inference when <span class="math inline">\(N = 1\)</span>).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>$subjects</code></strong></td>
-<td style="text-align: left;"><code>data.table</code> per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>lambda_prelim</code>, <code>lambda_final</code>, <code>alpha_prelim</code>, <code>alpha_final</code>, <code>converged</code></td>
-<td style="text-align: left;">Exposes each participant’s M-MOMS slope, working cross-parcel error correlation (<code>r_shared_error</code>), and any step-up regularization constants.</td>
+<td style="text-align: left;"><code>data.table</code> per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>df</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>lambda_prelim</code>, <code>lambda_final</code>, <code>alpha_prelim</code>, <code>alpha_final</code>, <code>converged</code></td>
+<td style="text-align: left;">Exposes each participant’s M-MOMS slope, cross-trial sandwich SE and Satterthwaite <code>df</code>, working cross-parcel error correlation (<code>r_shared_error</code>), and step-up regularization constants.</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong><code>$augmented_panel</code></strong></td>
@@ -503,8 +504,8 @@ window.Quarto = {
 \Psi_i = \operatorname{Cov}(e_{X,i} \mid x_i) = s_{S,i}^2 \begin{pmatrix} 1 &amp; 0 &amp; x_i \\ 0 &amp; 0 &amp; 0 \\ x_i &amp; 0 &amp; x_i^2 \end{pmatrix}.
 \]</span></p>
 <p>Two properties follow immediately from <span class="math inline">\(\Psi_i\)</span>: interaction error variance scales heteroskedastically with <span class="math inline">\(x_i^2 s_{S,i}^2\)</span>, and whenever <span class="math inline">\(x_i \neq 0\)</span>, the predictor and interaction errors covary with signed entry <span class="math inline">\(x_i s_{S,i}^2\)</span>.</p>
-<p>At the same time, scanner drift, physiological pulsatility, and vascular proximity can induce correlated observation error <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = c_i\)</span> between seed and target parcels, shifting the observed cross-moment <span class="math inline">\(X_i Y_i\)</span> by <span class="math inline">\([c_i,\, 0,\, x_i c_i]^\top\)</span>. Under <code>shared_error = "auto"</code>, Step 6 estimates stationary per-trial cross-error covariance <span class="math inline">\(c_i = \widehat{r}_{ST}\, s_{S,i} s_{T,i}\)</span> automatically from Step 4’s task-free innovation correlation <span class="math inline">\(\widehat{r}_{ST}\)</span> (<code>unit_error_cor</code>, or the inner product of <code>shared_noise_loading</code> vectors, combined with cross-lag error correlation when <code>seed_lag != target_lag</code>).</p>
-<p><strong>Choice point — Cross-parcel shared error (<code>shared_error</code>):</strong> Use <code>shared_error = "auto"</code> as the standard setting, and compare against <code>shared_error = "zero"</code> to see how much stationary background noise correlation contributed to the raw coupling estimate.</p>
+<p>At the same time, scanner drift, physiological pulsatility, head micro-movements, and vascular proximity can induce correlated observation error <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i, w_i) = c_i\)</span> between seed and target parcels—including <strong>trial-varying</strong> error covariance when physiological arousal or respiration fluctuates with task demands—shifting the observed cross-moment <span class="math inline">\(X_i Y_i\)</span> by <span class="math inline">\([c_i,\, 0,\, x_i c_i]^\top\)</span>. Under <code>shared_error = "auto"</code>, Step 6 evaluates per-trial <span class="math inline">\((s_{S,i}^2, s_{T,i}^2, c_i)\)</span> directly from Step 4’s <strong>Adaptive-POET + LTZ-gated dynamic covariance-regression model</strong> (<code>shared_error_model</code> in operator mode, or inner products of the per-trial Block-PAF vectors <code>shared_noise_vec</code> and <code>lag_noise_vec</code> on stacked/CSV panels, projected onto the positive semi-definite cone).</p>
+<p><strong>Choice point — Cross-parcel shared error (<code>shared_error</code>):</strong> Use <code>shared_error = "auto"</code> (paired with <code>shared_error_method = "poet_covreg"</code> and <code>variance_confounds</code> in Step 4) as the standard setting, and compare against <code>shared_error = "zero"</code> to see how much stationary and dynamic background noise correlation contributed to the raw coupling estimate.</p>
 <hr>
 </section>
 <section id="estimate-participant-slopes-via-regularized-modified-method-of-moments-m-moms" class="level3">
@@ -638,12 +639,13 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened            =</span> <span class="cn">FALSE</span>,</span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x    =</span> <span class="cn">FALSE</span>,</span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error            =</span> <span class="st">"auto"</span>,</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">method                  =</span> <span class="st">"mmoms"</span>,</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col              =</span> <span class="st">"parcel"</span>,</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col                  =</span> <span class="st">"id"</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">crosstrial_se           =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">method                  =</span> <span class="st">"mmoms"</span>,</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col              =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col                  =</span> <span class="st">"id"</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -658,8 +660,8 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <tr class="odd">
 <td style="text-align: left;"><strong><code>panel_dt</code></strong></td>
 <td style="text-align: left;">Required</td>
-<td style="text-align: left;">Named <code>subject_epochs</code> list (or <code>.rds</code> / Parquet <code>group_panel</code>)</td>
-<td style="text-align: left;">Preserves Step 4 cross-parcel noise metadata (<code>unit_error_cor</code> and <code>shared_noise_loading</code>; see <a href="../worked-example.html#sec-worked-handoff">worked handoff check</a>).</td>
+<td style="text-align: left;">Named <code>subject_epochs</code> list (or <code>.rds</code> / Parquet / <code>medusa_write_table()</code> CSV <code>group_panel</code>)</td>
+<td style="text-align: left;">Preserves Step 4 POET + covariance-regression metadata (<code>shared_error_model</code> or <code>shared_noise_vec</code> / <code>lag_noise_vec</code> / <code>trial_cor_vec</code>; see <a href="../worked-example.html#sec-worked-handoff">worked handoff check</a>).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>orthogonalize_seed_x</code></strong></td>
@@ -677,15 +679,21 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <td style="text-align: left;"><strong><code>shared_error</code></strong></td>
 <td style="text-align: left;"><code>"auto"</code></td>
 <td style="text-align: left;"><code>"auto"</code> + <code>"zero"</code> comparison</td>
-<td style="text-align: left;">Subtracts stationary cross-parcel measurement-error covariance learned from Step 1–4 task-free innovations (<code>Substep 6.2</code>).</td>
+<td style="text-align: left;">Subtracts stationary and dynamic cross-parcel measurement-error covariance learned by Step 4’s <code>poet_covreg</code> engine (<code>Substep 6.2</code>).</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><strong><code>crosstrial_se</code></strong></td>
+<td style="text-align: left;"><code>TRUE</code></td>
+<td style="text-align: left;"><code>TRUE</code></td>
+<td style="text-align: left;">Computes cross-trial (<span class="math inline">\(i \neq j\)</span>) hybrid operator + gated onset-kernel sandwich SEs and Satterthwaite <code>df</code> (essential for single-subject <span class="math inline">\(N = 1\)</span> precision neuroimaging).</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><strong><code>method</code></strong></td>
 <td style="text-align: left;"><code>"mmoms"</code></td>
 <td style="text-align: left;"><code>"mmoms"</code> (report alongside <code>"naive_unweighted"</code>)</td>
 <td style="text-align: left;">Stabilizes error-subtracted predictor matrices in noisy participants while disattenuating slopes (<code>Substep 6.3</code>).</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><strong><code>use_whitened</code></strong></td>
 <td style="text-align: left;"><code>FALSE</code></td>
 <td style="text-align: left;"><code>FALSE</code></td>
@@ -695,12 +703,147 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 </table>
 <hr>
 </section>
-<section id="practical-diagnostics-shared-error-sensitivity-and-scope" class="level2">
-<h2 class="anchored" data-anchor-id="practical-diagnostics-shared-error-sensitivity-and-scope">Practical Diagnostics, Shared-Error Sensitivity, and Scope</h2>
-<section id="evaluating-sensitivity-to-condition-dependent-shared-noise" class="level3">
-<h3 class="anchored" data-anchor-id="evaluating-sensitivity-to-condition-dependent-shared-noise">Evaluating sensitivity to condition-dependent shared noise</h3>
-<p>Stationary <code>shared_error = "auto"</code> subtracts baseline cross-parcel noise correlation <span class="math inline">\(\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T\)</span>, which protects main-effect <code>seed</code> connectivity. What if physiological or motion noise correlation between two regions <em>changes sign or magnitude with task condition</em>—for instance, condition-locked breath-holding or head motion during <span class="math inline">\(x_i = +1\)</span> trials (<code>Shared-error null</code> in <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>9.1</span></a>, right: <span class="math inline">\(\beta_P = 0\)</span>, <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span>, zero run-wide average correlation)?</p>
-<p>Because <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0\)</span>, naive regression already shows a positive artifact (0.214), and dividing by the disattenuated denominator <span class="math inline">\(X^\top X - \sum \Psi_i\)</span> without knowing the condition-flipped cross-error magnifies it (0.322), returning to zero (-0.018) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across plausible condition-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> (<a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>9.2</span></a>)—paired with physiological/motion nuisance modeling in Steps 1–2 and a negative-control reference parcel—makes it transparent how large a condition-locked artifact would need to be to account for an observed PPI.</p>
+<section id="practical-diagnostics-dynamic-poet-covariance-regression-and-scope" class="level2">
+<h2 class="anchored" data-anchor-id="practical-diagnostics-dynamic-poet-covariance-regression-and-scope">Practical Diagnostics, Dynamic POET Covariance Regression, and Scope</h2>
+<section id="resolving-dynamic-task--confound-modulated-shared-noise-poet_covreg-vs.-unmeasured-sensitivity" class="level3">
+<h3 class="anchored" data-anchor-id="resolving-dynamic-task--confound-modulated-shared-noise-poet_covreg-vs.-unmeasured-sensitivity">Resolving dynamic task- &amp; confound-modulated shared noise (<code>poet_covreg</code>) vs.&nbsp;unmeasured sensitivity</h3>
+<p>What happens when physiological or motion noise correlation between two regions <em>changes magnitude with task condition or respiration</em>—for instance, condition-locked breath-holding or head motion during high-<span class="math inline">\(x_i\)</span> trials?</p>
+<p>Two distinct regimes arise depending on what data are available:</p>
+<ol type="1">
+<li><strong>Full MEDuSA pipeline with multi-parcel BOLD &amp; <code>variance_confounds</code> (<code>poet_covreg</code>):</strong> When <code>decon_epoch_regression(..., shared_error_method = "poet_covreg", variance_confounds = conf)</code> has access to multi-parcel whitened residuals (<span class="math inline">\(P = 9\)</span> parcels) and frame-level variance envelopes (<code>FD</code>, <code>DVARS</code>, <code>RVT</code>), Adaptive-POET + LTZ-gated covariance regression estimates trial-varying cross-parcel error moments <span class="math inline">\(c_i\)</span> directly—and embeds them onto <code>panel$shared_noise_vec</code> so even a CSV-exported stacked table retains full parity with operator mode. In <a href="#tbl-poet-step6" class="quarto-xref">Table&nbsp;<span>9.1</span></a> (<code>Dynamic Shared-Noise Null</code>: 24 cohorts of <span class="math inline">\(S = 16\)</span> participants, zero true coupling or PPI, pervasive physiological factor plus RVT-modulated bursts and two pure-null confound columns), ignoring shared error (<code>Zero Shared Error</code>) yields strong false main coupling (0.161, <strong>75.0%</strong> false positives) and stationary-only shrinkage (<code>Legacy Stationary (auto)</code>) still inflates Type I error (0.041, <strong>20.8%</strong> false positives). <strong><code>POET + CovReg</code></strong> eliminates the bias in <strong>both</strong> operator mode and CSV-restored stacked mode (<code>seed_c</code> mean <strong>-0.002</strong> / <strong>-0.002</strong>, <strong>4.2%</strong> Type I error, <strong>95.8%</strong> coverage; <code>seed_c:x_c</code> <strong>87.5%</strong> coverage). Likewise, in single-subject (<span class="math inline">\(N = 1\)</span>) rapid-ITI scans (<code>mean ITI = 2.2 s</code>), enabling <code>crosstrial_se = TRUE</code> accounts for serial trial error correlation via Satterthwaite <code>df</code> (55.5 vs.&nbsp;<code>Inf</code>), improving CI coverage from <strong>83.3%</strong> to <strong>85.8%</strong> (see the <a href="../library/medusa_validation_suite.html">15-Study Validation Suite</a> Pillar 15 for full multi-regime power and calibration curves).</li>
+</ol>
+<div class="cell">
+<div id="tbl-poet-step6" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-poet-step6-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;9.1: End-to-end Step 1–6 calibration under dynamic task/RVT-modulated shared noise (S = 16 cohorts, P = 9 parcels, true connectivity = 0, true PPI = 0) and single-subject (N = 1) rapid-ITI serial overlap.
+</figcaption>
+<div aria-describedby="tbl-poet-step6-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Regime</th>
+<th style="text-align: left;">Term</th>
+<th style="text-align: left;">Estimator</th>
+<th style="text-align: right;">Mean</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">Mean df</th>
+<th style="text-align: right;">Reject (p &lt;= .05)</th>
+<th style="text-align: right;">95% CI Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c</td>
+<td style="text-align: left;">POET + CovReg (Operator)</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">4.2%</td>
+<td style="text-align: right;">95.8%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c:x_c</td>
+<td style="text-align: left;">POET + CovReg (Operator)</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.076</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">12.5%</td>
+<td style="text-align: right;">87.5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c</td>
+<td style="text-align: left;">POET + CovReg (CSV Panel)</td>
+<td style="text-align: right;">-0.002</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">4.2%</td>
+<td style="text-align: right;">95.8%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c:x_c</td>
+<td style="text-align: left;">POET + CovReg (CSV Panel)</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.076</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">12.5%</td>
+<td style="text-align: right;">87.5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c</td>
+<td style="text-align: left;">Legacy Stationary (auto)</td>
+<td style="text-align: right;">0.041</td>
+<td style="text-align: right;">0.066</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">20.8%</td>
+<td style="text-align: right;">79.2%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c:x_c</td>
+<td style="text-align: left;">Legacy Stationary (auto)</td>
+<td style="text-align: right;">0.055</td>
+<td style="text-align: right;">0.077</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">12.5%</td>
+<td style="text-align: right;">87.5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c</td>
+<td style="text-align: left;">Zero Shared Error</td>
+<td style="text-align: right;">0.161</td>
+<td style="text-align: right;">0.170</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">75.0%</td>
+<td style="text-align: right;">25.0%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Dynamic Shared-Noise Null (S = 16)</td>
+<td style="text-align: left;">seed_c:x_c</td>
+<td style="text-align: left;">Zero Shared Error</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">0.079</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">12.5%</td>
+<td style="text-align: right;">87.5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Single-Subject Rapid-ITI Null (N = 1)</td>
+<td style="text-align: left;">seed_c</td>
+<td style="text-align: left;">N=1 Cross-Trial SE (crosstrial_se=TRUE)</td>
+<td style="text-align: right;">0.037</td>
+<td style="text-align: right;">0.229</td>
+<td style="text-align: right;">55.5</td>
+<td style="text-align: right;">14.2%</td>
+<td style="text-align: right;">85.8%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Single-Subject Rapid-ITI Null (N = 1)</td>
+<td style="text-align: left;">seed_c</td>
+<td style="text-align: left;">N=1 Diagonal SE (crosstrial_se=FALSE)</td>
+<td style="text-align: right;">0.037</td>
+<td style="text-align: right;">0.229</td>
+<td style="text-align: right;">Inf</td>
+<td style="text-align: right;">16.7%</td>
+<td style="text-align: right;">83.3%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<ol start="2" type="1">
+<li><strong>Bare two-parcel tables or unmeasured pairwise-only confounds (post-hoc sensitivity curve):</strong> If a panel was stripped of shared-error columns—or if a purely local, unmeasured vascular artifact flips correlation exclusively between two adjacent regions (<code>Shared-error null</code> in <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>9.1</span></a>, right: bare 2-parcel table with <span class="math inline">\(\beta_P = 0\)</span>, <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span>, zero run-wide average correlation, and no multi-parcel or <code>variance_confounds</code> signature)—then <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0\)</span> produces a positive naive artifact (0.214) that predictor disattenuation magnifies (0.322), returning to zero (-0.018) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across hypothesized condition-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> (<a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>9.2</span></a>) makes transparent how extreme an unmeasured local artifact would need to be to explain an observed PPI.</li>
+</ol>
 <div id="fig-sensitivity" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">

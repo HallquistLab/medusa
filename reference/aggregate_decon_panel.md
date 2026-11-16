@@ -76,3 +76,29 @@ If `x` is a `decon_epoch_regression` result list, an updated
 parcel-level result list with `panel`, `parcel_weights`,
 `unit_error_cor`, and `shared_error_model`. If `x` is a
 `data.frame`/`data.table`, a parcel-aggregated `data.table`.
+
+## Details
+
+When parcel assignments are fixed prior to Stage 3, passing
+`parcel_groups` directly to
+[`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
+(`aggregate_by_parcel = TRUE`) is fastest because Stage-3 de-mixing and
+exact \\P \times P\\ POET covariance regression run once on the parcel
+series. Use `aggregate_decon_panel()` when you have already fit a
+voxelwise panel (`aggregate_by_parcel = FALSE`, including whole-brain
+`lowrank_voxel` panels or saved RDS/Parquet/CSV tables) and want to
+collapse voxels into one or more parcellations post-hoc without
+re-running deconvolution: intra-parcel voxel error correlations are
+propagated via the vector norms \\\\\sum\_{v \in g} w_v
+\mathbf{s}\_{v,i}\\\_2\\ of `shared_noise_vec` (or the attached
+`shared_error_model`) so parcel `se_demixed` and inter-parcel error
+covariances remain calibrated for
+[`decon_connectivity_repair`](https://hallquistlab.github.io/medusa/reference/decon_connectivity_repair.md)
+and
+[`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md).
+
+## See also
+
+[`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+[`decon_connectivity_repair`](https://hallquistlab.github.io/medusa/reference/decon_connectivity_repair.md),
+[`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)

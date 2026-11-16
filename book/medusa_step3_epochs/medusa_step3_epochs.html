@@ -453,6 +453,11 @@ window.Quarto = {
 <td><code>tau2_shrinkage = c("auto", "graph_eb", "eb", "none")</code>; optional <code>"medusa_spatial_graph"</code></td>
 <td>Stabilizes biological trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> and sandwich residual scales without smoothing trial slopes (<code>"auto"</code> selects bilateral <code>"graph_eb"</code> automatically on voxelwise NIfTI maps).</td>
 </tr>
+<tr class="even">
+<td><code>shared_error_method</code> &amp; <code>variance_confounds</code></td>
+<td><code>"poet_covreg"</code> (default), <code>"legacy"</code>, or <code>"none"</code>; optional <code>"medusa_confounds"</code> / <code>"medusa_nifti_ts"</code> / run-list envelopes</td>
+<td>Fits subspace-debiased Adaptive-POET + multi-lag Toeplitz and LTZ-gated dynamic covariance regression (switching automatically above 512 units to voxel-safe <code>lowrank_voxel</code> factor mode) for Step 6 connectivity and post-hoc <code>aggregate_decon_panel()</code>.</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -470,7 +475,7 @@ window.Quarto = {
 <tr class="odd">
 <td><code>panel</code></td>
 <td>Tidy <code>data.table</code> keyed by <code>run</code>, <code>trial</code>, <code>event_index</code>, <code>onset</code>, <code>evt_time</code>, and <code>voxel</code>/<code>parcel</code></td>
-<td><strong>Primary trial table for Steps 5–6.</strong> Stores both <code>trial</code> (1..<span class="math inline">\(m\)</span> target counter) and <code>event_index</code> (row in <code>events[[r]]</code>) alongside <code>decon_raw</code>, <code>decon_demixed</code>, <code>se_demixed</code>, <code>precision_weight</code>, <code>precision_weight_cohort</code>, <code>error_ac1</code>, <code>tau2_bio</code>, <code>decon_eb</code>, and optional <code>*_whitened</code> columns.</td>
+<td><strong>Primary trial table for Steps 5–6.</strong> Stores both <code>trial</code> (1..<span class="math inline">\(m\)</span> target counter) and <code>event_index</code> (row in <code>events[[r]]</code>) alongside <code>decon_raw</code>, <code>decon_demixed</code>, <code>se_demixed</code>, <code>precision_weight</code>, <code>precision_weight_cohort</code>, <code>error_ac1</code>, <code>tau2_bio</code>, <code>decon_eb</code>, Block-PAF list-columns (<code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>), and optional <code>*_whitened</code> columns.</td>
 </tr>
 <tr class="even">
 <td><code>coefficients</code> &amp; <code>summary</code></td>
@@ -483,9 +488,9 @@ window.Quarto = {
 <td>Carried forward so <code>medusa_multilag_infer()</code> (Step 5) can apply group-level spectral deblurring, P-spline smoothing, and simultaneous bands across lags.</td>
 </tr>
 <tr class="even">
-<td><code>unit_error_cor</code> &amp; <code>parcel_weights</code></td>
-<td>Empirical-Bayes shrunk unit-by-unit error correlation matrix; voxel weights (when <code>aggregate_by_parcel = TRUE</code>)</td>
-<td>Supplies task-free cross-region error correlations (<code>shared_noise_loading</code> in <code>panel</code>) for Step 6 connectivity disattenuation.</td>
+<td><code>shared_error_model</code>, <code>unit_error_cor</code>, &amp; <code>parcel_weights</code></td>
+<td>POET + covariance-regression shared-error model (<code>v3</code>), unit-by-unit error correlation matrix, and voxel weights</td>
+<td>Supplies stationary and dynamic cross-region error covariances (<code>shared_noise_vec</code> / <code>shared_noise_loading</code> in <code>panel</code>) for Step 6 connectivity disattenuation and post-hoc <code>aggregate_decon_panel()</code>.</td>
 </tr>
 </tbody>
 </table>

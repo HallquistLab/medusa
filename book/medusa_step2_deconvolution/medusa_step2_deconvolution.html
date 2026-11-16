@@ -474,9 +474,9 @@ window.Quarto = {
 <td>Records the pre-deconvolution divisor (<code>scale</code>), marginal observation-noise SD (<code>noise_sd</code>), and per-voxel penalty (<code>lambda</code>), enabling Step 3 to restore physical BOLD units (<code>restore_scale = TRUE</code>) and propagate exact SEs.</td>
 </tr>
 <tr class="odd">
-<td><code>noise_innovations</code></td>
-<td>Named list of <code>n_valid_rows × n_voxels</code> unit-norm task-free whitened residual matrices</td>
-<td>Captures spatial error correlations after removing task-evoked BOLD variance, supporting unbiased parcel noise estimation in Step 4 and shared-error connectivity correction in Step 6.</td>
+<td><code>noise_innovations</code>, <code>bold_obs</code>, &amp; <code>whitened_sketch</code></td>
+<td>Named lists of task-free whitened residuals and uncensored BOLD (<span class="math inline">\(\le 16{,}384\)</span> voxels) or compact <span class="math inline">\(m_r \times 64\)</span> subspace sketches (<span class="math inline">\(&gt; 16{,}384\)</span> voxels)</td>
+<td>Captures spatial and dynamic error structure without retaining full 4D BOLD arrays in memory, enabling bold-free Adaptive-POET + covariance-regression shared-error estimation in Steps 3–6.</td>
 </tr>
 <tr class="even">
 <td><code>frame_weights</code></td>

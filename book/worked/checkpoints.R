@@ -137,34 +137,38 @@ setorder(support,lag)
 stopifnot(support[lag==max(lags_group),n_subjects]==length(participant_ids)-1,
           all(support[lag<max(lags_group),n_subjects]==length(participant_ids)))
 
-# Keep scalar loading columns in the round-trip CSV. A minimal CSV drops them.
+# Keep serialized shared-error list-columns in the round-trip CSV via medusa_write_table/medusa_read_table.
+# A minimal plain-text export strips all shared-error columns.
 csv_path <- tempfile(fileext=".csv")
-fwrite(group_panel,csv_path)
-csv <- fread(csv_path)
+medusa:::medusa_write_table(group_panel, csv_path)
+csv <- medusa:::medusa_read_table(csv_path)
 unlink(csv_path)
 stopifnot(nrow(csv)==nrow(group_panel))
 minimal <- copy(csv)
-minimal[, shared_noise_loading := NULL]
+drop_sh <- intersect(c("shared_noise_vec","lag_noise_vec","trial_cor_vec","shared_noise_loading"), names(minimal))
+if (length(drop_sh)) minimal[, (drop_sh) := NULL]
 views <- list("Participant fits"=subject_epochs,"Stacked panel"=group_panel,
-              "Full CSV"=csv,"CSV without loadings"=minimal)
+              "Full CSV"=csv,"CSV without shared-error cols"=minimal)
 fits <- lapply(views,function(x) decon_connectivity_repair(
   x,seed_region="Parcel_A",target_region="Parcel_B",covariates="rpe",
   test_ppi=TRUE,use_whitened=FALSE,orthogonalize_seed_x=FALSE,shared_error="auto",
   method="mmoms",region_col="parcel"))
 handoff <- rbindlist(lapply(seq_along(views),function(i) {
+  nm <- names(views)[i]
   x <- views[[i]]
   f <- fits[[i]]
   g <- f$group[term=="seed_c:x_c"]
   stopifnot(nrow(g)==1L)
   ss <- f$subjects[term=="seed_c:x_c" & converged==TRUE]
-  list(input=names(views)[i],
-       covariance=if (is.list(x) && !is.data.frame(x)) "Participant matrices"
-         else if(!is.null(attr(x,"unit_error_cor"))) "Single panel attribute"
-         else if("shared_noise_loading" %in% names(x)) "Loading products" else "Zero fallback",
+  list(input=nm,
+       covariance=if (is.list(x) && !is.data.frame(x)) "POET + CovReg operator"
+         else if (nm == "Full CSV") "Restored CSV vectors"
+         else if ("shared_noise_vec" %in% names(x)) "Block-PAF panel vectors"
+         else if ("shared_noise_loading" %in% names(x)) "Loading products" else "Zero fallback",
        median_r=median(ss$r_shared_error), estimate=g$estimate,
        lower=g$conf.low,upper=g$conf.high,n_subjects=g$n_subjects)
 }))
-stopifnot(handoff[input=="CSV without loadings",median_r]==0)
+stopifnot(handoff[input=="CSV without shared-error cols",median_r]==0)
 current_curve <- trajectory$coefficients[parcel=="Parcel_A" & term=="rpe"]
 current_focal <- group_result$coef_df_reml[term=="rpe_within"]
 stopifnot(nrow(current_focal)==1L,nrow(current_curve)==length(lags_group),nrow(planned)==720L)

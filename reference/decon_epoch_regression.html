@@ -324,11 +324,17 @@ Default: <code>FALSE</code>.</p></dd>
 <code>event_index</code>, <code>onset</code>, <code>evt_time</code>, <code>voxel</code> (plus
 <code>id</code>/<code>session</code> when present on <code>events</code>, and <code>parcel</code>
 when <code>aggregate_by_parcel = TRUE</code>),
-<code>decon_raw</code>, <code>decon_demixed</code>, <code>se_raw</code>, <code>se_demixed</code>,
-<code>precision_weight</code>, <code>precision_weight_op</code>,
-<code>precision_weight_raw</code>, <code>error_ac1</code>, <code>tau2_bio</code>, and the
-covariate columns for downstream <code><a href="mixed_by.html">mixed_by()</a></code> modeling. Defaults to
-<code>TRUE</code> when <code>covariates = NULL</code> and <code>return_epochs = FALSE</code>.</p></dd>
+<code>decon_raw</code>, <code>decon_demixed</code>, <code>decon_eb</code>, <code>se_raw</code>,
+<code>se_demixed</code>, <code>precision_weight</code>, <code>precision_weight_cohort</code>,
+<code>precision_weight_op</code>, <code>precision_weight_raw</code>, <code>error_ac1</code>,
+<code>tau2_bio</code>, the covariate columns, and (under
+<code>shared_error_method = "poet_covreg"</code>) Block-PAF list-columns
+<code>shared_noise_vec</code>, <code>lag_noise_vec</code> (multi-lag fits), and
+<code>trial_cor_vec</code> (plus legacy <code>shared_noise_loading</code>) for
+downstream <code><a href="mixed_by.html">mixed_by</a></code>, <code><a href="medusa_multilag_infer.html">medusa_multilag_infer</a></code>,
+<code><a href="aggregate_decon_panel.html">aggregate_decon_panel</a></code>, or <code><a href="decon_connectivity_repair.html">decon_connectivity_repair</a></code>
+modeling. Defaults to <code>TRUE</code> when <code>covariates = NULL</code> and
+<code>return_epochs = FALSE</code>.</p></dd>
 
 
 <dt id="arg-run-col">run_col<a class="anchor" aria-label="anchor" href="#arg-run-col"></a></dt>
@@ -365,7 +371,10 @@ which caches observed/sketched prewhitened series automatically).</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list with <code>coefficients</code> (per voxel/parcel, lag, and predictor
   term), <code>summary</code> (averaged across usable units per lag and term),
-  optional <code>epochs</code>, optional <code>panel</code>, and <code>settings</code>.</p>
+  optional <code>epochs</code>, optional <code>panel</code>, <code>lag_resolution</code>,
+  <code>lag_error_cor</code>, <code>unit_error_cor</code>, <code>shared_error_model</code>
+  (when <code>shared_error_method = "poet_covreg"</code>), optional
+  <code>parcel_weights</code>, and <code>settings</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -393,53 +402,72 @@ which caches observed/sketched prewhitened series automatically).</p></dd>
       When enabled across \(\ge 3\) lags, sharpens temporal specificity across
       lags using a 2nd-order Tikhonov lag-by-lag resolution inverse while
       preserving cross-trial operator covariance structure.</p></li>
-<li><p><strong>Analytical Uncertainty, Precision Weights &amp; Null-Mode-Damped ZCA Whitening:</strong>
+<li><p><strong>Analytical Uncertainty, Adaptive-POET Covariance Regression &amp; ZCA Whitening:</strong>
       Propagates observation-level AR(1) noise covariance through the composite
       linear readout/de-mixing operator \(\mathbf{B}_{r,\tau}\) to obtain exact
       per-trial standard errors (<code>se_demixed</code>), adjacent-trial error
       autocorrelation (<code>error_ac1</code>), Empirical-Bayes precision weights
-      (<code>precision_weight</code>), covariance-propagated sandwich SEs
-      (<code>se_weighted</code>), and null-mode-damped, Bartlett-adaptive within-run
-      ZCA-whitened variables for <code><a href="mixed_by.html">mixed_by</a></code>.</p></li>
+      (<code>precision_weight</code>, <code>precision_weight_cohort</code>), covariance-propagated
+      sandwich SEs (<code>se_weighted</code>), and null-mode-damped, Bartlett-adaptive
+      within-run ZCA-whitened variables for <code><a href="mixed_by.html">mixed_by</a></code>. Under
+      <code>shared_error_method = "poet_covreg"</code>, fits a subspace-debiased
+      Adaptive-POET + Tukey-Hanning multi-lag Toeplitz and LTZ-gated dynamic
+      covariance-regression model (automatically switching above 512 units to
+      a voxel-safe dual-space factor representation that avoids \(V \times V\)
+      allocations) and embeds per-trial shared-error factors onto <code>panel</code>
+      for <code><a href="decon_connectivity_repair.html">decon_connectivity_repair</a></code> and <code><a href="aggregate_decon_panel.html">aggregate_decon_panel</a></code>.</p></li>
 </ol></div>
     <div class="section level2">
     <h2 id="recommended-best-practice-configuration">Recommended Best-Practice Configuration<a class="anchor" aria-label="anchor" href="#recommended-best-practice-configuration"></a></h2>
 
 
-<p>Across the 5-pillar MEDuSA Monte Carlo validation suite (amplitude recovery,
+<p>Across the MEDuSA Monte Carlo validation suite (amplitude recovery,
   temporal alignment, inter-region connectivity, factorial power surfaces, and
   biophysical Windkessel-Balloon + <code>fmrisim</code> scanner realism), the
-  recommended end-to-end configuration is:</p><ol><li><p><strong>Stage 0–1 (HRF Estimation):</strong> Use
-      <code>hrf_library(tr, preset = "medusa")</code> (pruned 3D physiological
-      manifold spanning fast/narrow/minimal-undershoot subcortical through
-      slow cortical HRFs with positive-lobe normalization; ~44 candidates, or
-      <code>preset = "canonical_27"</code> for the 27-candidate fixed-undershoot
-      canonical grid) and
+  recommended end-to-end configuration follows one shared Steps 0–3 backbone
+  with estimand-specific downstream modes:</p><ol><li><p><strong>Stage 0–1 (Ingestion &amp; HRF Estimation):</strong> Ingest BIDS /
+      <code>fMRIPrep</code> data via <code><a href="read_fmriprep_subject.html">read_fmriprep_subject</a></code> (or
+      <code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>, which extracts frame-level
+      <code>$variance_confounds</code> automatically). Use
+      <code>hrf_library(tr, preset = "medusa")</code> and
       <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code> with <code>noise_model = "ar1"</code>,
-      <code>evidence = "calibrated"</code>, <code>selection_mode = "soft_average"</code>
-      (evidence-weighted HRF kernel averaging across locally supported
-      shapes), and parcel labels in <code>spatial_groups</code>.</p></li>
+      <code>evidence = "calibrated"</code>, <code>selection_mode = "soft_average"</code>,
+      and parcel labels in <code>spatial_groups</code>.</p></li>
 <li><p><strong>Stage 2 (Deconvolution):</strong> Use <code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code>
       with <code>lambda = NULL</code> (adaptive prewhitened GCV tuning),
-      <code>scaling = "noise_sd"</code> (AR(1) innovation noise SD rather than
-      total <code>"zscore"</code> variance), and <code>penalty = "sobolev"</code>.</p></li>
-<li><p><strong>Stage 3 (Epoch De-Mixing, Parcel Pre-Aggregation &amp; Whitening):</strong> Use
+      <code>scaling = "noise_sd"</code>, <code>penalty = "sobolev"</code>, and
+      <code>rwls = "auto"</code> (automatically caching <code>bold_obs</code> up to 16,384
+      voxels or a compact <code>whitened_sketch</code> above 16,384 voxels so
+      <code>bold</code> need not be passed again in Stage 3).</p></li>
+<li><p><strong>Stage 3 (Epoch De-Mixing, Parcel Aggregation &amp; Shared-Error Engine):</strong> Use
       <code>decon_epoch_regression(..., demix_other_events = TRUE,
       demix_target_trials = TRUE, restore_scale = TRUE, weighting = "gls",
-      aggregate_by_parcel = TRUE, whiten_panel = TRUE, return_panel = TRUE)</code>.
-      Enable <code>demix_within_trial = TRUE</code> with <code>lags</code> spaced at
-      \(1\times\mathrm{TR}\) when estimating multi-lag waveforms \(\beta(\tau)\)
-      (if <code>lags</code> is sampled finer than \(1\times\mathrm{TR}\),
-      <code>within_trial_ridge</code> is automatically scaled by
-      \((\mathrm{TR}/\Delta\tau)^2\) to prevent sub-TR collinearity
-      amplification), and set <code>source_model = "duration"</code>
-      (<code>duration_scale = "rate"</code>) when modeling variable-duration (RT)
-      epochs.</p></li>
-<li><p><strong>Stage 4 (Group Mixed-Effects Inference):</strong> Pass both the
-      ZCA-whitened panel columns and precision weights to <code><a href="mixed_by.html">mixed_by</a></code>:
-      <code>mixed_by(panel, decon_demixed_whitened ~ x_whitened + (1 + x_whitened | id),
-      weights = "precision_weight")</code>.</p></li>
+      aggregate_by_parcel = TRUE, shared_error_method = "poet_covreg",
+      variance_confounds = conf, whiten_panel = TRUE, return_panel = TRUE)</code>.
+      If you first fit voxelwise panels (<code>aggregate_by_parcel = FALSE</code>),
+      you can collapse them post-hoc to any parcellation with exact shared-error
+      propagation via <code><a href="aggregate_decon_panel.html">aggregate_decon_panel</a></code>. Leave
+      <code>demix_within_trial = FALSE</code> when feeding <code><a href="medusa_multilag_infer.html">medusa_multilag_infer</a></code>
+      (enable <code>TRUE</code> only for single-subject lag sharpening), and set
+      <code>source_model = "duration"</code> (<code>duration_scale = "rate"</code>) when
+      modeling variable-duration (RT) epochs.</p></li>
+<li><p><strong>Stage 4–6 (Group Mixed-Effects, Multi-Lag &amp; Connectivity Inference):</strong>
+      For scalar behavioral models, pass <code>weights = "precision_weight_cohort"</code>
+      (and matched <code>*_whitened</code> columns when desired) to <code><a href="mixed_by.html">mixed_by</a></code>.
+      For peri-event trajectories, use <code><a href="medusa_multilag_infer.html">medusa_multilag_infer</a></code> with
+      <code>contrast_source = "unsmoothed"</code>. For seed-to-target connectivity and
+      PPI, pass <code>subject_epochs</code> or a stacked/CSV/Parquet <code>panel</code>
+      (serialized via <code>medusa_write_table()</code> to preserve pipe-delimited
+      shared-error list-columns) to
+      <code>decon_connectivity_repair(..., method = "mmoms", shared_error = "auto",
+      use_whitened = FALSE, crosstrial_se = TRUE)</code>.</p></li>
 </ol></div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code>, <code><a href="aggregate_decon_panel.html">aggregate_decon_panel</a></code>,
+  <code><a href="decon_connectivity_repair.html">decon_connectivity_repair</a></code>, <code><a href="medusa_multilag_infer.html">medusa_multilag_infer</a></code>,
+  <code><a href="mixed_by.html">mixed_by</a></code></p></div>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

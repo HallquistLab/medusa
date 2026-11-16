@@ -1150,12 +1150,19 @@ precision weights (<code>precision_weight</code>), unnormalized
 cohort-comparable inverse total variance weights
 (<code>precision_weight_cohort</code>, which preserve
 between-participant reliability differences in multi-subject mixed
-models), and lag-1 trial error autocorrelation. When
-<code>aggregate_by_parcel = TRUE</code>, the panel also carries a
-list-column <code>shared_noise_loading</code> so cross-parcel noise
-correlations survive <code><a href="https://rdrr.io/pkg/data.table/man/rbindlist.html" class="external-link">data.table::rbindlist()</a></code> for
-<code>decon_connectivity_repair(..., shared_error = "auto")</code>.
-Because <code>whiten_panel = TRUE</code> was requested,
+models), and lag-1 trial error autocorrelation. Under
+<code>shared_error_method = "poet_covreg"</code> (default), the panel
+also carries Block-PAF list-columns <code>shared_noise_vec</code>,
+<code>lag_noise_vec</code> (multi-lag fits), and
+<code>trial_cor_vec</code> (plus scalar/factor
+<code>shared_noise_loading</code> when
+<code>aggregate_by_parcel = TRUE</code>), which survive
+<code><a href="https://rdrr.io/pkg/data.table/man/rbindlist.html" class="external-link">data.table::rbindlist()</a></code>, <code>.rds</code>/Parquet storage,
+and pipe-delimited CSV/<code>.csv.gz</code> round-trips via
+<code>medusa_write_table()</code> / <code>medusa_read_table()</code> for
+<code>decon_connectivity_repair(..., shared_error = "auto")</code> and
+post-hoc <code><a href="../reference/aggregate_decon_panel.html">aggregate_decon_panel()</a></code>. Because
+<code>whiten_panel = TRUE</code> was requested,
 <code>decon_demixed_whitened</code> and <code>rpe_whitened</code> also
 provide within-run ZCA-decorrelated trial responses and centered
 covariates. <code>trial</code> is <strong>not necessarily your original
@@ -1380,13 +1387,18 @@ and Max-|T| tests cover the lags within one parcel–term trajectory; TFCE
 and omnibus inference use that same family, whereas claims across
 parcels or terms need a study-wide multiplicity procedure. For
 trial-level seed-to-target connectivity or PPI on
-<code>group_panel</code>, use
-<code>decon_connectivity_repair(group_panel, seed_region = "Parcel_A", target_region = "Parcel_B", covariates = "rpe", test_ppi = TRUE, use_whitened = FALSE, orthogonalize_seed_x = FALSE, shared_error = "auto", method = "mmoms", region_col = "parcel")</code>,
-which uses <code>shared_noise_loading</code> to disattenuate seed
-measurement error while subtracting cross-parcel shared-noise covariance
-and pooling subjects via HKSJ random-effects weights. Save the full
-<code>subject_epochs</code> objects and analysis settings, including the
-lag grid, parcel labels, and random seed.</p>
+<code>subject_epochs</code> or <code>group_panel</code>, use
+<code>decon_connectivity_repair(group_panel, seed_region = "Parcel_A", target_region = "Parcel_B", covariates = "rpe", test_ppi = TRUE, use_whitened = FALSE, orthogonalize_seed_x = FALSE, shared_error = "auto", crosstrial_se = TRUE, method = "mmoms", region_col = "parcel")</code>,
+which uses the POET + covariance-regression
+<code>shared_error_model</code> (or stacked
+<code>shared_noise_vec</code> / <code>lag_noise_vec</code> /
+<code>trial_cor_vec</code> columns) to disattenuate seed measurement
+error, subtract both stationary and dynamic cross-parcel shared-noise
+covariance, compute cross-trial Satterthwaite SEs
+(<code>crosstrial_se = TRUE</code>), and pool subjects via HKSJ
+random-effects weights. Save the full <code>subject_epochs</code>
+objects and analysis settings, including the lag grid, parcel labels,
+and random seed.</p>
 <p><strong>Saving recipe; not executed.</strong> Keeping only the panel
 loses the fitted operator context needed for audits.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
@@ -1731,33 +1743,42 @@ fit residuals, and tuning diagnostics.</td>
 <tr class="odd">
 <td>Inverse to event measurements</td>
 <td>Source duration and units, readout, demixing,
-<code>tau2_shrinkage</code>, target condition and lag grid</td>
+<code>tau2_shrinkage</code>, <code>shared_error_method</code>,
+<code>variance_confounds</code>, target condition and lag grid</td>
 <td>Verify event-row identity, causal BOLD observability
 (<code>obs_frac_tau &gt;= 0.20</code>), matched
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>M</mi><mtext mathvariant="normal">post</mtext></msub><annotation encoding="application/x-tex">M_{\text{post}}</annotation></semantics></math>
 covariate alignment, bilateral <code>"graph_eb"</code> variance
-stabilization in voxelwise mode, and rate versus integrated activity for
-duration models.</td>
+stabilization in voxelwise mode, rate versus integrated activity for
+duration models, and frame-level <code>variance_confounds = conf</code>
+handoff when motion/physiological bursts are present.</td>
 </tr>
 <tr class="even">
 <td>Event measurements to parcel panel</td>
-<td>Parcel labels, <code>restore_scale</code>, <code>tau2_mode</code>,
-<code>whiten_panel</code>
+<td>Parcel labels (<code>parcel_groups</code> or post-hoc
+<code><a href="../reference/aggregate_decon_panel.html">aggregate_decon_panel()</a></code>), <code>restore_scale</code>,
+<code>tau2_mode</code>, <code>whiten_panel</code>
 </td>
-<td>Audit usable voxels, task-free <code>noise_innovations</code>
-spatial covariance, and retained trials by run. Distinguish within-run
-<code>precision_weight</code> from cohort-comparable
-<code>precision_weight_cohort</code> and retain
-<code>shared_noise_loading</code> for connectivity.</td>
+<td>Audit usable voxels, Adaptive-POET + covariance-regression
+shared-error embeddings (<code>shared_noise_vec</code>,
+<code>lag_noise_vec</code>, <code>trial_cor_vec</code>), and retained
+trials by run. Distinguish within-run <code>precision_weight</code> from
+cohort-comparable <code>precision_weight_cohort</code> and use
+<code>medusa_write_table()</code> when exporting
+CSV/<code>.csv.gz</code> panels so list-columns round-trip cleanly.</td>
 </tr>
 <tr class="odd">
 <td>Panel to group claim</td>
 <td>Participant/run effects, predictors, weights,
-trajectory/connectivity mode, test family</td>
+trajectory/connectivity mode (<code>crosstrial_se = TRUE</code>), test
+family</td>
 <td>Check participant counts, residual dependence, singularity,
 <code>contrast_source = "unsmoothed"</code>,
-<code>shared_error = "auto"</code>, and whether the test applies to one
-lag, one trajectory, or a whole study family.</td>
+<code>shared_error = "auto"</code>, <code>crosstrial_se = TRUE</code>
+(essential for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">N = 1</annotation></semantics></math>
+precision neuroimaging), and whether the test applies to one lag, one
+trajectory, or a whole study family.</td>
 </tr>
 </tbody>
 </table>

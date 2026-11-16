@@ -111,12 +111,16 @@ decon_connectivity_repair(
 - shared_error:
 
   Policy for cross-parcel shared observation-error covariance between
-  seed and target readouts: `"auto"` (default; propagates Stage-2/3
-  Empirical-Bayes prewhitened innovation correlation `unit_error_cor` or
-  `shared_noise_loading`), `"zero"` (assumes zero cross-parcel noise
-  correlation while still propagating same-parcel cross-lag error
-  correlation when `control_target_seed_lag = TRUE`), or `"supplied"`
-  (reads per-trial raw seed–target error covariance from `err_xy_col`).
+  seed and target readouts: `"auto"` (default; propagates the Stage-3
+  Adaptive-POET + dynamic covariance-regression `shared_error_model`
+  when operator objects are supplied, or the embedded per-trial
+  Block-PAF factor columns `shared_noise_vec`, `lag_noise_vec`, and
+  `trial_cor_vec`—falling back to stationary `unit_error_cor` /
+  `shared_noise_loading` on legacy panels), `"zero"` (assumes zero
+  cross-parcel noise correlation while still propagating same-parcel
+  cross-lag error correlation when `control_target_seed_lag = TRUE`), or
+  `"supplied"` (reads per-trial raw seed–target error covariance from
+  `err_xy_col`).
 
 - err_xy_col:
 
@@ -185,6 +189,14 @@ decon_connectivity_repair(
 ## Value
 
 A list of class `"medusa_connectivity_repair"` containing `group`
-(group-level random-effects meta-analytic inference table), `subjects`
-(per-subject estimates, SEs, and REPAIR diagnostics), optional
-`panel_repair`, and `settings`.
+(group-level HKSJ random-effects meta-analytic inference table, or
+single-subject cross-trial Satterthwaite \\t\\-inference table when \\N
+= 1\\), `subjects` (per-subject estimates, SEs, Satterthwaite `df`, and
+REPAIR diagnostics), optional `panel_repair`, and `settings`.
+
+## See also
+
+[`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+[`aggregate_decon_panel`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md),
+[`medusa_fit_mmom`](https://hallquistlab.github.io/medusa/reference/medusa_fit_mmom.md),
+[`medusa_between_subject_repair`](https://hallquistlab.github.io/medusa/reference/medusa_between_subject_repair.md)

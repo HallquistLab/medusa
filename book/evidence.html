@@ -419,8 +419,8 @@ Table&nbsp;16.1: Synthesis of validation benchmarks across Part IV and the 14-st
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong><a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity</a></strong>, <strong><a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a></strong>, &amp; Validation Study 10</td>
-<td style="text-align: left;">Per-trial M-MOMS + <code>shared_error = "auto"</code> + HKSJ participant <span class="math inline">\(t\)</span>-intervals remove predictor attenuation and stationary cross-parcel noise inflation</td>
-<td style="text-align: left;">Sensitive to <em>condition-modulated</em> shared physiological noise (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i)\)</span> varying with <span class="math inline">\(x_i\)</span>) and severe seed–target smoothing mismatch (<span class="math inline">\(K_S \neq K_T\)</span>); always run a <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html#fig-sensitivity">shared-error sensitivity curve</a>.</td>
+<td style="text-align: left;">Per-trial M-MOMS + Adaptive-POET &amp; dynamic covariance regression (<code>shared_error_method = "poet_covreg"</code>, <code>shared_error = "auto"</code>, <code>variance_confounds</code>) + <code>crosstrial_se = TRUE</code> (<span class="math inline">\(N=1\)</span> Satterthwaite SEs &amp; cohort HKSJ <span class="math inline">\(t\)</span>-intervals) remove predictor attenuation plus stationary and multi-parcel/confound-driven dynamic shared noise</td>
+<td style="text-align: left;">Pairwise-only condition-flipped noise lacking both a multi-parcel factor signature and a measured <code>variance_confounds</code> envelope—or severe seed–target smoothing mismatch (<span class="math inline">\(K_S \neq K_T\)</span>)—still requires a <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html#fig-sensitivity">shared-error sensitivity curve</a> and matched Step 2–3 demixing.</td>
 </tr>
 </tbody>
 </table>

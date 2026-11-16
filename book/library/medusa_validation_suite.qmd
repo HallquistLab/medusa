@@ -1,6 +1,6 @@
 ---
 title: "MEDuSA v2.1 Method Validation Suite"
-subtitle: "Comprehensive Fourteen-Pillar Monte Carlo Benchmarking of Soft Boltzmann HRF Kernel Averaging, Woolrich-Informed Post-Selection AR(p) & SUSAN Temporal Noise Learning, Adaptive Prewhitened GCV & Parseval-Routed rWLS Sobolev Deconvolution, Native Parcel Pre-Aggregation, Operator Resolution De-Mixing, Duration Source Models, Precision Weights, ZCA Whitening, REPAIR (M-MOMS) Disattenuation, Stage-4 Joint Multi-Lag Trajectory Inference, and Realistic fMRI Confounding Stress Tests"
+subtitle: "Comprehensive Fifteen-Pillar Monte Carlo Benchmarking of Soft Boltzmann HRF Kernel Averaging, Woolrich-Informed Post-Selection AR(p) & SUSAN Temporal Noise Learning, Adaptive Prewhitened GCV & Parseval-Routed rWLS Sobolev Deconvolution, Native Parcel Pre-Aggregation, Operator Resolution De-Mixing, Duration Source Models, Precision Weights, ZCA Whitening, Adaptive-POET & Dynamic Covariance-Regression Shared-Error Estimation, REPAIR (M-MOMS) Disattenuation, Stage-4 Joint Multi-Lag Trajectory Inference, and Realistic fMRI Confounding Stress Tests"
 author: "MEDuSA Simulation & Method Validation Project"
 date: today
 format:
@@ -3334,9 +3334,65 @@ gt(t14_con[, .(
 
 ---
 
+# Study 15 (Pillar 15): Subspace-Debiased Adaptive-POET + Multi-Lag Toeplitz & General-$W_s$ Covariance-Regression Shared-Error Engine (`poet_covreg`)
+
+Stationary innovation shrinkage (`shared_error_method = "legacy"`) subtracts run-averaged cross-parcel error correlation, but fMRI connectivity studies also face **trial-varying** shared error envelopes driven by task-coupled respiratory fluctuations (`RVT`), framewise motion bursts (`FD` / `DVARS` / Step-2 `rwls`), single-subject ($N = 1$) rapid-ITI serial error overlap, and whole-brain voxel-to-parcel scalability. Pillar 15 (`scripts/run_pillar15_poet_covreg_benchmark.R`) benchmarks the compiled `v3` C++/R `medusa` engine (`shared_error_method = "poet_covreg"`, `variance_confounds`, `crosstrial_se = TRUE`, and `aggregate_decon_panel()`) across cohort dynamic shared-noise traps, true simultaneous PPI under global physiological noise, single-subject ($N = 1$) rapid-ITI inference, and $P = 120$ / $V = 600$ / $V = 16{,}500$ whole-brain scaling.
+
+```{r pillar15_tables}
+p15_sum_path <- "../outputs/pillar15_poet_covreg_summary.csv"
+p15_scl_path <- "../outputs/pillar15_poet_covreg_scaling.csv"
+
+if (file.exists(p15_sum_path)) {
+  p15_df <- fread(p15_sum_path)
+  p15_disp <- p15_df[, .(
+    Scenario = scenario,
+    Term = term,
+    Estimator = method,
+    Truth = sprintf("%.2f", true_val),
+    Mean = sprintf("%.3f", mean_est),
+    RMSE = sprintf("%.3f", rmse),
+    SE_SD = sprintf("%.2f", se_sd_ratio),
+    Mean_df = ifelse(mean_df > 500, "Inf", sprintf("%.1f", mean_df)),
+    Cov_95 = sprintf("%.1f%%", 100 * coverage_95),
+    Rej_05 = sprintf("%.1f%%", 100 * reject_05)
+  )]
+  gt(p15_disp) |>
+    tab_header(
+      title = "Table 24C. Pillar 15A–B: Compiled v3 Adaptive-POET + Dynamic Covariance-Regression Benchmark",
+      subtitle = "Cohort Dynamic RVT + Null-Confound Multiplicity Gate (A1), Motion-Burst rWLS (A2), True PPI Power (A3), and Single-Subject N = 1 Cross-Trial SE Calibration (B1)"
+    ) |>
+    style_gt_medusa()
+}
+```
+
+```{r pillar15_scaling_table}
+if (file.exists(p15_scl_path)) {
+  p15_sc <- fread(p15_scl_path)
+  p15_sc_disp <- p15_sc[, .(
+    Benchmark = benchmark,
+    Voxels = n_voxels,
+    Units = n_units,
+    Lags = n_lags,
+    Handoff = handoff_cache,
+    SEM_Mode = sem_mode,
+    POET_K = poet_rank_K,
+    Elapsed_Sec = sprintf("%.2f s", elapsed_sec),
+    Max_Parity_Diff = sprintf("%.2e", parity_max_abs_diff)
+  )]
+  gt(p15_sc_disp) |>
+    tab_header(
+      title = "Table 24D. Pillar 15C: Whole-Brain Scalability, Bold-Free Sketch Handoff, and Post-Hoc aggregate_decon_panel() Parity",
+      subtitle = "Exact P = 120 Multi-Lag C++ Batch Mode, V = 600 Dual-Space lowrank_voxel Mode, and V = 16,500 Whitened-Sketch Mode"
+    ) |>
+    style_gt_medusa()
+}
+```
+
+---
+
 # Synthesis & Practical Recommendations for Empirical MEDuSA Studies
 
-## Summary of MEDuSA v2.1 Algorithmic Advances Across All Fourteen Pillars
+## Summary of MEDuSA v2.1 Algorithmic Advances Across All Fifteen Pillars
 
 ```{r table20_before_after}
 ba_df <- data.frame(
@@ -3523,7 +3579,7 @@ dec_df <- data.frame(
   Stage3_4_Regression_MLM_Settings = c(
     "decon_epoch_regression(aggregate_by_parcel = TRUE, demix_other_events = TRUE, demix_target_trials = TRUE, demix_within_trial = FALSE, restore_scale = TRUE, tau2_mode = 'auto', whiten_panel = TRUE) -> within-run center covariates -> mixed_by(decon_demixed_whitened ~ x_whitened, weights = 'precision_weight_cohort') or 2-Stage GLS ($coefficients)",
     "Pass the named per-subject epoch fits to medusa_multilag_infer(data = epoch_fits, covariates = 'x', trajectory_mode = 'auto', contrast_source = 'unsmoothed')",
-    "decon_epoch_regression(covariates = NULL, tau2_mode = 'marginal', aggregate_by_parcel = TRUE, whiten_panel = FALSE) -> decon_connectivity_repair(panel, seed_region, target_region, covariates = 'x', test_ppi = TRUE, use_whitened = FALSE, orthogonalize_seed_x = FALSE, shared_error = 'auto', method = 'mmoms')",
+    "decon_epoch_regression(covariates = NULL, tau2_mode = 'marginal', aggregate_by_parcel = TRUE, shared_error_method = 'poet_covreg', variance_confounds = conf, whiten_panel = FALSE) [or post-hoc aggregate_decon_panel()] -> decon_connectivity_repair(panel, seed_region, target_region, covariates = 'x', test_ppi = TRUE, use_whitened = FALSE, orthogonalize_seed_x = FALSE, shared_error = 'auto', crosstrial_se = TRUE, method = 'mmoms')",
     "Fit Stage-4 lmer(decon_demixed ~ x_within + (1 + x_within | id), weights = precision_weight_cohort) -> medusa_between_subject_repair(trait_y ~ re(x_within, model = 'seed'), models = list(seed = m_lmer), data = subj_df, regularization = 'step_up')",
     "Same as Recommended Default (aggregate_by_parcel = TRUE, whiten_panel = TRUE, weights = 'precision_weight_cohort') + medusa_multilag_infer()",
     "decon_epoch_regression(source_model = 'duration', trial_durations = rt_list, duration_scale = 'rate', aggregate_by_parcel = TRUE, whiten_panel = TRUE)",
@@ -3617,9 +3673,11 @@ epoch_fit <- decon_epoch_regression(
   demix_target_trials  = TRUE,
   demix_within_trial   = FALSE,         # Leave FALSE when using Stage-4 medusa_multilag_infer()
   restore_scale        = TRUE,
-  aggregate_by_parcel  = TRUE,          # Inverse-variance + HRF-evidence + task-free noise_innovations spatial cov
+  aggregate_by_parcel  = TRUE,          # Or FALSE + post-hoc aggregate_decon_panel(epoch_fit, voxel_to_parcel_map)
+  shared_error_method  = "poet_covreg", # Subspace-debiased Adaptive-POET + LTZ-gated dynamic covariance regression
+  variance_confounds   = conf,          # Optional medusa_confounds / medusa_nifti_ts (FD, DVARS, RVT envelopes)
   tau2_mode            = "auto",        # Uses marginal + lag-1 diff + MAD when covariates = NULL
-  whiten_panel         = TRUE           # Exports *_whitened + precision_weight_cohort + shared_noise_loading
+  whiten_panel         = TRUE           # Exports *_whitened + precision_weight_cohort + shared_noise_vec / lag_noise_vec / trial_cor_vec
 )
 
 # 5a. Joint multi-lag trajectory inference (within-run Q_wr centered + available-case boundary lags)
@@ -3630,14 +3688,14 @@ ml_infer <- medusa_multilag_infer(
 ml_infer$coefficients  # Raw lag tests, Marra-Wood simultaneous bands, and trajectory estimates
 ml_infer$latency
 
-# 5b. Same-coordinate seed-to-target connectivity and PPI with cross-parcel shared-error correction
-#     Pass per-subject panels (or full cohort panel retaining unit_error_cor) with shared_error = "auto"
+# 5b. Same-coordinate seed-to-target connectivity and PPI with stationary & dynamic shared-error correction
+#     Pass subject epoch fits (or stacked / Parquet / medusa_write_table() CSV panel) with shared_error = "auto"
 conn_fit <- decon_connectivity_repair(
-  panel_dt = lapply(epoch_fits_list, `[[`, "panel"),
+  panel_dt = epoch_fits_list,
   seed_region = "R1_Seed", target_region = "R2_Target_PPI",
   seed_lag = 0, target_lag = 0, covariates = "x", test_ppi = TRUE,
   orthogonalize_seed_x = FALSE, use_whitened = FALSE,
-  shared_error = "auto", method = "mmoms", region_col = "parcel"
+  shared_error = "auto", crosstrial_se = TRUE, method = "mmoms", region_col = "parcel"
 )
 
 # 5c. Between-subject regression on a participant random slope (use precision_weight_cohort & within-run centered x)

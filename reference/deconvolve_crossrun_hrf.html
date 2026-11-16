@@ -180,8 +180,12 @@ Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
   penalty vector <code>settings$lambda_by_voxel</code> ready for 1-line 3D NIfTI
   export via <code><a href="write_nifti_ts.html">write_nifti_ts</a></code>, and SNR tier summary table
   <code>settings$lambda_strata</code> when stratified), standardized
-  <code>noise_innovations</code>, per-run observation <code>frame_weights</code>, and
-  optional NIfTI <code>voxel_map</code> and <code>geometry</code> metadata (enabling
+  <code>noise_innovations</code>, cached uncensored <code>bold_obs</code> (for
+  \(\le 16{,}384\) voxels) or compact \(m_r \times 64\)
+  <code>whitened_sketch</code> factors (above \(16{,}384\) voxels, enabling
+  bold-free Stage-3 <code>"poet_covreg"</code> shared-error estimation without
+  retaining full 4D BOLD arrays), per-run observation <code>frame_weights</code>,
+  and optional NIfTI <code>voxel_map</code> and <code>geometry</code> metadata (enabling
   direct <code><a href="write_nifti_ts.html">write_nifti_ts</a></code> export without an external reference
   file). Activity matrices retain voxel IDs and carry <code>tr</code>,
   <code>time_offset</code>, and <code>observation_mask</code> attributes for subsequent

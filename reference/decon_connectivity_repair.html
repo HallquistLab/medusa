@@ -165,12 +165,16 @@ subtraction), or <code>"naive_unweighted"</code> (unweighted OLS).</p></dd>
 
 <dt id="arg-shared-error">shared_error<a class="anchor" aria-label="anchor" href="#arg-shared-error"></a></dt>
 <dd><p>Policy for cross-parcel shared observation-error covariance
-between seed and target readouts: <code>"auto"</code> (default; propagates Stage-2/3
-Empirical-Bayes prewhitened innovation correlation <code>unit_error_cor</code> or
-<code>shared_noise_loading</code>), <code>"zero"</code> (assumes zero cross-parcel noise
-correlation while still propagating same-parcel cross-lag error correlation when
-<code>control_target_seed_lag = TRUE</code>), or <code>"supplied"</code> (reads per-trial raw
-seed–target error covariance from <code>err_xy_col</code>).</p></dd>
+between seed and target readouts: <code>"auto"</code> (default; propagates the
+Stage-3 Adaptive-POET + dynamic covariance-regression
+<code>shared_error_model</code> when operator objects are supplied, or the
+embedded per-trial Block-PAF factor columns <code>shared_noise_vec</code>,
+<code>lag_noise_vec</code>, and <code>trial_cor_vec</code>—falling back to stationary
+<code>unit_error_cor</code> / <code>shared_noise_loading</code> on legacy panels),
+<code>"zero"</code> (assumes zero cross-parcel noise correlation while still
+propagating same-parcel cross-lag error correlation when
+<code>control_target_seed_lag = TRUE</code>), or <code>"supplied"</code> (reads per-trial
+raw seed–target error covariance from <code>err_xy_col</code>).</p></dd>
 
 
 <dt id="arg-err-xy-col">err_xy_col<a class="anchor" aria-label="anchor" href="#arg-err-xy-col"></a></dt>
@@ -243,9 +247,16 @@ estimation weights.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of class <code>"medusa_connectivity_repair"</code> containing
-  <code>group</code> (group-level random-effects meta-analytic inference table),
-  <code>subjects</code> (per-subject estimates, SEs, and REPAIR diagnostics),
-  optional <code>panel_repair</code>, and <code>settings</code>.</p>
+  <code>group</code> (group-level HKSJ random-effects meta-analytic inference table,
+  or single-subject cross-trial Satterthwaite \(t\)-inference table when
+  \(N = 1\)), <code>subjects</code> (per-subject estimates, SEs, Satterthwaite
+  <code>df</code>, and REPAIR diagnostics), optional <code>panel_repair</code>, and
+  <code>settings</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code>, <code><a href="aggregate_decon_panel.html">aggregate_decon_panel</a></code>,
+  <code><a href="medusa_fit_mmom.html">medusa_fit_mmom</a></code>, <code><a href="medusa_between_subject_repair.html">medusa_between_subject_repair</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

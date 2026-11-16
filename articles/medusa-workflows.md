@@ -679,18 +679,23 @@ errors, within-unit mean-1 precision weights (`precision_weight`),
 unnormalized cohort-comparable inverse total variance weights
 (`precision_weight_cohort`, which preserve between-participant
 reliability differences in multi-subject mixed models), and lag-1 trial
-error autocorrelation. When `aggregate_by_parcel = TRUE`, the panel also
-carries a list-column `shared_noise_loading` so cross-parcel noise
-correlations survive
-[`data.table::rbindlist()`](https://rdrr.io/pkg/data.table/man/rbindlist.html)
-for `decon_connectivity_repair(..., shared_error = "auto")`. Because
-`whiten_panel = TRUE` was requested, `decon_demixed_whitened` and
-`rpe_whitened` also provide within-run ZCA-decorrelated trial responses
-and centered covariates. `trial` is **not necessarily your original
-behavioral trial ID**. Join behavior through the preserved event-row
-mapping, then validate one-to-one identity at the intended grain. Add
-participant and session IDs explicitly before combining people; do not
-let identical run names imply identical participants.
+error autocorrelation. Under `shared_error_method = "poet_covreg"`
+(default), the panel also carries Block-PAF list-columns
+`shared_noise_vec`, `lag_noise_vec` (multi-lag fits), and
+`trial_cor_vec` (plus scalar/factor `shared_noise_loading` when
+`aggregate_by_parcel = TRUE`), which survive
+[`data.table::rbindlist()`](https://rdrr.io/pkg/data.table/man/rbindlist.html),
+`.rds`/Parquet storage, and pipe-delimited CSV/`.csv.gz` round-trips via
+`medusa_write_table()` / `medusa_read_table()` for
+`decon_connectivity_repair(..., shared_error = "auto")` and post-hoc
+[`aggregate_decon_panel()`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md).
+Because `whiten_panel = TRUE` was requested, `decon_demixed_whitened`
+and `rpe_whitened` also provide within-run ZCA-decorrelated trial
+responses and centered covariates. `trial` is **not necessarily your
+original behavioral trial ID**. Join behavior through the preserved
+event-row mapping, then validate one-to-one identity at the intended
+grain. Add participant and session IDs explicitly before combining
+people; do not let identical run names imply identical participants.
 
 The finite-value assertion is appropriate to this complete synthetic
 dataset. In real data, report retained trials by run/lag/voxel,
@@ -862,13 +867,17 @@ knitr::kable(
 Max-\|T\| tests cover the lags within one parcel–term trajectory; TFCE
 and omnibus inference use that same family, whereas claims across
 parcels or terms need a study-wide multiplicity procedure. For
-trial-level seed-to-target connectivity or PPI on `group_panel`, use
-`decon_connectivity_repair(group_panel, seed_region = "Parcel_A", target_region = "Parcel_B", covariates = "rpe", test_ppi = TRUE, use_whitened = FALSE, orthogonalize_seed_x = FALSE, shared_error = "auto", method = "mmoms", region_col = "parcel")`,
-which uses `shared_noise_loading` to disattenuate seed measurement error
-while subtracting cross-parcel shared-noise covariance and pooling
-subjects via HKSJ random-effects weights. Save the full `subject_epochs`
-objects and analysis settings, including the lag grid, parcel labels,
-and random seed.
+trial-level seed-to-target connectivity or PPI on `subject_epochs` or
+`group_panel`, use
+`decon_connectivity_repair(group_panel, seed_region = "Parcel_A", target_region = "Parcel_B", covariates = "rpe", test_ppi = TRUE, use_whitened = FALSE, orthogonalize_seed_x = FALSE, shared_error = "auto", crosstrial_se = TRUE, method = "mmoms", region_col = "parcel")`,
+which uses the POET + covariance-regression `shared_error_model` (or
+stacked `shared_noise_vec` / `lag_noise_vec` / `trial_cor_vec` columns)
+to disattenuate seed measurement error, subtract both stationary and
+dynamic cross-parcel shared-noise covariance, compute cross-trial
+Satterthwaite SEs (`crosstrial_se = TRUE`), and pool subjects via HKSJ
+random-effects weights. Save the full `subject_epochs` objects and
+analysis settings, including the lag grid, parcel labels, and random
+seed.
 
 **Saving recipe; not executed.** Keeping only the panel loses the fitted
 operator context needed for audits.
@@ -1174,9 +1183,9 @@ write_nifti_ts(t_vec, "sub01_feedback_rpe_t_lag0.nii.gz", reference = decon_vox,
 |----|----|----|
 | Input to HRF/noise fit | TR, offsets, masks, AROMA & confound strategy (`aroma`, `aroma_clean_nuisance`, `motion_bandstop_bpm`), candidate library, `pooling` (`"voxel"`, `"parcel"`, `"graph"`), `spatial_groups` / `spatial_graph` | Confirm clocks, retained acquisition indices, matched AROMA projection across BOLD and `nuisance` (`aroma_clean_nuisance = TRUE`) plus `<bold>.json` provenance guards, target-run exclusion for HRF selection, geodesic vs. Euclidean neighborhood topology (`hrf_fit$spatial$graph`), gap-local AR($`p`$) noise fits, and fallback strata. |
 | HRF/noise fit to inverse | `lambda` / `lambda_mode` (`"auto"`, `"global"`, `"stratified"`), penalty, nuisance mode, scaling | In PRs 62 & 64+, `scaling = "noise_sd"` estimates **marginal observation-noise** SD ($`\sigma_{\text{marg}}`$) via leverage-adjusted Winsorized GLS residuals, and `lambda = NULL` (`lambda_mode = "auto"`) pools FDR-gated, PAVA-monotone GCV across usable runs (`decon$settings$lambda_strata`). Examine estimated scales, fit residuals, and tuning diagnostics. |
-| Inverse to event measurements | Source duration and units, readout, demixing, `tau2_shrinkage`, target condition and lag grid | Verify event-row identity, causal BOLD observability (`obs_frac_tau >= 0.20`), matched $`M_{\text{post}}`$ covariate alignment, bilateral `"graph_eb"` variance stabilization in voxelwise mode, and rate versus integrated activity for duration models. |
-| Event measurements to parcel panel | Parcel labels, `restore_scale`, `tau2_mode`, `whiten_panel` | Audit usable voxels, task-free `noise_innovations` spatial covariance, and retained trials by run. Distinguish within-run `precision_weight` from cohort-comparable `precision_weight_cohort` and retain `shared_noise_loading` for connectivity. |
-| Panel to group claim | Participant/run effects, predictors, weights, trajectory/connectivity mode, test family | Check participant counts, residual dependence, singularity, `contrast_source = "unsmoothed"`, `shared_error = "auto"`, and whether the test applies to one lag, one trajectory, or a whole study family. |
+| Inverse to event measurements | Source duration and units, readout, demixing, `tau2_shrinkage`, `shared_error_method`, `variance_confounds`, target condition and lag grid | Verify event-row identity, causal BOLD observability (`obs_frac_tau >= 0.20`), matched $`M_{\text{post}}`$ covariate alignment, bilateral `"graph_eb"` variance stabilization in voxelwise mode, rate versus integrated activity for duration models, and frame-level `variance_confounds = conf` handoff when motion/physiological bursts are present. |
+| Event measurements to parcel panel | Parcel labels (`parcel_groups` or post-hoc [`aggregate_decon_panel()`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md)), `restore_scale`, `tau2_mode`, `whiten_panel` | Audit usable voxels, Adaptive-POET + covariance-regression shared-error embeddings (`shared_noise_vec`, `lag_noise_vec`, `trial_cor_vec`), and retained trials by run. Distinguish within-run `precision_weight` from cohort-comparable `precision_weight_cohort` and use `medusa_write_table()` when exporting CSV/`.csv.gz` panels so list-columns round-trip cleanly. |
+| Panel to group claim | Participant/run effects, predictors, weights, trajectory/connectivity mode (`crosstrial_se = TRUE`), test family | Check participant counts, residual dependence, singularity, `contrast_source = "unsmoothed"`, `shared_error = "auto"`, `crosstrial_se = TRUE` (essential for $`N = 1`$ precision neuroimaging), and whether the test applies to one lag, one trajectory, or a whole study family. |
 
 Earlier MEDuSA documents may describe pre-PR 62 second-difference noise
 scaling, first-run GCV tuning, or single-covariate trajectory pooling.

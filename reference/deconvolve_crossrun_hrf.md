@@ -138,8 +138,12 @@ the named per-voxel penalty vector `settings$lambda_by_voxel` ready for
 1-line 3D NIfTI export via
 [`write_nifti_ts`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md),
 and SNR tier summary table `settings$lambda_strata` when stratified),
-standardized `noise_innovations`, per-run observation `frame_weights`,
-and optional NIfTI `voxel_map` and `geometry` metadata (enabling direct
+standardized `noise_innovations`, cached uncensored `bold_obs` (for
+\\\le 16{,}384\\ voxels) or compact \\m_r \times 64\\ `whitened_sketch`
+factors (above \\16{,}384\\ voxels, enabling bold-free Stage-3
+`"poet_covreg"` shared-error estimation without retaining full 4D BOLD
+arrays), per-run observation `frame_weights`, and optional NIfTI
+`voxel_map` and `geometry` metadata (enabling direct
 [`write_nifti_ts`](https://hallquistlab.github.io/medusa/reference/write_nifti_ts.md)
 export without an external reference file). Activity matrices retain
 voxel IDs and carry `tr`, `time_offset`, and `observation_mask`

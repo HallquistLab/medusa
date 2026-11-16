@@ -428,49 +428,49 @@ Figure&nbsp;2.1: Top: generating and cross-fitted HRF for Parcel A using realize
 <td style="text-align: right;">-2</td>
 <td style="text-align: right;">0.304</td>
 <td style="text-align: right;">0.707</td>
-<td style="text-align: right;">0.087</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">3.599</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">-1</td>
 <td style="text-align: right;">0.185</td>
 <td style="text-align: right;">1.288</td>
-<td style="text-align: right;">0.087</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">2.174</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0.028</td>
 <td style="text-align: right;">1.420</td>
-<td style="text-align: right;">0.087</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">1.721</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">-0.104</td>
 <td style="text-align: right;">1.052</td>
-<td style="text-align: right;">0.087</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">2.168</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">-0.165</td>
 <td style="text-align: right;">0.317</td>
-<td style="text-align: right;">0.087</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">3.852</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">-0.140</td>
 <td style="text-align: right;">-0.523</td>
-<td style="text-align: right;">0.088</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">9.934</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">-0.041</td>
 <td style="text-align: right;">-1.129</td>
-<td style="text-align: right;">0.087</td>
+<td style="text-align: right;">0.078</td>
 <td style="text-align: right;">26.321</td>
 </tr>
 </tbody>
@@ -576,7 +576,7 @@ Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Or
 </section>
 <section id="test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair" class="level2">
 <h2 class="anchored" data-anchor-id="test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair">4. Test seed-to-target connectivity and PPI (Step 6: <code>decon_connectivity_repair()</code>)</h2>
-<p>Finally, when <code>Parcel_A</code> moves to the right-hand side to test whether its coupling with <code>Parcel_B</code> changes with RPE (<code>Parcel_B ~ Parcel_A + rpe + Parcel_A:rpe</code>), <code>decon_connectivity_repair(..., shared_error = "auto", method = "mmoms")</code> uses per-trial <code>se_demixed^2</code> and cross-parcel noise correlations to correct predictor measurement error while controlling for the main effect of RPE in both parcels. Because our teaching simulation contains no true PPI modulation, the estimated interaction centers near zero as expected.</p>
+<p>Finally, when <code>Parcel_A</code> moves to the right-hand side to test whether its coupling with <code>Parcel_B</code> changes with RPE (<code>Parcel_B ~ Parcel_A + rpe + Parcel_A:rpe</code>), <code>decon_connectivity_repair(..., shared_error = "auto", crosstrial_se = TRUE, method = "mmoms")</code> uses per-trial <code>se_demixed^2</code>, Step 4’s Adaptive-POET + covariance-regression shared-error model (<code>shared_error_model</code> / <code>shared_noise_vec</code>), and cross-trial sandwich SEs to correct predictor measurement error and cross-parcel noise while controlling for the main effect of RPE in both parcels. Because our teaching simulation contains no true PPI modulation, the estimated interaction centers near zero as expected.</p>
 </section>
 <section id="practical-checks-censoring-support-and-file-handoffs" class="level2">
 <h2 class="anchored" data-anchor-id="practical-checks-censoring-support-and-file-handoffs">5. Practical checks: Censoring support and file handoffs</h2>
@@ -637,7 +637,7 @@ Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Or
 </section>
 <section id="sec-worked-handoff" class="level3">
 <h3 class="anchored" data-anchor-id="sec-worked-handoff">Preserving cross-parcel error metadata across exports</h3>
-<p>Step 6’s <code>shared_error = "auto"</code> reads full <code>$unit_error_cor</code> matrices when given <code>subject_epochs</code>, or falls back to the <code>$panel$shared_noise_loading</code> column when given a stacked <code>data.table</code> or <code>.rds</code>/Parquet file. Stripping <code>shared_noise_loading</code> during a compact plain-text export leaves no cross-parcel error metadata, causing <code>"auto"</code> to fall back transparently to zero shared error:</p>
+<p>Step 6’s <code>shared_error = "auto"</code> evaluates the full POET + covariance-regression <code>$shared_error_model</code> when given <code>subject_epochs</code>, or uses the embedded Block-PAF factor list-columns (<code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>) when given a stacked <code>data.table</code>, <code>.rds</code>/Parquet file, or a pipe-delimited CSV/<code>.csv.gz</code> written via <code>medusa_write_table()</code> and restored automatically by <code>medusa_read_table()</code> (or <code>decon_connectivity_repair()</code>). Stripping all shared-error columns during a minimal plain-text export leaves no cross-parcel error metadata, causing <code>"auto"</code> to fall back transparently to zero shared error:</p>
 <div class="cell">
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
@@ -653,31 +653,31 @@ Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Or
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Participant fits</td>
-<td style="text-align: left;">Participant matrices</td>
-<td style="text-align: left;">0.0017</td>
-<td style="text-align: left;">-0.00146</td>
-<td style="text-align: left;">[-0.0235, 0.0206]</td>
+<td style="text-align: left;">POET + CovReg operator</td>
+<td style="text-align: left;">0.0000</td>
+<td style="text-align: left;">0.00017</td>
+<td style="text-align: left;">[-0.0200, 0.0204]</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Stacked panel</td>
-<td style="text-align: left;">Loading products</td>
-<td style="text-align: left;">0.0017</td>
-<td style="text-align: left;">-0.00146</td>
-<td style="text-align: left;">[-0.0235, 0.0206]</td>
+<td style="text-align: left;">Block-PAF panel vectors</td>
+<td style="text-align: left;">0.0000</td>
+<td style="text-align: left;">0.00016</td>
+<td style="text-align: left;">[-0.0201, 0.0204]</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Full CSV</td>
-<td style="text-align: left;">Loading products</td>
-<td style="text-align: left;">0.0017</td>
-<td style="text-align: left;">-0.00146</td>
-<td style="text-align: left;">[-0.0235, 0.0206]</td>
+<td style="text-align: left;">Restored CSV vectors</td>
+<td style="text-align: left;">0.0000</td>
+<td style="text-align: left;">0.00016</td>
+<td style="text-align: left;">[-0.0201, 0.0204]</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">CSV without loadings</td>
+<td style="text-align: left;">CSV without shared-error cols</td>
 <td style="text-align: left;">Zero fallback</td>
 <td style="text-align: left;">0.0000</td>
-<td style="text-align: left;">-0.00150</td>
-<td style="text-align: left;">[-0.0235, 0.0206]</td>
+<td style="text-align: left;">0.00016</td>
+<td style="text-align: left;">[-0.0201, 0.0204]</td>
 </tr>
 </tbody>
 </table>

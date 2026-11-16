@@ -364,7 +364,7 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 0 · Task design &amp; BIDS/fMRIPrep ingestion</strong></td>
 <td style="text-align: left;"><code>read_fmriprep_subject()</code>, <code>read_bids_events()</code>, <code>read_fmriprep_confounds()</code>, <code>read_fmriprep_aroma()</code>, <code>apply_aroma()</code>, <code>read_nifti_ts()</code></td>
-<td style="text-align: left;">Multi-run &amp; inter-phase jitter feasibility benchmarks, direct 4D NIfTI ↔︎ <code>T × V</code> matrix extraction with pre-flight geometry checks, BIDS/<code>fMRIPrep</code>/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code>, non-aggressive ICA-AROMA partial regression, explicit <code>missed_feedback</code> nuisance event retention, and <code>event_index</code>-keyed trial joins.</td>
+<td style="text-align: left;">Multi-run &amp; inter-phase jitter feasibility benchmarks, direct 4D NIfTI ↔︎ <code>T × V</code> matrix extraction with pre-flight geometry checks, BIDS/<code>fMRIPrep</code>/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code>, frame-level <code>$variance_confounds</code> extraction (<code>FD</code>, <code>DVARS</code>, <code>RVT</code>), non-aggressive ICA-AROMA partial regression, explicit <code>missed_feedback</code> nuisance event retention, and <code>event_index</code>-keyed trial joins.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 1 · Spatial Graph, Cross-Run HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
@@ -374,17 +374,17 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 2 · Event-informed continuous deconvolution</strong></td>
 <td style="text-align: left;"><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code>, <code>deconvolve_reglin()</code>, <code>deconvolve_nlreg()</code></td>
-<td style="text-align: left;">Continuous neural source recovery with monotone SNR-stratified <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>, PAVA), task-guarded <code>rwls = "auto"</code> glitch downweighting, outlier-trimmed GLS marginal <code>"noise_sd"</code> scaling, task-free <code>noise_innovations</code>, explicit <code>hrf_inverse_operator()</code> strata, and 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler, 2013 comparator).</td>
+<td style="text-align: left;">Continuous neural source recovery with monotone SNR-stratified <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>, PAVA), task-guarded <code>rwls = "auto"</code> glitch downweighting, outlier-trimmed GLS marginal <code>"noise_sd"</code> scaling, bold-free Step 2 <span class="math inline">\(\to\)</span> Step 3 <code>bold_obs</code> (<span class="math inline">\(\le 16{,}384\)</span> voxels) / <code>whitened_sketch</code> (<span class="math inline">\(&gt; 16{,}384\)</span> voxels) caching, explicit <code>hrf_inverse_operator()</code> strata, and 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler, 2013 comparator).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 3 · Trial-epoch readout, alignment &amp; demixing</strong></td>
 <td style="text-align: left;"><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code>, <code>evt_align_decon_files()</code></td>
-<td style="text-align: left;">Local time-averaging (kernel quadrature) onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), ridge-stabilized target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, edge-preserving neighborhood trial-variance shrinkage (<code>tau2_shrinkage = "graph_eb"</code>), exact stationary error propagation (<code>se_demixed</code>), and descriptive peri-event alignment (<code>align_medusa_ts()</code>).</td>
+<td style="text-align: left;">Local time-averaging (kernel quadrature) onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), ridge-stabilized target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, edge-preserving neighborhood trial-variance shrinkage (<code>tau2_shrinkage = "graph_eb"</code>), exact error propagation (<code>se_demixed</code>), and descriptive peri-event alignment (<code>align_medusa_ts()</code>).</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong>Step 4 · Parcel panels &amp; cohort weights</strong></td>
-<td style="text-align: left;"><code>decon_epoch_regression(..., parcel_groups = ...)</code></td>
-<td style="text-align: left;">Multi-stratum inverse-variance parcel pooling using task-free <code>noise_innovations</code>, <code>shared_noise_loading</code> &amp; <code>unit_error_cor</code> export, <code>precision_weight</code> &amp; <code>precision_weight_cohort</code>, and paired within-run trial decorrelation (<code>whiten_panel</code>, ZCA).</td>
+<td style="text-align: left;"><strong>Step 4 · Parcel panels, POET CovReg &amp; cohort weights</strong></td>
+<td style="text-align: left;"><code>decon_epoch_regression(..., parcel_groups = ...)</code>, <code>aggregate_decon_panel()</code></td>
+<td style="text-align: left;">Multi-stratum inverse-variance parcel pooling, subspace-debiased Adaptive-POET + multi-lag Toeplitz &amp; LTZ-gated dynamic covariance regression (<code>shared_error_method = "poet_covreg"</code>, <code>variance_confounds</code>, <span class="math inline">\(&gt;512\)</span>-unit <code>lowrank_voxel</code> mode), Block-PAF list-columns (<code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>) with pipe-delimited CSV/<code>.csv.gz</code> round-trip restoration, post-hoc voxel-to-parcel aggregation (<code>aggregate_decon_panel()</code>), <code>precision_weight</code> &amp; <code>precision_weight_cohort</code>, and paired within-run trial decorrelation (<code>whiten_panel</code>, ZCA).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 5 · Group &amp; trajectory inference</strong></td>
@@ -394,7 +394,7 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 6 · Trial connectivity &amp; PPI</strong></td>
 <td style="text-align: left;"><code>decon_connectivity_repair()</code>, <code>medusa_fit_mmom()</code>, <code>medusa_between_subject_repair()</code></td>
-<td style="text-align: left;">Within-trial predictor disattenuation with conditioning protection (M-MOMS), automatic cross-parcel <code>shared_error = "auto"</code> subtraction, exact residualized-seed covariance projection, and finite-sample random-effects <span class="math inline">\(t\)</span>-interval pooling (HKSJ).</td>
+<td style="text-align: left;">Within-trial predictor disattenuation with conditioning protection (M-MOMS), stationary &amp; dynamic cross-parcel <code>shared_error = "auto"</code> subtraction (with full operator vs.&nbsp;stacked/CSV panel parity), exact residualized-seed covariance projection, single-subject (<span class="math inline">\(N=1\)</span>) &amp; subject-level cross-trial sandwich SEs + Satterthwaite <code>df</code> (<code>crosstrial_se = TRUE</code>), and finite-sample random-effects <span class="math inline">\(t\)</span>-interval pooling (HKSJ).</td>
 </tr>
 </tbody>
 </table>
@@ -457,7 +457,7 @@ Show full simulation and figure regeneration commands
 <section id="companion-validation-suite-library" class="level2">
 <h2 class="anchored" data-anchor-id="companion-validation-suite-library">Companion Validation Suite (<code>library/</code>)</h2>
 <ul>
-<li><strong>14-Study Validation Suite:</strong> <a href="library/medusa_validation_suite.html">Rendered HTML</a> · <a href="library/medusa_validation_suite.qmd">Quarto source</a> — comprehensive multi-study simulation benchmarks evaluating end-to-end pipeline configurations across realistic event schedules, neurovascular heterogeneity, artifact bursts, censoring masks, and cohort sizes (synthesized in <a href="./evidence.html">What Validation Proves</a>).</li>
+<li><strong>15-Study Validation Suite:</strong> <a href="library/medusa_validation_suite.html">Rendered HTML</a> · <a href="library/medusa_validation_suite.qmd">Quarto source</a> — comprehensive multi-study simulation benchmarks evaluating end-to-end pipeline configurations across realistic event schedules, neurovascular heterogeneity, artifact bursts, censoring masks, dynamic POET covariance-regression shared noise, and cohort sizes (synthesized in <a href="./evidence.html">What Validation Proves</a>).</li>
 </ul>
 </section>
 <section id="key-methodological-references" class="level2">
@@ -486,6 +486,9 @@ Show full simulation and figure regeneration commands
 <li>Efron, B., &amp; Morris, C. (1972). Limiting the risk of Bayes and empirical Bayes estimators—Part II: The empirical Bayes case. <em>Journal of the American Statistical Association</em>, 67(337), 130–139.</li>
 <li>Smyth, G. K. (2004). Linear models and empirical Bayes methods for assessing differential expression in microarray experiments. <em>Statistical Applications in Genetics and Molecular Biology</em>, 3(1), Article 3.</li>
 <li>Tomasi, C., &amp; Manduchi, R. (1998). Bilateral filtering for gray and color images. <em>Proceedings of the Sixth International Conference on Computer Vision (ICCV)</em>, 839–846.</li>
+<li>Fan, J., Liao, Y., &amp; Mincheva, M. (2013). Large covariance estimation by thresholding principal orthogonal complements. <em>Journal of the Royal Statistical Society: Series B</em>, 75(4), 603–680. <a href="https://doi.org/10.1111/rssb.12016">DOI</a></li>
+<li>Hoff, P. D., &amp; Niu, X. (2012). Covariance regression with a linear predictor. <em>Statistica Sinica</em>, 22(2), 729–753. <a href="https://doi.org/10.5705/ss.2010.051">DOI</a></li>
+<li>Liu, H., Tang, Y., &amp; Zhang, H. H. (2009). A new chi-square approximation to the distribution of non-negative definite quadratic forms in non-central normal variables. <em>Computational Statistics &amp; Data Analysis</em>, 53(4), 853–856. <a href="https://doi.org/10.1016/j.csda.2008.11.025">DOI</a></li>
 </ul>
 
 

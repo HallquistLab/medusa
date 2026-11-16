@@ -365,7 +365,7 @@ window.Quarto = {
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
 <p>Many task-fMRI hypotheses are formulated at the level of <strong>anatomical regions or functional parcels</strong> rather than single voxels. Combining voxels within a parcel boosts trial-level signal-to-noise ratio substantially, provided aggregation happens at the right point in the pipeline: after each voxel’s run has been deconvolved under its own HRF and <span class="math inline">\(\text{AR}(p)\)</span> whitener, and before trial-level event de-mixing and precision weighting.</p>
-<p>Step 4—executed inside <code>decon_epoch_regression(..., parcel_groups = parcel_ids)</code>—pools continuous deconvolved time series within each parcel using cross-run precision and task-support weights, accumulates exact multi-stratum linear operators when intra-parcel voxels differ in HRF or noise stratum, measures spatial noise correlation directly from Step 2’s <strong>task-free <code>noise_innovations</code></strong>, and outputs a tidy participant <code>panel</code> ready to stack across a cohort for Steps 5 and 6.</p>
+<p>Step 4—executed inside <code>decon_epoch_regression(..., parcel_groups = parcel_ids)</code> (or post-hoc on an existing voxelwise panel via <code>aggregate_decon_panel()</code>)—pools continuous deconvolved time series within each parcel using cross-run precision and task-support weights, accumulates exact multi-stratum linear operators when intra-parcel voxels differ in HRF or noise stratum, estimates stationary and dynamic spatial error covariances via the <strong>Adaptive-POET + covariance-regression engine</strong> (<code>shared_error_method = "poet_covreg"</code>), and outputs a tidy participant <code>panel</code> ready to stack across a cohort for Steps 5 and 6.</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -427,18 +427,23 @@ window.Quarto = {
 <td>Naming elements by <code>voxel_ids</code> guarantees exact column alignment and automatically enables <code>aggregate_by_parcel = TRUE</code>.</td>
 </tr>
 <tr class="even">
-<td><code>deconvolution$noise_innovations</code></td>
-<td>Carried automatically inside <code>deconvolution</code> (<code>n_valid_rows × n_voxels</code> per run)</td>
-<td>Provides orthonormalized, task-projected <span class="math inline">\(\text{AR}(p)\)</span> innovations from Step 2 so shared task responses across voxels are separated cleanly from shared scanner noise.</td>
+<td><code>deconvolution$bold_obs</code> / <code>whitened_sketch</code> &amp; <code>noise_innovations</code></td>
+<td>Cached automatically inside <code>deconvolution</code> (<code>bold_obs</code> up to <span class="math inline">\(16{,}384\)</span> voxels; compact <span class="math inline">\(m_r \times 64\)</span> <code>whitened_sketch</code> above <span class="math inline">\(16{,}384\)</span> voxels)</td>
+<td>Supplies bold-free whitened residuals so Stage 4 separates task-evoked BOLD variance from stationary and dynamic scanner/physiological noise without retaining full 4D BOLD arrays.</td>
 </tr>
 <tr class="odd">
+<td><code>shared_error_method</code> &amp; <code>variance_confounds</code></td>
+<td><code>"poet_covreg"</code> (default), <code>"legacy"</code>, or <code>"none"</code>; optional <code>"medusa_confounds"</code> / <code>"medusa_nifti_ts"</code> / per-run envelopes</td>
+<td>Fits subspace-debiased Adaptive-POET + multi-lag Toeplitz and LTZ-gated dynamic covariance regression across task, covariate, rWLS, and motion/physiological envelopes (<code>FD</code>, <code>DVARS</code>, <code>RVT</code>).</td>
+</tr>
+<tr class="even">
 <td><code>tau2_mode</code> &amp; <code>tau2_shrinkage</code></td>
 <td><code>tau2_mode = c("auto", "marginal", "residual")</code>; <code>tau2_shrinkage = c("auto", "graph_eb", "eb", "none")</code></td>
 <td>Govern how parcel biological trial-to-trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> is estimated (<code>"auto"</code> defaults to <code>"none"</code> on standard coarse parcels; setting <code>"graph_eb"</code> builds a 3D parcel-centroid Euclidean graph for fine 400–1000-parcel atlases).</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>restore_scale</code> &amp; <code>whiten_panel</code></td>
-<td>Logical flags (<code>TRUE</code> recommended for both)</td>
+<td>Logical flags (<code>TRUE</code> recommended for scalar/trajectory panels; <code>use_whitened = FALSE</code> in Step 6)</td>
 <td>Place runs onto physical BOLD units before pooling and export paired within-run symmetrically decorrelated (<code>*_whitened</code>, regularized ZCA) outcome and predictor columns on the parcel covariance.</td>
 </tr>
 </tbody>
@@ -486,9 +491,9 @@ window.Quarto = {
 <td>Remove residual serial trial error correlation when analyzed as matched pairs in Step 5.</td>
 </tr>
 <tr class="odd">
-<td><code>shared_noise_loading</code> &amp; <code>epochs$unit_error_cor</code></td>
-<td>Per-parcel factor loading vector (<span class="math inline">\(R_{\text{err}} \approx \ell \ell^\top\)</span>) and full cross-parcel correlation matrix</td>
-<td>Preserve task-free cross-parcel error correlations across <code>rbindlist()</code> and <code>.rds</code>/Parquet storage for Step 6 <code>shared_error = "auto"</code>.</td>
+<td><code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>, &amp; <code>epochs$shared_error_model</code></td>
+<td>Block-PAF per-trial shared-error, cross-lag, and serial-correlation embeddings + full <code>v3</code> POET/covreg model (plus <code>unit_error_cor</code> &amp; <code>shared_noise_loading</code>)</td>
+<td>Preserve stationary and dynamic cross-parcel error covariances across <code>rbindlist()</code>, <code>.rds</code>/Parquet, pipe-delimited CSV/<code>.csv.gz</code> (<code>medusa_write_table()</code>), and post-hoc <code>aggregate_decon_panel()</code> for Step 6 <code>shared_error = "auto"</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -540,7 +545,7 @@ Figure&nbsp;7.2: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-s
 \sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv}.
 \]</span></p>
 <p>In our 4-voxel example (<code>simulate_step4.R</code>), <span class="math inline">\(\sigma_{\text{parcel}}\)</span> equals <code>0.0091</code> if voxel errors are independent (<span class="math inline">\(R_{\text{spatial}} = I\)</span>), but rises nearly twofold to <code>0.0171</code> if all four voxels share common noise (<span class="math inline">\(R_{\text{spatial}} = \mathbf{1}\mathbf{1}^\top\)</span>). Estimating spatial correlation from second differences of deconvolved <code>activity</code> (<span class="math inline">\(\Delta^2 \hat{a}\)</span>) conflates shared task-evoked neural responses with shared noise—pegging estimated noise near the <code>0.0171</code> ceiling even when true noise is independent (<code>0.00</code>) or negatively correlated (<code>-0.20</code>).</p>
-<p>By instead projecting <span class="math inline">\(u \odot \sigma\)</span> onto Step 2’s <strong>task-free whitened <code>noise_innovations</code></strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA recovers the true spatial noise SD across all four correlation regimes (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>7.3</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>7.1</span></a>) and matches analytical <code>se_demixed</code> to 9.71e-17. Pooling normalized parcel innovation vectors across runs also yields the cross-parcel error correlation matrix <code>unit_error_cor</code> and its factor representation <code>shared_noise_loading</code> for Step 6.</p>
+<p>By instead projecting <span class="math inline">\(u \odot \sigma\)</span> onto Step 2’s <strong>task-free whitened residuals</strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA recovers the true spatial noise SD across all four correlation regimes (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>7.3</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>7.1</span></a>) and matches analytical <code>se_demixed</code> to 9.71e-17. Under <code>shared_error_method = "poet_covreg"</code> (default), Step 4 further applies <strong>subspace-debiased Adaptive-POET</strong> (Fan, Liao &amp; Mincheva, 2013) with Tukey-Hanning tapered multi-lag Toeplitz cross-spectra and <strong>LTZ-gated covariance regression</strong> (Hoff &amp; Niu, 2012) across task, covariate, Step-2 <code>rwls</code>, and external <code>variance_confounds</code> envelopes—producing <code>shared_error_model</code>, <code>unit_error_cor</code>, and per-trial Block-PAF list-columns (<code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>) for Step 6. Above 512 analysis units (e.g., whole-brain voxelwise panels), the engine switches automatically to a dual-space factor mode (<code>mode = "lowrank_voxel"</code>) that never allocates <span class="math inline">\(V \times V\)</span> matrices, and <code>aggregate_decon_panel()</code> can collapse any voxelwise fit or saved table to parcels post-hoc while propagating exact parcel <code>se_demixed</code> and inter-parcel error vectors.</p>
 <div id="fig-step4-noise" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -731,12 +736,18 @@ Figure&nbsp;7.6: Within-run parcel correlation matrix <span class="math inline">
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">restore_scale       =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_mode           =</span> <span class="st">"auto"</span>,</span>
 <span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_shrinkage      =</span> <span class="st">"auto"</span>,         <span class="co"># or "graph_eb" for dense 400-1000 parcel atlases</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">whiten_panel        =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_panel        =</span> <span class="cn">TRUE</span></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Attach participant ID before stacking across subjects (or writing partitioned Parquet)</span></span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>ep<span class="sc">$</span>panel[, id <span class="sc">:</span><span class="er">=</span> subject_id]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error_method =</span> <span class="st">"poet_covreg"</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">variance_confounds  =</span> conf,           <span class="co"># optional medusa_confounds / medusa_nifti_ts from Step 0</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">whiten_panel        =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_panel        =</span> <span class="cn">TRUE</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Attach participant ID before stacking across subjects (or writing RDS / Parquet / CSV)</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>ep<span class="sc">$</span>panel[, id <span class="sc">:</span><span class="er">=</span> subject_id]</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional post-hoc route: if `ep_vox` was fit voxelwise (aggregate_by_parcel = FALSE),</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="co"># collapse to any parcellation later with full shared-error propagation:</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="co"># ep_parcel &lt;- aggregate_decon_panel(ep_vox, parcel_groups = parcel_ids)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -750,29 +761,35 @@ Figure&nbsp;7.6: Within-run parcel correlation matrix <span class="math inline">
 <tbody>
 <tr class="odd">
 <td><code>parcel_groups</code></td>
-<td><code>parcel_ids</code> / <code>ts$parcel_ids</code></td>
+<td><code>parcel_ids</code> / <code>ts$parcel_ids</code> (or post-hoc <code>aggregate_decon_panel()</code>)</td>
 <td><code>NULL</code></td>
-<td>Activates Step 4 SNR-weighted continuous parcel aggregation (<code>Substep 4.1</code>).</td>
+<td>Activates Step 4 SNR-weighted continuous parcel aggregation (<code>Substep 4.1</code>); use <code>aggregate_decon_panel()</code> when reusing one voxelwise fit across multiple atlases.</td>
 </tr>
 <tr class="even">
+<td><code>shared_error_method</code> &amp; <code>variance_confounds</code></td>
+<td><code>"poet_covreg"</code> + <code>conf</code> (<code>read_fmriprep_confounds()</code>)</td>
+<td><code>"poet_covreg"</code>, <code>NULL</code></td>
+<td>Estimates subspace-debiased Adaptive-POET + dynamic covariance-regression shared-error moments (<code>Substep 4.3</code>).</td>
+</tr>
+<tr class="odd">
 <td><code>restore_scale</code></td>
 <td><code>TRUE</code></td>
 <td><code>FALSE</code></td>
 <td>Places all runs of a parcel onto physical BOLD units so <code>precision_weight_cohort</code> is comparable across runs and participants (<code>Substep 4.4</code>).</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>tau2_mode</code></td>
 <td><code>"auto"</code> (or <code>"marginal"</code> when <code>covariates = NULL</code>)</td>
 <td><code>"auto"</code></td>
 <td>Estimates parcel biological trial variance for composite trial weights and ZCA (<code>Substep 4.4</code>).</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>tau2_shrinkage</code></td>
 <td><code>"auto"</code> (<code>"graph_eb"</code> on 400–1000 parcels)</td>
 <td><code>"auto"</code></td>
 <td>Defaults to <code>"none"</code> on coarse high-SNR parcels; <code>"graph_eb"</code> builds a 3D parcel-centroid Euclidean graph from <code>voxel_map</code>.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>whiten_panel</code> &amp; <code>return_panel</code></td>
 <td><code>TRUE</code> &amp; <code>TRUE</code></td>
 <td><code>FALSE</code> (<code>TRUE</code> if <code>covariates = NULL</code>)</td>
@@ -786,12 +803,13 @@ Figure&nbsp;7.6: Within-run parcel correlation matrix <span class="math inline">
 <h2 class="anchored" data-anchor-id="practical-considerations-voxel-dropout-role-specific-columns-and-handoffs">Practical Considerations: Voxel Dropout, Role-Specific Columns, and Handoffs</h2>
 <ol type="1">
 <li><strong>Checking run-to-run voxel coverage:</strong> When partial FoV clipping drops voxels from a small parcel in one run, renormalization shifts the parcel’s spatial center slightly; inspect <code>decon$scaling[[r]]$status</code> whenever dropout is non-trivial.</li>
+<li><strong>Pre-aggregation (<code>parcel_groups</code>) vs.&nbsp;post-hoc <code>aggregate_decon_panel()</code>:</strong> Supplying <code>parcel_groups</code> directly inside <code>decon_epoch_regression()</code> is fastest when your target atlas is fixed. When you also want voxelwise maps—or plan to evaluate several atlases without repeating Step 3—fit <code>decon_epoch_regression(..., aggregate_by_parcel = FALSE)</code> once (automatically using memory-safe <code>lowrank_voxel</code> mode above 512 voxels) and call <code>aggregate_decon_panel(ep_vox, parcel_groups = atlas_vec)</code> per parcellation.</li>
 <li><strong>Matching panel columns to their statistical role:</strong> Mirrors the distinction between unshrunk likelihood-only readouts and shrunken EB predictions (Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026):
 <ul>
 <li>Use <strong><code>decon_demixed</code></strong> (with <code>weights = "precision_weight_cohort"</code>) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve <strong><code>decon_eb</code></strong> for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage (see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a> for a visual demonstration of <code>decon_eb</code> slope attenuation).</li>
 <li>When using ZCA-whitened variables, pair <code>decon_demixed_whitened</code> exclusively with matched <code>&lt;var&gt;_whitened</code> predictors from the same <code>(parcel, evt_time)</code> split.</li>
 </ul></li>
-<li><strong>Cohort storage handoff:</strong> Attach <code>id</code> (and <code>session</code> if longitudinal) before combining participants. Saving <code>subject_epochs</code> as <code>.rds</code> or writing panels to Parquet (<code>arrow::write_dataset()</code>) preserves the <code>shared_noise_loading</code> list-column for Step 6 alongside scalable disk streaming for Step 5 <code>mixed_by()</code>.</li>
+<li><strong>Cohort storage handoff:</strong> Attach <code>id</code> (and <code>session</code> if longitudinal) before combining participants. Saving <code>subject_epochs</code> as <code>.rds</code>, writing partitioned Parquet (<code>arrow::write_dataset()</code>), or exporting pipe-delimited CSV/<code>.csv.gz</code> via <code>medusa_write_table()</code> (read back via <code>medusa_read_table()</code> or directly by <code>decon_connectivity_repair()</code>) preserves <code>shared_noise_vec</code>, <code>lag_noise_vec</code>, and <code>trial_cor_vec</code> for Step 6 alongside scalable disk streaming for Step 5 <code>mixed_by()</code>.</li>
 </ol>
 <details>
 <summary>
@@ -799,7 +817,7 @@ Mathematical Reference &amp; Reproduction
 </summary>
 <ul>
 <li><strong>Within-parcel effective noise variance:</strong> Let <span class="math inline">\(Z_r \in \mathbb{R}^{m_r \times V}\)</span> denote Step 2’s column-unit-norm task-projected whitened innovations (<code>colSums(Z_r^2) == 1</code>). For parcel <span class="math inline">\(g\)</span> with valid voxels <span class="math inline">\(V_g\)</span>, normalized weights <span class="math inline">\(u_g\)</span>, and voxel observation-noise SDs <span class="math inline">\(\sigma_{r,V_g}\)</span>, define <span class="math inline">\(\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})\)</span>. Because <span class="math inline">\(\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}\)</span>, <span class="math inline">\(\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}\)</span> estimates parcel observation-noise variance without task contamination, bounded into <span class="math inline">\([0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]\)</span>.</li>
-<li><strong>Cross-parcel <code>shared_noise_loading</code>:</strong> Normalizing <span class="math inline">\(\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2\)</span> and pooling <span class="math inline">\(\tilde{Z}_r^\top \tilde{Z}_r\)</span> across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk on noisy off-diagonals, and projected onto the nearest positive semi-definite correlation matrix) yields <code>unit_error_cor</code>, whose principal factor loadings are stored in <code>panel$shared_noise_loading</code>.</li>
+<li><strong>Subspace-debiased Adaptive-POET &amp; LTZ-gated covariance regression (<code>poet_covreg</code>):</strong> On uncensored whitened residuals projected orthogonal to each stratum’s convolved <code>[trial, duration, dHRF/dt]</code> subspace <span class="math inline">\(M_{s_g}\)</span> (with exact <span class="math inline">\(\operatorname{tr}((I - M_{s_g})(I - M_{s_h}))\)</span> degrees-of-freedom debiasing), <code>medusa_fit_shared_error_covreg()</code> separates pervasive global physiological/scanner factors above the Marchenko–Pastur + Tracy–Widom bulk edge from firm-thresholded idiosyncratic residual correlations (<code>poet_regularize_cor()</code>), estimates Tukey-Hanning tapered multi-lag error cross-spectra, and fits Liu–Tang–Zhang (2009) spatial-<span class="math inline">\(\chi^2\)</span>-gated heteroskedastic variance slopes over task drive, covariates, Step-2 <code>rwls</code> bursts, and <code>variance_confounds</code> (restoring the baseline intercept via exact Schur complement whenever null confound columns are gated to zero). Block-PAF factorization embeds the resulting trial-by-parcel error covariance onto <code>panel$shared_noise_vec</code>, <code>panel$lag_noise_vec</code>, and <code>panel$trial_cor_vec</code>.</li>
 </ul>
 <p><a href="simulate_step4.R">Step 4 simulation script</a> · <a href="figures_step4.R">Figure script</a> · <a href="parcel_noise_check.csv">Parcel noise table</a></p>
 </details>
