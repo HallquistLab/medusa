@@ -239,6 +239,11 @@ window.Quarto = {
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -863,7 +868,7 @@ Figure&nbsp;6.9: Within-run total trial correlation matrix <span class="math inl
 <h2 class="anchored" data-anchor-id="practical-considerations-descriptive-alignment-censoring-support-and-scope">Practical Considerations: Descriptive Alignment, Censoring Support, and Scope</h2>
 <ol type="1">
 <li><strong>When to use descriptive <code>align_medusa_ts()</code> vs.&nbsp;inferential <code>decon_epoch_regression()</code>:</strong> When you want descriptive peri-event waveform interpolation without a forward de-mixing model—for example, plotting raw peri-event BOLD averages, inspecting blind <code>deconvolve_nlreg()</code> / <code>deconvolve_reglin()</code> trajectories, or auditing explicit collision rules (<code>overlap_policy = "allow" | "truncate" | "exclude"</code>)—use <strong><code>align_medusa_ts()</code></strong> (or <code>evt_align_decon_files()</code> for disk-backed <code>.csv.gz</code> archives). For primary inferential modeling on <code>deconvolve_crossrun_hrf()</code> outputs, use <strong><code>decon_epoch_regression()</code></strong>, which removes neighbor mixing and propagates analytical <code>se_demixed</code>. (Because <code>epochs$panel</code> is already event-aligned, it goes directly to Steps 5–6 without calling <code>align_medusa_ts()</code>.)</li>
-<li><strong>Causal BOLD observability gating (<code>obs_frac_tau &gt;= 0.20</code>):</strong> If at least 80% of the forward HRF energy evoked by a target event at <span class="math inline">\(t_i + \tau\)</span> falls inside censored frames (<code>valid_rows == FALSE</code>) or past the end of the run, Step 3 records that trial-lag as <code>NA</code> rather than extrapolating from the smoothness penalty. Always inspect retained trial counts across runs and conditions before group modeling.</li>
+<li><strong>Causal BOLD observability gating (<code>obs_frac_tau &gt;= 0.20</code>):</strong> If at least 80% of the forward HRF energy evoked by a target event at <span class="math inline">\(t_i + \tau\)</span> falls inside censored frames (<code>valid_rows == FALSE</code>) or past the end of the run, Step 3 records that trial-lag as <code>NA</code> rather than extrapolating from the smoothness penalty (while partial scrubbing inside the HRF window elevates <code>se_demixed</code>; see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a>). Always inspect retained trial counts across runs and conditions before group modeling.</li>
 <li><strong>Scope handoff:</strong> Step 3 operates within a single participant. Aggregating voxels into anatomical parcels with spatial noise propagation is covered next in <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">Step 4</a> (executed inside the same <code>decon_epoch_regression(..., parcel_groups = ...)</code> call), followed by population modeling in <a href="../medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a> and connectivity disattenuation in <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>.</li>
 </ol>
 <details>

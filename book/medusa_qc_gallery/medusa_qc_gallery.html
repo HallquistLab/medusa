@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Visual QC and Troubleshooting Gallery – MEDuSA</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" rel="next">
+<link href="../medusa_step6_connectivity/medusa_step6_connectivity.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../book.css">
+</head>
+
+<body class="nav-sidebar floating quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_qc_gallery/medusa_qc_gallery.html"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">MEDuSA</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/HallquistLab/medusa" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 2: Event-Informed Continuous Deconvolution</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step3_epochs/medusa_step3_epochs.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step5_group_models/medusa_step5_group_models.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Spatial and volumetric workflows</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#quick-symptom-to-remedy-reference" id="toc-quick-symptom-to-remedy-reference" class="nav-link" data-scroll-target="#quick-symptom-to-remedy-reference">Quick Symptom-to-Remedy Reference</a></li>
+  <li><a href="#visual-diagnostic-pairs-across-the-pipeline" id="toc-visual-diagnostic-pairs-across-the-pipeline" class="nav-link" data-scroll-target="#visual-diagnostic-pairs-across-the-pipeline">Visual Diagnostic Pairs Across the Pipeline</a>
+  <ul class="collapse">
+  <li><a href="#sec-qc-step01" id="toc-sec-qc-step01" class="nav-link" data-scroll-target="#sec-qc-step01">1. Steps 0 &amp; 1: Event-Clock Shifts, Onset-Unit Errors, and AR(1) Ceiling Pile-Ups</a></li>
+  <li><a href="#sec-qc-step2" id="toc-sec-qc-step2" class="nav-link" data-scroll-target="#sec-qc-step2">2. Step 2: Over-Smoothing Gain Collapse and Uncensored Spike Ringing</a></li>
+  <li><a href="#sec-qc-step34" id="toc-sec-qc-step34" class="nav-link" data-scroll-target="#sec-qc-step34">3. Steps 3 &amp; 4: Motion-Scrubbing Shadows in Trial SEs and Shrunken Outcome Misuse</a></li>
+  <li><a href="#sec-qc-step56" id="toc-sec-qc-step56" class="nav-link" data-scroll-target="#sec-qc-step56">4. Steps 5 &amp; 6: Multilevel Centering/Random-Slope Pitfalls and Connectivity Shared Noise</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_qc_gallery/medusa_qc_gallery.html"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></h1>
+<p class="subtitle lead">Side-by-side healthy versus mis-specified diagnostic signatures across Steps 0–6</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>When an end-to-end single-trial fMRI analysis yields unexpectedly weak slopes, implausibly shifted peri-event peaks, or inflated connectivity estimates, identifying <em>which pipeline stage</em> introduced the distortion is much faster when you know the visual signature each failure mode leaves behind. Because MEDuSA preserves explicit diagnostic summaries, operator resolution metrics, and propagated standard errors at every stage (see the <a href="../foundations.html#fig-pipeline-dataflow">end-to-end data-flow schematic</a>), most upstream mis-specifications can be localized in a few lines of R before fitting group models across hundreds of parcels.</p>
+<p>The snippet below collects the six fastest pre-flight checks across a completed or pilot participant workflow:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Step 0: Check motion censoring share, dummy frames, and event clock bounds (in seconds)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(sub01<span class="sc">$</span>confounds<span class="sc">$</span>summary[, <span class="fu">c</span>(<span class="st">"run"</span>, <span class="st">"n_volumes"</span>, <span class="st">"pct_censored"</span>, <span class="st">"n_non_steady_state"</span>)])</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(<span class="fu">split</span>(sub01<span class="sc">$</span>events<span class="sc">$</span>onset, sub01<span class="sc">$</span>events<span class="sc">$</span>run), range)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Step 1: Check out-of-sample HRF task relevance and AR(p) rho stationarity ceiling (0.90)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(hrf_fit<span class="sc">$</span>selections, <span class="cf">function</span>(s) <span class="fu">summary</span>(s<span class="sc">$</span>selected_task_p))</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(hrf_fit<span class="sc">$</span>noise, <span class="cf">function</span>(n) <span class="fu">quantile</span>(n<span class="sc">$</span>rho[, <span class="dv">1</span>], <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.9</span>, <span class="fl">0.99</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Step 2: Check deconvolution conditional self-gain and attenuation</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">events =</span> sub01<span class="sc">$</span>events)<span class="sc">$</span>summary</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Step 3 &amp; 4: Audit trial-level SE distribution and BOLD-coverage NA gating</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(epochs<span class="sc">$</span>panel<span class="sc">$</span>se_demixed)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(<span class="fu">is.na</span>(epochs<span class="sc">$</span>panel<span class="sc">$</span>decon_demixed))</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Step 5: Verify predictor centering (run/person mean ~ 0) and random-effect singularity</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">tapply</span>(group_panel<span class="sc">$</span>rpe_within, group_panel<span class="sc">$</span>id, mean, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span> <span class="fu">summary</span>()</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. Step 6: Inspect M-MOMS attenuation factor (alpha_final) and shared cross-parcel error</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(ppi<span class="sc">$</span>subjects[, <span class="fu">c</span>(<span class="st">"estimate"</span>, <span class="st">"r_shared_error"</span>, <span class="st">"alpha_final"</span>, <span class="st">"converged"</span>)])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>How to Use This Gallery
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Each section below pairs a <strong>healthy MEDuSA run</strong> (blue) against one or two <strong>realistic mis-specifications</strong> (red/amber) generated on the same underlying neural ground truth using <code>medusa</code>. Start with the lookup table in the next section to match an observed symptom to its pipeline stage, then jump to the corresponding visual pair for the diagnostic check and remedy.</p>
+</div>
+</div>
+<hr>
+</section>
+<section id="quick-symptom-to-remedy-reference" class="level2">
+<h2 class="anchored" data-anchor-id="quick-symptom-to-remedy-reference">Quick Symptom-to-Remedy Reference</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Observed symptom</th>
+<th style="text-align: left;">Field or plot to inspect</th>
+<th style="text-align: left;">Underlying mechanism</th>
+<th style="text-align: left;">Recommended remedy</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Peri-event curve peaks several seconds <em>before</em> <code>0 s</code> (e.g., at <code>-4 s</code> or <code>-6 s</code>)</td>
+<td style="text-align: left;"><code>decon_epoch_regression(..., lags = -6:6)</code> lag profile</td>
+<td style="text-align: left;">Initial dummy volumes were physically dropped from the 4D NIfTI while <code>events$onset</code> stayed referenced to scanner trigger <code>t = 0</code> (<code>time_offset = 0</code>)</td>
+<td style="text-align: left;">Keep full 4D runs and mask dummy frames via <code>valid_rows</code> (<code>include_non_steady_state = TRUE</code>), or set <code>time_offset = k * tr</code> (<a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Virtually all parcels fail Step 1 task screening (<code>selected_task_p &gt; 0.10</code>) and lag-0 slopes vanish</td>
+<td style="text-align: left;"><code>range(events$onset)</code> vs.&nbsp;<code>(nrow(Y) - 1) * tr</code></td>
+<td style="text-align: left;">Event onsets were supplied in <strong>TR indices</strong> (or milliseconds) rather than physical <strong>seconds</strong>, compressing or stretching the forward design</td>
+<td style="text-align: left;">Convert <code>onset</code> and <code>duration</code> to seconds before calling <code>estimate_crossrun_hrf()</code> (<a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Large fraction of parcels/voxels pile up at <code>rho = 0.90</code> in Step 1</td>
+<td style="text-align: left;">Histogram of <code>hrf_fit$noise[[r]]$rho[, 1]</code></td>
+<td style="text-align: left;">Unmodeled scanner shim shifts, low-frequency drift, or respiratory alias forces <span class="math inline">\(\text{AR}(1)\)</span> autocorrelation onto its stationarity upper bound</td>
+<td style="text-align: left;">Include cosine/polynomial drift (<code>drift_order = 2</code> or <code>fMRIPrep</code> cosines), mask motion spikes via <code>valid_rows</code>, and use <code>motion_bandstop_bpm</code> for fast-TR runs (<a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Deconvolved time series <span class="math inline">\(\widehat{a}_r(t)\)</span> looks overly flat and Step 3 peaks are blunted</td>
+<td style="text-align: left;"><code>diagnose_crossrun_recovery(decon, events)$summary$mean_gain</code></td>
+<td style="text-align: left;">Penalty <span class="math inline">\(\lambda_v\)</span> was fixed too high (e.g., manual override), collapsing conditional self-gain toward zero</td>
+<td style="text-align: left;">Leave <code>lambda = NULL</code> so Step 2 tunes <span class="math inline">\(\lambda_v\)</span> automatically per series via GCV/REML (<a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Sharp positive/negative ringing lobes appear <span class="math inline">\(\pm 6\text{--}10\text{ s}\)</span> around isolated frames</td>
+<td style="text-align: left;">Continuous trace <code>decon$deconvolved[[r]]</code> overlaid on <code>confounds</code> FD</td>
+<td style="text-align: left;">Uncensored head-motion or coil spike with <code>rwls = "none"</code> rings through the inverse Toeplitz filter <span class="math inline">\(D_r\)</span></td>
+<td style="text-align: left;">Pass FD censor mask via <code>valid_rows</code> and keep adaptive <code>rwls = "auto"</code> enabled in Step 2 (<a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Individual trials show sharp <code>se_demixed</code> spikes or <code>NA</code> estimates</td>
+<td style="text-align: left;">Trial index vs.&nbsp;<code>panel$se_demixed</code> and <code>is.na(panel$decon_demixed)</code></td>
+<td style="text-align: left;">Censoring inside a trial’s causal HRF window reduces Fisher information (elevating <code>se_demixed</code>) or drops BOLD support below <code>min_bold_coverage</code> (<code>NA</code>)</td>
+<td style="text-align: left;">Expected protective behavior: retain <code>precision_weight_cohort</code> so noisy trials are downweighted automatically; exclude entire runs only when censoring is pervasive (<code>&gt; 25–30%</code>) (<a href="../medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Group fixed-effect slopes in Step 5 appear ~30–60% smaller than expected</td>
+<td style="text-align: left;">Model formula outcome column (<code>decon_eb</code> vs.&nbsp;<code>decon_demixed</code>)</td>
+<td style="text-align: left;">Empirical-Bayes shrunken <code>decon_eb</code> was entered as a regression outcome, shrinking group slopes by the trial reliability factor</td>
+<td style="text-align: left;">Always enter <code>decon_demixed</code> + <code>weights = "precision_weight_cohort"</code> when neural activity is the outcome; reserve <code>decon_eb</code> for visualization or standalone predictor summaries (<a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">Step 4</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Step 5 slope flips sign or has <code>df</code> in the thousands; Step 6 connectivity is inflated or attenuated</td>
+<td style="text-align: left;">Step 5 formula &amp; <code>df</code>; Step 6 <code>ppi$subjects$r_shared_error</code></td>
+<td style="text-align: left;">Uncentered <code>x_raw</code> conflates trait and state slopes; omitting <code>(1 + x_within || id)</code> treats trials as independent; stripping <code>unit_error_cor</code> (<code>shared_error = "zero"</code>) disattenuates shared noise</td>
+<td style="text-align: left;">Center predictors within person/run and include random slopes in Step 5 (<a href="../medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a>); preserve <code>subject_epochs</code> metadata and keep <code>shared_error = "auto"</code> with <code>method = "mmoms"</code> in Step 6 (<a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>)</td>
+</tr>
+</tbody>
+</table>
+<p><a href="#tbl-qc-summary" class="quarto-xref">Table&nbsp;<span>10.1</span></a> summarizes the quantitative contrast between the healthy baseline and the mis-specified pipeline in each simulated benchmark shown below.</p>
+<div class="cell">
+<div id="tbl-qc-summary" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-qc-summary-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;10.1: Healthy versus mis-specified diagnostic benchmarks across Steps 0–6 (generated live via simulate_qc_gallery.R).
+</figcaption>
+<div aria-describedby="tbl-qc-summary-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Pipeline Stage &amp; Diagnostic Contrast</th>
+<th style="text-align: left;">Healthy Signature</th>
+<th style="text-align: left;">Mis-Specified Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Step 0/1: Intact clock vs.&nbsp;dropped dummy TRs (<code>time_offset = 0</code>)</td>
+<td style="text-align: left;">Peak at 0 s (beta = 0.604)</td>
+<td style="text-align: left;">Shifted to -6 s (lag-0 beta = 0.029)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Step 0/1: Onsets in seconds vs.&nbsp;TR indices (<code>TR = 2.0 s</code>)</td>
+<td style="text-align: left;">Task p = 1.59e-143</td>
+<td style="text-align: left;">Lag-0 beta = 0.041 (schedule compressed)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Step 1: Clean BOLD vs.&nbsp;unmodeled shim drift (<code>rho &gt;= 0.89</code> share)</td>
+<td style="text-align: left;">0.0% at ceiling (median rho = 0.49)</td>
+<td style="text-align: left;">100.0% at 0.90 ceiling (median rho = 0.90)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Step 2: Auto <code>lambda</code> vs.&nbsp;oversmoothed <code>lambda = 8</code> (<code>mean_gain</code>)</td>
+<td style="text-align: left;">mean_gain = 0.317</td>
+<td style="text-align: left;">mean_gain = 0.043 (flat activity)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Step 3: Uncensored trial SE vs.&nbsp;partial-scrub shadow Trial 7 SE</td>
+<td style="text-align: left;">Median interior SE = 0.062</td>
+<td style="text-align: left;">Trial 7 SE = 0.076; Trial 11 = NA</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Step 4/5: <code>decon_demixed</code> vs.&nbsp;shrunken <code>decon_eb</code> slope (truth = 0.50)</td>
+<td style="text-align: left;">beta = 0.454 [0.408, 0.499]</td>
+<td style="text-align: left;">beta = 0.231 [0.188, 0.274]</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Step 5: Centered random-slope <code>lmer</code> vs.&nbsp;uncentered / no-random-slope</td>
+<td style="text-align: left;">beta = 0.434 (SE = 0.122, df = 35.0)</td>
+<td style="text-align: left;">Uncent. beta = -0.258; No-RS SE = 0.104 (df = 573)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Step 6: Seed connectivity (truth = 0.35; M-MOMS auto vs.&nbsp;lost shared_error / naive)</td>
+<td style="text-align: left;">beta = 0.295 [0.209, 0.382]</td>
+<td style="text-align: left;">Lost shared_error = 0.751; Naive = 0.178</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<hr>
+</section>
+<section id="visual-diagnostic-pairs-across-the-pipeline" class="level2">
+<h2 class="anchored" data-anchor-id="visual-diagnostic-pairs-across-the-pipeline">Visual Diagnostic Pairs Across the Pipeline</h2>
+<section id="sec-qc-step01" class="level3">
+<h3 class="anchored" data-anchor-id="sec-qc-step01">1. Steps 0 &amp; 1: Event-Clock Shifts, Onset-Unit Errors, and AR(1) Ceiling Pile-Ups</h3>
+<div id="fig-qc-step01" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel diagnostic comparison for Steps 0 and 1 showing backward-shifted or flattened peri-event lag curves from clock/unit bugs on the left, and AR(1) rho histogram pile-up at the 0.90 ceiling from unmodeled drift on the right.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-qc-step01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/01-qc-clock-and-rho.png" class="img-fluid figure-img" style="width:100.0%" alt="Two-panel diagnostic comparison for Steps 0 and 1 showing backward-shifted or flattened peri-event lag curves from clock/unit bugs on the left, and AR(1) rho histogram pile-up at the 0.90 ceiling from unmodeled drift on the right.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-qc-step01-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10.1: Healthy versus mis-specified diagnostics in Steps 0 and 1. <strong>A:</strong> True feedback RPE slope (<code>0.60</code> at lag <code>0 s</code>, <code>TR = 2.0 s</code>) recovered cleanly when initial dummy volumes are masked via <code>valid_rows</code> (blue), versus physically dropping 3 dummy volumes without setting <code>time_offset = 6</code> (solid red, shifting the recovered peak backward to <code>-6 s</code>) or supplying <code>events$onset</code> in TR indices rather than seconds (dashed amber, compressing all events into the first half of the scan and destroying the association). <strong>B:</strong> Parcel-level <code>hrf_fit$noise$run1$rho</code> across 36 parcels (true <span class="math inline">\(\rho \in [0.30, 0.62]\)</span>) on detrended BOLD (blue) versus BOLD contaminated by an unmodeled mid-run shim step and low-frequency drift (red, pinning 100% of parcels against the <code>0.90</code> stationarity ceiling).
+</figcaption>
+</figure>
+</div>
+<p><strong>What to look for in <a href="#fig-qc-step01" class="quarto-xref">Figure&nbsp;<span>10.1</span></a>:</strong></p>
+<ul>
+<li><strong>Event-clock shifts (Panel A, solid red):</strong> If an external script slices <span class="math inline">\(k\)</span> initial dummy volumes out of the 4D NIfTI file (<code>Y &lt;- Y[-c(1:k), ]</code>) while <code>events.tsv</code> remains referenced to the first scanner trigger (<code>time_offset = 0</code>), row 1 of the matrix is actually acquired at <span class="math inline">\(t = k \cdot \text{TR}\)</span> rather than <span class="math inline">\(t = 0\)</span>. Every neural response then appears in the BOLD record <span class="math inline">\(k \cdot \text{TR}\)</span> seconds <em>earlier</em> than the event table expects—producing an unmistakable “pre-stimulus” peak at <span class="math inline">\(-k \cdot \text{TR}\)</span> (<code>-6 s</code> here for 3 dropped <code>2.0 s</code> volumes) and near-zero effect at <code>0 s</code>.</li>
+<li><strong>Onset-unit mismatches (Panel A, dashed amber):</strong> Passing 0-based or 1-based volume indices instead of seconds when <span class="math inline">\(\text{TR} \ne 1.0\text{ s}\)</span> rescales the entire task timeline by <span class="math inline">\(1 / \text{TR}\)</span>. Step 1’s cross-run HRF selector finds almost no out-of-sample variance explained (<code>selected_task_p</code> shifts toward uniform noise), and Step 3 lag profiles flatten to zero.</li>
+<li><strong>Stationarity ceiling pile-ups (Panel B, red):</strong> Step 1 bounds REML <span class="math inline">\(\text{AR}(p)\)</span> roots inside a causal, stationary region (<code>rho &lt;= 0.90</code> for <span class="math inline">\(\text{AR}(1)\)</span>) so prewhitening stays invertible. A natural physiological distribution spans roughly <code>0.25–0.70</code> depending on <span class="math inline">\(\text{TR}\)</span>. When a large share of parcels stacks directly on <code>0.90</code>, the noise model is absorbing deterministic low-frequency drift, coil/shim jumps, or unmasked motion bursts rather than stationary innovations.</li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Diagnostic check &amp; remedy for Steps 0-1</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">max</span>(sub01<span class="sc">$</span>events<span class="sc">$</span>onset) <span class="sc">&lt;=</span> <span class="fu">max</span>(sub01<span class="sc">$</span>confounds<span class="sc">$</span>summary<span class="sc">$</span>n_volumes) <span class="sc">*</span> sub01<span class="sc">$</span>tr)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(hrf_fit<span class="sc">$</span>noise<span class="sc">$</span>run1<span class="sc">$</span>rho[, <span class="dv">1</span>] <span class="sc">&gt;=</span> <span class="fl">0.89</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)  <span class="co"># healthy: typically &lt; 0.05</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Remedy: keep intact 4D runs + valid_rows, and ensure drift + FD censoring are active</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>sub01   <span class="ot">&lt;-</span> <span class="fu">read_fmriprep_subject</span>(..., <span class="at">strategy =</span> <span class="st">"24p"</span>, <span class="at">fd_threshold =</span> <span class="fl">0.5</span>, <span class="at">include_non_steady_state =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(sub01, <span class="at">kernel_grid =</span> candidates, <span class="at">drift_order =</span> <span class="dv">2</span>L, <span class="at">pooling =</span> <span class="st">"parcel"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For full walkthroughs of clock-preserving ingestion and prewhitening choices, see <a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a> and <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>.</p>
+<hr>
+</section>
+<section id="sec-qc-step2" class="level3">
+<h3 class="anchored" data-anchor-id="sec-qc-step2">2. Step 2: Over-Smoothing Gain Collapse and Uncensored Spike Ringing</h3>
+<div id="fig-qc-step2" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel Step 2 diagnostic plot showing continuous deconvolved activity traces with over-smoothing vs spike ringing on the left, and diagnose_crossrun_recovery self-gain lollipops on the right.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-qc-step2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/02-qc-decon-gain-and-spikes.png" class="img-fluid figure-img" style="width:100.0%" alt="Two-panel Step 2 diagnostic plot showing continuous deconvolved activity traces with over-smoothing vs spike ringing on the left, and diagnose_crossrun_recovery self-gain lollipops on the right.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-qc-step2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10.2: Healthy versus mis-specified continuous deconvolution in Step 2. <strong>A:</strong> Continuous restored activity trace <span class="math inline">\(\widehat{a}_r(t)\)</span> across <code>67–117 s</code> of Run 1 containing two true neural events (<code>76 s</code> and <code>108 s</code>, green dotted lines) and a framewise motion artifact at <code>91 s</code> (red dashed line). Healthy deconvolution with <code>valid_rows</code> censoring and automatic <span class="math inline">\(\lambda_v\)</span> / RWLS recovers crisp phasic peaks at <code>76 s</code> and <code>108 s</code> while suppressing <code>91 s</code> (blue). Fixing <code>lambda = 8.0</code> flattens true neural peaks nearly to zero (amber), whereas leaving the <code>91 s</code> spike uncensored with <code>rwls = "none"</code> produces strong positive and negative deconvolution ringing lobes across <code>82–96 s</code> (red). <strong>B:</strong> <code>diagnose_crossrun_recovery()</code> immediately flags over-smoothing via collapsed <code>mean_gain</code> (<code>0.043</code> vs.&nbsp;<code>0.317</code>), whereas uncensored spike artifacts leave deterministic operator <code>mean_gain</code> almost unchanged (<code>0.300</code>) and therefore require inspecting censoring masks or RWLS weights.
+</figcaption>
+</figure>
+</div>
+<p><strong>What to look for in <a href="#fig-qc-step2" class="quarto-xref">Figure&nbsp;<span>10.2</span></a>:</strong></p>
+<ul>
+<li><strong>Gain collapse from over-regularization (amber):</strong> Because continuous deconvolution trades variance reduction against temporal shrinkage via the resolution matrix <span class="math inline">\(D_r H_r\)</span>, setting <code>lambda</code> manually to a large value crushes the diagonal self-gain of <code>diagnose_crossrun_recovery()</code> below <code>0.05</code>. Notice that <code>deconvolve_crossrun_hrf()</code> scales penalties cleanly when <code>scaling = "noise_sd"</code> and <code>lambda = NULL</code>; manual <code>lambda</code> overrides are rarely needed outside sensitivity analyses.</li>
+<li><strong>Why spike ringing requires <em>both</em> operator and residual/weight checks (red):</strong> Look closely at Panel B: the uncensored spike run (<code>rwls = "none"</code>, no <code>valid_rows</code> mask) still reports a healthy-looking <code>mean_gain = 0.300</code> in <code>diagnose_crossrun_recovery()</code>. That is because <code>mean_gain</code> audits the <em>linear operator</em> <span class="math inline">\(D_r H_r\)</span>, which depends on the HRF, run schedule, and <span class="math inline">\(\lambda_v\)</span>—not on an isolated BOLD outlier in <span class="math inline">\(y_r\)</span>. An unmasked motion spike acts like a delta impulse that does <em>not</em> follow the slow hemodynamic shape <span class="math inline">\(h_r\)</span>; inverting <span class="math inline">\(H_r\)</span> therefore surrounds the spike with alternating positive and negative side-lobes across neighboring timepoints. Masking high-FD frames via <code>valid_rows</code> (Step 0) and keeping <code>rwls = "auto"</code> (Step 2) prevents these artifacts from contaminating nearby trials.</li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Check both operator gain AND adaptive RWLS outlier downweighting</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>rec <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">events =</span> sub01<span class="sc">$</span>events)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(rec<span class="sc">$</span>summary[, <span class="fu">c</span>(<span class="st">"run"</span>, <span class="st">"mean_gain"</span>, <span class="st">"mean_abs_gain_error"</span>, <span class="st">"mean_abs_excess_leakage"</span>)])</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect minimum RWLS observation weights per run (weights &lt;&lt; 1 indicate downweighted residual spikes)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(decon<span class="sc">$</span>rwls_weights, <span class="cf">function</span>(w) <span class="fu">quantile</span>(w, <span class="at">probs =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.5</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For details on Sobolev versus ridge penalties, <code>scaling = "noise_sd"</code>, and <code>rwls = "auto"</code>, see <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>.</p>
+<hr>
+</section>
+<section id="sec-qc-step34" class="level3">
+<h3 class="anchored" data-anchor-id="sec-qc-step34">3. Steps 3 &amp; 4: Motion-Scrubbing Shadows in Trial SEs and Shrunken Outcome Misuse</h3>
+<div id="fig-qc-step34" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel diagnostic for Steps 3 and 4 showing trial-by-trial se_demixed spikes and NA gating under motion scrubbing on the left, and group slope attenuation when shrunken decon_eb is entered as a mixed_by outcome on the right.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-qc-step34-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/03-qc-censor-shadow-and-eb.png" class="img-fluid figure-img" style="width:100.0%" alt="Two-panel diagnostic for Steps 3 and 4 showing trial-by-trial se_demixed spikes and NA gating under motion scrubbing on the left, and group slope attenuation when shrunken decon_eb is entered as a mixed_by outcome on the right.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-qc-step34-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10.3: Healthy versus mis-specified trial epoching and panel assembly in Steps 3 and 4. <strong>A:</strong> Propagated trial-level standard error (<code>se_demixed</code>) across 16 feedback trials in Run 1. In an uncensored run (blue), interior trials share uniform precision (<code>se_demixed</code> <span class="math inline">\(\approx 0.062\)</span>) with an expected uptick only on Trial 16 (<code>215.5 s</code>, whose causal HRF tail is truncated by scanner shutoff at <code>220 s</code>). When 3 frames on Trial 7’s HRF peak are motion-scrubbed (red), <code>se_demixed</code> spikes selectively at Trial 7 (<code>0.076</code>) so downstream precision weights downweight it automatically; when 10 frames covering Trial 11’s HRF are scrubbed, <code>min_bold_coverage</code> gates Trial 11 cleanly to <code>NA</code> (red dashed line). <strong>B:</strong> Entering <code>decon_demixed</code> + <code>precision_weight_cohort</code> in <code>mixed_by()</code> across 16 participants recovers the generating slope (<code>0.454</code> vs.&nbsp;truth <code>0.50</code>, blue), whereas mistakenly entering empirical-Bayes shrunken <code>decon_eb</code> as the outcome shrinks the estimated population slope nearly in half (<code>0.231</code>, red).
+</figcaption>
+</figure>
+</div>
+<p><strong>What to look for in <a href="#fig-qc-step34" class="quarto-xref">Figure&nbsp;<span>10.3</span></a>:</strong></p>
+<ul>
+<li><strong>Protective <code>se_demixed</code> spikes vs.&nbsp;run-wide degradation (Panel A):</strong> Seeing isolated spikes in <code>panel$se_demixed</code> (like Trial 7) or run-boundary upticks (like Trial 16) is <em>not</em> a software bug—it is the propagated sandwich covariance <span class="math inline">\(\Omega_{r,\tau}\)</span> faithfully recording where censored frames or run-end truncation reduced effective BOLD observations inside that event’s hemodynamic window. When <code>precision_weight_cohort</code> is passed to <code>mixed_by()</code>, Trial 7 receives lower inverse-variance weight automatically, and Trial 11 (<code>NA</code>) is omitted without shifting <code>event_index</code>. Intervention is only warranted when a run has so many censored frames that <em>most</em> trials sit at elevated <code>se_demixed</code> or <code>NA</code>.</li>
+<li><strong>Outcome vs.&nbsp;predictor column roles in Step 4 panels (Panel B):</strong> Step 4 exports both unshrunken <code>decon_demixed</code> (<span class="math inline">\(\widehat{z}_{ri} = \theta_{ri} + e_{ri}\)</span>) and empirical-Bayes shrunken <code>decon_eb</code> (<span class="math inline">\(\tilde{z}_{ri} \approx \bar{z} + \kappa_{ri}(\widehat{z}_{ri} - \bar{z})\)</span>, where <span class="math inline">\(\kappa_{ri} = \widehat{\tau}^2 / (\widehat{\tau}^2 + s_{ri}^2) &lt; 1\)</span>). Entering <code>decon_eb</code> on the left-hand side of <code>mixed_by()</code> multiplies the true fixed-effect slope by <span class="math inline">\(\bar{\kappa} &lt; 1\)</span> (<code>0.231</code> vs.&nbsp;<code>0.454</code> here), biasing population inference toward zero.</li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Audit per-run NA gating rate and high-SE tail in Step 3/4 panels</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>panel_dt <span class="ot">&lt;-</span> data.table<span class="sc">::</span><span class="fu">as.data.table</span>(epochs<span class="sc">$</span>panel)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>panel_dt[, .(</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">pct_gated_na =</span> <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(<span class="fu">is.na</span>(decon_demixed)),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">median_se    =</span> <span class="fu">median</span>(se_demixed, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">p95_se       =</span> <span class="fu">quantile</span>(se_demixed, <span class="fl">0.95</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>), by <span class="ot">=</span> run]</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Always pair decon_demixed + precision_weight_cohort when neural activity is the outcome</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>group_models <span class="ot">&lt;-</span> <span class="fu">mixed_by</span>(group_panel, <span class="at">outcomes =</span> <span class="st">"decon_demixed"</span>,</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                         <span class="at">rhs_model_formulae =</span> <span class="sc">~</span> rpe_within <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">+</span> rpe_within <span class="sc">||</span> id) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> id<span class="sc">:</span>run),</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>                         <span class="at">split_on =</span> <span class="fu">c</span>(<span class="st">"parcel"</span>, <span class="st">"evt_time"</span>), <span class="at">weights =</span> <span class="st">"precision_weight_cohort"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For full guidance on <code>min_bold_coverage</code>, <code>(T, O)</code> de-mixing, and column-role assignment, see <a href="../medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a> and <a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">Step 4</a>.</p>
+<hr>
+</section>
+<section id="sec-qc-step56" class="level3">
+<h3 class="anchored" data-anchor-id="sec-qc-step56">4. Steps 5 &amp; 6: Multilevel Centering/Random-Slope Pitfalls and Connectivity Shared Noise</h3>
+<div id="fig-qc-step56" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel diagnostic for Steps 5 and 6 showing mixed-model centering sign-flip and random-slope CI narrowing on the left, and participant connectivity boxplots comparing M-MOMS auto shared error against stripped shared error and naive OLS on the right.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-qc-step56-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/04-qc-residual-ac1-and-mmoms.png" class="img-fluid figure-img" style="width:100.0%" alt="Two-panel diagnostic for Steps 5 and 6 showing mixed-model centering sign-flip and random-slope CI narrowing on the left, and participant connectivity boxplots comparing M-MOMS auto shared error against stripped shared error and naive OLS on the right.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-qc-step56-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10.4: Healthy versus mis-specified group inference (Step 5) and trial-level connectivity (Step 6). <strong>A:</strong> Across 36 participants (<code>16</code> target trials/person) where true within-person trial coupling is <code>+0.45</code> but between-person trait coupling is <code>-0.35</code> with participant slope SD <code>0.42</code>, decomposing <code>x_within + x_mean</code> with <code>(1 + x_within || id)</code> recovers <code>+0.434</code> (<code>df = 35</code>, blue). Entering uncentered <code>x_raw</code> conflates within- and between-person variance and flips the estimated slope to <code>-0.258</code> (red), while omitting the random slope <code>(1 | id)</code> understates uncertainty with pooled-trial degrees of freedom (<code>df = 573</code>, amber). <strong>B:</strong> Participant connectivity slopes (<code>ppi$subjects</code>, <code>term == "seed_c"</code>) across 16 participants where true seed-to-target neural coupling is <code>0.35</code> and shared cross-parcel measurement error is <span class="math inline">\(r_{ST} = 0.55\)</span>. M-MOMS with <code>shared_error = "auto"</code> recovers <code>0.295</code> (blue); stripping <code>unit_error_cor</code> / <code>shared_noise_loading</code> (<code>shared_error = "zero"</code>) disattenuates shared noise up to <code>0.751</code> (red); naive OLS without measurement-error repair attenuates down to <code>0.178</code> (amber).
+</figcaption>
+</figure>
+</div>
+<p><strong>What to look for in <a href="#fig-qc-step56" class="quarto-xref">Figure&nbsp;<span>10.4</span></a>:</strong></p>
+<ul>
+<li><strong>Within/between conflation and inflated degrees of freedom in Step 5 (Panel A):</strong> Any predictor that varies both across trials within a person (e.g., trial-by-trial RT, value, arousal) and in mean level across people (fast vs.&nbsp;slow responders, high vs.&nbsp;low baseline value) carries two distinct biological associations. Entering raw <code>x_raw</code> forces <code>lmer()</code> to estimate a precision-weighted blend of <span class="math inline">\(\beta_{\text{within}}\)</span> and <span class="math inline">\(\beta_{\text{between}}\)</span>—which can attenuate or even reverse the sign of the trial effect (<code>-0.258</code> vs.&nbsp;<code>+0.45</code>). Equally important, inspect the <code>df</code> column of <code>coef_df_reml</code>: a within-person fixed effect tested across <span class="math inline">\(S = 36\)</span> participants should have Satterthwaite <code>df</code> near <span class="math inline">\(S - 1\)</span> (<code>35</code>), <em>never</em> in the hundreds (<code>573</code>), which signals that the random slope <code>(1 + x_within || id)</code> was omitted or collapsed to zero.</li>
+<li><strong>Asymmetric bias modes in Step 6 connectivity (Panel B):</strong> When deconvolved seed activity moves to the <em>right-hand side</em> as a noisy predictor (<code>Target ~ Seed * Task</code>), two opposing biases act simultaneously: seed estimation variance <span class="math inline">\(s_{S,i}^2\)</span> <em>attenuates</em> naive OLS toward zero (<code>0.178</code>), while correlated scanner/physiological noise shared across parcels (<span class="math inline">\(r_{ST} &gt; 0\)</span>) <em>inflates</em> coupling. If you export <code>panel</code> to a plain <code>.csv</code> file without <code>shared_noise_loading</code> or the participant <code>unit_error_cor</code> matrix (forcing <code>shared_error = "zero"</code>), M-MOMS subtracts seed error variance in the denominator without subtracting shared error covariance in the numerator—magnifying shared noise (<code>0.751</code>). Passing the intact <code>subject_epochs</code> list (or preserving <code>shared_noise_loading</code> in tabular exports) allows <code>shared_error = "auto"</code> to correct both terms simultaneously (<code>0.295</code>).</li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 audit: check Satterthwaite df on within-person terms (should scale with N_subjects, not N_trials)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">subset</span>(group_models<span class="sc">$</span>coef_df_reml, term <span class="sc">==</span> <span class="st">"rpe_within"</span>)[, <span class="fu">c</span>(<span class="st">"parcel"</span>, <span class="st">"evt_time"</span>, <span class="st">"estimate"</span>, <span class="st">"std.error"</span>, <span class="st">"df"</span>)]</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 audit: confirm r_shared_error is non-zero when expected and check convergence</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  subject_epochs, <span class="at">seed_region =</span> <span class="st">"Seed"</span>, <span class="at">target_region =</span> <span class="st">"Target"</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates =</span> <span class="st">"x_within"</span>, <span class="at">shared_error =</span> <span class="st">"auto"</span>, <span class="at">method =</span> <span class="st">"mmoms"</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(ppi<span class="sc">$</span>subjects[, <span class="fu">c</span>(<span class="st">"r_shared_error"</span>, <span class="st">"alpha_final"</span>, <span class="st">"converged"</span>)])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For complete coverage of group trajectory modeling and M-MOMS connectivity repair, see <a href="../medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a> and <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>.</p>
+<details>
+<summary>
+Simulation Details &amp; Reproduction
+</summary>
+<p>All four healthy-versus-pathological figure pairs and <a href="#tbl-qc-summary" class="quarto-xref">Table&nbsp;<span>10.1</span></a> are generated from live <code>medusa</code> calls (<code>estimate_crossrun_hrf()</code>, <code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>decon_epoch_regression()</code>, <code>mixed_by()</code>, and <code>decon_connectivity_repair()</code>) with fixed seed <code>20261116</code>:</p>
+<ul>
+<li><strong>Pair 1 (Steps 0 &amp; 1):</strong> 3 runs <span class="math inline">\(\times\)</span> 140 volumes at <code>TR = 2.0 s</code>, 16 jittered feedback events/run with true lag-0 RPE slope <code>0.60</code>; compares <code>valid_rows</code> dummy masking (<code>1:3</code>) against physical truncation (<code>Y[-c(1:3), ]</code> with <code>time_offset = 0</code>) and onset-unit mis-specification (<code>on_sec / tr_slow</code>). Step 1 <code>rho</code> check simulates 36 parcels (<code>true rho</code> uniform on <code>[0.30, 0.62]</code>) with and without an unmodeled mid-run shim step + <code>0.008 Hz</code> drift.</li>
+<li><strong>Pair 2 (Step 2):</strong> 3 runs <span class="math inline">\(\times\)</span> 180 volumes at <code>TR = 1.0 s</code>; compares <code>valid_rows</code> censoring + automatic GCV <span class="math inline">\(\lambda_v\)</span> + <code>rwls = "auto"</code> against <code>lambda = 8.0</code> and an uncensored <code>91 s</code> spike with <code>rwls = "none"</code>.</li>
+<li><strong>Pair 3 (Steps 3 &amp; 4):</strong> 3 runs <span class="math inline">\(\times\)</span> 220 volumes (<code>16</code> trials/run, Trial 16 at <code>215.5 s</code>), comparing uncensored <code>se_demixed</code> against partial peak scrubbing on Trial 7 (<code>3</code> frames) and full HRF scrubbing on Trial 11 (<code>10</code> frames); plus a 16-participant cohort comparing <code>decon_demixed</code> + <code>precision_weight_cohort</code> against shrunken <code>decon_eb</code> as outcome in <code>mixed_by()</code> (true slope <code>0.50</code>).</li>
+<li><strong>Pair 4 (Steps 5 &amp; 6):</strong> Step 5 simulates <span class="math inline">\(S = 36\)</span> participants (<code>16</code> target trials/person, <span class="math inline">\(\beta_{\text{within}} = +0.45\)</span>, <span class="math inline">\(\beta_{\text{between}} = -0.35\)</span>, random slope SD <code>0.42</code>). Step 6 simulates <span class="math inline">\(S = 16\)</span> participants (<code>80</code> trials/person, true seed-target slope <code>0.35</code>, shared cross-parcel error correlation <span class="math inline">\(r_{ST} = 0.55\)</span>, trial SE <code>0.75</code>).</li>
+</ul>
+<p><a href="simulate_qc_gallery.R">QC simulation script</a> · <a href="figures_qc_gallery.R">QC figure script</a> · <a href="qc_symptom_metrics.csv">Symptom benchmark CSV</a> · <a href="sessionInfo.txt">Session info</a></p>
+</details>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/hallquistlab\.github\.io\/medusa\/book\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="pagination-link" aria-label="Step 6: Trial-Level Connectivity and PPI">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="pagination-link" aria-label="Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows">
+        <span class="nav-page-text"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

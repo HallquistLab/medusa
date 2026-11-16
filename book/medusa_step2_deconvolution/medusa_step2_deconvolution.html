@@ -239,6 +239,11 @@ window.Quarto = {
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -939,7 +944,7 @@ Table&nbsp;5.3: Continuous waveform recovery on physical input units (<code>blin
 <ol type="1">
 <li><strong>Why continuous <code>activity</code> has finite resolution—and why Step 3 handles de-mixing:</strong> Under any positive <span class="math inline">\(\lambda &gt; 0\)</span>, the continuous resolution matrix <span class="math inline">\(R_r = D_r M_{r,o} H_r\)</span> attenuates isolated impulse height (<span class="math inline">\(R_{tt} &lt; 1\)</span>) and spreads energy smoothly across neighboring TRs and closely spaced events (<a href="#fig-step2-resolution" class="quarto-xref">Figure&nbsp;<span>5.8</span></a>, <a href="#fig-step2-leakage" class="quarto-xref">Figure&nbsp;<span>5.9</span></a>). Simply dividing <span class="math inline">\(\widehat{a}_r\)</span> pointwise by <span class="math inline">\(R_{tt}\)</span> would amplify side-lobe noise everywhere (<a href="#fig-step2-resolution" class="quarto-xref">Figure&nbsp;<span>5.8</span></a>, bottom). Instead, <code>diagnose_crossrun_recovery(decon)</code> audits self-gain and neighbor cross-talk on your event schedule, and passing the full <code>decon</code> object to <a href="../medusa_step3_epochs/medusa_step3_epochs.html">Step 3 (<code>decon_epoch_regression()</code>)</a> performs matrix de-mixing and gain restoration specifically at the trial epochs of interest.</li>
 <li><strong>Bridging censored gaps (<code>observation_mask = "fit"</code>):</strong> Across masked frames (<code>70–80 s</code> in <a href="#fig-step2-mask-nuisance" class="quarto-xref">Figure&nbsp;<span>5.4</span></a>, bottom), the smoothness penalty interpolates cleanly from surrounding unmasked BOLD without letting artifacts corrupt adjacent trials; Step 3 will automatically check causal BOLD support (<code>obs_frac_tau &gt;= 0.20</code>) so deeply masked events are flagged as <code>NA</code> rather than treated as observed data.</li>
-<li><strong>Run-end boundaries (<code>tail_padding = 0L</code>) and HRF timing (<a href="#fig-step2-sensitivity" class="quarto-xref">Figure&nbsp;<span>5.10</span></a>):</strong> Appending synthetic zero BOLD frames after the end of a run (<code>tail_padding &gt; 0</code>) pulls genuine late-run activity downward, while a 2-second HRF delay misspecification shifts recovered peaks in the opposite direction—confirming the value of <code>tail_padding = 0L</code> and Step 1’s cross-run HRF estimation.</li>
+<li><strong>Run-end boundaries (<code>tail_padding = 0L</code>) and HRF timing (<a href="#fig-step2-sensitivity" class="quarto-xref">Figure&nbsp;<span>5.10</span></a>):</strong> Appending synthetic zero BOLD frames after the end of a run (<code>tail_padding &gt; 0</code>) pulls genuine late-run activity downward, while a 2-second HRF delay misspecification shifts recovered peaks in the opposite direction—confirming the value of <code>tail_padding = 0L</code> and Step 1’s cross-run HRF estimation. For side-by-side visual diagnostics of over-smoothing gain collapse and uncensored motion-spike ringing, see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC and Troubleshooting Gallery</a>.</li>
 </ol>
 <div id="fig-step2-resolution" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Impulse response curves before and after scalar diagonal gain normalization.">
 <figure class="quarto-float quarto-float-fig figure">

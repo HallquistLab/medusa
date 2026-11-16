@@ -71,7 +71,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../">
-<link href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" rel="next">
+<link href="../medusa_qc_gallery/medusa_qc_gallery.html" rel="next">
 <link href="../medusa_step5_group_models/medusa_step5_group_models.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
@@ -237,6 +237,11 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
   </div>
 </li>
       </ul>
@@ -451,17 +456,17 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><strong><code>$group</code></strong></td>
-<td style="text-align: left;"><code>data.table</code> per modeled term (<code>seed</code>, task covariates, <code>ppi</code>): <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code>, <code>tau2</code>, <code>n_subjects</code></td>
+<td style="text-align: left;"><code>data.table</code> per modeled term (<code>seed_c</code>, task covariates, interaction): <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code>, <code>tau2</code>, <code>n_subjects</code></td>
 <td style="text-align: left;">Reports HKSJ random-effects population slope estimates and 95% <span class="math inline">\(t\)</span>-intervals anchored to participant degrees of freedom.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>$subjects</code></strong></td>
-<td style="text-align: left;"><code>data.table</code> per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>shared_error_source</code>, <code>regularization_lambda</code>, <code>converged</code></td>
-<td style="text-align: left;">Exposes each participant’s M-MOMS slope, working cross-parcel error correlation (<code>r_shared_error</code>), metadata source, and any step-up regularization constants.</td>
+<td style="text-align: left;"><code>data.table</code> per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>lambda_prelim</code>, <code>lambda_final</code>, <code>alpha_prelim</code>, <code>alpha_final</code>, <code>converged</code></td>
+<td style="text-align: left;">Exposes each participant’s M-MOMS slope, working cross-parcel error correlation (<code>r_shared_error</code>), and any step-up regularization constants.</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong><code>$panel_repair</code></strong></td>
-<td style="text-align: left;">Optional paired trial <code>data.table</code> (<code>return_panel = TRUE</code>)</td>
+<td style="text-align: left;"><strong><code>$augmented_panel</code></strong></td>
+<td style="text-align: left;">Optional paired trial <code>data.table</code> (<code>return_augmented_panel = TRUE</code>)</td>
 <td style="text-align: left;">Provides the exact centered/paired trial columns and error variances for custom plots or sensitivity curves.</td>
 </tr>
 </tbody>
@@ -478,10 +483,10 @@ window.Quarto = {
 \theta_{T,i} = \beta_S \theta_{S,i} + \beta_x x_i + \beta_P (\theta_{S,i} x_i) + \varepsilon_i.
 \]</span></p>
 <p>Each coefficient answers a distinct biological question: <span class="math inline">\(\beta_S\)</span> is baseline trial-to-trial seed–target coupling at the mean of <span class="math inline">\(x_i\)</span> (<span class="math inline">\(x_i = 0\)</span>), <span class="math inline">\(\beta_x\)</span> absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and <span class="math inline">\(\beta_P\)</span> is the <strong>PPI slope</strong>—how much seed–target coupling changes per unit change in <span class="math inline">\(x_i\)</span> (for <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, <span class="math inline">\(2\beta_P\)</span> is the slope difference between task conditions).</p>
-<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>) and lagged control (<code>control_target_at_seed_lag</code>):</strong></p>
+<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>) and lagged control (<code>control_target_seed_lag</code>):</strong></p>
 <ul>
 <li><strong>Direct vs.&nbsp;residualized seed (<code>orthogonalize_seed_x</code>):</strong> Setting <code>orthogonalize_seed_x = FALSE</code> (recommended when testing the direct structural equation above) enters centered <span class="math inline">\(\theta_{S,i}\)</span> and <span class="math inline">\(x_i\)</span> symmetrically without altering quadratic task structure. Setting <code>orthogonalize_seed_x = TRUE</code> first residualizes the seed against <code>covariates</code> (projecting <code>diag(se_demixed^2)</code> through <span class="math inline">\(P D_u P^\top\)</span>) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to <span class="math inline">\(x_i\)</span>, residualizing shifts the product column by a term proportional to <span class="math inline">\(x_i^2\)</span>.</li>
-<li><strong>Concurrent vs.&nbsp;lagged Granger-style coupling (<code>control_target_at_seed_lag</code>):</strong> When <code>target_lag &gt; seed_lag</code>, setting <code>control_target_at_seed_lag = TRUE</code> includes target activity at <code>seed_lag</code> as an additional error-corrected neural predictor so <span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_P\)</span> test whether seed activity predicts <em>subsequent change</em> in the target parcel.</li>
+<li><strong>Concurrent vs.&nbsp;lagged Granger-style coupling (<code>control_target_seed_lag</code>):</strong> When <code>target_lag &gt; seed_lag</code>, setting <code>control_target_seed_lag = TRUE</code> includes target activity at <code>seed_lag</code> as an additional error-corrected neural predictor so <span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_P\)</span> test whether seed activity predicts <em>subsequent change</em> in the target parcel.</li>
 </ul>
 <hr>
 </section>
@@ -658,7 +663,7 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <td style="text-align: left;">Selects direct symmetric <code>Seed + x + Seed:x</code> vs.&nbsp;task-residualized seed modulation (<code>Substep 6.1</code>).</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong><code>control_target_at_seed_lag</code></strong></td>
+<td style="text-align: left;"><strong><code>control_target_seed_lag</code></strong></td>
 <td style="text-align: left;"><code>FALSE</code></td>
 <td style="text-align: left;"><code>TRUE</code> when <code>target_lag &gt; seed_lag</code></td>
 <td style="text-align: left;">Controls for baseline target activity at <code>seed_lag</code> in lagged connectivity models (<code>Substep 6.1</code>).</td>
@@ -705,8 +710,8 @@ Figure&nbsp;9.2: Sensitivity curve in the shared-error null scenario: implied po
 <section id="reporting-checklist-and-scope-boundaries" class="level3">
 <h3 class="anchored" data-anchor-id="reporting-checklist-and-scope-boundaries">Reporting checklist and scope boundaries</h3>
 <ol type="1">
-<li><strong>Report circuit, lag, and estimand choices:</strong> Document <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_at_seed_lag</code>, and multiplicity adjustment across region pairs.</li>
-<li><strong>Present naive and M-MOMS side by side:</strong> Include <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> and summarize <code>ppi$subjects</code> (<code>r_shared_error</code>, <code>shared_error_source</code>, participant/trial counts, and any step-up regularization).</li>
+<li><strong>Report circuit, lag, and estimand choices:</strong> Document <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_seed_lag</code>, and multiplicity adjustment across region pairs.</li>
+<li><strong>Present naive and M-MOMS side by side:</strong> Include <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> and summarize <code>ppi$subjects</code> (<code>r_shared_error</code>, <code>alpha_final</code>, <code>lambda_final</code>, participant/trial counts, and convergence; see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a> for side-by-side participant connectivity distributions under intact vs.&nbsp;stripped <code>shared_error</code> metadata).</li>
 <li><strong>Scope boundaries:</strong> Just as in Vig &amp; Hallquist (2026), Step 6 treats first-stage error variances (<code>se_demixed^2</code>) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences (<span class="math inline">\(K_S \neq K_T\)</span>). For mathematical derivations and full-covariance extensions, see <a href="../medusa_standard_errors_mmom.html">From BOLD noise to M-MOM error variances</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models and REPAIR</a>.</li>
 </ol>
 <hr>
@@ -1211,8 +1216,8 @@ Figure&nbsp;9.2: Sensitivity curve in the shared-error null scenario: implied po
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="pagination-link" aria-label="Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows">
-        <span class="nav-page-text"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="pagination-link" aria-label="Visual QC and Troubleshooting Gallery">
+        <span class="nav-page-text"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

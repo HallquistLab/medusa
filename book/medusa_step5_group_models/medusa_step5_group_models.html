@@ -239,6 +239,11 @@ window.Quarto = {
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -875,7 +880,7 @@ Figure&nbsp;8.9: Lag-1 correlations of scaled conditional residuals per particip
 <ol start="2" type="1">
 <li><strong>Matched coordinates when using ZCA-whitened panels (<code>use_whitened = TRUE</code>):</strong> In rapid-ISI designs where conditional residuals retain serial correlation, set <code>whiten_panel = TRUE</code> in Step 4 and pair <code>decon_demixed_whitened</code> with <code>*_whitened</code> predictors from the same <code>(parcel, evt_time)</code> split (forming any within-run interaction columns <em>before</em> Step 4 whitening, since <span class="math inline">\(T(x \odot z) \neq (Tx) \odot (Tz)\)</span>).</li>
 <li><strong>Interpreting between-person effects:</strong> Because Step 2 centers BOLD within each run, tonic run-constant baselines are removed; person-mean predictors (<code>x_mean</code>) test differences in average <em>event-locked phasic deflections</em> across people (or cross-level <code>x_within * trait</code> moderation), scaled in physical BOLD units under Step 1’s HRF normalization (<code>normalize = "positive_lobe"</code>).</li>
-<li><strong>Scope transition to Step 6:</strong> Step 5 treats neural activity as the dependent outcome predicted by error-free task or behavioral covariates. Whenever a deconvolved neural readout moves to the <strong>right-hand side</strong> to predict another brain region (<code>Target ~ Seed * Task</code>) or behavior (<code>Behavior ~ Seed</code>), proceed to <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6 (<code>decon_connectivity_repair()</code>)</a> to correct predictor measurement error and shared regional noise.</li>
+<li><strong>Scope transition to Step 6:</strong> Step 5 treats neural activity as the dependent outcome predicted by error-free task or behavioral covariates (for visual diagnostics of uncentered predictors and omitted random slopes, see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a>). Whenever a deconvolved neural readout moves to the <strong>right-hand side</strong> to predict another brain region (<code>Target ~ Seed * Task</code>) or behavior (<code>Behavior ~ Seed</code>), proceed to <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6 (<code>decon_connectivity_repair()</code>)</a> to correct predictor measurement error and shared regional noise.</li>
 </ol>
 <hr>
 </section>

@@ -238,6 +238,11 @@ window.Quarto = {
   <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -400,44 +405,48 @@ window.Quarto = {
 <summary>
 Show full simulation and figure regeneration commands
 </summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Conceptual forward-model schematic &amp; GLM / FIR / LSS / MEDuSA comparison benchmark</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Conceptual forward-model, end-to-end dataflow schematic, &amp; GLM / FIR / LSS / MEDuSA benchmark</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> assets/forward-model.R</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> assets/compare_glm_fir_lss_medusa.R</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># End-to-end worked example &amp; M-MOM covariance verification</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> worked <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> run.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> mmom-check.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> checkpoints.R<span class="kw">)</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 0: Experimental design benchmarks &amp; BIDS/fMRIPrep subject ingestion</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step0_design_bids <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step0.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step0.R<span class="kw">)</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1: Cross-run HRF &amp; AR(p) noise + Woolrich noise review</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step1_hrf_noise <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step1.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step1.R<span class="kw">)</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step1_hrf_noise/woolrich_review <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> compare_noise.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> variance_check.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> plot_comparison.R<span class="kw">)</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Event-informed continuous deconvolution (including blind vs. event-informed benchmark)</span></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step2_deconvolution <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step2.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step2.R<span class="kw">)</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3: Peri-event epoch readout &amp; demixing</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step3_epochs <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step3.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step3.R<span class="kw">)</span></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4: Parcel aggregation, shared noise loadings, &amp; cohort precision weights</span></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step4_parcel_panels <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step4.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step4.R<span class="kw">)</span></span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5: Split-wise mixed models &amp; joint multi-lag trajectory inference</span></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step5_group_models <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step5.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step5.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_pr62.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_pr62.R<span class="kw">)</span></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Multi-lag trajectory empirical calibration (180 replications x 2 regimes)</span></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_pr62_calibration <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures.R<span class="kw">)</span></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6: Trial-level connectivity, M-MOMS, &amp; PPI sensitivity</span></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step6_connectivity <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures.R<span class="kw">)</span></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_connectivity_inference <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> prepare_figures.R<span class="kw">)</span></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co"># Volumetric spatial &amp; parcel pooling benchmark + ggbrain maps</span></span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_spatial_parcel_pooling <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_spatial_pooling.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_spatial_pooling.R<span class="kw">)</span></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="co"># Render full Quarto HTML book to _book/</span></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> assets/pipeline-dataflow.R</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> assets/compare_glm_fir_lss_medusa.R</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># End-to-end worked example &amp; M-MOM covariance verification</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> worked <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> run.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> mmom-check.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> checkpoints.R<span class="kw">)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 0: Experimental design benchmarks &amp; BIDS/fMRIPrep subject ingestion</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step0_design_bids <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step0.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step0.R<span class="kw">)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1: Cross-run HRF &amp; AR(p) noise + Woolrich noise review</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step1_hrf_noise <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step1.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step1.R<span class="kw">)</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step1_hrf_noise/woolrich_review <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> compare_noise.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> variance_check.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> plot_comparison.R<span class="kw">)</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Event-informed continuous deconvolution (including blind vs. event-informed benchmark)</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step2_deconvolution <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step2.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step2.R<span class="kw">)</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3: Peri-event epoch readout &amp; demixing</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step3_epochs <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step3.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step3.R<span class="kw">)</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4: Parcel aggregation, shared noise loadings, &amp; cohort precision weights</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step4_parcel_panels <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step4.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step4.R<span class="kw">)</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5: Split-wise mixed models &amp; joint multi-lag trajectory inference</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step5_group_models <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_step5.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_step5.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_pr62.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_pr62.R<span class="kw">)</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Multi-lag trajectory empirical calibration (180 replications x 2 regimes)</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_pr62_calibration <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures.R<span class="kw">)</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6: Trial-level connectivity, M-MOMS, &amp; PPI sensitivity</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_step6_connectivity <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures.R<span class="kw">)</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_connectivity_inference <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> prepare_figures.R<span class="kw">)</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Volumetric spatial &amp; parcel pooling benchmark + ggbrain maps</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_spatial_parcel_pooling <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_spatial_pooling.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_spatial_pooling.R<span class="kw">)</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co"># Visual QC &amp; troubleshooting gallery across Steps 0-6</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> medusa_qc_gallery <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> simulate_qc_gallery.R <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> figures_qc_gallery.R<span class="kw">)</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Render full Quarto HTML book to _book/</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </section>
 <section id="companion-archives-library" class="level2">

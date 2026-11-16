@@ -239,6 +239,11 @@ window.Quarto = {
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -998,7 +1003,7 @@ Table&nbsp;4.3: End-to-end Steps 1–3 metrics across fast-TR (<code>TR = 0.65 s
 <ol type="1">
 <li><strong>Check cross-fitting provenance:</strong> Confirm <code>hrf_fit$training_runs</code> lists non-target runs <span class="math inline">\(s \neq r\)</span> and review <code>hrf_fit$signal_status</code>.</li>
 <li><strong>Plot realized waveforms (<code>hrf_fit$selected_kernels</code>):</strong> Under <code>soft_average</code>, <code>selections$kernel_index</code> identifies only the top-weight library column, whereas <code>selected_kernels</code> shows the actual composite HRF used in Step 2.</li>
-<li><strong>Check <code>hrf_fit$noise</code> for stationarity boundary hits:</strong> Widespread <span class="math inline">\(\hat{\rho} = 0.90\)</span> estimates typically point to unmodeled scanner drift, uncensored motion spikes, or omitted task events.</li>
+<li><strong>Check <code>hrf_fit$noise</code> for stationarity boundary hits:</strong> Widespread <span class="math inline">\(\hat{\rho} = 0.90\)</span> estimates typically point to unmodeled scanner drift, uncensored motion spikes, or omitted task events (see <a href="../medusa_qc_gallery/medusa_qc_gallery.html#sec-qc-step01">Pair 1 in the Visual QC Gallery</a>).</li>
 <li><strong>Scope boundary:</strong> Step 1 estimates the forward neurovascular filter and serial noise structure without modifying <code>bold</code> or evaluating behavioral trial hypotheses; continuous latent signal reconstruction begins in Step 2.</li>
 </ol>
 <details>

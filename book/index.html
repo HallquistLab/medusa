@@ -204,6 +204,11 @@ window.Quarto = {
   <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -380,14 +385,19 @@ window.Quarto = {
 <td><code>decon_connectivity_repair()</code>, <code>medusa_fit_mmom()</code></td>
 <td>How do we correct predictor attenuation and shared regional measurement error when deconvolved neural activity predicts another region or behavior?</td>
 </tr>
+<tr class="even">
+<td><a href="./medusa_qc_gallery/medusa_qc_gallery.html">Visual QC &amp; Troubleshooting Gallery</a></td>
+<td><code>diagnose_crossrun_recovery()</code>, <code>$confounds$summary</code>, <code>$noise</code>, <code>$panel</code>, <code>$subjects</code></td>
+<td>What do healthy versus mis-specified diagnostics look like side by side across Steps 0–6 (clock shifts, <code>rho = 0.90</code> ceiling pile-ups, gain collapse, spike ringing, scrubbing shadows, <code>decon_eb</code> misuse, centering/random-slope pitfalls, and shared connectivity noise)?</td>
+</tr>
 </tbody>
 </table>
 </section>
 <section id="how-to-read-this-book" class="level2">
 <h2 class="anchored" data-anchor-id="how-to-read-this-book">How to read this book</h2>
 <ol type="1">
-<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \widehat{a} \to \widehat{z}\)</span>, with a complete <a href="./foundations.html#sec-notation">notation and S3 object map</a>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
-<li>Read the seven chapters in <strong>The MEDuSA pipeline</strong> (Steps 0–6). Each chapter opens with a thumbnail <strong>Overview</strong> and clean <strong>Goals, Inputs, and Outputs</strong> tables, walks step by step through each <strong>Substep and Choice Point</strong> from simple intuition to the full estimator, summarizes <strong>Recommended Settings</strong>, and closes with <strong>Practical Considerations, Diagnostics, and Scope</strong>.</li>
+<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \widehat{a} \to \widehat{z}\)</span>, including the <a href="./foundations.html#fig-pipeline-dataflow">end-to-end data-flow schematic</a> and <a href="./foundations.html#sec-notation">notation and S3 object map</a>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
+<li>Read the chapters in <strong>The MEDuSA pipeline</strong> (Steps 0–6), accompanied by the <a href="./medusa_qc_gallery/medusa_qc_gallery.html">Visual QC and Troubleshooting Gallery</a>. Each stepwise chapter opens with a thumbnail <strong>Overview</strong> and clean <strong>Goals, Inputs, and Outputs</strong> tables, walks step by step through each <strong>Substep and Choice Point</strong> from simple intuition to the full estimator, summarizes <strong>Recommended Settings</strong>, and closes with <strong>Practical Considerations, Diagnostics, and Scope</strong>.</li>
 <li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
 <li>Consult <strong>Measurement models and evidence</strong> for deeper derivations of <a href="./medusa_standard_errors_mmom.html">method-of-moments (M-MOM) standard-error propagation</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity measurement models</a>, <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">multi-lag calibration</a>, <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">autocorrelation estimation</a>, and <a href="./evidence.html">validation benchmarks</a>.</li>
 </ol>

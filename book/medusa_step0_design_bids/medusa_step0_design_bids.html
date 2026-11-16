@@ -239,6 +239,11 @@ window.Quarto = {
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -982,7 +987,7 @@ Whenever a run contains missed responses or catch trials (for example, 15 valid 
 <li><strong>Screen high-motion runs via <code>$confounds$summary</code>:</strong> Runs with <code>pct_censored &gt; 25–30%</code> or very short contiguous unmasked segments (<code>&lt; 15–20</code> TRs) carry limited effective degrees of freedom; consider excluding severely corrupted individual runs before cross-fitting (retaining the participant if <span class="math inline">\(\ge 2\)</span> clean runs remain, or falling back to single-run sub-block cross-fitting if 1 clean run remains).</li>
 <li><strong>Verify event onset units and bounds:</strong> Check <code>range(sub_obj$events$onset)</code> per run. Event times must be in <strong>seconds</strong> (never TR indices or milliseconds) and fall within <span class="math inline">\([0, (T_r - 1)\cdot\text{TR} + \text{time\_offset}]\)</span>. Events occurring within the final 4–6 seconds of a run before scanner shutoff have truncated causal HRF support and will be gated automatically by Step 3’s <code>min_bold_coverage</code> rule.</li>
 <li><strong>Verify condition tables across runs:</strong> Confirm via <code>table(sub_obj$events$run, sub_obj$events$condition)</code> that your <code>target_condition</code> appears with consistent spelling in every task run and that missed/timeout occurrences are labeled distinctly rather than dropped.</li>
-<li><strong>Scope handoff:</strong> Step 0 assembles validated, clock-aligned run matrices, spatial metadata, censoring masks, and complete event schedules without fitting any statistical parameters; out-of-sample HRF identification and <span class="math inline">\(\text{AR}(p)\)</span> noise estimation begin in <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>.</li>
+<li><strong>Scope handoff:</strong> Step 0 assembles validated, clock-aligned run matrices, spatial metadata, censoring masks, and complete event schedules without fitting any statistical parameters; out-of-sample HRF identification and <span class="math inline">\(\text{AR}(p)\)</span> noise estimation begin in <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>. For side-by-side visual examples of dummy-volume clock shifts and TR-index onset errors, see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html#sec-qc-step01">Visual QC and Troubleshooting Gallery</a>.</li>
 </ol>
 <details>
 <summary>

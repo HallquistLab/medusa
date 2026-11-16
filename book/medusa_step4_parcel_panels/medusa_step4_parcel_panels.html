@@ -239,6 +239,11 @@ window.Quarto = {
   <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_qc_gallery/medusa_qc_gallery.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Visual QC and Troubleshooting Gallery</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -778,7 +783,7 @@ Figure&nbsp;7.6: Within-run parcel correlation matrix <span class="math inline">
 <li><strong>Checking run-to-run voxel coverage:</strong> When partial FoV clipping drops voxels from a small parcel in one run, renormalization shifts the parcel’s spatial center slightly; inspect <code>decon$scaling[[r]]$status</code> whenever dropout is non-trivial.</li>
 <li><strong>Matching panel columns to their statistical role:</strong> Mirrors the distinction between unshrunk likelihood-only readouts and shrunken EB predictions (Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026):
 <ul>
-<li>Use <strong><code>decon_demixed</code></strong> (with <code>weights = "precision_weight_cohort"</code>) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve <strong><code>decon_eb</code></strong> for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage.</li>
+<li>Use <strong><code>decon_demixed</code></strong> (with <code>weights = "precision_weight_cohort"</code>) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve <strong><code>decon_eb</code></strong> for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage (see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a> for a visual demonstration of <code>decon_eb</code> slope attenuation).</li>
 <li>When using ZCA-whitened variables, pair <code>decon_demixed_whitened</code> exclusively with matched <code>&lt;var&gt;_whitened</code> predictors from the same <code>(parcel, evt_time)</code> split.</li>
 </ul></li>
 <li><strong>Cohort storage handoff:</strong> Attach <code>id</code> (and <code>session</code> if longitudinal) before combining participants. Saving <code>subject_epochs</code> as <code>.rds</code> or writing panels to Parquet (<code>arrow::write_dataset()</code>) preserves the <code>shared_noise_loading</code> list-column for Step 6 alongside scalable disk streaming for Step 5 <code>mixed_by()</code>.</li>
