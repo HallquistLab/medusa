@@ -194,6 +194,18 @@ mat2df <- function(mat, na_zeros = FALSE, varnames = as.character( c("dim1", "di
     .Call(`_medusa_mat2df`, mat, na_zeros, varnames, value_name)
 }
 
+poet_build_pair_X_cpp <- function(M_A, M_B, G_A, G_B, H_A, H_B, adj_idx1, lag_pairs, f_dyn, L_max_in) {
+    .Call(`_medusa_poet_build_pair_X_cpp`, M_A, M_B, G_A, G_B, H_A, H_B, adj_idx1, lag_pairs, f_dyn, L_max_in)
+}
+
+poet_extract_Xty_diag_cpp <- function(E_runs, X_diag_runs, sig_idx, adj_idx1_runs, lag_pairs_runs, L_max_in, B_tot_in) {
+    .Call(`_medusa_poet_extract_Xty_diag_cpp`, E_runs, X_diag_runs, sig_idx, adj_idx1_runs, lag_pairs_runs, L_max_in, B_tot_in)
+}
+
+poet_fit_pair_batch_cpp <- function(E_runs, adj_idx1_runs, lag_pairs_runs, slot_XtX_list, slot_X_runs_list, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, pair_slot, pair_do_hac, pair_has_rhs, rhs_override) {
+    .Call(`_medusa_poet_fit_pair_batch_cpp`, E_runs, adj_idx1_runs, lag_pairs_runs, slot_XtX_list, slot_X_runs_list, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, pair_slot, pair_do_hac, pair_has_rhs, rhs_override)
+}
+
 #' Sigmoid transform
 #'
 #' @name sigmoid

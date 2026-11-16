@@ -325,6 +325,72 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// poet_build_pair_X_cpp
+arma::mat poet_build_pair_X_cpp(const arma::mat& M_A, const arma::mat& M_B, const arma::mat& G_A, const arma::mat& G_B, const arma::mat& H_A, const arma::mat& H_B, const Rcpp::IntegerVector& adj_idx1, const Rcpp::List& lag_pairs, const arma::mat& f_dyn, int L_max_in);
+RcppExport SEXP _medusa_poet_build_pair_X_cpp(SEXP M_ASEXP, SEXP M_BSEXP, SEXP G_ASEXP, SEXP G_BSEXP, SEXP H_ASEXP, SEXP H_BSEXP, SEXP adj_idx1SEXP, SEXP lag_pairsSEXP, SEXP f_dynSEXP, SEXP L_max_inSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type M_A(M_ASEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type M_B(M_BSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type G_A(G_ASEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type G_B(G_BSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type H_A(H_ASEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type H_B(H_BSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type adj_idx1(adj_idx1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type lag_pairs(lag_pairsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type f_dyn(f_dynSEXP);
+    Rcpp::traits::input_parameter< int >::type L_max_in(L_max_inSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_build_pair_X_cpp(M_A, M_B, G_A, G_B, H_A, H_B, adj_idx1, lag_pairs, f_dyn, L_max_in));
+    return rcpp_result_gen;
+END_RCPP
+}
+// poet_extract_Xty_diag_cpp
+arma::mat poet_extract_Xty_diag_cpp(const Rcpp::List& E_runs, const Rcpp::List& X_diag_runs, const Rcpp::IntegerVector& sig_idx, const Rcpp::List& adj_idx1_runs, const Rcpp::List& lag_pairs_runs, int L_max_in, int B_tot_in);
+RcppExport SEXP _medusa_poet_extract_Xty_diag_cpp(SEXP E_runsSEXP, SEXP X_diag_runsSEXP, SEXP sig_idxSEXP, SEXP adj_idx1_runsSEXP, SEXP lag_pairs_runsSEXP, SEXP L_max_inSEXP, SEXP B_tot_inSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type E_runs(E_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type X_diag_runs(X_diag_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type sig_idx(sig_idxSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type adj_idx1_runs(adj_idx1_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type lag_pairs_runs(lag_pairs_runsSEXP);
+    Rcpp::traits::input_parameter< int >::type L_max_in(L_max_inSEXP);
+    Rcpp::traits::input_parameter< int >::type B_tot_in(B_tot_inSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_extract_Xty_diag_cpp(E_runs, X_diag_runs, sig_idx, adj_idx1_runs, lag_pairs_runs, L_max_in, B_tot_in));
+    return rcpp_result_gen;
+END_RCPP
+}
+// poet_fit_pair_batch_cpp
+Rcpp::List poet_fit_pair_batch_cpp(const Rcpp::List& E_runs, const Rcpp::List& adj_idx1_runs, const Rcpp::List& lag_pairs_runs, const Rcpp::List& slot_XtX_list, const Rcpp::List& slot_X_runs_list, const arma::mat& A_tie_use, int L_max_in, int L_act_in, int M_dyn_in, int M_core_in, const Rcpp::IntegerVector& vc_col_idx, const arma::vec& sig0_sd, const arma::mat& R_poet, const Rcpp::IntegerVector& pair_g, const Rcpp::IntegerVector& pair_h, const Rcpp::IntegerVector& pair_slot, const Rcpp::LogicalVector& pair_do_hac, const Rcpp::LogicalVector& pair_has_rhs, const arma::mat& rhs_override);
+RcppExport SEXP _medusa_poet_fit_pair_batch_cpp(SEXP E_runsSEXP, SEXP adj_idx1_runsSEXP, SEXP lag_pairs_runsSEXP, SEXP slot_XtX_listSEXP, SEXP slot_X_runs_listSEXP, SEXP A_tie_useSEXP, SEXP L_max_inSEXP, SEXP L_act_inSEXP, SEXP M_dyn_inSEXP, SEXP M_core_inSEXP, SEXP vc_col_idxSEXP, SEXP sig0_sdSEXP, SEXP R_poetSEXP, SEXP pair_gSEXP, SEXP pair_hSEXP, SEXP pair_slotSEXP, SEXP pair_do_hacSEXP, SEXP pair_has_rhsSEXP, SEXP rhs_overrideSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type E_runs(E_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type adj_idx1_runs(adj_idx1_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type lag_pairs_runs(lag_pairs_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type slot_XtX_list(slot_XtX_listSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type slot_X_runs_list(slot_X_runs_listSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type A_tie_use(A_tie_useSEXP);
+    Rcpp::traits::input_parameter< int >::type L_max_in(L_max_inSEXP);
+    Rcpp::traits::input_parameter< int >::type L_act_in(L_act_inSEXP);
+    Rcpp::traits::input_parameter< int >::type M_dyn_in(M_dyn_inSEXP);
+    Rcpp::traits::input_parameter< int >::type M_core_in(M_core_inSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type vc_col_idx(vc_col_idxSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type sig0_sd(sig0_sdSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type R_poet(R_poetSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_g(pair_gSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_h(pair_hSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_slot(pair_slotSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalVector& >::type pair_do_hac(pair_do_hacSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::LogicalVector& >::type pair_has_rhs(pair_has_rhsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type rhs_override(rhs_overrideSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_fit_pair_batch_cpp(E_runs, adj_idx1_runs, lag_pairs_runs, slot_XtX_list, slot_X_runs_list, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, pair_slot, pair_do_hac, pair_has_rhs, rhs_override));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sigmoid
 arma::vec sigmoid(const arma::vec& x, double beta);
 RcppExport SEXP _medusa_sigmoid(SEXP xSEXP, SEXP betaSEXP) {
@@ -556,6 +622,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_generate_feature", (DL_FUNC) &_medusa_generate_feature, 2},
     {"_medusa_generate_feature_armadillo", (DL_FUNC) &_medusa_generate_feature_armadillo, 2},
     {"_medusa_mat2df", (DL_FUNC) &_medusa_mat2df, 4},
+    {"_medusa_poet_build_pair_X_cpp", (DL_FUNC) &_medusa_poet_build_pair_X_cpp, 10},
+    {"_medusa_poet_extract_Xty_diag_cpp", (DL_FUNC) &_medusa_poet_extract_Xty_diag_cpp, 7},
+    {"_medusa_poet_fit_pair_batch_cpp", (DL_FUNC) &_medusa_poet_fit_pair_batch_cpp, 19},
     {"_medusa_sigmoid", (DL_FUNC) &_medusa_sigmoid, 2},
     {"_medusa_estimate_median_nn_dist_cpp", (DL_FUNC) &_medusa_estimate_median_nn_dist_cpp, 1},
     {"_medusa_build_lattice_geodesic_graph_cpp", (DL_FUNC) &_medusa_build_lattice_geodesic_graph_cpp, 6},

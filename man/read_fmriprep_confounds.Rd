@@ -258,10 +258,15 @@ An S3 list of class \code{"medusa_confounds"} containing:
     \item \code{framewise_displacement_raw}: Run-named list of unfiltered FD
       vectors when \code{motion_bandstop_bpm} or \code{motion_lowpass_hz} is
       requested (\code{NULL} otherwise).
+    \item \code{variance_confounds}: Run-named list of numeric frame-level
+      variance-envelope matrices (\code{framewise_displacement},
+      \code{std_dvars}/\code{dvars}, and optional \code{rvt}) for
+      \code{\link{decon_epoch_regression}}.
   }
   The \code{"medusa_confounds"} object can be passed directly as
   \code{nuisance = conf} to \code{\link{estimate_crossrun_hrf}} (automatically
-  supplying both \code{nuisance} and \code{valid_rows}) or as
+  supplying both \code{nuisance} and \code{valid_rows}), as
+  \code{variance_confounds = conf} to \code{\link{decon_epoch_regression}}, or as
   \code{valid = conf} to \code{\link{align_medusa_ts}}.
 }
 \description{

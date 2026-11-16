@@ -1,5 +1,42 @@
 # medusa 0.1.0
 
+## Subspace-debiased Adaptive-POET + covariance-regression shared-error engine & connectivity inference
+
+* Added the `v3` Subspace-Debiased Adaptive-POET + Multi-Lag Toeplitz &
+  General-$W_s$ Covariance-Regression shared-error engine
+  (`R/poet_covreg.R`, `src/poet_covreg.cpp`, `shared_error_method = "poet_covreg"`
+  in `decon_epoch_regression()`):
+  - **Bold-free Step 2 $\to$ Step 3 handoff:** `deconvolve_crossrun_hrf()` now
+    caches uncensored `bold_obs` up to 16,384 voxels and switches automatically
+    above 16,384 voxels to a compact `m x 64` `whitened_sketch`, while
+    `medusa_fit_shared_error_covreg()` switches automatically above 512 units to
+    a voxel-safe dual-space factor mode (`mode = "lowrank_voxel"`) that never
+    allocates $V \times V$ matrices.
+  - **Subspace-debiased stationary & dynamic error moments:** Projects out
+    convolved trial/duration/first-difference designs ($M_s$) with exact
+    $\operatorname{tr}(M_{s_g} M_{s_h})$ degrees-of-freedom debiasing, Tukey-Hanning
+    tapered multi-lag Toeplitz PSD projection, run-scale Empirical-Bayes
+    harmonization across heterogeneous-noise runs, and LTZ-gated dynamic task,
+    covariate, Step-2 rWLS, and external `variance_confounds` variance
+    envelopes with exact Schur-complement restoration when confound columns are
+    gated out.
+  - **Operator & bare-panel parity (`decon_connectivity_repair()`):** Propagates
+    full-rank Block-PAF shared-error embeddings (`shared_noise_vec`), cross-lag
+    embeddings (`lag_noise_vec`), and cross-trial error correlations
+    (`trial_cor_vec`) onto `panel` (including automatic CSV/`.csv.gz`
+    pipe-delimited list-column round-trip restoration across
+    `medusa_write_table()`, `medusa_read_table()`, `data.table::fread()`,
+    `decon_connectivity_repair()`, and `aggregate_decon_panel()`), and adds
+    single-subject ($N = 1$) & group hybrid operator + gated onset-kernel
+    cross-trial sandwich SEs and Satterthwaite degrees of freedom
+    (`crosstrial_se = TRUE`).
+  - **Post-hoc parcel aggregation & `medusa_confounds` integration:** Added
+    exported `aggregate_decon_panel()` to collapse voxel-level panels or
+    `decon_epoch_regression()` fits to parcels with exact shared-error
+    propagation, and updated `read_fmriprep_confounds()` and
+    `decon_epoch_regression(..., variance_confounds = ...)` to extract and
+    accept `"medusa_confounds"` (and `"medusa_nifti_ts"`) objects directly.
+
 ## Fast C++ NIfTI matrix I/O and matrix-native event alignment
 
 * Added `read_nifti_ts()` and `write_nifti_ts()` for streaming C++ conversion
