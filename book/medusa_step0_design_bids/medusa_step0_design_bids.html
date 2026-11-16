@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>3&nbsp; Step 0: Task Design and BIDS/fMRIPrep Ingestion – MEDuSA</title>
+<title>Step 0: Task Design and BIDS/fMRIPrep Ingestion – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -190,12 +190,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -262,27 +262,27 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
   </div>
 </li>
       </ul>
@@ -295,7 +295,7 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
   </div>
 </li>
       </ul>
@@ -310,22 +310,22 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">3.1</span> Overview</a></li>
-  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs"><span class="header-section-number">3.2</span> Goals, Inputs, and Outputs</a>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs">Goals, Inputs, and Outputs</a>
   <ul class="collapse">
-  <li><a href="#goals-of-step-0" id="toc-goals-of-step-0" class="nav-link" data-scroll-target="#goals-of-step-0"><span class="header-section-number">3.2.1</span> Goals of Step 0</a></li>
-  <li><a href="#inputs-what-step-0-receives-and-why" id="toc-inputs-what-step-0-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-0-receives-and-why"><span class="header-section-number">3.2.2</span> Inputs: What Step 0 Receives and Why</a></li>
-  <li><a href="#outputs-what-step-0-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-0-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-0-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">3.2.3</span> Outputs: What Step 0 Produces and Why It Is Set Up That Way</a></li>
+  <li><a href="#goals-of-step-0" id="toc-goals-of-step-0" class="nav-link" data-scroll-target="#goals-of-step-0">Goals of Step 0</a></li>
+  <li><a href="#inputs-what-step-0-receives-and-why" id="toc-inputs-what-step-0-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-0-receives-and-why">Inputs: What Step 0 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-0-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-0-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-0-produces-and-why-it-is-set-up-that-way">Outputs: What Step 0 Produces and Why It Is Set Up That Way</a></li>
   </ul></li>
-  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">3.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</a>
+  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points">Step-by-Step Walkthrough: Substeps and Choice Points</a>
   <ul class="collapse">
-  <li><a href="#schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability" id="toc-schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability" class="nav-link" data-scroll-target="#schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability"><span class="header-section-number">3.3.1</span> 0.1 Schedule runs and inter-phase jitter for trial-level identifiability</a></li>
-  <li><a href="#ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" id="toc-ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" class="nav-link" data-scroll-target="#ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock"><span class="header-section-number">3.3.2</span> 0.2 Ingest BIDS and fMRIPrep derivatives on an intact acquisition clock</a></li>
-  <li><a href="#keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" id="toc-keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" class="nav-link" data-scroll-target="#keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule"><span class="header-section-number">3.3.3</span> 0.3 Keep missed responses, timeouts, and catch trials in the event schedule</a></li>
-  <li><a href="#join-computational-model-covariates-safely-via-event_index" id="toc-join-computational-model-covariates-safely-via-event_index" class="nav-link" data-scroll-target="#join-computational-model-covariates-safely-via-event_index"><span class="header-section-number">3.3.4</span> 0.4 Join computational model covariates safely via <code>event_index</code></a></li>
+  <li><a href="#schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability" id="toc-schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability" class="nav-link" data-scroll-target="#schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability">0.1 Schedule runs and inter-phase jitter for trial-level identifiability</a></li>
+  <li><a href="#ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" id="toc-ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" class="nav-link" data-scroll-target="#ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock">0.2 Ingest BIDS and fMRIPrep derivatives on an intact acquisition clock</a></li>
+  <li><a href="#keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" id="toc-keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" class="nav-link" data-scroll-target="#keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule">0.3 Keep missed responses, timeouts, and catch trials in the event schedule</a></li>
+  <li><a href="#join-computational-model-covariates-safely-via-event_index" id="toc-join-computational-model-covariates-safely-via-event_index" class="nav-link" data-scroll-target="#join-computational-model-covariates-safely-via-event_index">0.4 Join computational model covariates safely via <code>event_index</code></a></li>
   </ul></li>
-  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings"><span class="header-section-number">3.4</span> Recommended Settings</a></li>
-  <li><a href="#practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" id="toc-practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" class="nav-link" data-scroll-target="#practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1"><span class="header-section-number">3.5</span> Practical Considerations, Pre-Flight QC Checklist, and Handoff to Step 1</a></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
+  <li><a href="#practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" id="toc-practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" class="nav-link" data-scroll-target="#practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1">Practical Considerations, Pre-Flight QC Checklist, and Handoff to Step 1</a></li>
   </ul>
 </nav>
     </div>
@@ -352,8 +352,8 @@ window.Quarto = {
 </header>
 
 
-<section id="overview" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">3.1</span> Overview</h2>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
 <p>Before hemodynamic estimation (<a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>) or continuous BOLD deconvolution (<a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a>) begins, two practical foundations govern how accurately trial-level neural signals can be recovered:</p>
 <ol type="1">
 <li><strong>Experimental task scheduling:</strong> Splitting trials across multiple scanner runs (<span class="math inline">\(R \ge 3\)</span>) gives Step 1 independent out-of-sample folds for regional HRF estimation, while jittering the intervals between adjacent within-trial phases (such as <code>cue</code> and <code>feedback</code>) makes overlapping neural epochs separable in Step 3.</li>
@@ -394,10 +394,10 @@ window.Quarto = {
 <p>The walkthrough below develops Step 0 across four substeps—from planning run structure and inter-phase jitter (<code>0.1</code>), to ingesting BIDS and <code>fMRIPrep</code> files on an intact acquisition clock (<code>0.2</code>), handling missed or timeout trials (<code>0.3</code>), and joining computational model variables safely via <code>event_index</code> (<code>0.4</code>).</p>
 <hr>
 </section>
-<section id="goals-inputs-and-outputs" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="goals-inputs-and-outputs"><span class="header-section-number">3.2</span> Goals, Inputs, and Outputs</h2>
-<section id="goals-of-step-0" class="level3" data-number="3.2.1">
-<h3 data-number="3.2.1" class="anchored" data-anchor-id="goals-of-step-0"><span class="header-section-number">3.2.1</span> Goals of Step 0</h3>
+<section id="goals-inputs-and-outputs" class="level2">
+<h2 class="anchored" data-anchor-id="goals-inputs-and-outputs">Goals, Inputs, and Outputs</h2>
+<section id="goals-of-step-0" class="level3">
+<h3 class="anchored" data-anchor-id="goals-of-step-0">Goals of Step 0</h3>
 <ol type="1">
 <li><strong>Design identifiable multi-run event schedules:</strong> Ensure adjacent task phases decouple under hemodynamic blurring and provide independent runs for out-of-sample HRF cross-fitting.</li>
 <li><strong>Read 4D NIfTI runs into consistent <code>time × voxel</code> matrices:</strong> Verify spatial grid geometry across runs, intersect per-run brain masks (<code>mask_policy = "intersect"</code>), and attach parcel labels or spatial coordinates.</li>
@@ -405,8 +405,8 @@ window.Quarto = {
 <li><strong>Retain complete forward event schedules and trial keys:</strong> Keep nuisance task occurrences (such as missed-response timeouts) in <code>events</code> so their BOLD waves are removed rather than absorbed into noise, and link external behavioral or reinforcement-learning (RL) tables through unambiguous <code>event_index</code> keys.</li>
 </ol>
 </section>
-<section id="inputs-what-step-0-receives-and-why" class="level3" data-number="3.2.2">
-<h3 data-number="3.2.2" class="anchored" data-anchor-id="inputs-what-step-0-receives-and-why"><span class="header-section-number">3.2.2</span> Inputs: What Step 0 Receives and Why</h3>
+<section id="inputs-what-step-0-receives-and-why" class="level3">
+<h3 class="anchored" data-anchor-id="inputs-what-step-0-receives-and-why">Inputs: What Step 0 Receives and Why</h3>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -433,7 +433,7 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td><code>strategy</code>, <code>fd_threshold</code>, &amp; <code>include_non_steady_state</code></td>
-<td>Confound regression preset (<code>"6p"</code>, <code>"24p"</code>, <code>"36p"</code>, <code>"acompcor"</code>) and framewise censoring rules</td>
+<td>Confound regression preset (<code>"6p"</code>, <code>"24p"</code>, <code>"36p"</code>, <code>"compcor"</code>, <code>"24p_csf_wm"</code>) and framewise censoring rules</td>
 <td>Converts BIDS <code>"n/a"</code> strings on derivative lag columns cleanly to <code>0</code>, drops linearly dependent nuisance columns per run, and builds logical <code>valid_rows</code> masks without shifting volume timestamps.</td>
 </tr>
 <tr class="odd">
@@ -444,8 +444,8 @@ window.Quarto = {
 </tbody>
 </table>
 </section>
-<section id="outputs-what-step-0-produces-and-why-it-is-set-up-that-way" class="level3" data-number="3.2.3">
-<h3 data-number="3.2.3" class="anchored" data-anchor-id="outputs-what-step-0-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">3.2.3</span> Outputs: What Step 0 Produces and Why It Is Set Up That Way</h3>
+<section id="outputs-what-step-0-produces-and-why-it-is-set-up-that-way" class="level3">
+<h3 class="anchored" data-anchor-id="outputs-what-step-0-produces-and-why-it-is-set-up-that-way">Outputs: What Step 0 Produces and Why It Is Set Up That Way</h3>
 <p><code>read_fmriprep_subject()</code> (or modular assembly via <code>read_nifti_ts()</code>, <code>read_fmriprep_confounds()</code>, and <code>read_bids_events()</code>) produces an S3 <code>"medusa_nifti_ts"</code> object containing:</p>
 <table class="caption-top table">
 <thead>
@@ -486,10 +486,10 @@ window.Quarto = {
 <hr>
 </section>
 </section>
-<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2" data-number="3.3">
-<h2 data-number="3.3" class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">3.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</h2>
-<section id="schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability" class="level3" data-number="3.3.1">
-<h3 data-number="3.3.1" class="anchored" data-anchor-id="schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability"><span class="header-section-number">3.3.1</span> 0.1 Schedule runs and inter-phase jitter for trial-level identifiability</h3>
+<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2">
+<h2 class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points">Step-by-Step Walkthrough: Substeps and Choice Points</h2>
+<section id="schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability" class="level3">
+<h3 class="anchored" data-anchor-id="schedule-runs-and-inter-phase-jitter-for-trial-level-identifiability">0.1 Schedule runs and inter-phase jitter for trial-level identifiability</h3>
 <p>Suppose you are designing—or evaluating an archival dataset for—a multi-phase decision task in which each trial presents a <code>cue</code> followed by <code>feedback</code>. Even before data are collected, two structural features of the schedule determine how well any deconvolution method can separate neural responses:</p>
 <ol type="1">
 <li><strong>Within-trial inter-stimulus jitter (ISI):</strong> When <code>cue</code> and <code>feedback</code> are separated by a <em>constant</em> short interval on every trial (for example, <span class="math inline">\(0.8\text{ s}\)</span>) and cue-evoked activity covaries with the feedback predictor (as expected value covaries with reward prediction error), their convolved BOLD waves move nearly in lockstep. Varying the <code>cue</code>-to-<code>feedback</code> interval across trials (for instance, across <span class="math inline">\(1.0\text{--}4.5\text{ s}\)</span>) breaks that collinearity so Step 3’s <code>(T, O)</code> de-mixing operator can subtract the cue response cleanly without inflating feedback variance.</li>
@@ -632,13 +632,13 @@ Table&nbsp;3.1: Step 0 experimental design benchmarks across cue–feedback ISI 
 </ul>
 <hr>
 </section>
-<section id="ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" class="level3" data-number="3.3.2">
-<h3 data-number="3.3.2" class="anchored" data-anchor-id="ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock"><span class="header-section-number">3.3.2</span> 0.2 Ingest BIDS and fMRIPrep derivatives on an intact acquisition clock</h3>
+<section id="ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock" class="level3">
+<h3 class="anchored" data-anchor-id="ingest-bids-and-fmriprep-derivatives-on-an-intact-acquisition-clock">0.2 Ingest BIDS and fMRIPrep derivatives on an intact acquisition clock</h3>
 <p>Once <code>fMRIPrep</code> preprocessing completes, each run produces a 4D BOLD NIfTI file, a 3D brain mask, a <code>*_desc-confounds_timeseries.tsv</code> table, and a raw BIDS <code>*_events.tsv</code> file whose <code>onset</code> column records event times in <strong>seconds from the start of volume 1 (<span class="math inline">\(t = 0\text{ s}\)</span>)</strong>.</p>
 <p>Calling <code>read_fmriprep_subject()</code> performs four coordinated ingestion steps automatically:</p>
 <ol type="1">
 <li><strong>Mask intersection and atlas alignment:</strong> Reads all runs’ brain masks, retains voxels present in every run (<code>mask_policy = "intersect"</code> so parcel definitions stay identical across cross-fitting folds), checks 3D affine/dimension agreement against <code>atlas</code>, and extracts the 4D runs directly into <code>T_r × V</code> matrices.</li>
-<li><strong>Confound cleaning and rank protection:</strong> Parses <code>*_desc-confounds_timeseries.tsv</code> under a standard preset (<code>strategy = "6p"</code>, <code>"24p"</code>, <code>"36p"</code>, or <code>"acompcor"</code>), replaces BIDS <code>"n/a"</code> strings on temporal derivative/quadratic lag rows with <code>0</code>, centers columns, and drops any zero-variance or collinear columns per run.</li>
+<li><strong>Confound cleaning and rank protection:</strong> Parses <code>*_desc-confounds_timeseries.tsv</code> under a standard preset (<code>strategy = "6p"</code>, <code>"24p"</code>, <code>"36p"</code>, <code>"24p_csf_wm"</code>, or <code>"compcor"</code>), replaces BIDS <code>"n/a"</code> strings on temporal derivative/quadratic lag rows with <code>0</code>, centers columns, and drops any zero-variance or collinear columns per run.</li>
 <li><strong>Clock-preserving frame censoring (<code>valid_rows</code>):</strong> Flags <code>fMRIPrep</code>’s <code>non_steady_state_outlier*</code> dummy scans (<code>include_non_steady_state = TRUE</code>) alongside frames exceeding <code>fd_threshold</code> or <code>dvars_threshold</code> by setting <code>valid_rows = FALSE</code> rather than deleting rows from <code>bold</code>.</li>
 <li><strong>BIDS event standardization:</strong> Reads <code>*_events.tsv</code>, maps <code>trial_type</code> to <code>condition</code>, treats <code>"n/a"</code> durations as <code>0</code>-second impulses, and coerces numeric trial columns cleanly.</li>
 </ol>
@@ -788,14 +788,14 @@ Table&nbsp;3.3: Step 1 HRF peak latency and Step 3 lag-0 feedback RPE recovery a
 </div>
 <p><strong>Choice point — One-call <code>read_fmriprep_subject()</code> vs.&nbsp;modular readers and confound <code>strategy</code>:</strong></p>
 <ul>
-<li><strong>Standard BIDS/<code>fMRIPrep</code> directories:</strong> Use <code>read_fmriprep_subject()</code> with <code>include_non_steady_state = TRUE</code> and <code>strategy = "24p"</code> (six rigid-body realignment parameters, their temporal derivatives, and quadratic terms) or <code>"acompcor"</code> when anatomical CompCor components are desired alongside motion terms. Remember that Steps 1–2 already add per-run intercepts, linear trends, and slow <code>&lt; 1/128 Hz</code> cosine drift terms internally, so avoid pre-bandpass-filtering BOLD before MEDuSA.</li>
+<li><strong>Standard BIDS/<code>fMRIPrep</code> directories:</strong> Use <code>read_fmriprep_subject()</code> with <code>include_non_steady_state = TRUE</code> and <code>strategy = "24p"</code> (six rigid-body realignment parameters, their temporal derivatives, and quadratic terms) or <code>"compcor"</code> when anatomical/temporal CompCor components are desired alongside motion terms. When <code>fMRIPost-AROMA</code> or legacy ICA-AROMA mixing matrices are available, setting <code>aroma = "nonaggressive"</code> inside <code>read_fmriprep_subject()</code> (or calling <code>read_fmriprep_aroma()</code> + <code>apply_aroma()</code>) performs partial regression on BOLD and matched nuisance columns simultaneously so downstream confound projection never re-introduces motion variance. Remember that Steps 1–2 already add per-run intercepts, linear trends, and slow <code>&lt; 1/128 Hz</code> cosine drift terms internally, so avoid pre-bandpass-filtering BOLD before MEDuSA.</li>
 <li><strong>Fast-TR multiband acquisitions (<span class="math inline">\(\text{TR} \le 1.0\text{ s}\)</span>):</strong> Add <code>motion_bandstop_bpm = c(12, 20)</code> and <code>motion_filter_target = "fd_only"</code> inside <code>read_fmriprep_subject()</code> (or <code>read_fmriprep_confounds()</code>) so respiratory chest-wall modulation does not trigger false FD scrubbing; see <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-respiratory-fd-filter">Step 1 §1.5</a>.</li>
 <li><strong>Custom preprocessing or <code>BrainGnomes</code> pipelines:</strong> Assemble the exact same inputs modularly via <code>read_nifti_ts(bold_files, mask = ..., atlas = ...)</code>, <code>read_fmriprep_confounds(confound_files, censor_files = ...)</code>, and <code>read_bids_events(event_files)</code>. If an upstream pipeline <em>already</em> discarded <span class="math inline">\(k\)</span> initial dummy volumes before writing BOLD NIfTIs while leaving <code>events.tsv</code> anchored to scanner trigger <span class="math inline">\(t = 0\)</span>, pass <code>time_offset = k * tr</code> to Step 1 (or check the BIDS JSON <code>StartTime</code> field).</li>
 </ul>
 <hr>
 </section>
-<section id="keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" class="level3" data-number="3.3.3">
-<h3 data-number="3.3.3" class="anchored" data-anchor-id="keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule"><span class="header-section-number">3.3.3</span> 0.3 Keep missed responses, timeouts, and catch trials in the event schedule</h3>
+<section id="keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule" class="level3">
+<h3 class="anchored" data-anchor-id="keep-missed-responses-timeouts-and-catch-trials-in-the-event-schedule">0.3 Keep missed responses, timeouts, and catch trials in the event schedule</h3>
 <p>In real cognitive tasks, participants occasionally miss a response deadline or experience a timeout screen (<code>response_time = "n/a"</code>, undefined RL choice/RPE). A natural temptation when preparing <code>events</code> for trial-level regression is to filter <code>events.tsv</code> down to valid completed trials before running Step 1.</p>
 <p>From the perspective of the forward BOLD model (<span class="math inline">\(y = Ha + Z\gamma + \varepsilon\)</span>), however, <strong>a missed trial is still a physical sensory and cognitive event in the scanner</strong>: the cue appeared, a timeout warning or visual change occurred, and salience/error-monitoring cortex responded strongly. Deleting those timestamps from <code>events</code> forces Steps 1–3 to treat large timeout-evoked BOLD waves as unexplained noise:</p>
 <ol type="1">
@@ -881,8 +881,8 @@ Table&nbsp;3.4: Impact of missed-trial modeling and trial-table join keys on Ste
 </ul>
 <hr>
 </section>
-<section id="join-computational-model-covariates-safely-via-event_index" class="level3" data-number="3.3.4">
-<h3 data-number="3.3.4" class="anchored" data-anchor-id="join-computational-model-covariates-safely-via-event_index"><span class="header-section-number">3.3.4</span> 0.4 Join computational model covariates safely via <code>event_index</code></h3>
+<section id="join-computational-model-covariates-safely-via-event_index" class="level3">
+<h3 class="anchored" data-anchor-id="join-computational-model-covariates-safely-via-event_index">0.4 Join computational model covariates safely via <code>event_index</code></h3>
 <p>In cognitive neuroscience workflows, trial-by-trial predictors—such as reinforcement-learning expected values, prediction errors, or drift-diffusion parameters—often live either as extra columns inside <code>*_events.tsv</code> or in a separate behavioral/computational <code>data.table</code> fit outside <code>fMRIPrep</code>. MEDuSA supports both cleanly without risking trial-alignment shifts:</p>
 <ol type="1">
 <li><strong>In-table BIDS columns (<code>covariates = "rpe"</code> or <code>~ rpe + abs(rpe)</code>):</strong> Because <code>read_fmriprep_subject()</code> preserves all extra columns in <code>sub01$events</code> (converting <code>"n/a"</code> on non-target or missed rows to <code>NA</code>), passing column names or a one-sided formula to <code>decon_epoch_regression()</code> automatically extracts the rows where <code>condition == target_condition</code> in exact chronological order.</li>
@@ -909,8 +909,8 @@ Whenever a run contains missed responses or catch trials (for example, 15 valid 
 <hr>
 </section>
 </section>
-<section id="recommended-settings" class="level2" data-number="3.4">
-<h2 data-number="3.4" class="anchored" data-anchor-id="recommended-settings"><span class="header-section-number">3.4</span> Recommended Settings</h2>
+<section id="recommended-settings" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
 <p>For multi-run BIDS + <code>fMRIPrep</code> task studies, ingest each participant with <code>read_fmriprep_subject()</code> (looping over subject IDs in batch scripts) and inspect <code>$confounds$summary</code> before launching Step 1:</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
@@ -975,8 +975,8 @@ Whenever a run contains missed responses or catch trials (for example, 15 valid 
 </table>
 <hr>
 </section>
-<section id="practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" class="level2" data-number="3.5">
-<h2 data-number="3.5" class="anchored" data-anchor-id="practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1"><span class="header-section-number">3.5</span> Practical Considerations, Pre-Flight QC Checklist, and Handoff to Step 1</h2>
+<section id="practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1" class="level2">
+<h2 class="anchored" data-anchor-id="practical-considerations-pre-flight-qc-checklist-and-handoff-to-step-1">Practical Considerations, Pre-Flight QC Checklist, and Handoff to Step 1</h2>
 <p>Before passing <code>sub_obj</code> into <code>estimate_crossrun_hrf()</code> (<a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>):</p>
 <ol type="1">
 <li><strong>Screen high-motion runs via <code>$confounds$summary</code>:</strong> Runs with <code>pct_censored &gt; 25–30%</code> or very short contiguous unmasked segments (<code>&lt; 15–20</code> TRs) carry limited effective degrees of freedom; consider excluding severely corrupted individual runs before cross-fitting (retaining the participant if <span class="math inline">\(\ge 2\)</span> clean runs remain, or falling back to single-run sub-block cross-fitting if 1 clean run remains).</li>
@@ -1477,8 +1477,8 @@ Simulation Details &amp; Reproduction
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="../worked-example.html" class="pagination-link" aria-label="A worked analysis from BOLD to a group claim">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></span>
+      <a href="../worked-example.html" class="pagination-link" aria-label="A Worked Analysis from BOLD to a Group Claim">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">

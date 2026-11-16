@@ -155,12 +155,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  <a href="./foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  <a href="./worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -227,27 +227,27 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
   </div>
 </li>
       </ul>
@@ -260,7 +260,7 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  <a href="./reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
   </div>
 </li>
       </ul>
@@ -347,8 +347,8 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td><a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">0. Task Design &amp; BIDS/fMRIPrep Ingestion</a></td>
-<td><code>read_fmriprep_subject()</code>, <code>read_bids_events()</code>, <code>read_fmriprep_confounds()</code>, <code>read_nifti_ts()</code></td>
-<td>How should runs and inter-phase jitter be scheduled for trial-level identifiability, and how do we ingest BIDS events, <code>fMRIPrep</code> confounds, dummy scans, and missed trials onto an intact acquisition clock?</td>
+<td><code>read_fmriprep_subject()</code>, <code>read_bids_events()</code>, <code>read_fmriprep_confounds()</code>, <code>read_fmriprep_aroma()</code>, <code>apply_aroma()</code>, <code>read_nifti_ts()</code></td>
+<td>How should runs and inter-phase jitter be scheduled for trial-level identifiability, and how do we ingest BIDS events, <code>fMRIPrep</code> confounds/AROMA components, dummy scans, and missed trials onto an intact acquisition clock?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">1. Estimate Cross-Run HRF &amp; Noise</a></td>
@@ -386,7 +386,7 @@ window.Quarto = {
 <section id="how-to-read-this-book" class="level2">
 <h2 class="anchored" data-anchor-id="how-to-read-this-book">How to read this book</h2>
 <ol type="1">
-<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \hat{s} \to \hat{z}\)</span>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
+<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \widehat{a} \to \widehat{z}\)</span>, with a complete <a href="./foundations.html#sec-notation">notation and S3 object map</a>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
 <li>Read the seven chapters in <strong>The MEDuSA pipeline</strong> (Steps 0–6). Each chapter opens with a thumbnail <strong>Overview</strong> and clean <strong>Goals, Inputs, and Outputs</strong> tables, walks step by step through each <strong>Substep and Choice Point</strong> from simple intuition to the full estimator, summarizes <strong>Recommended Settings</strong>, and closes with <strong>Practical Considerations, Diagnostics, and Scope</strong>.</li>
 <li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
 <li>Consult <strong>Measurement models and evidence</strong> for deeper derivations of <a href="./medusa_standard_errors_mmom.html">method-of-moments (M-MOM) standard-error propagation</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity measurement models</a>, <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">multi-lag calibration</a>, <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">autocorrelation estimation</a>, and <a href="./evidence.html">validation benchmarks</a>.</li>
@@ -878,8 +878,8 @@ window.Quarto = {
   <div class="nav-page nav-page-previous">
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./foundations.html" class="pagination-link" aria-label="Conceptual foundations">
-        <span class="nav-page-text"><span class="chapter-title">Conceptual foundations</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./foundations.html" class="pagination-link" aria-label="Conceptual Foundations">
+        <span class="nav-page-text"><span class="chapter-title">Conceptual Foundations</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

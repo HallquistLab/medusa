@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>From BOLD noise to M-MOM error variances – MEDuSA</title>
+<title>From BOLD Noise to M-MOM Error Variances – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -190,12 +190,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  <a href="./foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  <a href="./worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -262,27 +262,27 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
   </div>
 </li>
       </ul>
@@ -295,7 +295,7 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  <a href="./reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
   </div>
 </li>
       </ul>
@@ -311,8 +311,14 @@ window.Quarto = {
    
   <ul>
   <li><a href="#estimate-the-bold-noise" id="toc-estimate-the-bold-noise" class="nav-link active" data-scroll-target="#estimate-the-bold-noise">1. Estimate the BOLD noise</a></li>
-  <li><a href="#propagate-noise-through-the-linear-inverse-and-epoch-operators" id="toc-propagate-noise-through-the-linear-inverse-and-epoch-operators" class="nav-link" data-scroll-target="#propagate-noise-through-the-linear-inverse-and-epoch-operators">2. Propagate noise through the linear inverse and epoch operators</a></li>
-  <li><a href="#supply-measurement-error-moments-to-m-mom" id="toc-supply-measurement-error-moments-to-m-mom" class="nav-link" data-scroll-target="#supply-measurement-error-moments-to-m-mom">3. Supply measurement-error moments to M-MOM</a></li>
+  <li><a href="#propagate-noise-through-the-linear-inverse-and-epoch-operators" id="toc-propagate-noise-through-the-linear-inverse-and-epoch-operators" class="nav-link" data-scroll-target="#propagate-noise-through-the-linear-inverse-and-epoch-operators">2. Propagate noise through the linear inverse and epoch operators</a>
+  <ul class="collapse">
+  <li><a href="#keep-units-and-spatial-aggregation-consistent" id="toc-keep-units-and-spatial-aggregation-consistent" class="nav-link" data-scroll-target="#keep-units-and-spatial-aggregation-consistent">Keep units and spatial aggregation consistent</a></li>
+  </ul></li>
+  <li><a href="#supply-measurement-error-moments-to-m-mom" id="toc-supply-measurement-error-moments-to-m-mom" class="nav-link" data-scroll-target="#supply-measurement-error-moments-to-m-mom">3. Supply measurement-error moments to M-MOM</a>
+  <ul class="collapse">
+  <li><a href="#minimal-applied-interface-medusa_fit_mmom" id="toc-minimal-applied-interface-medusa_fit_mmom" class="nav-link" data-scroll-target="#minimal-applied-interface-medusa_fit_mmom">Minimal applied interface (<code>medusa_fit_mmom()</code>)</a></li>
+  </ul></li>
   <li><a href="#distributional-assumptions-and-scope-conditions" id="toc-distributional-assumptions-and-scope-conditions" class="nav-link" data-scroll-target="#distributional-assumptions-and-scope-conditions">4. Distributional assumptions and scope conditions</a></li>
   </ul>
 </nav>
@@ -320,9 +326,10 @@ window.Quarto = {
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></h1>
+<h1 class="title"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></h1>
+<p class="subtitle lead">Propagating run-level AR(p) observation noise into trial standard errors and predictor error blocks</p>
 </div>
 
 
@@ -341,19 +348,19 @@ window.Quarto = {
 
 <p>MEDuSA estimates how much observation noise enters <strong>each recovered trial activity estimate</strong>. When deconvolved neural activity becomes a predictor in Step 6 (<code>Target ~ Seed * Task</code> or <code>Behavior ~ Neural</code>), Method-of-Moments measurement-error correction (<code>medusa_fit_mmom()</code> / <code>decon_connectivity_repair()</code>) needs its <strong>measurement-error variance</strong>, typically <code>se_demixed^2</code>, expressed in the exact same units as the predictor. This trial-level measurement variance is distinct from the standard error of a fitted group regression coefficient.</p>
 <p><span class="math display">\[
-\underbrace{\widehat{\operatorname{Cov}}(\varepsilon)}_{\text{BOLD noise (Step 1)}}
+\underbrace{\widehat{\operatorname{Cov}}(\varepsilon_r)}_{\text{BOLD noise (Step 1)}}
 \ \longrightarrow\
-\underbrace{\widehat\Omega_\tau}_{\text{trial error covariance (Steps 3–4)}}
+\underbrace{\widehat\Omega_{r,\tau}}_{\text{trial error covariance (Steps 3–4)}}
 \ \longrightarrow\
-\underbrace{s_i=\sqrt{\widehat\Omega_{\tau,ii}}}_{\text{trial SE (`se_demixed`)}}
+\underbrace{s_{ri}=\sqrt{[\widehat\Omega_{r,\tau}]_{ii}}}_{\text{trial SE (`se_demixed`)}}
 \ \longrightarrow\
 \underbrace{\Psi_i}_{\text{M-MOM error block (Step 6)}}.
 \]</span></p>
-<section id="estimate-the-bold-noise" class="level3">
-<h3 class="anchored" data-anchor-id="estimate-the-bold-noise">1. Estimate the BOLD noise</h3>
-<p>For one run and voxel, write <span class="math inline">\(y = Hs + Z\gamma + \varepsilon\)</span>, with</p>
+<section id="estimate-the-bold-noise" class="level2">
+<h2 class="anchored" data-anchor-id="estimate-the-bold-noise">1. Estimate the BOLD noise</h2>
+<p>For one run <span class="math inline">\(r\)</span> and voxel, write <span class="math inline">\(y_r = H_r a_r + Z_r\gamma_r + \varepsilon_r\)</span>, with</p>
 <p><span class="math display">\[
-\operatorname{Cov}(\varepsilon) = \sigma_{\rm obs}^2 \Sigma_{\rm cor}.
+\operatorname{Cov}(\varepsilon_r) = \sigma_{\rm obs}^2 \Sigma_{\rm cor}.
 \]</span></p>
 <p>Here <span class="math inline">\(H\)</span> applies the selected HRF and <span class="math inline">\(Z\)</span> contains nuisance terms. Step 1’s pooled AR(1) profile REML and shrunk residual AR(<span class="math inline">\(q\)</span>) correction define a cascaded AR(<span class="math inline">\(p\)</span>) temporal correlation model <span class="math inline">\(\Sigma_{\rm cor}\)</span> (evaluated at the exact retained acquisition indices <span class="math inline">\(\Gamma_N[\text{rows}, \text{rows}]\)</span> when frames are censored). The amplitude <span class="math inline">\(\sigma_{\rm obs}\)</span> is the <strong>marginal observation-noise SD</strong>, not the white-noise innovation SD.</p>
 <p>In <code>deconvolve_crossrun_hrf(..., scaling = "noise_sd")</code>, MEDuSA estimates <span class="math inline">\(\sigma_{\rm obs}\)</span> primarily from outlier-trimmed, leverage-adjusted task-free GLS residuals (Winsorized GLS residuals) after conditioning on Step 1’s cross-fitted HRF and post-selection AR(<span class="math inline">\(p\)</span>) correlation model, converting white-noise innovation scale to stationary marginal observation scale. As a standalone estimator for single-run <code>deconvolve_reglin()</code>, omitted-event safeguard, and low-degrees-of-freedom fallback, MEDuSA estimates marginal noise amplitude from second differences <span class="math inline">\(d_t = y_t - 2y_{t-1} + y_{t-2}\)</span>, which suppress smooth BOLD signal (combining sample SD with outlier-resistant median absolute deviation, <span class="math inline">\(\operatorname{MAD}_0\)</span>):</p>
@@ -364,31 +371,31 @@ window.Quarto = {
 \]</span></p>
 <p>The normal-consistent MAD is centered at zero, and the denominator adjusts analytically for lag-1 and lag-2 autocorrelation. Crucially, BOLD noise is estimated prior to downstream behavioral or connectivity regressions.</p>
 </section>
-<section id="propagate-noise-through-the-linear-inverse-and-epoch-operators" class="level3">
-<h3 class="anchored" data-anchor-id="propagate-noise-through-the-linear-inverse-and-epoch-operators">2. Propagate noise through the linear inverse and epoch operators</h3>
-<p>With HRF, regularization penalty, frame weights, nuisance projection, and noise parameters held fixed, deconvolution is a linear map <span class="math inline">\(\widehat s = My\)</span>. Event interpolation, gain restoration, and Step 3’s cross-event and within-trial demixing combine with <span class="math inline">\(M\)</span> into a linear trial-readout operator <span class="math inline">\(B_\tau\)</span>. Therefore, conditional on the learned operators,</p>
+<section id="propagate-noise-through-the-linear-inverse-and-epoch-operators" class="level2">
+<h2 class="anchored" data-anchor-id="propagate-noise-through-the-linear-inverse-and-epoch-operators">2. Propagate noise through the linear inverse and epoch operators</h2>
+<p>With HRF, regularization penalty, frame weights, nuisance projection, and noise parameters held fixed, deconvolution is a linear map <span class="math inline">\(\widehat{a}_r = D_r \tilde{y}_{r,o}\)</span>. Event interpolation, gain restoration, and Step 3’s cross-event and within-trial demixing combine with <span class="math inline">\(D_r\)</span> into a composite linear trial-readout operator <span class="math inline">\(B_{r,\tau}\)</span>. Therefore, conditional on the learned operators,</p>
 <p><span class="math display">\[
-\Omega_{\tau,\rm raw}
-=\sigma_{\rm eff}^2\,\widetilde B_\tau\Sigma_{\rm cor}\widetilde B_\tau^\top,
+\Omega_{r,\tau,\rm raw}
+=\sigma_{\rm eff}^2\,\widetilde B_{r,\tau}\Sigma_{\rm cor}\widetilde B_{r,\tau}^\top,
 \]</span></p>
-<p>where <span class="math inline">\(\widetilde B_\tau\)</span> incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (<code>worked/mmom-check.R</code>), MEDuSA’s operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to <strong>1.11e-16</strong>.</p>
+<p>where <span class="math inline">\(\widetilde B_{r,\tau}\)</span> incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (<code>worked/mmom-check.R</code>), MEDuSA’s operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to <strong>1.11e-16</strong>.</p>
 <p><strong>Run-centered finite-sample calibration.</strong> Because downstream within-run regressions center trial series within each run, <code>decon_epoch_regression()</code> centers the propagated <span class="math inline">\(m \times m\)</span> trial error covariance (<span class="math inline">\(m &gt; 1\)</span> valid trials) and applies a finite-sample degrees-of-freedom factor <span class="math inline">\((1 - 1/m)^{-1}\)</span> (analogous to Bessel’s sample-variance correction):</p>
 <p><span class="math display">\[
 Q_m = I_m - \frac{\mathbf1\mathbf1^\top}{m},\qquad
-\widehat\Omega_\tau = \frac{Q_m\Omega_{\tau,\rm raw}Q_m}{1-1/m},
+\widehat\Omega_{r,\tau} = \frac{Q_m\Omega_{r,\tau,\rm raw}Q_m}{1-1/m},
 \]</span> <span class="math display">\[
-\boxed{\texttt{se\_demixed}_i = \sqrt{\max(0, \widehat\Omega_{\tau,ii})}}.
+\boxed{\texttt{se\_demixed}_{ri} = \sqrt{\max(0, [\widehat\Omega_{r,\tau}]_{ii})}}.
 \]</span></p>
-<p>Thus <code>se_demixed</code> represents a <strong>run-centered, finite-sample-calibrated trial measurement SE</strong>. The full off-diagonal <span class="math inline">\(\widehat\Omega_\tau\)</span> is used internally for biological variance estimation (<code>tau2_bio</code>) and optional ZCA panel whitening, while the panel exports diagonal <code>se_demixed</code> and adjacent-trial error autocorrelation <code>error_ac1</code>.</p>
-<section id="keep-units-and-spatial-aggregation-consistent" class="level4">
-<h4 class="anchored" data-anchor-id="keep-units-and-spatial-aggregation-consistent">Keep units and spatial aggregation consistent</h4>
+<p>Thus <code>se_demixed</code> represents a <strong>run-centered, finite-sample-calibrated trial measurement SE</strong>. The full off-diagonal <span class="math inline">\(\widehat\Omega_{r,\tau}\)</span> is used internally for biological variance estimation (<code>tau2_bio</code>) and optional ZCA panel whitening, while the panel exports diagonal <code>se_demixed</code> and adjacent-trial error autocorrelation <code>error_ac1</code>.</p>
+<section id="keep-units-and-spatial-aggregation-consistent" class="level3">
+<h3 class="anchored" data-anchor-id="keep-units-and-spatial-aggregation-consistent">Keep units and spatial aggregation consistent</h3>
 <p>If <span class="math inline">\(d\)</span> is the Step 2 scaling divisor, <code>restore_scale = FALSE</code> uses <span class="math inline">\(\sigma_{\rm eff} = \widehat\sigma_{\rm obs} / d\)</span>, whereas <code>restore_scale = TRUE</code> restores <span class="math inline">\(\sigma_{\rm eff} = \widehat\sigma_{\rm obs}\)</span> so activity and <code>se_demixed</code> scale together. Rescaling a predictor by <span class="math inline">\(c\)</span> requires rescaling its SE by <span class="math inline">\(|c|\)</span> and its error variance by <span class="math inline">\(c^2\)</span>.</p>
-<p>In Step 4, parcel aggregation forms precision-weighted parcel series using task-free Step 1 whitened <code>noise_innovations</code> to estimate both within-parcel spatial noise covariance (propagated through exact operator strata) and low-rank cross-parcel <code>shared_noise_loading</code> vectors that survive <code>rbindlist()</code> stacking.</p>
+<p>In Step 4, parcel aggregation forms precision-weighted parcel series using task-free Step 2 whitened <code>noise_innovations</code> to estimate both within-parcel spatial noise covariance (propagated through exact operator strata) and low-rank cross-parcel <code>shared_noise_loading</code> vectors that survive <code>rbindlist()</code> stacking.</p>
 </section>
 </section>
-<section id="supply-measurement-error-moments-to-m-mom" class="level3">
-<h3 class="anchored" data-anchor-id="supply-measurement-error-moments-to-m-mom">3. Supply measurement-error moments to M-MOM</h3>
-<p>For an observed predictor <span class="math inline">\(\widehat a_i = a_i + u_i\)</span>, set <span class="math inline">\(\psi_i = \operatorname{Var}(u_i) = \texttt{se\_demixed}_i^2\)</span>. A single noisy neural predictor uses <span class="math inline">\(\Psi_i = [\psi_i]\)</span>. For a PPI design <span class="math inline">\((\widehat a_i,\, x_i,\, \widehat a_i x_i)\)</span> with error-free modulator <span class="math inline">\(x_i\)</span>,</p>
+<section id="supply-measurement-error-moments-to-m-mom" class="level2">
+<h2 class="anchored" data-anchor-id="supply-measurement-error-moments-to-m-mom">3. Supply measurement-error moments to M-MOM</h2>
+<p>For an observed de-mixed trial predictor <span class="math inline">\(\widehat{z}_{S,i} = \theta_{S,i} + u_i\)</span>, set <span class="math inline">\(\psi_i = \operatorname{Var}(u_i) = \texttt{se\_demixed}_{S,i}^2\)</span>. A single noisy neural predictor uses <span class="math inline">\(\Psi_i = [\psi_i]\)</span>. For a PPI design <span class="math inline">\((\widehat{z}_{S,i},\, x_i,\, \widehat{z}_{S,i} x_i)\)</span> with error-free modulator <span class="math inline">\(x_i\)</span>,</p>
 <p><span class="math display">\[
 \Psi_i = \psi_i
 \begin{bmatrix}
@@ -431,8 +438,8 @@ x_i &amp; 0 &amp; x_i^2
 </tr>
 </tbody>
 </table>
-<section id="minimal-applied-interface-medusa_fit_mmom" class="level4">
-<h4 class="anchored" data-anchor-id="minimal-applied-interface-medusa_fit_mmom">Minimal applied interface (<code>medusa_fit_mmom()</code>)</h4>
+<section id="minimal-applied-interface-medusa_fit_mmom" class="level3">
+<h3 class="anchored" data-anchor-id="minimal-applied-interface-medusa_fit_mmom">Minimal applied interface (<code>medusa_fit_mmom()</code>)</h3>
 <p>When <code>decon_connectivity_repair()</code> handles parcel-to-parcel connectivity and PPI automatically, it calls <code>medusa_fit_mmom()</code> under the hood. You can also call <code>medusa_fit_mmom()</code> directly when predicting a behavioral outcome (<code>rt</code>, choice log-odds score, pupillometry) from one or more deconvolved parcel readouts within a participant:</p>
 <div class="cell">
 <details class="code-fold">
@@ -479,12 +486,12 @@ x_i &amp; 0 &amp; x_i^2
 <p>If the outcome is another deconvolved brain parcel, pass its squared <code>se_demixed</code> in <code>err_y</code> and supply per-trial predictor–outcome error covariances in <code>err_xy</code> (automated by <code>decon_connectivity_repair(..., shared_error = "auto")</code>).</p>
 </section>
 </section>
-<section id="distributional-assumptions-and-scope-conditions" class="level3">
-<h3 class="anchored" data-anchor-id="distributional-assumptions-and-scope-conditions">4. Distributional assumptions and scope conditions</h3>
+<section id="distributional-assumptions-and-scope-conditions" class="level2">
+<h2 class="anchored" data-anchor-id="distributional-assumptions-and-scope-conditions">4. Distributional assumptions and scope conditions</h2>
 <ol type="1">
 <li><strong>Operator covariance propagation is distribution-free up to second moments:</strong> <span class="math inline">\(\operatorname{Cov}(B\varepsilon) = B\operatorname{Cov}(\varepsilon)B^\top\)</span> requires finite second moments and an accurate temporal/spatial noise correlation model, not Gaussianity—though Winsorized/MAD scale factors calibrate to Gaussian efficiency.</li>
 <li><strong>Single-subject M-MOM SEs are conditional model-based estimates:</strong> Within-subject SEs from <code>repair::fit_mmom()</code> / <code>medusa_fit_mmom()</code> use a normal-error variance formula conditional on first-stage error moments. Across multiple participants, <code>decon_connectivity_repair()</code> pools participant slopes using dispersion-scaled finite-sample random-effects <span class="math inline">\(t\)</span>-intervals (Hartung–Knapp–Sidik–Jonkman, HKSJ pooling) so group <span class="math inline">\(p\)</span>-values rely on between-participant replication rather than single-subject row independence.</li>
-<li><strong>Zero-mean measurement error vs.&nbsp;regularization bias:</strong> Propagating <code>se_demixed^2</code> quantifies observation-noise variance <span class="math inline">\(B\Sigma_\varepsilon B^\top\)</span>, <strong>not</strong> source resolution bias <span class="math inline">\((R - I)s\)</span> from ridge/difference regularization or HRF mismatch. When seed and target parcels experience substantially different temporal smoothing (<span class="math inline">\(R_S \neq R_T\)</span>), disattenuating variance alone does not undo unequal resolution; see <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models and REPAIR</a> for resolution-aware extensions.</li>
+<li><strong>Zero-mean measurement error vs.&nbsp;regularization bias:</strong> Propagating <code>se_demixed^2</code> quantifies observation-noise variance <span class="math inline">\(B_{r,\tau}\Sigma_r B_{r,\tau}^\top\)</span>, <strong>not</strong> residual resolution distortion <span class="math inline">\((K - I)\theta\)</span> from strong regularization or HRF mismatch. When seed and target parcels experience substantially different effective trial resolution (<span class="math inline">\(K_S \neq K_T\)</span>), disattenuating variance alone does not undo unequal resolution; see <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-Error Models and REPAIR</a> for resolution-aware extensions.</li>
 </ol>
 <details>
 <summary>
@@ -982,8 +989,8 @@ Implementation locations and reproduction
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="pagination-link" aria-label="Measurement-error models and REPAIR">
-        <span class="nav-page-text"><span class="chapter-title">Measurement-error models and REPAIR</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="pagination-link" aria-label="Measurement-Error Models and REPAIR">
+        <span class="nav-page-text"><span class="chapter-title">Measurement-Error Models and REPAIR</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

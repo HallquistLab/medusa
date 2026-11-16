@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>What Woolrich’s noise study contributes – MEDuSA</title>
+<title>Temporal Autocorrelation and Noise Calibration – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html"><span class="chapter-title">What Woolrich’s noise study contributes</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -190,12 +190,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  <a href="../../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  <a href="../../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -262,27 +262,27 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  <a href="../../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  <a href="../../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  <a href="../../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  <a href="../../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  <a href="../../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
   </div>
 </li>
       </ul>
@@ -295,7 +295,7 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  <a href="../../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
   </div>
 </li>
       </ul>
@@ -310,21 +310,22 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#what-woolrich-et-al.-2001-actually-demonstrate" id="toc-what-woolrich-et-al.-2001-actually-demonstrate" class="nav-link active" data-scroll-target="#what-woolrich-et-al.-2001-actually-demonstrate">What Woolrich et al.&nbsp;(2001) actually demonstrate</a></li>
-  <li><a href="#how-medusa-implementsand-extendsthese-principles" id="toc-how-medusa-implementsand-extendsthese-principles" class="nav-link" data-scroll-target="#how-medusa-implementsand-extendsthese-principles">How <code>medusa</code> implements—and extends—these principles</a></li>
-  <li><a href="#live-benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation" id="toc-live-benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation" class="nav-link" data-scroll-target="#live-benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation">Live benchmark 1: Separating HRF mismatch from temporal autocorrelation</a></li>
-  <li><a href="#live-benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance" id="toc-live-benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance" class="nav-link" data-scroll-target="#live-benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance">Live benchmark 2: Coherent marginal scale and propagated readout covariance</a></li>
-  <li><a href="#practical-takeaways" id="toc-practical-takeaways" class="nav-link" data-scroll-target="#practical-takeaways">Practical takeaways</a></li>
-  <li><a href="#reproducibility" id="toc-reproducibility" class="nav-link" data-scroll-target="#reproducibility">Reproducibility</a></li>
+  <li><a href="#what-woolrich-et-al.-2001-demonstrate" id="toc-what-woolrich-et-al.-2001-demonstrate" class="nav-link active" data-scroll-target="#what-woolrich-et-al.-2001-demonstrate">1. What Woolrich et al.&nbsp;(2001) demonstrate</a></li>
+  <li><a href="#how-medusa-implements-and-extends-these-principles" id="toc-how-medusa-implements-and-extends-these-principles" class="nav-link" data-scroll-target="#how-medusa-implements-and-extends-these-principles">2. How <code>medusa</code> implements and extends these principles</a></li>
+  <li><a href="#benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation" id="toc-benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation" class="nav-link" data-scroll-target="#benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation">3. Benchmark 1: Separating HRF mismatch from temporal autocorrelation</a></li>
+  <li><a href="#benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance" id="toc-benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance" class="nav-link" data-scroll-target="#benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance">4. Benchmark 2: Coherent marginal scale and propagated readout covariance</a></li>
+  <li><a href="#practical-takeaways" id="toc-practical-takeaways" class="nav-link" data-scroll-target="#practical-takeaways">5. Practical takeaways</a></li>
+  <li><a href="#reproducibility" id="toc-reproducibility" class="nav-link" data-scroll-target="#reproducibility">6. Reproducibility</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html"><span class="chapter-title">What Woolrich’s noise study contributes</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-title">What Woolrich’s noise study contributes</span></h1>
+<h1 class="title"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></h1>
+<p class="subtitle lead">How Woolrich et al.&nbsp;(2001) informs MEDuSA’s two-pass REML AR(p) refit and marginal noise scaling</p>
 </div>
 
 
@@ -341,9 +342,9 @@ window.Quarto = {
 </header>
 
 
-<p><strong>Executive summary:</strong> Woolrich, Ripley, Brady, and Smith (2001), <em>Temporal Autocorrelation in Univariate Linear Modeling of FMRI Data</em> (<em>NeuroImage</em> 14, 1370–1386, <a href="https://doi.org/10.1006/nimg.2001.0931">DOI 10.1006/nimg.2001.0931</a>), highlights three principles that directly shape Step 1 of <code>medusa</code>: (1) separating task mean-model mismatch from residual autocorrelation, (2) regularizing temporal covariance across neighboring voxels without pooling signed BOLD responses, and (3) estimating noise correlation and marginal noise scale coherently so propagated readout covariance <span class="math inline">\(B\Sigma B^\top\)</span> is well calibrated. At the same time, our live diagnostic benchmarks show why replacing MEDuSA’s REML AR(<span class="math inline">\(p\)</span>) cascade with a raw-residual Tukey lag taper is <strong>not</strong> advantageous under high-rank event-related mean models.</p>
-<section id="what-woolrich-et-al.-2001-actually-demonstrate" class="level3">
-<h3 class="anchored" data-anchor-id="what-woolrich-et-al.-2001-actually-demonstrate">What Woolrich et al.&nbsp;(2001) actually demonstrate</h3>
+<p>Woolrich, Ripley, Brady, and Smith (2001), <em>Temporal Autocorrelation in Univariate Linear Modeling of FMRI Data</em> (<em>NeuroImage</em> 14, 1370–1386, <a href="https://doi.org/10.1006/nimg.2001.0931">DOI 10.1006/nimg.2001.0931</a>), highlights three principles that directly shape Step 1 of <code>medusa</code>: (1) separating task mean-model mismatch from residual autocorrelation, (2) regularizing temporal covariance across neighboring voxels without pooling signed BOLD responses, and (3) estimating noise correlation and marginal noise scale coherently so propagated readout covariance <span class="math inline">\(B_{r,\tau}\Sigma_r B_{r,\tau}^\top\)</span> is well calibrated. At the same time, our diagnostic benchmarks show why replacing MEDuSA’s REML AR(<span class="math inline">\(p\)</span>) cascade with a raw-residual Tukey lag taper is <strong>not</strong> advantageous under high-rank event-related mean models.</p>
+<section id="what-woolrich-et-al.-2001-demonstrate" class="level2">
+<h2 class="anchored" data-anchor-id="what-woolrich-et-al.-2001-demonstrate">1. What Woolrich et al.&nbsp;(2001) demonstrate</h2>
 <p>Woolrich et al.&nbsp;(2001) compare temporal autocorrelation estimators for univariate task-activation GLMs. Their FILM procedure estimates residual autocorrelation, stabilizes long-lag estimates with a Tukey cosine lag taper:</p>
 <p><span class="math display">\[
 \widehat r_T(\ell)=
@@ -358,8 +359,8 @@ window.Quarto = {
 <li><strong>Projection distortion grows with design rank:</strong> After projecting out an <span class="math inline">\(m\)</span>-column event/nuisance design <span class="math inline">\(X\)</span> (<span class="math inline">\(M_X = I - P_X\)</span>), raw OLS residuals have covariance <span class="math inline">\(\operatorname{Cov}(r) = M_X \Sigma M_X^\top \neq \Sigma\)</span>. In rapid trial-wise designs where <span class="math inline">\(X\)</span> carries dozens of free event columns, raw-residual sample autocorrelations acquire substantial negative projection bias that simple lag tapering does not undo.</li>
 </ol>
 </section>
-<section id="how-medusa-implementsand-extendsthese-principles" class="level3">
-<h3 class="anchored" data-anchor-id="how-medusa-implementsand-extendsthese-principles">How <code>medusa</code> implements—and extends—these principles</h3>
+<section id="how-medusa-implements-and-extends-these-principles" class="level2">
+<h2 class="anchored" data-anchor-id="how-medusa-implements-and-extends-these-principles">2. How <code>medusa</code> implements and extends these principles</h2>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -392,14 +393,14 @@ window.Quarto = {
 </tbody>
 </table>
 </section>
-<section id="live-benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation" class="level3">
-<h3 class="anchored" data-anchor-id="live-benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation">Live benchmark 1: Separating HRF mismatch from temporal autocorrelation</h3>
+<section id="benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation" class="level2">
+<h2 class="anchored" data-anchor-id="benchmark-1-separating-hrf-mismatch-from-temporal-autocorrelation">3. Benchmark 1: Separating HRF mismatch from temporal autocorrelation</h2>
 <p>Using the <a href="../../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1 simulation</a> (3 runs, <span class="math inline">\(\text{TR} = 0.65\text{ s}\)</span>, 360 volumes, 24 jittered events/run, 8 voxels each in <code>Fast</code>, <code>Slow</code>, and <code>Null</code> parcels, true noise parameters <span class="math inline">\(\rho = 0.65, \psi_1 = 0.20, \psi_2 = -0.30\)</span>), we compare:</p>
 <ul>
-<li><strong><code>Canonical_HRF</code>:</strong> Single-pass AR(<span class="math inline">\(p\)</span>) noise estimation locked to a fixed canonical HRF (no post-selection refit).</li>
-<li><strong><code>Current_MEDuSA</code>:</strong> <code>estimate_crossrun_hrf()</code> with its 2-pass post-selection REML AR(<span class="math inline">\(p\)</span>) refit (using the out-of-sample cross-run selected HRF, zero target-run leakage).</li>
-<li><strong><code>Oracle_true_HRF</code>:</strong> Noise fit conditioned on the exact data-generating HRF.</li>
-<li><strong><code>Tukey10/15/28</code> comparators:</strong> Pooled raw-residual Tukey lag tapers (<span class="math inline">\(M \in \{10, 15, 28\}\)</span>) under either canonical or selected-HRF mean models.</li>
+<li><strong>Single-pass canonical HRF (<code>Canonical_HRF</code>):</strong> Single-pass AR(<span class="math inline">\(p\)</span>) noise estimation locked to a fixed canonical HRF (no post-selection refit).</li>
+<li><strong>Two-pass MEDuSA refit (<code>Current_MEDuSA</code>):</strong> <code>estimate_crossrun_hrf()</code> with its 2-pass post-selection REML AR(<span class="math inline">\(p\)</span>) refit (using the out-of-sample cross-run selected HRF, zero target-run leakage).</li>
+<li><strong>Oracle HRF (<code>Oracle_true_HRF</code>):</strong> Noise fit conditioned on the exact data-generating HRF.</li>
+<li><strong>Tukey lag-taper comparators (<code>Tukey10/15/28</code>):</strong> Pooled raw-residual Tukey lag tapers (<span class="math inline">\(M \in \{10, 15, 28\}\)</span>) under either canonical or selected-HRF mean models.</li>
 </ul>
 <p>The table below reports lag-1-through-24 implied noise autocorrelation RMSE averaged across the three runs (lower is better):</p>
 <div class="cell">
@@ -460,13 +461,13 @@ window.Quarto = {
 </div>
 <p>Two results stand out clearly:</p>
 <ol type="1">
-<li><strong>Post-selection noise refitting eliminates HRF-induced autocorrelation inflation:</strong> Under a misspecified <code>Canonical_HRF</code>, unmodeled vascular shape residuals drive <span class="math inline">\(\widehat\rho\)</span> to its upper bound in both active parcels (<code>acf_RMSE_1_24 = 0.260</code> in <code>Fast</code>, <code>0.314</code> in <code>Slow</code>). <code>Current_MEDuSA</code>’s target-excluding 2-pass refit drops ACF RMSE to <strong><code>0.006</code></strong> (<code>Fast</code>) and <strong><code>0.008</code></strong> (<code>Slow</code>)—matching <code>Oracle_true_HRF</code> (<code>0.006</code> and <code>0.008</code>) without touching target-run HRF selection.</li>
-<li><strong>REML subspace likelihood outperforms raw-residual lag tapering:</strong> Even when given the selected HRF (<code>Tukey15_selected</code>), raw-residual Tukey tapering retains <code>0.090–0.100</code> ACF RMSE—even on the pure <code>Null</code> parcel (<code>0.100</code> vs.&nbsp;<code>0.011</code> for <code>Current_MEDuSA</code>)—because projecting 24 free trial predictors + drift terms out of 360 volumes distorts sample residual autocorrelations (<span class="math inline">\(\operatorname{Cov}(r) = M_X \Sigma M_X^\top\)</span>).</li>
+<li><strong>Post-selection noise refitting eliminates HRF-induced autocorrelation inflation:</strong> Under the single-pass canonical HRF fit, unmodeled vascular shape residuals drive <span class="math inline">\(\widehat\rho\)</span> to its upper bound in both active parcels (<code>acf_RMSE_1_24 = 0.260</code> in <code>Fast</code>, <code>0.314</code> in <code>Slow</code>). MEDuSA’s target-excluding 2-pass refit drops ACF RMSE to <strong><code>0.006</code></strong> (<code>Fast</code>) and <strong><code>0.008</code></strong> (<code>Slow</code>)—matching the oracle-HRF fit (<code>0.006</code> and <code>0.008</code>) without touching target-run HRF selection.</li>
+<li><strong>REML subspace likelihood outperforms raw-residual lag tapering:</strong> Even when given the selected HRF (<code>Tukey15_selected</code>), raw-residual Tukey tapering retains <code>0.090–0.100</code> ACF RMSE—even on the pure <code>Null</code> parcel (<code>0.100</code> vs.&nbsp;<code>0.011</code> for MEDuSA’s 2-pass REML fit)—because projecting 24 free trial predictors + drift terms out of 360 volumes distorts sample residual autocorrelations (<span class="math inline">\(\operatorname{Cov}(r) = M_X \Sigma M_X^\top\)</span>).</li>
 </ol>
 </section>
-<section id="live-benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance" class="level3">
-<h3 class="anchored" data-anchor-id="live-benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance">Live benchmark 2: Coherent marginal scale and propagated readout covariance</h3>
-<p>What ultimately matters for Step 3–6 inference is not the ACF plot in isolation, but the accuracy of the propagated trial readout covariance <span class="math inline">\(\Omega = \sigma_{\rm obs}^2 B \Sigma_{\rm cor} B^\top\)</span>. Evaluating a frozen linear inverse (<span class="math inline">\(\lambda = 0.01\)</span>, second-difference penalty) at event onsets, we compare <code>Canonical_HRF</code> vs.&nbsp;<code>Current_MEDuSA</code> under both a standalone second-difference noise scale (<code>d2</code>) and MEDuSA’s covariance-consistent GLS residual scale (<code>gls</code>, <code>scaling = "noise_sd"</code>). Ideal SD/SE ratios equal <code>1.000</code>, and ideal overall matrix root-mean-square error relative to the true covariance norm (relative Frobenius error) equals <code>0.000</code>:</p>
+<section id="benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance" class="level2">
+<h2 class="anchored" data-anchor-id="benchmark-2-coherent-marginal-scale-and-propagated-readout-covariance">4. Benchmark 2: Coherent marginal scale and propagated readout covariance</h2>
+<p>What ultimately matters for Step 3–6 inference is not the ACF plot in isolation, but the accuracy of the propagated trial readout covariance <span class="math inline">\(\Omega_{r,\tau} = \sigma_{\rm obs}^2 B_{r,\tau} \Sigma_{\rm cor} B_{r,\tau}^\top\)</span>. Evaluating a frozen linear inverse (<span class="math inline">\(\lambda = 0.01\)</span>, second-difference penalty) at event onsets, we compare the single-pass canonical HRF model against MEDuSA’s two-pass refit under both a standalone second-difference noise scale (<code>d2</code>) and MEDuSA’s covariance-consistent GLS residual scale (<code>gls</code>, <code>scaling = "noise_sd"</code>). Ideal SD/SE ratios equal <code>1.000</code>, and ideal overall matrix root-mean-square error relative to the true covariance norm (relative Frobenius error) equals <code>0.000</code>:</p>
 <div class="cell">
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
@@ -540,14 +541,14 @@ window.Quarto = {
 </table>
 </div>
 </div>
-<p>Notice how <code>Canonical_HRF</code> suffers from <strong>compensating errors</strong> that mask off-diagonal miscalibration: its overly persistent correlation matrix alone underestimates readout SEs by roughly half (<code>SE / true (known SD) = 0.48–0.56</code>), while unmodeled HRF residuals inflate its marginal SD by more than <span class="math inline">\(2\times\)</span> (<code>GLS SD / true = 2.04–2.28</code>), leaving diagonal SEs near <code>1.10–1.14</code> even though the full trial-by-trial covariance matrix has <code>21–28%</code> relative Frobenius error. By contrast, <code>Current_MEDuSA</code> (2-pass REML correlation + outlier-trimmed GLS marginal <code>noise_sd</code>) recovers <strong>both</strong> marginal scale (<code>GLS SD / true = 1.01–1.05</code>) and correlation shape (<code>SE / true (known SD) = 0.98–1.01</code>), cutting full readout covariance error down to <strong><code>4.3–7.5%</code></strong> across all three parcels.</p>
+<p>Notice how the single-pass canonical HRF fit suffers from <strong>compensating errors</strong> that mask off-diagonal miscalibration: its overly persistent correlation matrix alone underestimates readout SEs by roughly half (<code>SE / true (known SD) = 0.48–0.56</code>), while unmodeled HRF residuals inflate its marginal SD by more than <span class="math inline">\(2\times\)</span> (<code>GLS SD / true = 2.04–2.28</code>), leaving diagonal SEs near <code>1.10–1.14</code> even though the full trial-by-trial covariance matrix has <code>21–28%</code> relative Frobenius error. By contrast, MEDuSA’s two-pass REML refit paired with outlier-trimmed GLS marginal <code>noise_sd</code> recovers <strong>both</strong> marginal scale (<code>GLS SD / true = 1.01–1.05</code>) and correlation shape (<code>SE / true (known SD) = 0.98–1.01</code>), cutting full readout covariance error down to <strong><code>4.3–7.5%</code></strong> across all three parcels.</p>
 </section>
-<section id="practical-takeaways" class="level3">
-<h3 class="anchored" data-anchor-id="practical-takeaways">Practical takeaways</h3>
+<section id="practical-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="practical-takeaways">5. Practical takeaways</h2>
 <ol type="1">
 <li><strong>Keep noise pooling groups tissue-homogeneous:</strong> Under <code>pooling = "parcel"</code>, <code>spatial_groups</code> defines both HRF evidence pooling and AR(<span class="math inline">\(p\)</span>) noise pooling. When volumetric parcels span both high-pulsatility pial/CSF-border voxels and quieter interior gray matter, use <code>pooling = "graph"</code> (<a href="../../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-bilateral-noise">Spatial Graph Pooling</a>), which weights noise smoothing by local autocorrelation similarity so pial-rim pulsatility does not bleed into deep gray matter (<a href="https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2022.1051424/full">Parlak et al., 2023</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6428826/">Olszowy et al., 2019</a>).</li>
 <li><strong>Match <code>ar_order</code> to acquisition TR:</strong> Default <code>ar_order = "auto"</code> (up to cascaded AR(3)) works well for standard and moderate multiband TRs (<span class="math inline">\(0.65\text{–}2.0\text{ s}\)</span>); ultra-fast TRs (<span class="math inline">\(&lt; 0.5\text{ s}\)</span>) with unmodeled cardiac/respiratory aliases should pair physiological regressors (<code>nuisance</code>) with residual ACF inspection.</li>
-<li><strong>Remember what temporal prewhitening does <em>not</em> identify:</strong> Temporal whitening within each parcel calibrates <span class="math inline">\(\Omega_{rr}\)</span>, not cross-parcel shared noise <span class="math inline">\(\Omega_{st}\)</span>—which is why <code>deconvolve_crossrun_hrf()</code> also retains task-free <code>noise_innovations</code> so Step 4 and Step 6 (<code>shared_error = "auto"</code>) can estimate spatial noise covariance directly.</li>
+<li><strong>Remember what temporal prewhitening does <em>not</em> identify:</strong> Temporal whitening within each parcel calibrates <span class="math inline">\(\Omega_{gg}\)</span>, not cross-parcel shared noise <span class="math inline">\(\Omega_{ST}\)</span>—which is why <code>deconvolve_crossrun_hrf()</code> also retains task-free <code>noise_innovations</code> so Step 4 and Step 6 (<code>shared_error = "auto"</code>) can estimate spatial noise covariance directly.</li>
 </ol>
 <details>
 <summary>
@@ -556,8 +557,8 @@ Internal R helpers &amp; benchmark scripts
 <p>Inside <code>R/crossrun_hrf.R</code> and <code>R/deconvolve_reglin.R</code>, the two-pass noise refit and GLS marginal scale are implemented by <code>fit_crossrun_decon()</code>, <code>hrf_estimate_noise()</code>, and <code>hrf_estimate_gls_noise_sd()</code>, while standalone second-difference scaling is implemented by <code>estimate_decon_noise_sd()</code>.</p>
 </details>
 </section>
-<section id="reproducibility" class="level3">
-<h3 class="anchored" data-anchor-id="reproducibility">Reproducibility</h3>
+<section id="reproducibility" class="level2">
+<h2 class="anchored" data-anchor-id="reproducibility">6. Reproducibility</h2>
 <p>Run directly from <code>medusa_step1_hrf_noise/woolrich_review/</code> (after running <code>../simulate_step1.R</code>):</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> compare_noise.R</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> variance_check.R</span>
@@ -1049,13 +1050,13 @@ Internal R helpers &amp; benchmark scripts
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="../../medusa_pr62_calibration/medusa_pr62_calibration.html" class="pagination-link" aria-label="Calibration of multi-lag trajectory inference">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></span>
+      <a href="../../medusa_pr62_calibration/medusa_pr62_calibration.html" class="pagination-link" aria-label="Calibration of Multi-Lag Trajectory Inference">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../../reference.html" class="pagination-link" aria-label="Package architecture, source reports, and reproduction">
-        <span class="nav-page-text"><span class="chapter-title">Package architecture, source reports, and reproduction</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../../reference.html" class="pagination-link" aria-label="Package Architecture, Source Reports, and Reproduction">
+        <span class="nav-page-text"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

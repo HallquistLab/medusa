@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>6&nbsp; Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation – MEDuSA</title>
+<title>Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -190,12 +190,12 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual foundations</span></a>
+  <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A worked analysis from BOLD to a group claim</span></a>
+  <a href="../worked-example.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">A Worked Analysis from BOLD to a Group Claim</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -262,27 +262,27 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD noise to M-MOM error variances</span></a>
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-error models and REPAIR</span></a>
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the limits of the evidence</span></a>
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of multi-lag trajectory inference</span></a>
+  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Woolrich’s noise study contributes</span></a>
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
   </div>
 </li>
       </ul>
@@ -295,7 +295,7 @@ window.Quarto = {
       <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package architecture, source reports, and reproduction</span></a>
+  <a href="../reference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></a>
   </div>
 </li>
       </ul>
@@ -310,22 +310,22 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">6.1</span> Overview</a></li>
-  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs"><span class="header-section-number">6.2</span> Goals, Inputs, and Outputs</a>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs">Goals, Inputs, and Outputs</a>
   <ul class="collapse">
-  <li><a href="#goals-of-step-3" id="toc-goals-of-step-3" class="nav-link" data-scroll-target="#goals-of-step-3"><span class="header-section-number">6.2.1</span> Goals of Step 3</a></li>
-  <li><a href="#inputs-what-step-3-receives-and-why" id="toc-inputs-what-step-3-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-3-receives-and-why"><span class="header-section-number">6.2.2</span> Inputs: What Step 3 Receives and Why</a></li>
-  <li><a href="#outputs-what-step-3-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-3-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-3-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">6.2.3</span> Outputs: What Step 3 Produces and Why It Is Set Up That Way</a></li>
+  <li><a href="#goals-of-step-3" id="toc-goals-of-step-3" class="nav-link" data-scroll-target="#goals-of-step-3">Goals of Step 3</a></li>
+  <li><a href="#inputs-what-step-3-receives-and-why" id="toc-inputs-what-step-3-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-3-receives-and-why">Inputs: What Step 3 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-3-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-3-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-3-produces-and-why-it-is-set-up-that-way">Outputs: What Step 3 Produces and Why It Is Set Up That Way</a></li>
   </ul></li>
-  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">6.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</a>
+  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points">Step-by-Step Walkthrough: Substeps and Choice Points</a>
   <ul class="collapse">
-  <li><a href="#define-the-event-locked-neural-source-and-kernel-readout" id="toc-define-the-event-locked-neural-source-and-kernel-readout" class="nav-link" data-scroll-target="#define-the-event-locked-neural-source-and-kernel-readout"><span class="header-section-number">6.3.1</span> 3.1 Define the event-locked neural source and kernel readout</a></li>
-  <li><a href="#write-the-epoch-measurement-model-and-subtract-non-target-spillover" id="toc-write-the-epoch-measurement-model-and-subtract-non-target-spillover" class="nav-link" data-scroll-target="#write-the-epoch-measurement-model-and-subtract-non-target-spillover"><span class="header-section-number">6.3.2</span> 3.2 Write the epoch measurement model and subtract non-target spillover</a></li>
-  <li><a href="#invert-target-to-target-mixing-to-recover-an-additive-error-readout" id="toc-invert-target-to-target-mixing-to-recover-an-additive-error-readout" class="nav-link" data-scroll-target="#invert-target-to-target-mixing-to-recover-an-additive-error-readout"><span class="header-section-number">6.3.3</span> 3.3 Invert target-to-target mixing to recover an additive-error readout</a></li>
-  <li><a href="#propagate-observation-noise-covariance-and-construct-trial-precision-weights" id="toc-propagate-observation-noise-covariance-and-construct-trial-precision-weights" class="nav-link" data-scroll-target="#propagate-observation-noise-covariance-and-construct-trial-precision-weights"><span class="header-section-number">6.3.4</span> 3.4 Propagate observation-noise covariance and construct trial precision weights</a></li>
+  <li><a href="#define-the-event-locked-neural-source-and-kernel-readout" id="toc-define-the-event-locked-neural-source-and-kernel-readout" class="nav-link" data-scroll-target="#define-the-event-locked-neural-source-and-kernel-readout">3.1 Define the event-locked neural source and kernel readout</a></li>
+  <li><a href="#write-the-epoch-measurement-model-and-subtract-non-target-spillover" id="toc-write-the-epoch-measurement-model-and-subtract-non-target-spillover" class="nav-link" data-scroll-target="#write-the-epoch-measurement-model-and-subtract-non-target-spillover">3.2 Write the epoch measurement model and subtract non-target spillover</a></li>
+  <li><a href="#invert-target-to-target-mixing-to-recover-an-additive-error-readout" id="toc-invert-target-to-target-mixing-to-recover-an-additive-error-readout" class="nav-link" data-scroll-target="#invert-target-to-target-mixing-to-recover-an-additive-error-readout">3.3 Invert target-to-target mixing to recover an additive-error readout</a></li>
+  <li><a href="#propagate-observation-noise-covariance-and-construct-trial-precision-weights" id="toc-propagate-observation-noise-covariance-and-construct-trial-precision-weights" class="nav-link" data-scroll-target="#propagate-observation-noise-covariance-and-construct-trial-precision-weights">3.4 Propagate observation-noise covariance and construct trial precision weights</a></li>
   </ul></li>
-  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings"><span class="header-section-number">6.4</span> Recommended Settings</a></li>
-  <li><a href="#practical-considerations-descriptive-alignment-censoring-support-and-scope" id="toc-practical-considerations-descriptive-alignment-censoring-support-and-scope" class="nav-link" data-scroll-target="#practical-considerations-descriptive-alignment-censoring-support-and-scope"><span class="header-section-number">6.5</span> Practical Considerations: Descriptive Alignment, Censoring Support, and Scope</a></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
+  <li><a href="#practical-considerations-descriptive-alignment-censoring-support-and-scope" id="toc-practical-considerations-descriptive-alignment-censoring-support-and-scope" class="nav-link" data-scroll-target="#practical-considerations-descriptive-alignment-censoring-support-and-scope">Practical Considerations: Descriptive Alignment, Censoring Support, and Scope</a></li>
   </ul>
 </nav>
     </div>
@@ -352,9 +352,9 @@ window.Quarto = {
 </header>
 
 
-<section id="overview" class="level2" data-number="6.1">
-<h2 data-number="6.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">6.1</span> Overview</h2>
-<p>Step 2 produces a continuous deconvolved time series <span class="math inline">\(\hat{s}_r(t)\)</span> on the acquisition grid, whereas cognitive hypotheses typically concern <strong>event-locked trial responses</strong>—for example, neural activity across lags <span class="math inline">\(-2\text{ s}\)</span> to <span class="math inline">\(+4\text{ s}\)</span> around feedback onset, or sustained deliberation activity across variable reaction times. Because regularized deconvolution smooths slightly across time, simply slicing <span class="math inline">\(\hat{s}_r(t)\)</span> at event timestamps yields readouts that combine the target trial’s signal with regularization attenuation and spillover from nearby cues or adjacent trials.</p>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>Step 2 produces a continuous deconvolved time series <span class="math inline">\(\widehat{a}_r(t)\)</span> on the acquisition grid, whereas cognitive hypotheses typically concern <strong>event-locked trial responses</strong>—for example, neural activity across lags <span class="math inline">\(-2\text{ s}\)</span> to <span class="math inline">\(+4\text{ s}\)</span> around feedback onset, or sustained deliberation activity across variable reaction times. Because regularized deconvolution smooths slightly across time, simply slicing <span class="math inline">\(\widehat{a}_r(t)\)</span> at event timestamps yields readouts that combine the target trial’s signal with regularization attenuation and spillover from nearby cues or adjacent trials.</p>
 <p>Step 3 (<code>decon_epoch_regression()</code>) converts continuous deconvolved activity into <strong>conditionally unbiased, additive-error trial readouts</strong> accompanied by exact propagated measurement uncertainties. Passing the forward event schedule through Step 2’s frozen linear operator <span class="math inline">\(D_r\)</span>, it samples requested peri-event lags via smooth local time-averaging (symmetric kernel quadrature), subtracts spillover from non-target events, inverts target-to-target mixing to restore amplitude gain, and propagates <span class="math inline">\(\text{AR}(p)\)</span> observation noise through the composite operator to deliver per-trial standard errors (<code>se_demixed</code>), Empirical-Bayes precision weights, and optional within-run decorrelated (<code>*_whitened</code>) variables.</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
@@ -386,10 +386,10 @@ window.Quarto = {
 <p>Following the same measurement-model progression used in two-step multilevel inference (Vig &amp; Hallquist, 2026), the four substeps below move from defining the event source and readout kernel (<code>3.1</code>), to writing the epoch measurement model and removing non-target bleed (<code>3.2</code>), inverting target mixing onto an additive-error scale (<code>3.3</code>), and propagating trial error covariances and precision weights (<code>3.4</code>).</p>
 <hr>
 </section>
-<section id="goals-inputs-and-outputs" class="level2" data-number="6.2">
-<h2 data-number="6.2" class="anchored" data-anchor-id="goals-inputs-and-outputs"><span class="header-section-number">6.2</span> Goals, Inputs, and Outputs</h2>
-<section id="goals-of-step-3" class="level3" data-number="6.2.1">
-<h3 data-number="6.2.1" class="anchored" data-anchor-id="goals-of-step-3"><span class="header-section-number">6.2.1</span> Goals of Step 3</h3>
+<section id="goals-inputs-and-outputs" class="level2">
+<h2 class="anchored" data-anchor-id="goals-inputs-and-outputs">Goals, Inputs, and Outputs</h2>
+<section id="goals-of-step-3" class="level3">
+<h3 class="anchored" data-anchor-id="goals-of-step-3">Goals of Step 3</h3>
 <ol type="1">
 <li><strong>Sample peri-event lag trajectories with explicit duration semantics:</strong> Read out continuous activity around each target event across requested <code>lags</code>, supporting brief impulses, fixed windows, and RT-matched sustained intervals (<code>"rate"</code> vs.&nbsp;<code>"integral"</code>).</li>
 <li><strong>Remove non-target spillover and target-to-target mixing:</strong> Use the Step 2 operator <span class="math inline">\(D_r H_r\)</span> to subtract interfering event bleed (<code>demix_other_events</code>) and invert target cross-talk (<code>demix_target_trials</code>) while matching centered predictors through the post-demixing operator <span class="math inline">\(M_{\text{post}}\)</span>.</li>
@@ -397,8 +397,8 @@ window.Quarto = {
 <li><strong>Construct stabilized trial precision weights and optional decorrelated panels:</strong> Combine propagated measurement error with Empirical-Bayes biological trial variance (<span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span>, stabilized across functionally concordant cortical neighbors on NIfTI maps via <code>"graph_eb"</code>) to form cohort-ready weights and decorrelated trial columns.</li>
 </ol>
 </section>
-<section id="inputs-what-step-3-receives-and-why" class="level3" data-number="6.2.2">
-<h3 data-number="6.2.2" class="anchored" data-anchor-id="inputs-what-step-3-receives-and-why"><span class="header-section-number">6.2.2</span> Inputs: What Step 3 Receives and Why</h3>
+<section id="inputs-what-step-3-receives-and-why" class="level3">
+<h3 class="anchored" data-anchor-id="inputs-what-step-3-receives-and-why">Inputs: What Step 3 Receives and Why</h3>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -446,8 +446,8 @@ window.Quarto = {
 </tbody>
 </table>
 </section>
-<section id="outputs-what-step-3-produces-and-why-it-is-set-up-that-way" class="level3" data-number="6.2.3">
-<h3 data-number="6.2.3" class="anchored" data-anchor-id="outputs-what-step-3-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">6.2.3</span> Outputs: What Step 3 Produces and Why It Is Set Up That Way</h3>
+<section id="outputs-what-step-3-produces-and-why-it-is-set-up-that-way" class="level3">
+<h3 class="anchored" data-anchor-id="outputs-what-step-3-produces-and-why-it-is-set-up-that-way">Outputs: What Step 3 Produces and Why It Is Set Up That Way</h3>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -482,11 +482,11 @@ window.Quarto = {
 <hr>
 </section>
 </section>
-<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2" data-number="6.3">
-<h2 data-number="6.3" class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">6.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</h2>
-<section id="define-the-event-locked-neural-source-and-kernel-readout" class="level3" data-number="6.3.1">
-<h3 data-number="6.3.1" class="anchored" data-anchor-id="define-the-event-locked-neural-source-and-kernel-readout"><span class="header-section-number">6.3.1</span> 3.1 Define the event-locked neural source and kernel readout</h3>
-<p>Consider reading out continuous deconvolved activity <span class="math inline">\(\hat{s}_r\)</span> around target event <span class="math inline">\(i\)</span> at timestamp <span class="math inline">\(t_i + \tau\)</span>. Because <span class="math inline">\(t_i + \tau\)</span> rarely lands on an exact integer TR, Step 3 forms a row-normalized weight vector <span class="math inline">\(S_\tau[i, :]\)</span> over nearby acquisition samples (<a href="#fig-step3-readout" class="quarto-xref">Figure&nbsp;<span>6.1</span></a>). While <code>"linear"</code> uses 2-point bracket interpolation, <code>"triangle"</code> (width <span class="math inline">\(1.5 \times \text{TR}\)</span>) averages 9 symmetrically weighted sub-interval points across adjacent samples (symmetric kernel quadrature)—respecting sub-TR jitter while attenuating high-frequency inverse noise.</p>
+<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2">
+<h2 class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points">Step-by-Step Walkthrough: Substeps and Choice Points</h2>
+<section id="define-the-event-locked-neural-source-and-kernel-readout" class="level3">
+<h3 class="anchored" data-anchor-id="define-the-event-locked-neural-source-and-kernel-readout">3.1 Define the event-locked neural source and kernel readout</h3>
+<p>Consider reading out continuous deconvolved activity <span class="math inline">\(\widehat{a}_r\)</span> around target event <span class="math inline">\(i\)</span> at timestamp <span class="math inline">\(t_i + \tau\)</span>. Because <span class="math inline">\(t_i + \tau\)</span> rarely lands on an exact integer TR, Step 3 forms a row-normalized weight vector <span class="math inline">\(S_\tau[i, :]\)</span> over nearby acquisition samples (<a href="#fig-step3-readout" class="quarto-xref">Figure&nbsp;<span>6.1</span></a>). While <code>"linear"</code> uses 2-point bracket interpolation, <code>"triangle"</code> (width <span class="math inline">\(1.5 \times \text{TR}\)</span>) averages 9 symmetrically weighted sub-interval points across adjacent samples (symmetric kernel quadrature)—respecting sub-TR jitter while attenuating high-frequency inverse noise.</p>
 <div id="fig-step3-readout" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Four-panel bar plot of acquisition-grid weights for linear, boxcar, triangle, and gaussian readout kernels.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step3-readout-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -516,9 +516,9 @@ Figure&nbsp;6.2: Same simulated constant-rate variable-duration BOLD series anal
 <p><strong>Choice point — Source model (<code>source_model</code> &amp; <code>duration_scale</code>) and <code>readout_kernel</code>:</strong> Pair <code>readout_kernel = "triangle"</code> (<code>readout_width = 1.5 * tr</code>) with <code>source_model = "impulse"</code> for brief phasic events (e.g., feedback delivery). For variable-duration epochs (e.g., choice deliberation), pass <code>source_model = "duration"</code> with <code>trial_durations = rt</code> and choose <code>duration_scale = "rate"</code> to test neural intensity per unit time or <code>"integral"</code> to test cumulative activity.</p>
 <hr>
 </section>
-<section id="write-the-epoch-measurement-model-and-subtract-non-target-spillover" class="level3" data-number="6.3.2">
-<h3 data-number="6.3.2" class="anchored" data-anchor-id="write-the-epoch-measurement-model-and-subtract-non-target-spillover"><span class="header-section-number">6.3.2</span> 3.2 Write the epoch measurement model and subtract non-target spillover</h3>
-<p>Now consider a cue–feedback paradigm where each <code>Cue</code> precedes <code>Feedback</code> by 1–3 seconds. Let <span class="math inline">\(\theta_T\)</span> denote true target (<code>Feedback</code>) trial amplitudes with forward BOLD design <span class="math inline">\(G_\tau\)</span>, and <span class="math inline">\(\theta_O\)</span> denote non-target (<code>Cue</code>) amplitudes with forward design <span class="math inline">\(G_O\)</span>. Applying readout <span class="math inline">\(S_\tau\)</span> to deconvolved activity <span class="math inline">\(\hat{s}_r = D_r y_r\)</span> yields a raw trial readout whose conditional expectation contains two distinct terms:</p>
+<section id="write-the-epoch-measurement-model-and-subtract-non-target-spillover" class="level3">
+<h3 class="anchored" data-anchor-id="write-the-epoch-measurement-model-and-subtract-non-target-spillover">3.2 Write the epoch measurement model and subtract non-target spillover</h3>
+<p>Now consider a cue–feedback paradigm where each <code>Cue</code> precedes <code>Feedback</code> by 1–3 seconds. Let <span class="math inline">\(\theta_T\)</span> denote true target (<code>Feedback</code>) trial amplitudes with forward BOLD design <span class="math inline">\(G_\tau\)</span>, and <span class="math inline">\(\theta_O\)</span> denote non-target (<code>Cue</code>) amplitudes with forward design <span class="math inline">\(G_O\)</span>. Applying readout <span class="math inline">\(S_\tau\)</span> to deconvolved activity <span class="math inline">\(\widehat{a}_r = D_r y_r\)</span> yields a raw trial readout whose conditional expectation contains two distinct terms:</p>
 <p><span class="math display">\[
 \mathbb{E}\bigl[\hat{z}_{\text{raw},\tau} \mid \theta_T, \theta_O\bigr]
 = \underbrace{(S_\tau D_r G_\tau)\,\theta_T}_{\text{attenuated &amp; mixed targets}}
@@ -540,11 +540,11 @@ Figure&nbsp;6.3: Estimated feedback slopes in the null-feedback <code>Cue_only</
 <p><strong>Choice point — Non-target subtraction (<code>demix_other_events</code> &amp; <code>demix_ridge</code>):</strong> Keep <code>demix_other_events = TRUE</code>. At the default <code>demix_ridge = 0.05</code>, non-target subtraction uses a low-variance <strong>condition-mean</strong> operator (<code>Cue_only</code> slope reduced to <code>-0.006</code> when cues have constant amplitude; <a href="#fig-step3-other-events" class="quarto-xref">Figure&nbsp;<span>6.3</span></a>, left). When an upstream cue is itself strongly modulated trial-by-trial by the <em>same</em> behavioral predictor as your target event, lowering <code>demix_ridge = 0.02</code> activates joint ridge-stabilized (<code>2nd-order Tikhonov</code>) <code>(T, O)</code> trial de-mixing—reducing correlated cue bleed from <code>0.488</code> to <code>0.074</code> in trade for modestly wider trial SEs (<code>0.101</code> vs.&nbsp;<code>0.070</code>; <a href="#fig-step3-other-events" class="quarto-xref">Figure&nbsp;<span>6.3</span></a>, right).</p>
 <hr>
 </section>
-<section id="invert-target-to-target-mixing-to-recover-an-additive-error-readout" class="level3" data-number="6.3.3">
-<h3 data-number="6.3.3" class="anchored" data-anchor-id="invert-target-to-target-mixing-to-recover-an-additive-error-readout"><span class="header-section-number">6.3.3</span> 3.3 Invert target-to-target mixing to recover an additive-error readout</h3>
+<section id="invert-target-to-target-mixing-to-recover-an-additive-error-readout" class="level3">
+<h3 class="anchored" data-anchor-id="invert-target-to-target-mixing-to-recover-an-additive-error-readout">3.3 Invert target-to-target mixing to recover an additive-error readout</h3>
 <p>After removing non-target spillover, the cleaned readout still reflects Step 2’s regularization blur across target trials, <span class="math inline">\(K_{\text{clean},\tau} = S_{\text{clean},\tau} D_r G_\tau\)</span>. Writing this in the exact measurement-model form of Vig &amp; Hallquist (2026) by adding and subtracting <span class="math inline">\(\theta_T\)</span>:</p>
 <p><span class="math display">\[
-S_{\text{clean},\tau}\hat{s}_r
+S_{\text{clean},\tau}\widehat{a}_r
 = \theta_T - (I - K_{\text{clean},\tau})\theta_T + S_{\text{clean},\tau} D_r \varepsilon_r.
 \]</span></p>
 <p>Without inverting <span class="math inline">\(K_{\text{clean},\tau}\)</span>, diagonal shrinkage (<span class="math inline">\([K_{\text{clean},\tau}]_{ii} &lt; 1\)</span>) and neighbor overlap attenuate the true <code>0.70</code> feedback slope in <code>Target</code> down to <code>beta_raw = 0.088</code> (<a href="#tbl-step3-policies" class="quarto-xref">Table&nbsp;<span>6.1</span></a>). Enabling <code>demix_target_trials = TRUE</code> applies a ridge-stabilized inverse <span class="math inline">\(W_\tau\)</span> on run-centered trials (Tikhonov regularization) with diagonal gain restoration <span class="math inline">\(\tilde{G}_\tau\)</span> (<code>decon_demixed</code>), sharpening the 20×20 target resolution matrix toward the identity (<a href="#fig-step3-resolution" class="quarto-xref">Figure&nbsp;<span>6.5</span></a>) and recovering the true <code>0.70</code> slope cleanly (<code>Target = 0.705</code>, <code>Noisy_target = 0.673</code>; <a href="#fig-step3-target-readout" class="quarto-xref">Figure&nbsp;<span>6.4</span></a>, <a href="#tbl-step3-policies" class="quarto-xref">Table&nbsp;<span>6.1</span></a>). To ensure any small ridge stabilization in <span class="math inline">\(W_\tau\)</span> at rapid ISIs never biases trial regressions, centered covariates are multiplied by the matched post-demixing resolution matrix <span class="math inline">\(M_{\text{post}}\)</span> so predictor and response share identical coordinates.</p>
@@ -739,8 +739,8 @@ Figure&nbsp;6.6: Effect of <code>demix_within_trial = TRUE</code> on estimated l
 <p><strong>Choice point — Target and cross-lag de-mixing:</strong> Keep <code>demix_target_trials = TRUE</code> in all operator analyses. Leave <code>demix_within_trial = FALSE</code> when passing outputs to <code>medusa_multilag_infer()</code> in Step 5 (which sharpens cross-lag blurring at the group level via spectral deblurring, where SNR is <span class="math inline">\(\sqrt{N}\)</span> higher), and enable <code>demix_within_trial = TRUE</code> when inspecting descriptive single-subject curves or fitting single-lag models where sharper lag localization is desired.</p>
 <hr>
 </section>
-<section id="propagate-observation-noise-covariance-and-construct-trial-precision-weights" class="level3" data-number="6.3.4">
-<h3 data-number="6.3.4" class="anchored" data-anchor-id="propagate-observation-noise-covariance-and-construct-trial-precision-weights"><span class="header-section-number">6.3.4</span> 3.4 Propagate observation-noise covariance and construct trial precision weights</h3>
+<section id="propagate-observation-noise-covariance-and-construct-trial-precision-weights" class="level3">
+<h3 class="anchored" data-anchor-id="propagate-observation-noise-covariance-and-construct-trial-precision-weights">3.4 Propagate observation-noise covariance and construct trial precision weights</h3>
 <p>Because every operation from centered BOLD to <code>decon_demixed</code> is captured in the composite linear map <span class="math inline">\(B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r\)</span>, the conditional sampling covariance of the de-mixed trial vector is known analytically: <span class="math display">\[
 \Omega_{r,\tau} = \operatorname{Cov}(e_{r,\tau} \mid B_{r,\tau}) \propto Q_m B_{r,\tau} \Sigma_{\text{obs},r} B_{r,\tau}^\top Q_m.
 \]</span> MEDuSA evaluates <span class="math inline">\(\Omega_{r,\tau}\)</span> in fast factored form without forming dense <span class="math inline">\(T \times T\)</span> covariance matrices, matching dense matrix multiplication to 6.07e-18 and reproducing 2,500-draw Monte Carlo noise SDs trial by trial (<code>se_demixed</code>; <a href="#fig-step3-se-check" class="quarto-xref">Figure&nbsp;<span>6.7</span></a>).</p>
@@ -783,8 +783,8 @@ Figure&nbsp;6.9: Within-run total trial correlation matrix <span class="math inl
 <hr>
 </section>
 </section>
-<section id="recommended-settings" class="level2" data-number="6.4">
-<h2 data-number="6.4" class="anchored" data-anchor-id="recommended-settings"><span class="header-section-number">6.4</span> Recommended Settings</h2>
+<section id="recommended-settings" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>epochs <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">deconvolution       =</span> decon,</span>
@@ -859,8 +859,8 @@ Figure&nbsp;6.9: Within-run total trial correlation matrix <span class="math inl
 </table>
 <hr>
 </section>
-<section id="practical-considerations-descriptive-alignment-censoring-support-and-scope" class="level2" data-number="6.5">
-<h2 data-number="6.5" class="anchored" data-anchor-id="practical-considerations-descriptive-alignment-censoring-support-and-scope"><span class="header-section-number">6.5</span> Practical Considerations: Descriptive Alignment, Censoring Support, and Scope</h2>
+<section id="practical-considerations-descriptive-alignment-censoring-support-and-scope" class="level2">
+<h2 class="anchored" data-anchor-id="practical-considerations-descriptive-alignment-censoring-support-and-scope">Practical Considerations: Descriptive Alignment, Censoring Support, and Scope</h2>
 <ol type="1">
 <li><strong>When to use descriptive <code>align_medusa_ts()</code> vs.&nbsp;inferential <code>decon_epoch_regression()</code>:</strong> When you want descriptive peri-event waveform interpolation without a forward de-mixing model—for example, plotting raw peri-event BOLD averages, inspecting blind <code>deconvolve_nlreg()</code> / <code>deconvolve_reglin()</code> trajectories, or auditing explicit collision rules (<code>overlap_policy = "allow" | "truncate" | "exclude"</code>)—use <strong><code>align_medusa_ts()</code></strong> (or <code>evt_align_decon_files()</code> for disk-backed <code>.csv.gz</code> archives). For primary inferential modeling on <code>deconvolve_crossrun_hrf()</code> outputs, use <strong><code>decon_epoch_regression()</code></strong>, which removes neighbor mixing and propagates analytical <code>se_demixed</code>. (Because <code>epochs$panel</code> is already event-aligned, it goes directly to Steps 5–6 without calling <code>align_medusa_ts()</code>.)</li>
 <li><strong>Causal BOLD observability gating (<code>obs_frac_tau &gt;= 0.20</code>):</strong> If at least 80% of the forward HRF energy evoked by a target event at <span class="math inline">\(t_i + \tau\)</span> falls inside censored frames (<code>valid_rows == FALSE</code>) or past the end of the run, Step 3 records that trial-lag as <code>NA</code> rather than extrapolating from the smoothness penalty. Always inspect retained trial counts across runs and conditions before group modeling.</li>
@@ -870,7 +870,7 @@ Figure&nbsp;6.9: Within-run total trial correlation matrix <span class="math inl
 <summary>
 Mathematical Reference &amp; Reproduction
 </summary>
-<p>For run <span class="math inline">\(r\)</span>, lag <span class="math inline">\(\tau\)</span>, valid observation rows <span class="math inline">\(I_r\)</span>, and frozen Step 2 inverse <span class="math inline">\(D_r \in \mathbb{R}^{n_r \times m_r}\)</span>:</p>
+<p>For run <span class="math inline">\(r\)</span>, lag <span class="math inline">\(\tau\)</span>, valid observation frames <span class="math inline">\(I_r\)</span> (<span class="math inline">\(m_r\)</span> of <span class="math inline">\(T_r\)</span> volumes), and frozen Step 2 inverse <span class="math inline">\(D_r \in \mathbb{R}^{T_r \times m_r}\)</span>:</p>
 <ol type="1">
 <li><strong>Non-target subtraction:</strong> Let <span class="math inline">\(S_{r,0}\)</span> (<code>build_epoch_readout_matrix()</code>) read out all events at lag 0 and <span class="math inline">\(G_{r,0}\)</span> be their column-centered forward HRF design. <code>build_other_demix_operator()</code> forms <span class="math inline">\(L_{\text{other}}\)</span> (condition-mean least squares for <code>demix_ridge &gt;= 0.03</code>, or 2nd-order iterated Tikhonov joint inversion for <code>&lt; 0.03</code>), yielding cleaned target readout rows <span class="math inline">\(S_{\text{clean},\tau} = S_\tau - (S_\tau D_r G_{r,0,\text{other}}) L_{\text{other}}\)</span>.</li>
 <li><strong>Target cross-talk &amp; duration baseline invariance:</strong> Given uncentered and column-centered target forward designs <span class="math inline">\((G_{\tau,\text{unc}}, G_\tau)\)</span>, <code>solve_duration_demix_operator()</code> row-normalizes <span class="math inline">\(R_{\text{unc}} = \operatorname{diag}(g_{\text{safe}})^{-1} S_\tau D_r G_{\tau,\text{unc}}\)</span>, solves <span class="math inline">\((R_{\text{unc}}^\top R_{\text{unc}} + \lambda_{\text{demix}} Q_m + 10^{-8} I) W_{\text{unc}} = R_{\text{unc}}^\top \operatorname{diag}(g_{\text{safe}})^{-1}\)</span> (penalizing centered fluctuations <span class="math inline">\(Q_m = I_m - \frac{1}{m}\mathbf{1}\mathbf{1}^\top\)</span>), applies a Sherman–Morrison rank-1 centering update to obtain <span class="math inline">\(W_\tau\)</span>, and restores centered diagonal gain <span class="math inline">\(\tilde{G}_\tau\)</span>.</li>
