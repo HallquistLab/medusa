@@ -2,7 +2,7 @@
 
 Many task-fMRI studies aim to relate fast, trial-specific cognitive processes—such as reward prediction errors, choice conflict, or deliberation effort—to neural dynamics across brain regions and participants. Because the hemodynamic response blurs neural activity across 15–30 seconds and scanner observations carry serial and spatial noise, trial-level neural responses are not observed directly. Instead, they are estimated from noisy, overlapping BOLD time series and then entered into second-stage models across trials and participants.
 
-A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal & Laake, 2001; Vig & Hallquist, 2026) guides the design of MEDuSA: **separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.** The four subsections below develop how MEDuSA implements this principle from a single run's forward model to population inference.
+A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal & Laake, 2001; Vig & Hallquist, 2026) guides the design of MEDuSA: **separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.** The five subsections below develop how MEDuSA implements this principle from a single run's forward model to population inference and method selection.
 
 | Substantive goal | Target quantity | MEDuSA stage & approach |
 |---|---|---|
@@ -64,6 +64,52 @@ Once trial readouts $\widehat{z}$ are expressed as latent signal plus additive e
 
 1. **Neural activity as the outcome (`Neural ~ Behavior`, Step 5):** When error-free task or behavioral variables predict `decon_demixed`, additive zero-mean error $e_i$ enters the regression residual without biasing fixed-effect slope estimates. However, error precision varies across trials, runs, and participants. Step 5 (`mixed_by()` and `medusa_multilag_infer()`) pairs participant random slopes—treating **participants** as the independent unit of population replication—with composite inverse-variance weights $(\widehat{\tau}_{\text{eff}}^2 + s_i^2)^{-1}$ (`precision_weight_cohort`) and cross-lag covariance matrices so standard errors, simultaneous bands, and window contrasts remain calibrated.
 2. **Neural activity as a predictor (`Target ~ Seed * Task` or `Behavior ~ Seed`, Step 6):** When a noisy parcel readout moves to the right-hand side as a predictor, trial error $u_i$ inflates the predictor variance $X^\top X$ (attenuating slopes toward zero) and any shared scanner or physiological noise $\operatorname{Cov}(u_i, v_i) \neq 0$ between seed and target shifts $X^\top Y$. Step 6 (`decon_connectivity_repair()`) applies regularized modified method of moments (**M-MOMS**, `medusa_fit_mmom()`) to subtract per-trial error covariance blocks $\Psi_i$ and task-free cross-parcel noise covariances before pooling participant slopes at the group level.
+
+## 5. When does MEDuSA agree with—or outperform—GLM, FIR, and LSS beta-series? {#sec-glm-fir-lss-comparison}
+
+```{r}
+#| include: false
+comp_rds <- readRDS("assets/glm_fir_lss_medusa.rds")
+comp_tbl <- as.data.frame(comp_rds$summary)
+r3_con <- comp_rds$regime3$medusa_contrast
+f3 <- function(x) sprintf("%.3f", x)
+```
+
+Before committing to a full deconvolution pipeline, a practical question is when MEDuSA yields the same answer as simpler fMRI estimators—and when its extra machinery materially improves inference. To make that comparison concrete, `assets/compare_glm_fir_lss_medusa.R` evaluates four widely used methods on identical 16-participant, 3-run BOLD cohorts ($\text{TR} = 1.0\text{ s}$, 6 voxels per parcel, shared + voxel-specific $\text{AR}(1)$ noise, population feedback RPE slope $\beta = 0.50$):
+
+1. **Parametric Canonical GLM:** Standard run-wise prewhitened general linear model convolving `feedback` and centered `rpe` (plus `cue` and `decision` boxcars when present) with a canonical $6.0\text{ s}$ two-gamma HRF, followed by a group random-effects $t$-test.
+2. **LSS Single-Trial Beta-Series (Mumford et al., 2012):** Separate prewhitened canonical-HRF GLM for every feedback trial (one column for the target trial, one column summing all other feedback trials, plus cue/decision regressors), followed by a multilevel model (`beta_lss ~ rpe_within + (1 + rpe_within || id) + (1 | id:run)`).
+3. **Condition-Modulated FIR:** Prewhitened finite impulse response basis ($-2$ to $+14\text{ s}$) for both the feedback main effect and `rpe` modulation, summarizing the peak-scaled canonical BOLD window ($+4$ to $+6\text{ s}$) across participants alongside the full BOLD-time curve.
+4. **MEDuSA:** Out-of-sample parcel HRF cross-fitting (`estimate_crossrun_hrf()`), event-informed Sobolev deconvolution (`deconvolve_crossrun_hrf()`), de-mixed parcel epoch extraction (`decon_epoch_regression()`), and cohort-weighted multilevel / trajectory inference (`mixed_by()` and `medusa_multilag_infer()`).
+
+@fig-glm-fir-lss-medusa and @tbl-glm-fir-lss-medusa compare all four estimators across three progressively more demanding task regimes:
+
+- **Regime 1 — Well-spaced single-phase events with a canonical HRF (`7.5–10.5 s` ITI):** When isolated impulses evoke a canonical $6.0\text{ s}$ hemodynamic response, all four estimators converge on nearly identical, well-calibrated group slopes (`r f3(comp_tbl$estimate[1])` to `r f3(comp_tbl$estimate[4])`). When classical GLM assumptions hold, MEDuSA introduces no bias or efficiency loss.
+- **Regime 2 — Rapid multi-phase RL trials (`Cue -> variable-RT Decision -> Feedback`) in a fast-HRF region (`3.0 s` peak):** Here expected value at `cue` correlates negatively with signed `rpe` at `feedback`, deliberation varies in reaction time, and the local vasculature peaks 3 seconds earlier than the canonical template (as often observed in striatum, thalamus, and insula). Canonical-HRF Parametric GLM (`r f3(comp_tbl$estimate[5])`) and LSS (`r f3(comp_tbl$estimate[6])`) suffer substantial vascular-mismatch attenuation and cue bleed, while a canonical $4\text{--}6\text{ s}$ FIR peak window (`r f3(comp_tbl$estimate[7])`) partially misses the early hemodynamic peak. By learning the $3.0\text{ s}$ HRF out of sample and de-mixing `cue` and variable-duration `decision` intervals, MEDuSA recovers the generating onset slope (`r f3(comp_tbl$estimate[8])`).
+- **Regime 3 — Biphasic neural trajectory (`+0.50` early phasic burst at `0–1.0 s`, `-0.45` late regulatory dip at `1.6–3.6 s`):** Single-scalar GLM (`r f3(comp_tbl$estimate[9])`) and LSS (`r f3(comp_tbl$estimate[10])`) project the entire peri-event trajectory onto one basis function, integrating across opposing early and late lobes so the two phases largely cancel. Condition-modulated FIR (@fig-glm-fir-lss-medusa, Panel C) captures the biphasic wave only in delayed, vascularly smeared BOLD time ($+2$ to $+12\text{ s}$) without trial-level readouts. MEDuSA (@fig-glm-fir-lss-medusa, Panel B) resolves both the early positive burst and the late negative dip directly on **neural event time**, with simultaneous `Max-|T|` bands and a `late_minus_early` window contrast (`r f3(r3_con$estimate[1])`, $\text{SE} = `r f3(r3_con$std.error[1])`$).
+
+![Head-to-head comparison of Parametric Canonical GLM, LSS Single-Trial Beta-Series (Mumford et al., 2012), Condition-Modulated FIR, and MEDuSA across 16-participant multi-run cohorts (`assets/compare_glm_fir_lss_medusa.R`). (A) Population onset RPE slope recovery (95% CI; dashed line = `+0.50` truth) across three task regimes. (B) Regime 3 biphasic trajectory recovered by `medusa_multilag_infer()` on neural event time with simultaneous 95% `Max-|T|` bands vs. scalar LSS cancellation. (C) The same Regime 3 signal viewed through condition-modulated FIR in delayed BOLD time.](assets/glm-fir-lss-medusa.png){#fig-glm-fir-lss-medusa width="100%" fig-alt="Top: three forest-plot facets showing all four methods agreeing in Regime 1, MEDuSA recovering 0.50 in Regime 2 while canonical GLM/LSS drop below 0.20, and MEDuSA resolving onset burst in Regime 3 while scalar GLM/LSS cancel phases. Bottom: MEDuSA neural-time biphasic trajectory vs delayed BOLD-time FIR wave."}
+
+```{r}
+#| label: tbl-glm-fir-lss-medusa
+#| tbl-cap: "Population feedback RPE slope estimates across 16 simulated participants (3 runs/participant; true onset RPE slope = 0.500)."
+comp_disp <- comp_tbl
+comp_disp$ci <- sprintf("[%.3f, %.3f]", comp_disp$conf.low, comp_disp$conf.high)
+comp_disp$p_fmt <- ifelse(comp_disp$p.value < 1e-12, "< 1e-12", sprintf("%.2e", comp_disp$p.value))
+knitr::kable(
+  comp_disp[, c("regime", "method", "estimate", "se", "ci", "p_fmt")],
+  col.names = c("Experimental Regime", "Estimator", "Estimate", "SE", "95% CI", "p-value"),
+  digits = c(0, 0, 3, 3, 0, 0),
+  row.names = FALSE
+)
+```
+
+| Scientific question & task regime | When GLM / LSS / FIR suffices | When MEDuSA provides a clear advantage |
+|---|---|---|
+| **Single-phase, well-spaced events** ($\text{ITI} \ge 8\text{ s}$) in cortical regions near canonical HRF timing, testing one scalar modulator | Parametric GLM and LSS recover nearly identical population slopes with minimal setup. | Useful mainly if trial-specific precision weights (`se_demixed`) or downstream M-MOMS connectivity ([Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)) are needed. |
+| **Multi-phase cognitive tasks** (`cue` $\to$ variable-RT `decision` $\to$ `feedback`) or **subcortical / fast-HRF territories** | Canonical GLM and LSS attenuate effects when regional HRFs peak early/late or correlated trial phases overlap. | Out-of-sample HRF learning ([Step 1](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd)) + duration-aware `(T, O)` epoch de-mixing ([Step 3](medusa_step3_epochs/medusa_step3_epochs.qmd)) prevent vascular-mismatch loss and neighbor bleed. |
+| **Temporally evolving or biphasic dynamics** (early phasic salience vs. late sustained regulation, peak latency shifts) | Scalar GLM/LSS integrate opposing lobes; FIR remains in delayed BOLD time without single-trial readouts. | `medusa_multilag_infer()` ([Step 5](medusa_step5_group_models/medusa_step5_group_models.qmd)) estimates neural-time trajectories, simultaneous bands, and window contrasts while retaining trial panels. |
+| **Trial-to-trial seed–target connectivity & PPI** | LSS beta-series contain unquantified trial estimation error and shared physiological noise that bias `Target ~ Seed * Task` slopes. | `decon_connectivity_repair()` ([Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)) propagates per-trial error variances and task-free cross-parcel noise correlations into M-MOMS disattenuation. |
 
 ## Practical record-keeping across steps
 

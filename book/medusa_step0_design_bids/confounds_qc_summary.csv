@@ -1,0 +1,4 @@
+run,file,n_volumes,n_valid,n_censored,pct_censored,n_fd_outliers,n_dvars_outliers,n_non_steady_state,n_external_censor,mean_fd,max_fd,motion_filtered,n_nuisance_cols
+run1,sub-01_task-learn_run-01_desc-confounds_timeseries.tsv,240,232,8,3.33333333333333,4,0,4,0,0.0928937238493724,0.8089,FALSE,6
+run2,sub-01_task-learn_run-02_desc-confounds_timeseries.tsv,240,232,8,3.33333333333333,4,0,4,0,0.0900853556485356,0.8616,FALSE,6
+run3,sub-01_task-learn_run-03_desc-confounds_timeseries.tsv,240,232,8,3.33333333333333,4,0,4,0,0.0922560669456067,0.7905,FALSE,6
