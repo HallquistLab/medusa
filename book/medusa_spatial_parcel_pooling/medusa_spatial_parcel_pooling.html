@@ -321,6 +321,7 @@ window.Quarto = {
   <li><a href="#sec-step2-stratified-lambda" id="toc-sec-step2-stratified-lambda" class="nav-link" data-scroll-target="#sec-step2-stratified-lambda"><span class="header-section-number">9.4.4</span> 4. Step 2 SNR-Stratified Deconvolution (<code>lambda_mode = "auto"</code>)</a></li>
   <li><a href="#sec-step3-grapheb" id="toc-sec-step3-grapheb" class="nav-link" data-scroll-target="#sec-step3-grapheb"><span class="header-section-number">9.4.5</span> 5. Step 3 Voxelwise Bilateral Graph-EB (<code>tau2_shrinkage = "graph_eb"</code>)</a></li>
   <li><a href="#sec-head-to-head" id="toc-sec-head-to-head" class="nav-link" data-scroll-target="#sec-head-to-head"><span class="header-section-number">9.4.6</span> 6. Voxelwise Graph-EB vs.&nbsp;Parcel-Wise Panels Across Regimes</a></li>
+  <li><a href="#practical-defaults-for-atlas-free-atlas-carrying-and-dense-parcellations" id="toc-practical-defaults-for-atlas-free-atlas-carrying-and-dense-parcellations" class="nav-link" data-scroll-target="#practical-defaults-for-atlas-free-atlas-carrying-and-dense-parcellations"><span class="header-section-number">9.4.7</span> Practical Defaults for Atlas-Free, Atlas-Carrying, and Dense Parcellations</a></li>
   </ul></li>
   <li><a href="#sec-spatial-math" id="toc-sec-spatial-math" class="nav-link" data-scroll-target="#sec-spatial-math"><span class="header-section-number">9.5</span> Mathematical Details</a>
   <ul class="collapse">
@@ -375,11 +376,11 @@ window.Quarto = {
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li><strong>Pathway A — Voxelwise Graph-Pooled Mapping (<code>write_nifti_ts</code>):</strong> <code>read_nifti_ts(..., mask, atlas)</code> <span class="math inline">\(\longrightarrow\)</span> <code>estimate_crossrun_hrf(..., pooling = "graph")</code> <span class="math inline">\(\longrightarrow\)</span> <code>deconvolve_crossrun_hrf(..., lambda_mode = "auto")</code> <span class="math inline">\(\longrightarrow\)</span> <code>decon_epoch_regression(..., tau2_shrinkage = "graph_eb")</code> <span class="math inline">\(\longrightarrow\)</span> <code>write_nifti_ts(..., reference = decon)</code> <span class="math inline">\(\longrightarrow\)</span> <strong><code>ggbrain</code></strong></li>
-<li><strong>Pathway B — Parcel-Wise Multi-Stratum Panel (<code>backproject_medusa</code>):</strong> <code>read_nifti_ts(..., mask, atlas)</code> <span class="math inline">\(\longrightarrow\)</span> <code>estimate_crossrun_hrf(..., pooling = "graph")</code> <em>(preserving intra-parcel HRF &amp; rim-noise heterogeneity!)</em> <span class="math inline">\(\longrightarrow\)</span> <code>deconvolve_crossrun_hrf(..., lambda_mode = "auto")</code> <span class="math inline">\(\longrightarrow\)</span> <code>decon_epoch_regression(..., parcel_groups = ts$parcel_ids, restore_scale = TRUE, whiten_panel = TRUE, return_panel = TRUE)</code> <span class="math inline">\(\longrightarrow\)</span> <code>mixed_by(..., weights = "precision_weight_cohort")</code> <span class="math inline">\(\longrightarrow\)</span> <code>backproject_medusa(..., brain_mask = decon)</code> <span class="math inline">\(\longrightarrow\)</span> <strong><code>ggbrain</code></strong></li>
+<li><strong>Pathway B — Parcel-Wise Multi-Stratum Panel (<code>backproject_medusa</code>):</strong> <code>read_nifti_ts(..., mask, atlas)</code> <span class="math inline">\(\longrightarrow\)</span> <code>estimate_crossrun_hrf(..., pooling = "graph")</code> <em>(preserving intra-parcel HRF &amp; rim-noise heterogeneity)</em> <span class="math inline">\(\longrightarrow\)</span> <code>deconvolve_crossrun_hrf(..., lambda_mode = "auto")</code> <span class="math inline">\(\longrightarrow\)</span> <code>decon_epoch_regression(..., parcel_groups = ts$parcel_ids, restore_scale = TRUE, whiten_panel = TRUE, return_panel = TRUE)</code> <span class="math inline">\(\longrightarrow\)</span> <code>mixed_by(..., weights = "precision_weight_cohort")</code> <span class="math inline">\(\longrightarrow\)</span> <code>backproject_medusa(..., brain_mask = decon)</code> <span class="math inline">\(\longrightarrow\)</span> <strong><code>ggbrain</code></strong></li>
 </ol>
 </div>
 </div>
-<p>Notice a crucial synergy in <strong>Pathway B</strong>: even when your final group hypothesis in Step 5 or Step 6 is <strong>parcel-wise</strong>, running Step 1 with <code>pooling = "graph"</code> (<code>parcel_boundary = "soft"</code>) and Step 2 with <code>lambda_mode = "auto"</code> before aggregating into parcels in Step 4 lets interior gray-matter and pial-rim voxels retain their distinct whiteners and HRF strata while Step 4’s exact multi-stratum operator (<span class="math inline">\(\sum_v u_v D_v F_v\)</span>) combines them cleanly.</p>
+<p>Notice the synergy in <strong>Pathway B</strong>: even when your final group hypothesis in Step 5 or Step 6 is <strong>parcel-wise</strong>, running Step 1 with <code>pooling = "graph"</code> (<code>parcel_boundary = "soft"</code>) and Step 2 with <code>lambda_mode = "auto"</code> before aggregating into parcels in Step 4 lets interior gray-matter and pial-rim voxels retain their distinct whiteners and HRF strata while Step 4’s exact multi-stratum operator (<span class="math inline">\(\sum_v u_v D_v F_v\)</span>) combines them cleanly.</p>
 <hr>
 </section>
 <section id="sec-voxel-vs-parcel-guide" class="level2" data-number="9.2">
@@ -406,7 +407,7 @@ window.Quarto = {
 <tr class="odd">
 <td><strong>Step 2 deconvolution</strong></td>
 <td><code>scaling = "noise_sd"</code>, <code>lambda_mode = "auto"</code> (SNR-stratified PAVA)</td>
-<td><code>scaling = "noise_sd"</code>, <code>lambda_mode = "auto"</code> (propagates per-voxel <span class="math inline">\(\lambda_v\)</span> into Step 4!)</td>
+<td><code>scaling = "noise_sd"</code>, <code>lambda_mode = "auto"</code> (propagates per-voxel <span class="math inline">\(\lambda_v\)</span> into Step 4)</td>
 </tr>
 <tr class="even">
 <td><strong>Step 3 / 4 epoch readout</strong></td>
@@ -415,32 +416,16 @@ window.Quarto = {
 </tr>
 <tr class="odd">
 <td><strong>Spatial smoothing of <span class="math inline">\(\hat{s}(t)\)</span> or <span class="math inline">\(\hat{\beta}\)</span>?</strong></td>
-<td><strong>Never.</strong> Only cross-run HRF scores, REML noise <span class="math inline">\((\hat{\rho}, \log\hat{\sigma})\)</span>, smoothed task-<span class="math inline">\(R^2\)</span> tiers, and variance parameters <span class="math inline">\((\hat{\tau}_{\text{bio}}^2, \hat{\sigma}_{\text{res}}^2)\)</span> pool across concordant neighbors</td>
+<td><strong>No.</strong> Only cross-run HRF scores, REML noise <span class="math inline">\((\hat{\rho}, \log\hat{\sigma})\)</span>, smoothed task-<span class="math inline">\(R^2\)</span> tiers, and variance parameters <span class="math inline">\((\hat{\tau}_{\text{bio}}^2, \hat{\sigma}_{\text{res}}^2)\)</span> pool across concordant neighbors</td>
 <td>Aggregates continuous deconvolved series within each parcel using SNR-optimal <code>parcel_weights</code> and propagates spatial covariance via task-free <code>noise_innovations</code></td>
 </tr>
 <tr class="even">
 <td><strong>Volumetric NIfTI export</strong></td>
-<td><code>write_nifti_ts(stat_mat, file, reference = decon)</code> (uses carried <code>voxel_map</code> + <code>geometry</code> directly)</td>
+<td><code>write_nifti_ts(stat_vec, file, reference = decon)</code> (uses carried <code>voxel_map</code> + <code>geometry</code> directly)</td>
 <td><code>backproject_medusa(coef_df, brain_mask = decon, ...)</code> (maps integer <code>atlas_value</code> parcels directly onto 3D/4D NIfTIs)</td>
 </tr>
 </tbody>
 </table>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>What Does Default <code>pooling = "voxel"</code> Do on Atlas-Carrying vs.&nbsp;Atlas-Free NIfTI Inputs?
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul>
-<li><strong>Atlas-free NIfTI (<code>read_nifti_ts(..., atlas = NULL)</code>):</strong> <code>estimate_crossrun_hrf(ts, ...)</code> keeps <code>pooling = "voxel"</code> as a pure single-voxel fit by default so spatial specificity is preserved unless you explicitly opt into <code>pooling = "graph"</code>. Even if Step 1 used <code>pooling = "voxel"</code>, Step 3 (<code>decon_epoch_regression(..., tau2_shrinkage = "auto")</code>) still constructs the 26-connected geodesic CSR graph automatically from <code>decon$voxel_map</code> to stabilize voxelwise trial variances (<code>"graph_eb"</code>).</li>
-<li><strong>Atlas-carrying NIfTI (<code>read_nifti_ts(..., atlas = ...)</code>):</strong> Calling <code>estimate_crossrun_hrf(ts, ...)</code> with default <code>pooling = "voxel"</code> does <strong>not</strong> force all voxels in a parcel to share one HRF; it keeps individual HRFs for task-supported voxels (<code>spatial_strength = 0</code>), pools AR(<span class="math inline">\(p\)</span>) noise parameters within parcels, and uses the parcel-pooled HRF strictly as a <code>"fallback_parcel"</code> safety net for low-SNR voxels that fail cross-run gating. Switching explicitly to <code>pooling = "graph"</code> upgrades both HRF evidence and REML noise estimation to edge-preserving geodesic bilateral pooling across all voxels.</li>
-</ul>
-</div>
-</div>
 <hr>
 </section>
 <section id="sec-spatial-recipes" class="level2" data-number="9.3">
@@ -575,7 +560,7 @@ window.Quarto = {
 <span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>nii_paths <span class="ot">&lt;-</span> <span class="fu">backproject_medusa</span>(</span>
 <span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">coef_df    =</span> coef_lag0,</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">brain_mask =</span> decon,                  <span class="co"># no external template file or manual integer coercion needed!</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">brain_mask =</span> decon,                  <span class="co"># uses carried voxel_map$atlas_value &amp; geometry directly</span></span>
 <span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">plot_cols  =</span> <span class="fu">c</span>(<span class="st">"estimate"</span>, <span class="st">"statistic"</span>),</span>
 <span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">output_dir =</span> <span class="st">"group_maps"</span>,</span>
 <span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">fill       =</span> <span class="cn">NA_real_</span></span>
@@ -866,15 +851,15 @@ Table&nbsp;9.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise pe
 </section>
 <section id="sec-step3-grapheb" class="level3" data-number="9.4.5">
 <h3 data-number="9.4.5" class="anchored" data-anchor-id="sec-step3-grapheb"><span class="header-section-number">9.4.5</span> 5. Step 3 Voxelwise Bilateral Graph-EB (<code>tau2_shrinkage = "graph_eb"</code>)</h3>
-<p>In Step 3 (<code>decon_epoch_regression()</code>), GLS precision weights and ZCA trial whitening depend on partitioning total trial-to-trial variance into <strong>propagated observation-noise variance</strong> <span class="math inline">\(s_{\text{obs},u}^2\)</span> (known analytically from the Step 1–2 operator) and <strong>latent biological trial-to-trial variance</strong> <span class="math inline">\(\tau_{\text{bio},u}^2\)</span>. At the single-voxel level with 50–80 trials, raw method-of-moments estimation <span class="math inline">\(\hat{\tau}_{\text{raw},u}^2 = \hat{\sigma}_{\text{tot},u}^2 - s_{\text{obs},u}^2\)</span> has wide sampling variance, creating two Simultaneous pathologies when truncated at zero (<span class="math inline">\(\max(0, \hat{\tau}_{\text{raw},u}^2)\)</span>):</p>
+<p>In Step 3 (<code>decon_epoch_regression()</code>), GLS precision weights and ZCA trial whitening depend on partitioning total trial-to-trial variance into <strong>propagated observation-noise variance</strong> <span class="math inline">\(s_{\text{obs},u}^2\)</span> (known analytically from the Step 1–2 operator) and <strong>latent biological trial-to-trial variance</strong> <span class="math inline">\(\tau_{\text{bio},u}^2\)</span>. At the single-voxel level with 50–80 trials, raw method-of-moments estimation <span class="math inline">\(\hat{\tau}_{\text{raw},u}^2 = \hat{\sigma}_{\text{tot},u}^2 - s_{\text{obs},u}^2\)</span> has wide sampling variance, creating two simultaneous distortions when truncated at zero (<span class="math inline">\(\max(0, \hat{\tau}_{\text{raw},u}^2)\)</span>):</p>
 <ul>
-<li><strong>Active-cortex zero-collapse:</strong> <strong>34.2%</strong> of genuinely active voxels randomly draw <span class="math inline">\(\hat{\tau}_{\text{raw},u}^2 \le 0\)</span> and collapse to <span class="math inline">\(\hat{\tau}_{\text{bio}}^2 = 0\)</span>, distorting trial weights into pure inverse-measurement-error weights!</li>
+<li><strong>Active-cortex zero-collapse:</strong> <strong>34.2%</strong> of genuinely active voxels randomly draw <span class="math inline">\(\hat{\tau}_{\text{raw},u}^2 \le 0\)</span> and collapse to <span class="math inline">\(\hat{\tau}_{\text{bio}}^2 = 0\)</span>, reducing trial weights to pure inverse-measurement-error weights.</li>
 <li><strong>Null-cortex truncation bias:</strong> Nearly half of true <span class="math inline">\(\tau_{\text{bio}}^2 = 0\)</span> voxels draw positive noise fluctuations, inflating average null <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> above zero (0.156).</li>
-<li>Meanwhile, <strong>global Empirical Bayes (<code>tau2_shrinkage = "eb"</code>)</strong> pools all 6,655 voxels toward one whole-slab prior dominated by the 85% null background—leaving <strong>35.1%</strong> active zero-collapse unfixed while pulling the 30-voxel Right Insula hotspot downward relative to local bilateral pooling (<code>hotspot mean</code> <span class="math inline">\(\hat{\tau}_{\text{bio}}^2 =\)</span> <strong>0.602</strong> vs.&nbsp;<strong>0.800</strong> under Graph-EB)!</li>
+<li>Meanwhile, <strong>global Empirical Bayes (<code>tau2_shrinkage = "eb"</code>)</strong> pools all 6,655 voxels toward one whole-slab prior dominated by the 85% null background—leaving <strong>35.1%</strong> active zero-collapse unaddressed while pulling the 30-voxel Right Insula hotspot downward relative to local bilateral pooling (<code>hotspot mean</code> <span class="math inline">\(\hat{\tau}_{\text{bio}}^2 =\)</span> <strong>0.602</strong> vs.&nbsp;<strong>0.800</strong> under Graph-EB).</li>
 </ul>
-<p><code>tau2_shrinkage = "graph_eb"</code> (<code>graph_eb_tau2_csr_cpp()</code>, automatic default under <code>tau2_shrinkage = "auto"</code> whenever <code>deconvolution</code> carries a spatial graph or <code>voxel_map</code> coordinates in voxelwise mode) solves all three problems:</p>
+<p><code>tau2_shrinkage = "graph_eb"</code> (<code>graph_eb_tau2_csr_cpp()</code>, automatic default under <code>tau2_shrinkage = "auto"</code> whenever <code>deconvolution</code> carries a spatial graph or <code>voxel_map</code> coordinates in voxelwise mode) addresses all three issues:</p>
 <ol type="1">
-<li><strong>Pre-truncation scale-free pooling:</strong> Shrinks the <em>untruncated</em> dimensionless ratio <span class="math inline">\(\hat{\theta}_u = \hat{\tau}_{\text{raw},u}^2 / s_{\text{obs},u}^2\)</span> across bilateral graph neighbors <em>before</em> applying <span class="math inline">\(\max(0, \cdot)\)</span>—allowing positive and negative estimation errors in null cortex to cancel symmetrically around zero while preventing zero-collapse in active cortex (<strong>21.7%</strong> zero-collapse!).</li>
+<li><strong>Pre-truncation scale-free pooling:</strong> Shrinks the <em>untruncated</em> dimensionless ratio <span class="math inline">\(\hat{\theta}_u = \hat{\tau}_{\text{raw},u}^2 / s_{\text{obs},u}^2\)</span> across bilateral graph neighbors <em>before</em> applying <span class="math inline">\(\max(0, \cdot)\)</span>—allowing positive and negative estimation errors in null cortex to cancel symmetrically around zero while reducing active zero-collapse to <strong>21.7%</strong>.</li>
 <li><strong>Isserlis correlated-error variance discount:</strong> Accounts for the exact squared-error correlation <span class="math inline">\(\operatorname{Corr}(Z_u^2, Z_v^2) = \rho_{uv}^2\)</span> induced by shared spatial scanner innovations (<code>noise_innovations</code>) so effective neighborhood sample size is never overstated.</li>
 <li><strong>Bilateral border stopping + Efron–Morris hotspot protection:</strong> Combines Cauchy pilot-jump weights with orthogonalized trial-residual sign concordance to stop at functional boundaries, and caps maximum shrinkage at <strong><span class="math inline">\(2.5\sigma_u\)</span> (Efron–Morris limited translation)</strong> so isolated focal hotspots retain their true biological variance (<strong>0.800</strong> in the Right Insula core; <a href="#fig-step3-grapheb" class="quarto-xref">Figure&nbsp;<span>9.5</span></a>). Sandwich residual scales (<code>[scale_unw, scale_pw, scale_gls]</code>) are similarly moderated over the bilateral graph (<code>moderate_scale_csr_cpp()</code>) to boost <span class="math inline">\(t\)</span>-statistic degrees of freedom without ever smoothing trial slopes <span class="math inline">\(\hat{\beta}_u\)</span>.</li>
 </ol>
@@ -1084,22 +1069,16 @@ Table&nbsp;9.4: Slope RMSE, mean |t|, and BH-FDR &lt;= 0.05 detection across ana
 <p>The results crystallize the practical modeling guidance:</p>
 <ul>
 <li><strong>When functional anatomy aligns with the parcellation (<code>Parcels 10 &amp; 89</code>):</strong> Step 4 parcel aggregation pools continuous deconvolved time series across 154–341 voxels using cross-run precision weights while propagating spatial innovation correlation accurately—cutting slope RMSE more than <span class="math inline">\(3\times\)</span> relative to single voxels and achieving <code>100%</code> detection power, with clean cohort-level inference in Step 5 (<code>mixed_by()</code> + BY control; bold black parcel outlines in <a href="#fig-voxel-vs-parcel" class="quarto-xref">Figure&nbsp;<span>9.6</span></a>, Panel 4).</li>
-<li><strong>When individual functional boundaries shift across a parcel (<code>Parcel 78</code>):</strong> Averaging the posterior negative-RPE sub-domain (<span class="math inline">\(\beta = -0.62\)</span>) and anterior positive-RPE sub-domain (<span class="math inline">\(\beta = +0.62\)</span>) inside <code>Parcel 78</code> cancels the parcel slope to nearly zero! Voxelwise Graph-EB resolves <strong>both</strong> sub-domains cleanly on the cortical ribbon without blurring across the <span class="math inline">\(y = -43\text{ mm}\)</span> border.</li>
+<li><strong>When individual functional boundaries shift across a parcel (<code>Parcel 78</code>):</strong> Averaging the posterior negative-RPE sub-domain (<span class="math inline">\(\beta = -0.62\)</span>) and anterior positive-RPE sub-domain (<span class="math inline">\(\beta = +0.62\)</span>) inside <code>Parcel 78</code> cancels the parcel slope to nearly zero. Voxelwise Graph-EB resolves <strong>both</strong> sub-domains cleanly on the cortical ribbon without blurring across the <span class="math inline">\(y = -43\text{ mm}\)</span> border.</li>
 <li><strong>When an effect is restricted to a sub-parcel focal nucleus (<code>Right Insula Parcel 155</code> core):</strong> Averaging 30 active hotspot voxels with 195 silent surround voxels dilutes the parcel slope by nearly <span class="math inline">\(85\%\)</span>. Voxelwise Graph-EB—protected by SNR-stratified Step 2 <span class="math inline">\(\lambda\)</span> and Efron–Morris limited translation—preserves the focal hotspot amplitude and detects it reliably while keeping false positives controlled across the 55 null parcels.</li>
 </ul>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Parcel-Level Empirical Bayes Across Dense Parcellations (<code>Schaefer-400</code> / <code>1000</code>)
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>When <code>aggregate_by_parcel = TRUE</code> (<code>parcel_groups = ...</code>) and no parcel-level <code>spatial_graph</code> is supplied, <code>tau2_shrinkage = "auto"</code> resolves to <code>"none"</code> by default because standard coarse parcels already enjoy high multi-voxel SNR. If you analyze a fine-grained parcellation with many small parcels (e.g., Schaefer-400 or Schaefer-1000), simply set <code>tau2_shrinkage = "graph_eb"</code> explicitly: <code>decon_epoch_regression()</code> automatically constructs a precision-weighted 3D parcel-centroid Euclidean graph from <code>decon$voxel_map</code> (and propagates parcel-aggregated Step 1 task-<span class="math inline">\(R^2\)</span> gating), or you can supply a custom cortical-surface geodesic distance matrix via <code>build_spatial_graph(parcel_dist_mat)</code>.</p>
-</div>
-</div>
+</section>
+<section id="practical-defaults-for-atlas-free-atlas-carrying-and-dense-parcellations" class="level3" data-number="9.4.7">
+<h3 data-number="9.4.7" class="anchored" data-anchor-id="practical-defaults-for-atlas-free-atlas-carrying-and-dense-parcellations"><span class="header-section-number">9.4.7</span> Practical Defaults for Atlas-Free, Atlas-Carrying, and Dense Parcellations</h3>
+<ul>
+<li><strong>Default <code>pooling = "voxel"</code> on atlas-free vs.&nbsp;atlas-carrying NIfTIs:</strong> On atlas-free NIfTI inputs (<code>read_nifti_ts(..., atlas = NULL)</code>), <code>estimate_crossrun_hrf(ts, ...)</code> keeps <code>pooling = "voxel"</code> as a single-voxel fit unless you opt into <code>pooling = "graph"</code>, whereas Step 3 (<code>decon_epoch_regression(..., tau2_shrinkage = "auto")</code>) still builds the 26-connected geodesic CSR graph automatically from <code>decon$voxel_map</code> to stabilize voxelwise trial variances (<code>"graph_eb"</code>). On atlas-carrying NIfTI inputs, default <code>pooling = "voxel"</code> retains individual HRFs for task-supported voxels (<code>spatial_strength = 0</code>), pools AR(<span class="math inline">\(p\)</span>) noise within parcels, and uses the parcel HRF as a <code>"fallback_parcel"</code> reference on low-SNR voxels; setting <code>pooling = "graph"</code> upgrades both HRF evidence and REML noise to bilateral geodesic pooling across all voxels.</li>
+<li><strong>Parcel-level Graph-EB across dense parcellations (<code>Schaefer-400</code> / <code>1000</code>):</strong> When <code>aggregate_by_parcel = TRUE</code> (<code>parcel_groups = ...</code>) and no parcel-level <code>spatial_graph</code> is supplied, <code>tau2_shrinkage = "auto"</code> resolves to <code>"none"</code> because standard coarse parcels already have high multi-voxel SNR. For fine-grained parcellations with many small parcels, set <code>tau2_shrinkage = "graph_eb"</code> explicitly so <code>decon_epoch_regression()</code> constructs a precision-weighted 3D parcel-centroid Euclidean graph from <code>decon$voxel_map</code> (or supply cortical-surface geodesic parcel distances via <code>build_spatial_graph(parcel_dist_mat)</code>).</li>
+</ul>
 <hr>
 </section>
 </section>

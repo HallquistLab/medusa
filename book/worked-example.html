@@ -112,6 +112,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="book.css">
 </head>
@@ -276,18 +305,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#fit-the-participant-and-keep-the-operators" id="toc-fit-the-participant-and-keep-the-operators" class="nav-link active" data-scroll-target="#fit-the-participant-and-keep-the-operators">Fit the participant and keep the operators</a></li>
-  <li><a href="#sec-worked-checkpoints" id="toc-sec-worked-checkpoints" class="nav-link" data-scroll-target="#sec-worked-checkpoints">Follow one trial through Steps 1–4</a>
+  <li><a href="#estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14" id="toc-estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14" class="nav-link active" data-scroll-target="#estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14">1. Estimate participant HRFs, deconvolve runs, and align parcel epochs (Steps 1–4)</a>
   <ul class="collapse">
-  <li><a href="#two-ways-to-lose-support" id="toc-two-ways-to-lose-support" class="nav-link" data-scroll-target="#two-ways-to-lose-support">Two ways to lose support</a></li>
+  <li><a href="#sec-worked-checkpoints" id="toc-sec-worked-checkpoints" class="nav-link" data-scroll-target="#sec-worked-checkpoints">Following a single trial across Steps 1–4</a></li>
   </ul></li>
-  <li><a href="#fit-the-planned-association" id="toc-fit-the-planned-association" class="nav-link" data-scroll-target="#fit-the-planned-association">Fit the planned association</a></li>
-  <li><a href="#interpret-the-lag-profile" id="toc-interpret-the-lag-profile" class="nav-link" data-scroll-target="#interpret-the-lag-profile">Interpret the lag profile</a></li>
-  <li><a href="#sec-worked-contrasts" id="toc-sec-worked-contrasts" class="nav-link" data-scroll-target="#sec-worked-contrasts">Compare one planned window on three curves</a></li>
-  <li><a href="#when-a-neural-readout-becomes-a-predictor" id="toc-when-a-neural-readout-becomes-a-predictor" class="nav-link" data-scroll-target="#when-a-neural-readout-becomes-a-predictor">When a neural readout becomes a predictor</a>
+  <li><a href="#test-the-planned-onset-slope-across-participants-step-5-mixed_by" id="toc-test-the-planned-onset-slope-across-participants-step-5-mixed_by" class="nav-link" data-scroll-target="#test-the-planned-onset-slope-across-participants-step-5-mixed_by">2. Test the planned onset slope across participants (Step 5: <code>mixed_by()</code>)</a></li>
+  <li><a href="#characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer" id="toc-characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer" class="nav-link" data-scroll-target="#characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer">3. Characterize the full lag trajectory and window contrasts (Step 5: <code>medusa_multilag_infer()</code>)</a>
   <ul class="collapse">
-  <li><a href="#sec-worked-handoff" id="toc-sec-worked-handoff" class="nav-link" data-scroll-target="#sec-worked-handoff">What survives stacking and CSV export?</a></li>
+  <li><a href="#sec-worked-contrasts" id="toc-sec-worked-contrasts" class="nav-link" data-scroll-target="#sec-worked-contrasts">Choice point: Comparing a planned window contrast across trajectory curves</a></li>
   </ul></li>
+  <li><a href="#test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair" id="toc-test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair" class="nav-link" data-scroll-target="#test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair">4. Test seed-to-target connectivity and PPI (Step 6: <code>decon_connectivity_repair()</code>)</a></li>
+  <li><a href="#practical-checks-censoring-support-and-file-handoffs" id="toc-practical-checks-censoring-support-and-file-handoffs" class="nav-link" data-scroll-target="#practical-checks-censoring-support-and-file-handoffs">5. Practical checks: Censoring support and file handoffs</a></li>
   </ul>
 </nav>
     </div>
@@ -313,32 +341,37 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p>Suppose the primary question is whether signed reward prediction error predicts activity at feedback onset in a prespecified parcel. The teaching dataset has 12 independently simulated participants, three runs each, and 20 trials per run. Each trial contains a cue, a decision interval of variable duration, and brief feedback. Two parcels contain different synthetic voxels. RPE affects feedback activity in both parcels, so the example also shows why a shared task effect must be accounted for in a connectivity analysis.</p>
-<p>The simulation source is the package workflow vignette (<a href="worked/workflow-source.Rmd"><code>worked/workflow-source.Rmd</code></a>), executed directly against <code>library(medusa)</code>. The commands below trace the main pipeline handoffs across Steps 1–6; see <a href="./reference.html">Reproduction and references</a> to regenerate the checkpoint outputs from scratch.</p>
-<section id="fit-the-participant-and-keep-the-operators" class="level2">
-<h2 class="anchored" data-anchor-id="fit-the-participant-and-keep-the-operators">Fit the participant and keep the operators</h2>
+<p>Before examining each step in full detail, it is helpful to watch a single scientific question move through the complete MEDuSA pipeline from raw run matrices to population inference. Suppose our primary question is whether signed <strong>reward prediction error (RPE)</strong> modulates neural activity at feedback onset in a prespecified cortical parcel (<code>Parcel_A</code>), and how that effect evolves over the surrounding seconds.</p>
+<p>Our teaching dataset simulates 12 participants, each completing three runs of 20 reinforcement-learning trials (<code>worked/workflow-source.Rmd</code>). Every trial comprises a visual cue, a variable-duration decision interval equal to reaction time, and brief feedback. Two parcels (<code>Parcel_A</code> and <code>Parcel_B</code>) contain three voxels each, and RPE modulates feedback activity in both parcels. Below, we walk through the five core stages of the analysis in execution order and then illustrate two practical data-support and handoff checks.</p>
+<section id="estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14" class="level2">
+<h2 class="anchored" data-anchor-id="estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14">1. Estimate participant HRFs, deconvolve runs, and align parcel epochs (Steps 1–4)</h2>
+<p>For each participant, three function calls carry the run-level BOLD matrices and event schedules to a de-mixed, parcel-aggregated trial panel:</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  bold, events, tr, candidates, <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model =</span> <span class="st">"ar1"</span>, <span class="at">evidence =</span> <span class="st">"calibrated"</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>dec <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  bold, hrf_fit, <span class="at">lambda =</span> .<span class="dv">1</span>, <span class="at">scaling =</span> <span class="st">"noise_sd"</span>, <span class="at">penalty =</span> <span class="st">"sobolev"</span>,</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode =</span> <span class="st">"ignore"</span>, <span class="at">observation_mask =</span> <span class="st">"fit"</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>epochs <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  dec, covariates, <span class="at">target_condition =</span> <span class="st">"feedback"</span>, <span class="at">lags =</span> <span class="sc">-</span><span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>,</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_groups =</span> parcel_ids, <span class="at">restore_scale =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">demix_within_trial =</span> <span class="cn">FALSE</span>, <span class="at">tau2_mode =</span> <span class="st">"marginal"</span>, <span class="at">return_panel =</span> <span class="cn">TRUE</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1: Cross-fit HRFs on non-target runs and estimate own-run AR(p) noise</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  bold, events, tr, candidates, <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model =</span> <span class="st">"ar1"</span>, <span class="at">evidence =</span> <span class="st">"calibrated"</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Reconstruct continuous latent activity on an observation-noise scale</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>dec <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  bold, hrf_fit, <span class="at">lambda =</span> .<span class="dv">1</span>, <span class="at">scaling =</span> <span class="st">"noise_sd"</span>, <span class="at">penalty =</span> <span class="st">"sobolev"</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode =</span> <span class="st">"ignore"</span>, <span class="at">observation_mask =</span> <span class="st">"fit"</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Steps 3 &amp; 4: Aggregate into parcels, de-mix overlapping events, and propagate SEs</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>epochs <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  dec, covariates, <span class="at">target_condition =</span> <span class="st">"feedback"</span>, <span class="at">lags =</span> <span class="sc">-</span><span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>,</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_groups =</span> parcel_ids, <span class="at">restore_scale =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">demix_within_trial =</span> <span class="cn">FALSE</span>, <span class="at">tau2_mode =</span> <span class="st">"marginal"</span>, <span class="at">return_panel =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>The fixed penalty is a teaching choice. For a study, check the tuning rule and resolution under the actual timing. Inspect target-excluded training runs and HRF fallbacks. Keep acquisition rows with their original times and explicit validity masks. Verify that every feedback <code>event_index</code> maps to the same row in the behavioral data. Save the named list of participant epoch results so the trajectory and connectivity paths can retrieve their operator metadata.</p>
-</section>
-<section id="sec-worked-checkpoints" class="level2">
-<h2 class="anchored" data-anchor-id="sec-worked-checkpoints">Follow one trial through Steps 1–4</h2>
-<p>Follow participant <strong>sim01</strong>, <strong>run1</strong>, feedback trial <strong>8</strong>, and <strong>Parcel A</strong>. In the original event table it is row 24, with feedback at 76.573 seconds. The parcel combines three voxel reconstructions. The diagnostic figure averages them in their original input units using the same weights as the parcel analysis.</p>
+<p><em>(Here <code>lambda = 0.1</code> is fixed to match the teaching vignette; in empirical studies, leaving <code>lambda = NULL</code> tunes smoothness automatically across runs.)</em></p>
+<section id="sec-worked-checkpoints" class="level3">
+<h3 class="anchored" data-anchor-id="sec-worked-checkpoints">Following a single trial across Steps 1–4</h3>
+<p>To make each transformation concrete, follow participant <strong>sim01</strong>, <strong>run1</strong>, feedback trial <strong>8</strong> (row 24 of <code>events$run1</code>, occurring at 76.573 s) in <strong>Parcel A</strong>:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-checkpoint-traces" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -347,17 +380,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <img src="worked-example_files/figure-html/fig-checkpoint-traces-1.png" class="img-fluid figure-img" width="787">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-checkpoint-traces-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.1: Top: the generating and selected HRF for the focal parcel, using the realized voxel weights. Middle: observed parcel BOLD after demeaning. Bottom: the same parcel’s restored activity after inversion. The vertical reference on the bottom two panels is the focal feedback event.
+Figure&nbsp;2.1: Top: generating and cross-fitted HRF for Parcel A using realized voxel weights. Middle: centered observed parcel BOLD around Trial 8 feedback. Bottom: restored continuous parcel activity from Step 2. Vertical dotted lines mark feedback onset.
 </figcaption>
 </figure>
 </div>
 </div>
 </div>
 <ol type="1">
-<li><strong>Learn.</strong> For run1 the HRF training runs are run2, run3. Check that run1 is absent from HRF selection. If shape estimates vary across training folds or fall back, compare the fallback and selected estimates under the same inverse settings. The target-run noise refit can still use run1.</li>
-<li><strong>Invert.</strong> Inspect the observation mask, the scaling divisor, and the reconstruction around the event. The BOLD and activity panels use separate vertical scales. The inverse redistributes the signal over time and changes the noise. If a striking peak changes with the penalty, probe the resolution under that penalty before interpreting the peak.</li>
-<li><strong>Align and correct.</strong> The table below shows what the readout returned at each lag for this trial. Compare <code>decon_raw</code> and <code>decon_demixed</code> to see the net correction. If the correction is large, inspect event overlap, support, and gain before carrying the estimate forward.</li>
-<li><strong>Assemble the panel.</strong> The realized parcel weights are 0.330, 0.316, 0.354. Verify that the same parcel still represents a comparable spatial unit when a voxel is unavailable in a later run. The SE in the table measures propagated error. The weight also includes a working component for latent trial variation. Keep the participant fit and event keys along with the panel.</li>
+<li><strong>Step 1 (Cross-run HRF &amp; noise):</strong> Run 1’s HRF was trained exclusively on run2, run3, recovering the generating vascular peak cleanly (<a href="#fig-checkpoint-traces" class="quarto-xref">Figure&nbsp;<span>2.1</span></a>, top) before refitting Run 1’s <span class="math inline">\(\text{AR}(p)\)</span> noise parameters.</li>
+<li><strong>Step 2 (Continuous deconvolution):</strong> Inverting the sluggish BOLD wave shifts the delayed ~5–6 s hemodynamic deflection back to feedback onset (<span class="math inline">\(0\text{ s}\)</span>; <a href="#fig-checkpoint-traces" class="quarto-xref">Figure&nbsp;<span>2.1</span></a>, middle vs.&nbsp;bottom).</li>
+<li><strong>Steps 3 &amp; 4 (Parcel aggregation, de-mixing, and trial weights):</strong> Combining the three voxels of Parcel A with cross-run precision weights (0.330, 0.316, 0.354), subtracting cue/decision bleed, and inverting target mixing yields the per-lag readouts, propagated measurement SEs (<code>se_demixed</code>), and composite cohort precision weights below:</li>
 </ol>
 <div class="cell">
 <div class="cell-output-display">
@@ -425,10 +457,113 @@ Figure&nbsp;2.1: Top: the generating and selected HRF for the focal parcel, usin
 </table>
 </div>
 </div>
-<section id="two-ways-to-lose-support" class="level3">
-<h3 class="anchored" data-anchor-id="two-ways-to-lose-support">Two ways to lose support</h3>
-<p>First, keep sim01’s acquisition grid and mask observations more than 5 seconds after its final run1 feedback. The last trial still has a lag-zero estimate, while later lags can lose enough observable HRF energy to be missing. This is a separate mask exercise on the last trial. Trial 8 above comes from the original fit.</p>
-<p>Second, remove all of sim01’s +4 s activity readouts in a copy of the original participant panel. The group trajectory can still use sim01 at earlier lags. Count finite <strong>raw</strong> participant slopes from <code>subjects</code> to audit that support. In this implementation the group coefficient table’s <code>n_subjects</code> describes the retained trajectory cohort. It can stay at 12 when a particular lag has fewer contributing slopes.</p>
+</section>
+</section>
+<section id="test-the-planned-onset-slope-across-participants-step-5-mixed_by" class="level2">
+<h2 class="anchored" data-anchor-id="test-the-planned-onset-slope-across-participants-step-5-mixed_by">2. Test the planned onset slope across participants (Step 5: <code>mixed_by()</code>)</h2>
+<p>Stacking <code>epochs$panel</code> across all 12 participants and centering RPE within each participant and run (<code>rpe_within</code>) prepares the cohort panel. To test the planned feedback-onset association in <code>Parcel_A</code> (<code>evt_time == 0</code>), we fit a random-slope linear mixed model weighted by <code>precision_weight_cohort</code>:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>one <span class="ot">&lt;-</span> group_panel[parcel <span class="sc">==</span> <span class="st">"Parcel_A"</span> <span class="sc">&amp;</span> evt_time <span class="sc">==</span> <span class="dv">0</span>]</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">mixed_by</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  one, <span class="at">model_formulae =</span> <span class="fu">list</span>(</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">feedback =</span> decon_demixed <span class="sc">~</span> rpe_within <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">+</span> rpe_within <span class="sc">||</span> id) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> id<span class="sc">:</span>run)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights =</span> <span class="st">"precision_weight_cohort"</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">calculate =</span> <span class="st">"parameter_estimates_reml"</span>, <span class="at">padjust_by =</span> <span class="cn">NULL</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_models =</span> <span class="cn">TRUE</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Across all 720 trials and 12 participants, the estimated population feedback-onset slope is <strong>0.574</strong> restored BOLD units per RPE unit (fit status: singular — inspect variance components).</p>
+</section>
+<section id="characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer" class="level2">
+<h2 class="anchored" data-anchor-id="characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer">3. Characterize the full lag trajectory and window contrasts (Step 5: <code>medusa_multilag_infer()</code>)</h2>
+<p>When the scientific question extends across the entire <span class="math inline">\(-2\text{ s}\)</span> to <span class="math inline">\(+4\text{ s}\)</span> peri-event epoch, passing the named <code>subject_epochs</code> list to <code>medusa_multilag_infer()</code> pools participant lag slopes jointly and constructs a simultaneous 95% <code>Max-|T|</code> confidence band covering all seven lags together:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>profile <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  subject_epochs, <span class="at">covariates =</span> <span class="st">"rpe"</span>, <span class="at">use_whitened =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">trajectory_mode =</span> <span class="st">"none"</span>, <span class="at">contrast_source =</span> <span class="st">"unsmoothed"</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr =</span> tr, <span class="at">n_perm =</span> <span class="dv">1999</span>L, <span class="at">n_boot_latency =</span> <span class="dv">0</span>L, <span class="at">seed =</span> <span class="dv">5420</span>L</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-worked-lags" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-worked-lags-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="worked-example_files/figure-html/fig-worked-lags-1.png" class="img-fluid figure-img" width="787">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-worked-lags-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Orange diamond: true instantaneous feedback effect at lag 0 (zero at non-zero lags). Teal dashed curve: noiseless signal projected through the fitted Step 2–3 operators. Blue curve and ribbon: recovered noisy cohort trajectory and 95% simultaneous Max-|T| band.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Notice why the recovered raw lag curve in <a href="#fig-worked-lags" class="quarto-xref">Figure&nbsp;<span>2.2</span></a> spans neighboring lags even though the simulated effect occurs instantaneously at <span class="math inline">\(0\text{ s}\)</span>: regularized continuous deconvolution spreads a brief impulse smoothly across adjacent lags (matching the noiseless operator projection, teal dashed line).</p>
+<section id="sec-worked-contrasts" class="level3">
+<h3 class="anchored" data-anchor-id="sec-worked-contrasts">Choice point: Comparing a planned window contrast across trajectory curves</h3>
+<p>Suppose we test a planned <code>late_minus_early</code> contrast (<code>[2, 4] s</code> minus <code>[0, 1] s</code>) under <code>trajectory_mode = "deblur_pspline"</code>, which applies group-level spectral cross-lag deblurring followed by P-spline smoothing. <code>contrast_source</code> lets us choose which curve defines the contrast estimand:</p>
+<div class="cell">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="worked-example_files/figure-html/worked-contrasts-1.png" class="img-fluid figure-img" width="787"></p>
+<figcaption>Early ([0, 1] s) and late ([2, 4] s) contrast windows evaluated on the raw, spectrally deblurred (‘unsmoothed’), and deblurred + P-spline smoothed (‘multilag’) group curves.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Contrast source</th>
+<th style="text-align: right;">Late minus early</th>
+<th style="text-align: right;">SE</th>
+<th style="text-align: right;">95% lower</th>
+<th style="text-align: right;">95% upper</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">raw</td>
+<td style="text-align: right;">-0.36373</td>
+<td style="text-align: right;">0.02382</td>
+<td style="text-align: right;">-0.41616</td>
+<td style="text-align: right;">-0.31131</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">unsmoothed</td>
+<td style="text-align: right;">-0.24618</td>
+<td style="text-align: right;">0.03162</td>
+<td style="text-align: right;">-0.31578</td>
+<td style="text-align: right;">-0.17658</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">multilag</td>
+<td style="text-align: right;">-0.24623</td>
+<td style="text-align: right;">0.03063</td>
+<td style="text-align: right;">-0.31364</td>
+<td style="text-align: right;">-0.17883</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The recommended default, <code>contrast_source = "unsmoothed"</code>, evaluates the contrast after spectral deblurring and <em>before</em> spline smoothing, sharpening lag resolution without introducing spline curvature shrinkage into linear window averages.</p>
+</section>
+</section>
+<section id="test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair" class="level2">
+<h2 class="anchored" data-anchor-id="test-seed-to-target-connectivity-and-ppi-step-6-decon_connectivity_repair">4. Test seed-to-target connectivity and PPI (Step 6: <code>decon_connectivity_repair()</code>)</h2>
+<p>Finally, when <code>Parcel_A</code> moves to the right-hand side to test whether its coupling with <code>Parcel_B</code> changes with RPE (<code>Parcel_B ~ Parcel_A + rpe + Parcel_A:rpe</code>), <code>decon_connectivity_repair(..., shared_error = "auto", method = "mmoms")</code> uses per-trial <code>se_demixed^2</code> and cross-parcel noise correlations to correct predictor measurement error while controlling for the main effect of RPE in both parcels. Because our teaching simulation contains no true PPI modulation, the estimated interaction centers near zero as expected.</p>
+</section>
+<section id="practical-checks-censoring-support-and-file-handoffs" class="level2">
+<h2 class="anchored" data-anchor-id="practical-checks-censoring-support-and-file-handoffs">5. Practical checks: Censoring support and file handoffs</h2>
+<p>Two quick diagnostic checks illustrate how MEDuSA handles incomplete data and file serialization gracefully:</p>
+<ol type="1">
+<li><strong>Observability gating &amp; available-case lag pooling:</strong> If late-run frames more than 5 s after the final feedback trial are censored (<code>valid_rows = FALSE</code>), Step 3 retains <code>sim01</code>’s final trial at lag <span class="math inline">\(0\text{ s}\)</span> while marking later lags <code>Missing</code> once causal HRF energy falls inside the masked tail. Similarly, if one participant lacks all <span class="math inline">\(+4\text{ s}\)</span> readouts, <code>medusa_multilag_infer()</code> retains all 12 participants at lags <span class="math inline">\(-2\)</span> to <span class="math inline">\(+3\text{ s}\)</span> and pools the 11 supported participants at <span class="math inline">\(+4\text{ s}\)</span>:</li>
+</ol>
 <div class="cell">
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
@@ -479,109 +614,9 @@ Figure&nbsp;2.1: Top: the generating and selected HRF for the focal parcel, usin
 </table>
 </div>
 </div>
-<p>A missing trial is a support problem. Leave it missing, inspect whether support varies by condition or person, and report the lag-specific contributing sample before testing a window.</p>
-</section>
-</section>
-<section id="fit-the-planned-association" class="level2">
-<h2 class="anchored" data-anchor-id="fit-the-planned-association">Fit the planned association</h2>
-<p>Use a trial-level mixed model with a participant random slope for the within-run predictor and a run intercept nested within participant. Select one parcel and lag before looking at the coefficient.</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>one <span class="ot">&lt;-</span> group_panel[parcel <span class="sc">==</span> <span class="st">"Parcel_A"</span> <span class="sc">&amp;</span> evt_time <span class="sc">==</span> <span class="dv">0</span>]</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">mixed_by</span>(</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  one, <span class="at">model_formulae =</span> <span class="fu">list</span>(</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">feedback =</span> decon_demixed <span class="sc">~</span> rpe_within <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">+</span> rpe_within <span class="sc">||</span> id) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> id<span class="sc">:</span>run)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights =</span> <span class="st">"precision_weight_cohort"</span>,</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">calculate =</span> <span class="st">"parameter_estimates_reml"</span>, <span class="at">padjust_by =</span> <span class="cn">NULL</span>,</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_models =</span> <span class="cn">TRUE</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<p>This run retained 720 trial rows and 12 participants in the planned split. The estimated feedback slope was 0.574 in restored input units per RPE unit. The planned mixed model is singular. Inspect the random-effect variance components and report the boundary fit before making a population claim. The checkpoint simulation does not estimate error-rate calibration.</p>
-</section>
-<section id="interpret-the-lag-profile" class="level2">
-<h2 class="anchored" data-anchor-id="interpret-the-lag-profile">Interpret the lag profile</h2>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>profile <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  subject_epochs, <span class="at">covariates =</span> <span class="st">"rpe"</span>, <span class="at">use_whitened =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">trajectory_mode =</span> <span class="st">"none"</span>, <span class="at">contrast_source =</span> <span class="st">"unsmoothed"</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr =</span> tr, <span class="at">n_perm =</span> <span class="dv">1999</span>L, <span class="at">n_boot_latency =</span> <span class="dv">0</span>L, <span class="at">seed =</span> <span class="dv">5420</span>L</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell">
-<div class="cell-output-display">
-<div id="fig-worked-lags" class="quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-worked-lags-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="worked-example_files/figure-html/fig-worked-lags-1.png" class="img-fluid figure-img" width="787">
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-worked-lags-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.2: The generator places the RPE effect at feedback (orange diamond; the generating effect is zero at every other lag). The green dashed curve projects the generating RPE signal through the fitted inverse and epoch correction. The blue curve is recovered from the noisy BOLD. Its ribbon is the raw within-trajectory simultaneous band.
-</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<p>To make the dashed curve, generate only the BOLD contribution from the known feedback RPE effect. Apply each participant’s frozen inverse and the same epoch procedure, keeping the original scaling, observation mask, parcel weights, and trial weights. Then run the same group trajectory estimator on those projected readouts. Its group precision estimates can change because the response changed. This is a signal-only projection using the full event schedule and fitted operators. It shows what the fitted analysis can spread across lags even when the underlying source is brief. The difference between the two curves can also reflect other sources, estimation noise, and the fitted group weights. The blue simultaneous band applies to the estimated parcel–term lag family.</p>
-</section>
-<section id="sec-worked-contrasts" class="level2">
-<h2 class="anchored" data-anchor-id="sec-worked-contrasts">Compare one planned window on three curves</h2>
-<p>Compare mean activity slopes at +2 through +4 s with the mean at 0 and +1 s. Hold the participant data and the contrast weights fixed. Use <code>trajectory_mode = "deblur_pspline"</code> to expose the difference between deblurring and smoothing. The three curve options would coincide under <code>trajectory_mode = "none"</code>.</p>
-<div class="cell">
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="worked-example_files/figure-html/worked-contrasts-1.png" class="img-fluid figure-img" width="787"></p>
-<figcaption>The same early and late windows applied to raw, deblurred-only, and fully processed trajectories. The plot uses the supported lag grid.</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="cell-output-display">
-<table class="caption-top table table-sm table-striped small">
-<thead>
-<tr class="header">
-<th style="text-align: left;">Contrast source</th>
-<th style="text-align: right;">Late minus early</th>
-<th style="text-align: right;">SE</th>
-<th style="text-align: right;">95% lower</th>
-<th style="text-align: right;">95% upper</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">raw</td>
-<td style="text-align: right;">-0.36373</td>
-<td style="text-align: right;">0.02382</td>
-<td style="text-align: right;">-0.41616</td>
-<td style="text-align: right;">-0.31131</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">unsmoothed</td>
-<td style="text-align: right;">-0.24618</td>
-<td style="text-align: right;">0.03162</td>
-<td style="text-align: right;">-0.31578</td>
-<td style="text-align: right;">-0.17658</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">multilag</td>
-<td style="text-align: right;">-0.24623</td>
-<td style="text-align: right;">0.03063</td>
-<td style="text-align: right;">-0.31364</td>
-<td style="text-align: right;">-0.17883</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<p>Choose <code>raw</code> for a contrast of the original lag estimates. Choose <code>unsmoothed</code> for the curve after any deblurring and before spline smoothing. Choose <code>multilag</code> for the fully processed curve. Deblurring changes the contrast more than spline smoothing in this example. The interval propagates the selected curve’s working covariance. Use the choice that matches the planned estimand and report it alongside the lag windows.</p>
-</section>
-<section id="when-a-neural-readout-becomes-a-predictor" class="level2">
-<h2 class="anchored" data-anchor-id="when-a-neural-readout-becomes-a-predictor">When a neural readout becomes a predictor</h2>
-<p>The two parcels respond to the same task variable. Keep the RPE main effect and use the full centered seed when estimating the interaction in this example. The generator lacks a designed PPI manipulation. It provides a check of how the analysis carries measurement error across the final handoff.</p>
-<section id="sec-worked-handoff" class="level3">
-<h3 class="anchored" data-anchor-id="sec-worked-handoff">What survives stacking and CSV export?</h3>
-<p>The following fits use the same paired trials, full centered seed, and <code>shared_error = "auto"</code>. The subject fit list preserves the participant cross-unit matrices. The stacked panel may keep scalar loadings even when it loses the matrix attributes. A full CSV round-trip can retain those scalar loadings. A compact export that omits the loadings has neither source of shared-error information, so the automatic correction uses zero.</p>
+<ol start="2" type="1">
+<li><strong>Preserving cross-parcel error metadata across exports (<code>#sec-worked-handoff</code>):</strong> Step 6’s <code>shared_error = "auto"</code> reads full <code>$unit_error_cor</code> matrices when given <code>subject_epochs</code>, or falls back to the <code>$panel$shared_noise_loading</code> column when given a stacked <code>data.table</code> or <code>.rds</code>/Parquet file. Stripping <code>shared_noise_loading</code> during a compact plain-text export leaves no cross-parcel error metadata, causing <code>"auto"</code> to fall back transparently to zero shared error:</li>
+</ol>
 <div class="cell">
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
@@ -627,11 +662,9 @@ Figure&nbsp;2.2: The generator places the RPE effect at feedback (orange diamond
 </table>
 </div>
 </div>
-<p>The median correlation summarizes the participant values actually used by the wrapper. The PPI slopes here may differ little because the generator uses independent voxel noise. The metadata comparison still identifies which error assumption each fit used. A zero fallback means the fit had no usable cross-error estimate. The <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">connectivity chapter</a> shows why that matters when shared errors are large or task-dependent.</p>
 <p><a href="worked/checkpoints.R">Checkpoint code</a> · <a href="worked/checkpoints.rds">Checkpoint results</a> · <a href="worked/checkpoints.log">Execution log</a> · <a href="worked/run.log">Worked-example execution log</a> · <a href="worked/run.R">Base worked-example script</a></p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->

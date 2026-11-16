@@ -306,15 +306,24 @@ window.Quarto = {
    
   <ul>
   <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs">Goals, Inputs, and Outputs</a>
+  <ul class="collapse">
   <li><a href="#goals-of-step-6" id="toc-goals-of-step-6" class="nav-link" data-scroll-target="#goals-of-step-6">Goals of Step 6</a></li>
   <li><a href="#inputs-what-step-6-receives-and-why" id="toc-inputs-what-step-6-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-6-receives-and-why">Inputs: What Step 6 Receives and Why</a></li>
   <li><a href="#outputs-what-step-6-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-6-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-6-produces-and-why-it-is-set-up-that-way">Outputs: What Step 6 Produces and Why It Is Set Up That Way</a></li>
-  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
-  <li><a href="#core-mechanisms-in-detail" id="toc-core-mechanisms-in-detail" class="nav-link" data-scroll-target="#core-mechanisms-in-detail">Core Mechanisms in Detail</a>
+  </ul></li>
+  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points">Step-by-Step Walkthrough: Substeps and Choice Points</a>
   <ul class="collapse">
-  <li><a href="#the-structural-trial-model-and-m-moms-moment-correction" id="toc-the-structural-trial-model-and-m-moms-moment-correction" class="nav-link" data-scroll-target="#the-structural-trial-model-and-m-moms-moment-correction">1. The structural trial model and M-MOMS moment correction</a></li>
-  <li><a href="#disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests" id="toc-disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests" class="nav-link" data-scroll-target="#disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests">2. Disattenuation vs.&nbsp;task-dependent shared error: two controlled stress tests</a></li>
-  <li><a href="#sensitivity-analysis-and-reporting-checklist-for-step-6" id="toc-sensitivity-analysis-and-reporting-checklist-for-step-6" class="nav-link" data-scroll-target="#sensitivity-analysis-and-reporting-checklist-for-step-6">3. Sensitivity analysis and reporting checklist for Step 6</a></li>
+  <li><a href="#specify-the-latent-trial-connectivity-or-ppi-structural-equation" id="toc-specify-the-latent-trial-connectivity-or-ppi-structural-equation" class="nav-link" data-scroll-target="#specify-the-latent-trial-connectivity-or-ppi-structural-equation">6.1 Specify the latent trial connectivity or PPI structural equation</a></li>
+  <li><a href="#construct-trial-specific-predictor-and-shared-error-covariance-matrices" id="toc-construct-trial-specific-predictor-and-shared-error-covariance-matrices" class="nav-link" data-scroll-target="#construct-trial-specific-predictor-and-shared-error-covariance-matrices">6.2 Construct trial-specific predictor and shared-error covariance matrices</a></li>
+  <li><a href="#estimate-participant-slopes-via-regularized-modified-method-of-moments-m-moms" id="toc-estimate-participant-slopes-via-regularized-modified-method-of-moments-m-moms" class="nav-link" data-scroll-target="#estimate-participant-slopes-via-regularized-modified-method-of-moments-m-moms">6.3 Estimate participant slopes via regularized Modified Method of Moments (M-MOMS)</a></li>
+  <li><a href="#pool-participant-slopes-and-compare-against-naive-regression" id="toc-pool-participant-slopes-and-compare-against-naive-regression" class="nav-link" data-scroll-target="#pool-participant-slopes-and-compare-against-naive-regression">6.4 Pool participant slopes and compare against naive regression</a></li>
+  </ul></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
+  <li><a href="#practical-diagnostics-shared-error-sensitivity-and-scope" id="toc-practical-diagnostics-shared-error-sensitivity-and-scope" class="nav-link" data-scroll-target="#practical-diagnostics-shared-error-sensitivity-and-scope">Practical Diagnostics, Shared-Error Sensitivity, and Scope</a>
+  <ul class="collapse">
+  <li><a href="#evaluating-sensitivity-to-condition-dependent-shared-noise" id="toc-evaluating-sensitivity-to-condition-dependent-shared-noise" class="nav-link" data-scroll-target="#evaluating-sensitivity-to-condition-dependent-shared-noise">Evaluating sensitivity to condition-dependent shared noise</a></li>
+  <li><a href="#reporting-checklist-and-scope-boundaries" id="toc-reporting-checklist-and-scope-boundaries" class="nav-link" data-scroll-target="#reporting-checklist-and-scope-boundaries">Reporting checklist and scope boundaries</a></li>
   </ul></li>
   <li><a href="#reproduce-the-step-6-demonstrations" id="toc-reproduce-the-step-6-demonstrations" class="nav-link" data-scroll-target="#reproduce-the-step-6-demonstrations">Reproduce the Step 6 Demonstrations</a></li>
   </ul>
@@ -344,193 +353,153 @@ window.Quarto = {
 
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p>In Step 5, deconvolved neural activity sits on the <strong>left-hand side</strong> of the regression (<code>Neural ~ Behavior</code>), where zero-mean BOLD measurement noise inflates standard errors without biasing population slope estimates. <strong>Step 6 moves a deconvolved parcel readout onto the right-hand side (<code>Target ~ Seed + Task + Seed:Task</code>) to test trial-to-trial functional connectivity and psychophysiological interaction (PPI)—or brain-to-behavior prediction (<code>Behavior ~ Seed</code>).</strong></p>
-<p>Placing a noisy deconvolved estimate on the right-hand side creates two immediate statistical hazards that ordinary OLS and <code>lmer()</code> cannot fix:</p>
-<ol type="1">
-<li><strong>Predictor attenuation bias:</strong> Trial-level measurement error <span class="math inline">\(u_i\)</span> in the seed inflates the observed design variance <span class="math inline">\(X^\top X\)</span>, systematically shrinking both the baseline seed connectivity slope and the <code>Seed:Task</code> PPI slope toward zero.</li>
-<li><strong>Spurious coupling from shared cross-parcel noise:</strong> Scanner drift, physiological pulsatility, head motion, and overlapping vascular noise create correlated measurement errors <span class="math inline">\(\operatorname{Cov}(u_i, v_i) \neq 0\)</span> between seed and target parcels. Disattenuating the denominator without subtracting shared seed–target noise in the numerator <em>amplifies</em> false connectivity—and if shared error varies with task condition, it can manufacture a completely spurious PPI.</li>
-</ol>
-<p>Step 6 (<code>decon_connectivity_repair()</code>, backed by <code>medusa_fit_mmom()</code>) addresses these hazards by pairing Step 4’s analytical per-trial error variances (<code>se_demixed^2</code>) and task-free cross-parcel noise innovation correlations (<code>shared_noise_loading</code> / <code>unit_error_cor</code>) with <strong>Method-of-Moments with Step-up Regularization (M-MOMS)</strong> inside each participant, followed by leverage-guarded <strong>Hartung–Knapp–Sidik–Jonkman (HKSJ)</strong> random-effects pooling across participants.</p>
+<p>Whereas Step 5 places deconvolved neural activity on the left-hand side as an outcome (<code>Neural ~ Behavior</code>), <strong>Step 6 moves a deconvolved parcel readout onto the right-hand side (<code>Target ~ Seed + Task + Seed:Task</code> or <code>Behavior ~ Seed</code>) to test trial-to-trial functional connectivity and psychophysiological interaction (PPI).</strong></p>
+<p>When an estimated quantity with trial-level sampling error is used as a regression predictor, two measurement properties directly affect structural slopes (Fuller, 1987; Vig &amp; Hallquist, 2026): predictor measurement error inflates the observed design variance <span class="math inline">\(X^\top X\)</span> (attenuating both main connectivity and PPI interaction slopes toward zero), and any shared scanner or physiological noise between seed and target shifts the cross-product <span class="math inline">\(X^\top Y\)</span>. Step 6 (<code>decon_connectivity_repair()</code>, backed by <code>medusa_fit_mmom()</code>) uses Step 4’s analytical per-trial error variances (<code>se_demixed^2</code>) and task-free cross-parcel noise correlations (<code>unit_error_cor</code> / <code>shared_noise_loading</code>) inside <strong>Modified Method of Moments with Step-up Regularization (M-MOMS)</strong> within each participant, and then pools participant slopes across the cohort via <strong>Hartung–Knapp–Sidik–Jonkman (HKSJ)</strong> random-effects inference.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel_dt             =</span> subject_epochs,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_region          =</span> <span class="st">"Seed"</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_region        =</span> <span class="st">"Target"</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_lag             =</span> <span class="dv">0</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_lag           =</span> <span class="dv">0</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates           =</span> <span class="st">"x_within"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi             =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error         =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">method               =</span> <span class="st">"mmoms"</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The walkthrough below develops Step 6 in four substeps directly paralleling the REPAIR two-step moment framework: specifying the latent structural equation (<code>6.1</code>), constructing the trial-specific error covariance matrices (<code>6.2</code>), estimating participant slopes via regularized M-MOMS (<code>6.3</code>), and pooling across participants (<code>6.4</code>).</p>
 <hr>
 </section>
-<section id="goals-of-step-6" class="level2">
-<h2 class="anchored" data-anchor-id="goals-of-step-6">Goals of Step 6</h2>
-<p>Step 6 is designed to accomplish four specific goals:</p>
+<section id="goals-inputs-and-outputs" class="level2">
+<h2 class="anchored" data-anchor-id="goals-inputs-and-outputs">Goals, Inputs, and Outputs</h2>
+<section id="goals-of-step-6" class="level3">
+<h3 class="anchored" data-anchor-id="goals-of-step-6">Goals of Step 6</h3>
 <ol type="1">
-<li><strong>Disattenuate noisy neural predictors and PPI interactions:</strong> Construct exact per-trial <span class="math inline">\(q \times q\)</span> predictor measurement-error covariance blocks <span class="math inline">\(\Psi_i\)</span>—including the off-diagonal error covariance <span class="math inline">\(x_i s_i^2\)</span> between a noisy seed <span class="math inline">\(\widehat S_i\)</span> and its task product <span class="math inline">\(\widehat S_i x_i\)</span>—and subtract them from observed design moments via <code>medusa_fit_mmom()</code>.</li>
-<li><strong>Subtract stationary cross-parcel shared measurement error automatically:</strong> Use Step 4’s task-free <code>unit_error_cor</code> matrix or <code>shared_noise_loading</code> vectors (<code>shared_error = "auto"</code>) to estimate per-trial seed–target error covariance <span class="math inline">\(\operatorname{Cov}(u_i, v_i)\)</span> (<code>err_xy</code>) without stripping genuine task-evoked neural coupling.</li>
-<li><strong>Preserve clear direct vs.&nbsp;reduced-form PPI estimands:</strong> Let the analyst choose explicitly whether the seed retains its linear task response (<code>orthogonalize_seed_x = FALSE</code>, isolating direct connectivity and linear modulation) or is residualized against task covariates with exact error-covariance projection (<code>orthogonalize_seed_x = TRUE</code>).</li>
-<li><strong>Pool participant slopes with finite-sample random-effects calibration:</strong> Aggregate participant-level M-MOMS slopes at the group level using HKSJ / HC2 leverage-adjusted random-effects inference, treating independent participants as the unit of replication while guarding against extreme low-reliability outlier weights.</li>
+<li><strong>Disattenuate noisy neural predictors and PPI product terms:</strong> Construct per-trial predictor measurement-error covariance blocks <span class="math inline">\(\Psi_i\)</span>—capturing both heteroskedastic interaction error <span class="math inline">\(x_i^2 s_i^2\)</span> and off-diagonal seed–interaction error covariance <span class="math inline">\(x_i s_i^2\)</span>—and subtract them from observed design moments.</li>
+<li><strong>Account for stationary cross-parcel shared measurement error:</strong> Subtract expected seed–target error covariance <span class="math inline">\(\operatorname{Cov}(u_i, v_i)\)</span> (<code>shared_error = "auto"</code>) estimated from Step 4’s task-free <code>noise_innovations</code>.</li>
+<li><strong>Support clear direct and residualized-seed PPI parameterizations:</strong> Allow analysts to choose explicitly between unresidualized seed coupling (<code>orthogonalize_seed_x = FALSE</code>) and task-residualized seed coupling with exact error-covariance projection (<code>orthogonalize_seed_x = TRUE</code>).</li>
+<li><strong>Pool participant connectivity estimates with calibrated random-effects uncertainty:</strong> Aggregate participant M-MOMS slopes at the group level via leverage-guarded HKSJ random-effects inference.</li>
 </ol>
-<p><strong>What Step 6 leaves outside scope (and requires you to check):</strong> Step 6 corrects <strong>within-trial additive second-moment measurement error</strong> conditional on the operators learned in Steps 1–4. It does <em>not</em> undo unequal cross-parcel source resolution biases (<span class="math inline">\(K_S \neq K_T\)</span>), model full cross-trial off-diagonal error blocks simultaneously inside M-MOMS, or automatically detect <strong>condition-dependent changes in shared physiological/motion noise</strong> (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i)\)</span> varying with <span class="math inline">\(x_i\)</span>). Because task-modulated shared error is indistinguishable from latent PPI using marginal trial SEs alone, Step 6 pairs estimation with explicit shared-error sensitivity diagnostics. For deeper theoretical derivations and full-covariance research prototypes, see <a href="../medusa_standard_errors_mmom.html">From BOLD noise to M-MOM error variances</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models and REPAIR</a>.</p>
-<hr>
 </section>
-<section id="inputs-what-step-6-receives-and-why" class="level2">
-<h2 class="anchored" data-anchor-id="inputs-what-step-6-receives-and-why">Inputs: What Step 6 Receives and Why</h2>
+<section id="inputs-what-step-6-receives-and-why" class="level3">
+<h3 class="anchored" data-anchor-id="inputs-what-step-6-receives-and-why">Inputs: What Step 6 Receives and Why</h3>
 <table class="caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: left;">Input</th>
 <th style="text-align: left;">Structure</th>
-<th style="text-align: left;">Why Step 6 needs it and why it is shaped that way</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;"><strong><code>panel_dt</code> (<code>subject_epochs</code> list recommended, or <code>group_panel</code>)</strong></td>
-<td style="text-align: left;">Named <code>list</code> of per-participant <code>decon_epoch_regression()</code> objects (preferred) or stacked <code>data.table</code></td>
-<td style="text-align: left;">Pairing seed and target trials requires matching <code>(id, run, trial)</code> rows and consistent physical/noise units across regions. Passing the full <code>subject_epochs</code> list preserves each participant’s full <code>$unit_error_cor</code> matrix from Step 4; passing a stacked <code>data.table</code> falls back cleanly to the <code>$panel$shared_noise_loading</code> list-column (note that plain CSV export drops list-columns unless saved as <code>.rds</code> or Parquet).</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong><code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code></strong></td>
-<td style="text-align: left;">Parcel labels and peri-event lag coordinates (e.g., <code>seed_lag = 0, target_lag = 0</code> or lagged <code>seed_lag = 0, target_lag = 1.3</code>)</td>
-<td style="text-align: left;">Identifies the exact paired trial readouts <span class="math inline">\((W_i, Y_i)\)</span> and their matching analytical measurement SEs (<code>se_demixed</code>) on each trial.</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;"><strong><code>covariates</code> &amp; <code>test_ppi</code></strong></td>
-<td style="text-align: left;">Character vector of centered task covariates; logical <code>test_ppi</code></td>
-<td style="text-align: left;">When <code>test_ppi = TRUE</code>, the <strong>first</strong> column of <code>covariates</code> defines the psychological modulator <span class="math inline">\(x_i\)</span> for the <code>seed:x</code> interaction, while any additional covariates enter as additive main-effect controls. Task covariates are assumed error-free; centered coding makes the main <code>seed</code> slope interpretable at <span class="math inline">\(x_i = 0\)</span>.</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong><code>shared_error</code></strong></td>
-<td style="text-align: left;"><code>"auto"</code>, <code>"supplied"</code>, or <code>"zero"</code></td>
-<td style="text-align: left;">Controls how seed–target measurement-error covariance <code>err_xy</code> enters the right-hand moment correction <span class="math inline">\(X^\top Y - \sum_i \operatorname{Cov}(e_{X,i}, v_i)\)</span>.</td>
-</tr>
-</tbody>
-</table>
-<hr>
-</section>
-<section id="outputs-what-step-6-produces-and-why-it-is-set-up-that-way" class="level2">
-<h2 class="anchored" data-anchor-id="outputs-what-step-6-produces-and-why-it-is-set-up-that-way">Outputs: What Step 6 Produces and Why It Is Set Up That Way</h2>
-<p><code>decon_connectivity_repair()</code> returns a structured list separating population inference from participant-level measurement-error diagnostics:</p>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th style="text-align: left;">Output component</th>
-<th style="text-align: left;">Structure &amp; key columns</th>
-<th style="text-align: left;">Why it is set up that way</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;"><strong><code>$group</code></strong></td>
-<td style="text-align: left;"><code>data.table</code> with one row per modeled term (<code>seed</code>, task covariates, <code>ppi</code>, optional lagged target control): <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code>, <code>tau2</code>, <code>n_subjects</code></td>
-<td style="text-align: left;">Reports the HKSJ leverage-adjusted random-effects population mean slope and 95% <span class="math inline">\(t\)</span>-interval across independent participants, keeping group degrees of freedom anchored to participant count rather than trial count.</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong><code>$subjects</code></strong></td>
-<td style="text-align: left;"><code>data.table</code> with one row per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>shared_error_source</code>, <code>regularization_lambda</code>, <code>converged</code></td>
-<td style="text-align: left;">Exposes every participant’s M-MOMS slope, working cross-parcel innovation correlation (<code>r_shared_error</code>), how that correlation was sourced (<code>"unit_error_cor"</code>, <code>"shared_noise_loading"</code>, or <code>"zero"</code>), and whether step-up moment regularization (<code>"mmoms"</code>) intervened on weak design matrices.</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;"><strong><code>$panel_repair</code></strong></td>
-<td style="text-align: left;">Optional paired trial <code>data.table</code> (when <code>return_panel = TRUE</code>)</td>
-<td style="text-align: left;">Retains exact centered/paired seed, target, modulator, and error-variance columns per <code>(id, run, trial)</code> so analysts can run custom sensitivity curves or inspect outlier trials directly.</td>
-</tr>
-</tbody>
-</table>
-<hr>
-</section>
-<section id="recommended-settings" class="level2">
-<h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel_dt =</span> subject_epochs,</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_region =</span> <span class="st">"Seed"</span>,</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_region =</span> <span class="st">"Target"</span>,</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_lag =</span> <span class="dv">0</span>,</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_lag =</span> <span class="dv">0</span>,</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates =</span> <span class="st">"x_within"</span>,</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error =</span> <span class="st">"auto"</span>,</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"mmoms"</span>,</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col =</span> <span class="st">"parcel"</span>,</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col =</span> <span class="st">"id"</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th style="text-align: left;">Parameter</th>
-<th style="text-align: left;">Package default</th>
-<th style="text-align: left;">Recommended setting</th>
-<th style="text-align: left;">Why and when to adjust</th>
+<th style="text-align: left;">Why Step 6 Uses It</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><strong><code>panel_dt</code></strong></td>
-<td style="text-align: left;">Required</td>
-<td style="text-align: left;">Named <code>subject_epochs</code> list (or <code>.rds</code> <code>group_panel</code>)</td>
-<td style="text-align: left;">Retains exact Step 4 cross-parcel noise metadata (<code>unit_error_cor</code> and <code>shared_noise_loading</code>) that plain-text CSV exports lose; see <a href="../worked-example.html#sec-worked-handoff">worked handoff check</a>.</td>
+<td style="text-align: left;">Named <code>subject_epochs</code> list (preferred) or stacked <code>group_panel</code> (<code>data.table</code> / <code>.rds</code> / Parquet)</td>
+<td style="text-align: left;">Pairs seed and target trial readouts by <code>(id, run, trial)</code> while supplying <code>se_demixed</code> and Step 4’s cross-parcel noise correlations (<code>$unit_error_cor</code> on <code>subject_epochs</code>, or <code>$panel$shared_noise_loading</code> on stacked panels).</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><strong><code>method</code></strong></td>
-<td style="text-align: left;"><code>"mmoms"</code></td>
-<td style="text-align: left;"><code>"mmoms"</code> (also fit <code>"naive_unweighted"</code> as a baseline comparison)</td>
-<td style="text-align: left;"><code>"mmoms"</code> applies adaptive step-up regularization when subtracting <span class="math inline">\(\sum_i \Psi_i\)</span> approaches a non-positive-definite design matrix in noisy participants, preventing explosive small-denominator outliers. Always report <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> in the same coordinates so the magnitude of disattenuation is transparent.</td>
+<td style="text-align: left;"><strong><code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code></strong></td>
+<td style="text-align: left;">Parcel names and peri-event lags (e.g., <code>seed_lag = 0, target_lag = 0</code> or lagged <code>seed_lag = 0, target_lag = 1</code>)</td>
+<td style="text-align: left;">Select the paired seed readout <span class="math inline">\(W_i\)</span> and target readout <span class="math inline">\(Y_i\)</span> along with their trial-specific measurement SEs.</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong><code>shared_error</code></strong></td>
-<td style="text-align: left;"><code>"auto"</code></td>
-<td style="text-align: left;"><code>"auto"</code> + sensitivity check</td>
-<td style="text-align: left;">Automatically estimates stationary cross-parcel measurement-error correlation from Step 1’s task-free <code>noise_innovations</code> (combining spatial and cross-lag correlation when <code>seed_lag != target_lag</code>). Compare against <code>shared_error = "zero"</code> and condition-dependent sensitivity curves for PPI claims.</td>
+<td style="text-align: left;"><strong><code>covariates</code> &amp; <code>test_ppi</code></strong></td>
+<td style="text-align: left;">Character vector of centered task covariates; logical <code>test_ppi</code></td>
+<td style="text-align: left;">When <code>test_ppi = TRUE</code>, the first element of <code>covariates</code> defines the error-free psychological modulator <span class="math inline">\(x_i\)</span> forming <code>seed:x</code>, while any additional covariates enter as additive controls.</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><strong><code>use_whitened</code></strong></td>
-<td style="text-align: left;"><code>FALSE</code></td>
-<td style="text-align: left;"><code>FALSE</code></td>
-<td style="text-align: left;">Pairs <code>decon_demixed</code> with <code>se_demixed</code> in original run-centered coordinates. Separate parcel-specific ZCA matrices (<span class="math inline">\(T_S \neq T_T\)</span>) mix different neighboring trials into seed and target and do not commute with PPI multiplication (<span class="math inline">\(T(S \odot x) \neq (TS) \odot (Tx)\)</span>).</td>
+<td style="text-align: left;"><strong><code>shared_error</code> &amp; <code>method</code></strong></td>
+<td style="text-align: left;"><code>shared_error = c("auto", "supplied", "zero")</code>; <code>method = c("mmoms", "mmom", "naive_unweighted")</code></td>
+<td style="text-align: left;">Govern cross-parcel error subtraction and moment-matrix conditioning.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="outputs-what-step-6-produces-and-why-it-is-set-up-that-way" class="level3">
+<h3 class="anchored" data-anchor-id="outputs-what-step-6-produces-and-why-it-is-set-up-that-way">Outputs: What Step 6 Produces and Why It Is Set Up That Way</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Output component</th>
+<th style="text-align: left;">Structure &amp; key columns</th>
+<th style="text-align: left;">Role</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>$group</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> per modeled term (<code>seed</code>, task covariates, <code>ppi</code>): <code>estimate</code>, <code>std.error</code>, <code>statistic</code>, <code>df</code>, <code>p.value</code>, <code>conf.low</code>, <code>conf.high</code>, <code>tau2</code>, <code>n_subjects</code></td>
+<td style="text-align: left;">Reports HKSJ random-effects population slope estimates and 95% <span class="math inline">\(t\)</span>-intervals anchored to participant degrees of freedom.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>$subjects</code></strong></td>
+<td style="text-align: left;"><code>data.table</code> per <code>(id, term)</code>: <code>estimate</code>, <code>std.error</code>, <code>n_trials</code>, <code>r_shared_error</code>, <code>shared_error_source</code>, <code>regularization_lambda</code>, <code>converged</code></td>
+<td style="text-align: left;">Exposes each participant’s M-MOMS slope, working cross-parcel error correlation (<code>r_shared_error</code>), metadata source, and any step-up regularization constants.</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong><code>orthogonalize_seed_x</code></strong></td>
-<td style="text-align: left;"><code>TRUE</code></td>
-<td style="text-align: left;"><code>FALSE</code> when testing direct <code>Seed + x + Seed:x</code> models; <code>TRUE</code> for reduced-form residualized-seed modulation</td>
-<td style="text-align: left;">When <code>FALSE</code>, <code>seed</code> and <code>x</code> enter symmetrically without altering the quadratic task structure. When <code>TRUE</code>, the seed is first residualized on <code>covariates</code> (projecting <code>diag(se_demixed^2)</code> through <span class="math inline">\(P D_u P^\top\)</span>); remember that residualizing a task-responsive seed shifts the <code>Seed:x</code> product by a term proportional to <span class="math inline">\(x^2\)</span>.</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong><code>control_target_at_seed_lag</code></strong></td>
-<td style="text-align: left;"><code>FALSE</code></td>
-<td style="text-align: left;"><code>TRUE</code> for Granger-style lagged connectivity (<code>target_lag &gt; seed_lag</code>)</td>
-<td style="text-align: left;">Adds target activity at <code>seed_lag</code> as an additional error-corrected neural covariate (propagating its own <code>se_demixed^2</code> and <code>shared_noise_loading</code>) when asking whether seed activity predicts <em>subsequent change</em> in the target region.</td>
+<td style="text-align: left;"><strong><code>$panel_repair</code></strong></td>
+<td style="text-align: left;">Optional paired trial <code>data.table</code> (<code>return_panel = TRUE</code>)</td>
+<td style="text-align: left;">Provides the exact centered/paired trial columns and error variances for custom plots or sensitivity curves.</td>
 </tr>
 </tbody>
 </table>
 <hr>
 </section>
-<section id="core-mechanisms-in-detail" class="level2">
-<h2 class="anchored" data-anchor-id="core-mechanisms-in-detail">Core Mechanisms in Detail</h2>
-<section id="the-structural-trial-model-and-m-moms-moment-correction" class="level3">
-<h3 class="anchored" data-anchor-id="the-structural-trial-model-and-m-moms-moment-correction">1. The structural trial model and M-MOMS moment correction</h3>
-<p>For participant <span class="math inline">\(s\)</span> and trial <span class="math inline">\(i\)</span> (after centering seed, target, and task covariates within each participant and run), let <span class="math inline">\(S_i\)</span> be latent seed activity at <code>seed_lag</code>, <span class="math inline">\(T_i\)</span> latent target activity at <code>target_lag</code>, and <span class="math inline">\(x_i\)</span> an error-free centered task modulator:</p>
+</section>
+<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2">
+<h2 class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points">Step-by-Step Walkthrough: Substeps and Choice Points</h2>
+<section id="specify-the-latent-trial-connectivity-or-ppi-structural-equation" class="level3">
+<h3 class="anchored" data-anchor-id="specify-the-latent-trial-connectivity-or-ppi-structural-equation">6.1 Specify the latent trial connectivity or PPI structural equation</h3>
+<p>Within a participant (after centering seed, target, and task covariates within each run), let <span class="math inline">\(S_i\)</span> denote true latent seed activity at <code>seed_lag</code>, <span class="math inline">\(T_i\)</span> denote latent target activity at <code>target_lag</code>, and <span class="math inline">\(x_i\)</span> denote an error-free centered task modulator on trial <span class="math inline">\(i\)</span>:</p>
 <p><span class="math display">\[
 T_i = \beta_S S_i + \beta_x x_i + \beta_P (S_i x_i) + \varepsilon_i.
 \]</span></p>
-<p>Here <span class="math inline">\(\beta_S\)</span> is baseline trial-to-trial coupling at <span class="math inline">\(x_i = 0\)</span>, and <span class="math inline">\(\beta_P\)</span> is the psychophysiological interaction slope—how much the seed–target slope changes per unit change in <span class="math inline">\(x_i\)</span> (for <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, <span class="math inline">\(2\beta_P\)</span> is the slope difference between conditions). Always include both main effects (<span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_x\)</span>) when testing <span class="math inline">\(\beta_P\)</span> so shared main-effect task activation is not absorbed into the interaction.</p>
-<p>Because Step 4 observes noisy readouts <span class="math inline">\(W_i = S_i + u_i\)</span> and <span class="math inline">\(Y_i = T_i + v_i\)</span> rather than <span class="math inline">\((S_i, T_i)\)</span>, the observed regressor vector <span class="math inline">\(X_i = [W_i,\, x_i,\, W_i x_i]^\top\)</span> carries measurement error <span class="math inline">\(e_{X,i} = [u_i,\, 0,\, x_i u_i]^\top\)</span>. Even when <span class="math inline">\(u_i\)</span> is purely univariate on each trial with variance <span class="math inline">\(s_i^2 = \texttt{se\_demixed}_i^2\)</span>, the seed column and the PPI interaction column share the <strong>same</strong> noise realization <span class="math inline">\(u_i\)</span>, creating a structured <span class="math inline">\(3 \times 3\)</span> predictor error covariance block on trial <span class="math inline">\(i\)</span>:</p>
-<p><span class="math display">\[
-\Psi_i = \operatorname{Cov}(e_{X,i} \mid x_i) = s_i^2 \begin{pmatrix} 1 &amp; 0 &amp; x_i \\ 0 &amp; 0 &amp; 0 \\ x_i &amp; 0 &amp; x_i^2 \end{pmatrix}.
-\]</span></p>
-<p>Notice two essential features of <span class="math inline">\(\Psi_i\)</span>: - <strong>Heteroskedastic interaction error:</strong> Trial measurement variance in the PPI column scales with <span class="math inline">\(x_i^2 s_i^2\)</span>, so extreme modulator trials carry amplified measurement noise. - <strong>Signed predictor–interaction error covariance:</strong> Whenever <span class="math inline">\(x_i \neq 0\)</span>, the off-diagonal entry <span class="math inline">\(x_i s_i^2\)</span> is nonzero (and negative when <span class="math inline">\(x_i &lt; 0\)</span>). Passing diagonal SEs without this off-diagonal term miscalibrates both main and interaction slopes.</p>
-<p>Meanwhile, if seed and target measurement errors correlate (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = c_i\)</span>), the observed cross-product <span class="math inline">\(X^\top Y\)</span> is also biased by <span class="math inline">\(\sum_i [c_i,\, 0,\, x_i c_i]^\top\)</span>. M-MOMS solves the bias-corrected normal equations (with step-up eigenvalue regularization when <span class="math inline">\(X^\top X - \sum_i \Psi_i\)</span> nears singularity):</p>
-<p><span class="math display">\[
-\left(X^\top X - \sum_{i=1}^n \Psi_i\right) \widehat\beta = X^\top Y - \sum_{i=1}^n \begin{pmatrix} \operatorname{Cov}(u_i, v_i \mid x_i) \\ 0 \\ x_i \operatorname{Cov}(u_i, v_i \mid x_i) \end{pmatrix}.
-\]</span></p>
-<p>Under <code>shared_error = "auto"</code>, <code>decon_connectivity_repair()</code> populates <span class="math inline">\(\operatorname{Cov}(u_i, v_i) = \widehat r_{ST} \, s_{S,i} s_{T,i}\)</span> using participant <span class="math inline">\(s\)</span>’s task-free innovation correlation <span class="math inline">\(\widehat r_{ST}\)</span> from Step 4 (<code>unit_error_cor</code>, or the inner product of <code>shared_noise_loading</code> vectors). That automatically removes <strong>stationary</strong> cross-parcel background noise correlation without needing resting-state scans or manual calibration.</p>
+<p>Each coefficient answers a distinct biological question: <span class="math inline">\(\beta_S\)</span> is baseline trial-to-trial seed–target coupling at the mean of <span class="math inline">\(x_i\)</span> (<span class="math inline">\(x_i = 0\)</span>), <span class="math inline">\(\beta_x\)</span> absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and <span class="math inline">\(\beta_P\)</span> is the <strong>PPI slope</strong>—how much seed–target coupling changes per unit change in <span class="math inline">\(x_i\)</span> (for <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, <span class="math inline">\(2\beta_P\)</span> is the slope difference between task conditions).</p>
+<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>) and lagged control (<code>control_target_at_seed_lag</code>):</strong></p>
+<ul>
+<li><strong>Direct vs.&nbsp;residualized seed (<code>orthogonalize_seed_x</code>):</strong> Setting <code>orthogonalize_seed_x = FALSE</code> (recommended when testing the direct structural equation above) enters centered <span class="math inline">\(S_i\)</span> and <span class="math inline">\(x_i\)</span> symmetrically without altering quadratic task structure. Setting <code>orthogonalize_seed_x = TRUE</code> first residualizes the seed against <code>covariates</code> (projecting <code>diag(se_demixed^2)</code> through <span class="math inline">\(P D_u P^\top\)</span>) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to <span class="math inline">\(x_i\)</span>, residualizing shifts the product column by a term proportional to <span class="math inline">\(x_i^2\)</span>.</li>
+<li><strong>Concurrent vs.&nbsp;lagged Granger-style coupling (<code>control_target_at_seed_lag</code>):</strong> When <code>target_lag &gt; seed_lag</code>, setting <code>control_target_at_seed_lag = TRUE</code> includes target activity at <code>seed_lag</code> as an additional error-corrected neural predictor so <span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_P\)</span> test whether seed activity predicts <em>subsequent change</em> in the target parcel.</li>
+</ul>
+<hr>
 </section>
-<section id="disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests" class="level3">
-<h3 class="anchored" data-anchor-id="disattenuation-vs.-task-dependent-shared-error-two-controlled-stress-tests">2. Disattenuation vs.&nbsp;task-dependent shared error: two controlled stress tests</h3>
-<p>Why isn’t stationary <code>shared_error = "auto"</code>—or marginal SE disattenuation alone—an automatic guarantee for every PPI claim? Consider two panel-level simulations (120 datasets each; 16 participants, 2 runs, 60 trials/run, balanced <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, marginal seed and target measurement error SDs fixed identically at <span class="math inline">\(0.70\)</span> in every condition):</p>
+<section id="construct-trial-specific-predictor-and-shared-error-covariance-matrices" class="level3">
+<h3 class="anchored" data-anchor-id="construct-trial-specific-predictor-and-shared-error-covariance-matrices">6.2 Construct trial-specific predictor and shared-error covariance matrices</h3>
+<p>In practice, Step 4 provides de-mixed additive-error readouts <span class="math inline">\(W_i = S_i + u_i\)</span> and <span class="math inline">\(Y_i = T_i + v_i\)</span> rather than latent <span class="math inline">\((S_i, T_i)\)</span>, with known conditional sampling variances <span class="math inline">\(s_{S,i}^2 = \texttt{se\_demixed}_{S,i}^2\)</span> and <span class="math inline">\(s_{T,i}^2 = \texttt{se\_demixed}_{T,i}^2\)</span>. Forming the observed predictor row <span class="math inline">\(X_i = [W_i,\, x_i,\, W_i x_i]^\top\)</span> induces predictor error <span class="math inline">\(e_{X,i} = [u_i,\, 0,\, x_i u_i]^\top\)</span>.</p>
+<p>Notice that even though <span class="math inline">\(u_i\)</span> is a scalar on trial <span class="math inline">\(i\)</span>, both the <code>seed</code> column (<span class="math inline">\(W_i\)</span>) and the <code>ppi</code> column (<span class="math inline">\(W_i x_i\)</span>) contain the <strong>same</strong> noise draw <span class="math inline">\(u_i\)</span>, producing a structured <span class="math inline">\(3 \times 3\)</span> predictor measurement-error covariance block on trial <span class="math inline">\(i\)</span>:</p>
+<p><span class="math display">\[
+\Psi_i = \operatorname{Cov}(e_{X,i} \mid x_i) = s_{S,i}^2 \begin{pmatrix} 1 &amp; 0 &amp; x_i \\ 0 &amp; 0 &amp; 0 \\ x_i &amp; 0 &amp; x_i^2 \end{pmatrix}.
+\]</span></p>
+<p>Two properties follow immediately from <span class="math inline">\(\Psi_i\)</span>: interaction error variance scales heteroskedastically with <span class="math inline">\(x_i^2 s_{S,i}^2\)</span>, and whenever <span class="math inline">\(x_i \neq 0\)</span>, the predictor and interaction errors covary with signed entry <span class="math inline">\(x_i s_{S,i}^2\)</span>.</p>
+<p>At the same time, scanner drift, physiological pulsatility, and vascular proximity can induce correlated observation error <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = c_i\)</span> between seed and target parcels, shifting the observed cross-moment <span class="math inline">\(X_i Y_i\)</span> by <span class="math inline">\([c_i,\, 0,\, x_i c_i]^\top\)</span>. Under <code>shared_error = "auto"</code>, Step 6 estimates stationary per-trial cross-error covariance <span class="math inline">\(c_i = \widehat{r}_{ST}\, s_{S,i} s_{T,i}\)</span> automatically from Step 4’s task-free innovation correlation <span class="math inline">\(\widehat{r}_{ST}\)</span> (<code>unit_error_cor</code>, or the inner product of <code>shared_noise_loading</code> vectors, combined with cross-lag error correlation when <code>seed_lag != target_lag</code>).</p>
+<p><strong>Choice point — Cross-parcel shared error (<code>shared_error</code>):</strong> Use <code>shared_error = "auto"</code> as the standard setting, and compare against <code>shared_error = "zero"</code> to see how much stationary background noise correlation contributed to the raw coupling estimate.</p>
+<hr>
+</section>
+<section id="estimate-participant-slopes-via-regularized-modified-method-of-moments-m-moms" class="level3">
+<h3 class="anchored" data-anchor-id="estimate-participant-slopes-via-regularized-modified-method-of-moments-m-moms">6.3 Estimate participant slopes via regularized Modified Method of Moments (M-MOMS)</h3>
+<p>Given observed trial vectors <span class="math inline">\((X_i, Y_i)\)</span> and error moments <span class="math inline">\((\Psi_i, c_i)\)</span>, <code>medusa_fit_mmom()</code> estimates each participant’s structural coefficients in three non-iterative moment steps (Fuller, 1987; Vig &amp; Hallquist, 2026):</p>
 <ol type="1">
-<li><strong>Genuine PPI (independent errors):</strong> True population interaction <span class="math inline">\(\beta_P = 0.35\)</span>, independent seed–target errors (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0\)</span>).</li>
-<li><strong>Task-modulated shared-error null:</strong> True population interaction <span class="math inline">\(\beta_P = 0\)</span>, zero average error correlation across the run, <strong>but shared error flips sign with task condition</strong>: <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span> (for example, condition-locked breath-hold, arousal, or head-jerking artifacts affecting both regions during <span class="math inline">\(x_i = +1\)</span> trials). Because average unconditional <span class="math inline">\(\operatorname{Cov}(u, v) = 0\)</span> across balanced <span class="math inline">\(-1/+1\)</span> trials, neither marginal SEs (<code>se_demixed</code>) nor a single stationary run-wide correlation (<code>shared_error = "auto"</code>) sees the condition-flipped cross-error!</li>
+<li><strong>Error-corrected preliminary normal equations:</strong> Subtracts predictor error covariances from <span class="math inline">\(X^\top X\)</span> and shared seed–target error covariances from <span class="math inline">\(X^\top Y\)</span>: <span class="math display">\[
+\left(X^\top X - c(\hat{\lambda}_1, \alpha_1)\sum_{i=1}^n \Psi_i\right) \widehat{\beta}^{(1)}
+= X^\top Y - c(\hat{\lambda}_1, \alpha_1)\sum_{i=1}^n \begin{pmatrix} c_i \\ 0 \\ x_i c_i \end{pmatrix},
+\]</span> where Fuller’s generalized-eigenvalue factor <span class="math inline">\(c(\hat{\lambda}, \alpha)\)</span> prevents subtracting more error variance than the sample design matrix supports.</li>
+<li><strong>Structural disturbance variance &amp; composite trial weights:</strong> Uses <span class="math inline">\(\widehat{\beta}^{(1)}\)</span> to estimate measurement-error-corrected structural disturbance variance <span class="math inline">\(\hat{\sigma}_\varepsilon^2\)</span> and forms per-trial composite residual variances <span class="math inline">\(\hat{w}_i = \hat{\sigma}_\varepsilon^2 + s_{T,i}^2 - 2\widehat{\beta}^{(1)\top}\psi_{XY,i} + \widehat{\beta}^{(1)\top}\Psi_i\widehat{\beta}^{(1)}\)</span>.</li>
+<li><strong>Weighted M-MOMS update &amp; conditioning guard:</strong> Re-estimates <span class="math inline">\(\widehat{\beta}\)</span> and sandwich standard errors using inverse composite weights <span class="math inline">\(\hat{w}_i^{-1}\)</span>. Under <code>method = "mmoms"</code>, an adaptive step-up search selects the smallest regularization constant <span class="math inline">\(\alpha \ge p + 1\)</span> that keeps the corrected predictor block well-conditioned—preventing small-denominator outliers in low-reliability participants while matching unmodified M-MOM whenever signal reliability is moderate to high.</li>
 </ol>
+<p><strong>Choice point — Moment estimator (<code>method</code>):</strong> Use <code>method = "mmoms"</code> as the primary estimator, and fit <code>method = "naive_unweighted"</code> in the same coordinates (<code>use_whitened = FALSE</code>) alongside it so the magnitude of measurement-error disattenuation is directly visible.</p>
+<hr>
+</section>
+<section id="pool-participant-slopes-and-compare-against-naive-regression" class="level3">
+<h3 class="anchored" data-anchor-id="pool-participant-slopes-and-compare-against-naive-regression">6.4 Pool participant slopes and compare against naive regression</h3>
+<p>Across independent participants, <code>decon_connectivity_repair()</code> pools participant slopes <span class="math inline">\(\widehat{\beta}_s\)</span> and standard errors via <strong>Hartung–Knapp–Sidik–Jonkman (HKSJ)</strong> random-effects meta-regression (with leverage protection against extreme precision weights), anchoring group degrees of freedom to the number of participants <span class="math inline">\(S\)</span>.</p>
+<p>To see how M-MOMS behaves when disattenuating genuine trial-level PPI (<code>Genuine PPI</code> scenario in <code>simulate.R</code>: 120 simulated cohorts of <span class="math inline">\(S = 16\)</span> participants, 2 runs × 60 trials, true population interaction <span class="math inline">\(\beta_P = 0.35\)</span>, seed and target measurement error SDs <span class="math inline">\(= 0.70\)</span>, independent errors), compare the top three rows of the benchmark table and left panel of <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>8.1</span></a>:</p>
+<ul>
+<li><strong>Naive regression</strong> is attenuated by roughly one-third (<strong>0.230</strong> vs.&nbsp;true <code>0.350</code>), yielding <strong>0.0%</strong> 95% CI coverage because tight group SEs center around the attenuated value.</li>
+<li><strong>M-MOMS</strong> removes the attenuation (<strong>0.343</strong>), cuts population RMSE more than threefold (from 0.123 to <strong>0.039</strong>), and restores nominal <strong>95.0%</strong> confidence-interval coverage.</li>
+</ul>
 <div class="cell">
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
@@ -617,36 +586,109 @@ T_i = \beta_S S_i + \beta_x x_i + \beta_P (S_i x_i) + \varepsilon_i.
 <img src="ppi_estimates.png" class="img-fluid figure-img" alt="M-MOMS centers near 0.35 for genuine PPI and near 0.32 for shared-error null. The known-error correction brings the latter near zero.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ppi-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;8.1: Population PPI estimates across 120 simulated datasets per scenario. The reference line shows the generating slope. The M-MOMS correction recovers the independent-error effect and increases the false interaction under task-dependent shared error.
+Figure&nbsp;8.1: Population PPI estimates across 120 simulated cohorts per scenario (dashed line marks generating truth). Left: M-MOMS recovers the true 0.35 interaction under independent errors. Right: under a condition-flipped shared-error null, disattenuation alone amplifies the artifact unless condition-specific cross-error moments are subtracted.
 </figcaption>
 </figure>
 </div>
-<p>The two panels of <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>8.1</span></a> illustrate both sides of measurement-error correction:</p>
-<ul>
-<li><strong>When measurement error is genuinely disattenuated (<code>Genuine PPI</code>):</strong> Naive regression is severely attenuated (<strong>0.230</strong> vs.&nbsp;truth <code>0.350</code>, <strong>0.0%</strong> CI coverage because narrow group SEs center on the biased value). M-MOMS completely removes the attenuation bias (<strong>0.343</strong>, RMSE dropping from 0.123 to <strong>0.039</strong>, achieving <strong>95.0%</strong> nominal coverage).</li>
-<li><strong>Why larger M-MOMS slopes do not prove valid recovery (<code>Shared-error null</code>):</strong> When <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = r x_i \sigma^2\)</span>, multiplying seed error <span class="math inline">\(u_i\)</span> by <span class="math inline">\(x_i\)</span> creates a nonzero numerator bias <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2\)</span>. Naive regression already exhibits a false positive (<strong>0.214</strong>). Subtracting predictor error variance from the denominator <span class="math inline">\(X^\top X - \sum \Psi_i\)</span> while leaving <span class="math inline">\(r \sigma^2\)</span> in the numerator <strong>magnifies</strong> the artifact to <strong>0.322</strong> (100.0% false rejection). Only when the condition-specific cross-error moment is explicitly subtracted (<code>Known-error moments</code>) does the estimate return to zero (<strong>-0.018</strong>, <strong>94.2%</strong> coverage).</li>
-</ul>
+<hr>
 </section>
-<section id="sensitivity-analysis-and-reporting-checklist-for-step-6" class="level3">
-<h3 class="anchored" data-anchor-id="sensitivity-analysis-and-reporting-checklist-for-step-6">3. Sensitivity analysis and reporting checklist for Step 6</h3>
-<p>Because stationary background noise correlation (<code>shared_error = "auto"</code>) removes baseline cross-parcel shared error <span class="math inline">\(\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T\)</span> (which biases main-effect <code>seed</code> connectivity) while condition-modulated cross-error <span class="math inline">\(\Delta r \cdot x_i \sigma_S \sigma_T\)</span> threatens <code>ppi</code>, every empirical PPI claim should evaluate how sensitive its conclusion is to plausible condition-dependent error correlation:</p>
+</section>
+<section id="recommended-settings" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel_dt                =</span> subject_epochs,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_region             =</span> <span class="st">"Seed"</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_region           =</span> <span class="st">"Target"</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_lag                =</span> <span class="dv">0</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_lag              =</span> <span class="dv">0</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates              =</span> <span class="st">"x_within"</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi                =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened            =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x    =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error            =</span> <span class="st">"auto"</span>,</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">method                  =</span> <span class="st">"mmoms"</span>,</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col              =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col                  =</span> <span class="st">"id"</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: left;">Package default</th>
+<th style="text-align: left;">Recommended setting</th>
+<th style="text-align: left;">Summary of Role &amp; When to Adjust</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>panel_dt</code></strong></td>
+<td style="text-align: left;">Required</td>
+<td style="text-align: left;">Named <code>subject_epochs</code> list (or <code>.rds</code> / Parquet <code>group_panel</code>)</td>
+<td style="text-align: left;">Preserves Step 4 cross-parcel noise metadata (<code>unit_error_cor</code> and <code>shared_noise_loading</code>; see <a href="../worked-example.html#sec-worked-handoff">worked handoff check</a>).</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>orthogonalize_seed_x</code></strong></td>
+<td style="text-align: left;"><code>TRUE</code></td>
+<td style="text-align: left;"><code>FALSE</code> (direct model) or <code>TRUE</code> (residualized-seed model)</td>
+<td style="text-align: left;">Selects direct symmetric <code>Seed + x + Seed:x</code> vs.&nbsp;task-residualized seed modulation (<code>Substep 6.1</code>).</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>control_target_at_seed_lag</code></strong></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;"><code>TRUE</code> when <code>target_lag &gt; seed_lag</code></td>
+<td style="text-align: left;">Controls for baseline target activity at <code>seed_lag</code> in lagged connectivity models (<code>Substep 6.1</code>).</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>shared_error</code></strong></td>
+<td style="text-align: left;"><code>"auto"</code></td>
+<td style="text-align: left;"><code>"auto"</code> + <code>"zero"</code> comparison</td>
+<td style="text-align: left;">Subtracts stationary cross-parcel measurement-error covariance learned from Step 1–4 task-free innovations (<code>Substep 6.2</code>).</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong><code>method</code></strong></td>
+<td style="text-align: left;"><code>"mmoms"</code></td>
+<td style="text-align: left;"><code>"mmoms"</code> (report alongside <code>"naive_unweighted"</code>)</td>
+<td style="text-align: left;">Stabilizes error-subtracted predictor matrices in noisy participants while disattenuating slopes (<code>Substep 6.3</code>).</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong><code>use_whitened</code></strong></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;"><code>FALSE</code></td>
+<td style="text-align: left;">Keeps seed, target, and <code>Seed:x</code> in matched unwhitened run-centered coordinates (separate parcel ZCA matrices <span class="math inline">\(T_S \neq T_T\)</span> do not commute with product terms).</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="practical-diagnostics-shared-error-sensitivity-and-scope" class="level2">
+<h2 class="anchored" data-anchor-id="practical-diagnostics-shared-error-sensitivity-and-scope">Practical Diagnostics, Shared-Error Sensitivity, and Scope</h2>
+<section id="evaluating-sensitivity-to-condition-dependent-shared-noise" class="level3">
+<h3 class="anchored" data-anchor-id="evaluating-sensitivity-to-condition-dependent-shared-noise">Evaluating sensitivity to condition-dependent shared noise</h3>
+<p>Stationary <code>shared_error = "auto"</code> subtracts baseline cross-parcel noise correlation <span class="math inline">\(\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T\)</span>, which protects main-effect <code>seed</code> connectivity. What if physiological or motion noise correlation between two regions <em>changes sign or magnitude with task condition</em>—for instance, condition-locked breath-holding or head motion during <span class="math inline">\(x_i = +1\)</span> trials (<code>Shared-error null</code> in <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>8.1</span></a>, right: <span class="math inline">\(\beta_P = 0\)</span>, <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span>, zero run-wide average correlation)?</p>
+<p>Because <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0\)</span>, naive regression already shows a positive artifact (0.214), and dividing by the disattenuated denominator <span class="math inline">\(X^\top X - \sum \Psi_i\)</span> without knowing the condition-flipped cross-error magnifies it (0.322), returning to zero (-0.018) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across plausible condition-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> (<a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>8.2</span></a>)—paired with physiological/motion nuisance modeling in Steps 1–2 and a negative-control reference parcel—makes it transparent how large a condition-locked artifact would need to be to account for an observed PPI.</p>
 <div id="fig-sensitivity" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="ppi_sensitivity.png" class="img-fluid figure-img" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;8.2: Population moment sensitivity in the shared-error null. The hypothetical cross-error correlation changes sign with the task condition. At the generating amplitude of 0.65 the corrected slope crosses zero.
+Figure&nbsp;8.2: Sensitivity curve in the shared-error null scenario: implied population PPI slope as a function of hypothesized condition-dependent cross-error correlation amplitude (crossing zero at the generating value 0.65).
 </figcaption>
 </figure>
 </div>
-<p>As <a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>8.2</span></a> shows, plotting the implied M-MOMS interaction slope across a range of hypothetical task-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> immediately reveals how strong condition-locked artifact coupling would have to be to explain away an observed PPI effect. Pair this sensitivity check with physiological/motion nuisance regressors in Step 1/2 (<code>nuisance_list</code>), framewise displacement stratified checks, and a negative-control reference parcel that shares vascular/physiological noise proximity without the hypothesized circuit connection.</p>
-<p>When reporting a Step 6 connectivity or PPI analysis, always document:</p>
+</section>
+<section id="reporting-checklist-and-scope-boundaries" class="level3">
+<h3 class="anchored" data-anchor-id="reporting-checklist-and-scope-boundaries">Reporting checklist and scope boundaries</h3>
 <ol type="1">
-<li><strong>Circuit &amp; lag specification:</strong> Exact <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, whether <code>control_target_at_seed_lag</code> was included, and the prespecified multiplicity family across region pairs and lags.</li>
-<li><strong>Covariate centering &amp; orthogonalization:</strong> Coding of the modulator <span class="math inline">\(x_i\)</span>, included main effects, and whether <code>orthogonalize_seed_x</code> was <code>FALSE</code> (direct model) or <code>TRUE</code> (residualized-seed model).</li>
-<li><strong>Naive vs.&nbsp;M-MOMS comparison:</strong> Side-by-side <code>naive_unweighted</code> and <code>mmoms</code> estimates in identical coordinates (<code>use_whitened = FALSE</code>) so readers see both raw and disattenuated magnitudes.</li>
-<li><strong>Shared-error provenance &amp; participant diagnostics:</strong> Summary of <code>ppi$subjects$r_shared_error</code>, <code>shared_error_source</code>, participant/trial counts, any <code>mmoms</code> step-up regularization triggers, and sensitivity to <code>shared_error = "zero"</code> vs.&nbsp;<code>"auto"</code> (plus condition-specific noise checks for PPI).</li>
+<li><strong>Report circuit, lag, and estimand choices:</strong> Document <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_at_seed_lag</code>, and multiplicity adjustment across region pairs.</li>
+<li><strong>Present naive and M-MOMS side by side:</strong> Include <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> and summarize <code>ppi$subjects</code> (<code>r_shared_error</code>, <code>shared_error_source</code>, participant/trial counts, and any step-up regularization).</li>
+<li><strong>Scope boundaries:</strong> Just as in Vig &amp; Hallquist (2026), Step 6 treats first-stage error variances (<code>se_demixed^2</code>) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences (<span class="math inline">\(K_S \neq K_T\)</span>). For mathematical derivations and full-covariance extensions, see <a href="../medusa_standard_errors_mmom.html">From BOLD noise to M-MOM error variances</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models and REPAIR</a>.</li>
 </ol>
 <hr>
 </section>
@@ -656,9 +698,9 @@ Figure&nbsp;8.2: Population moment sensitivity in the shared-error null. The hyp
 <div class="cell">
 <details class="code-fold">
 <summary>Show reproduction commands</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate.R</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> figures.R</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_step6_connectivity.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate.R</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> figures.R</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_step6_connectivity.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p><a href="simulate.R">Simulation source</a> · <a href="figures.R">Figure source</a> · <a href="ppi_summary.csv">Summary metrics</a> · <a href="ppi_draws.csv">Replication draws</a> · <a href="simulation.log">Simulation log</a></p>

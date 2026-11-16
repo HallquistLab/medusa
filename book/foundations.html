@@ -270,11 +270,11 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#start-with-the-quantity-you-want-to-learn" id="toc-start-with-the-quantity-you-want-to-learn" class="nav-link active" data-scroll-target="#start-with-the-quantity-you-want-to-learn">Start with the quantity you want to learn</a></li>
-  <li><a href="#the-forward-model-and-its-inverse" id="toc-the-forward-model-and-its-inverse" class="nav-link" data-scroll-target="#the-forward-model-and-its-inverse">The forward model and its inverse</a></li>
-  <li><a href="#event-alignment-asks-a-source-question" id="toc-event-alignment-asks-a-source-question" class="nav-link" data-scroll-target="#event-alignment-asks-a-source-question">Event alignment asks a source question</a></li>
-  <li><a href="#what-is-independent" id="toc-what-is-independent" class="nav-link" data-scroll-target="#what-is-independent">What is independent?</a></li>
-  <li><a href="#decide-what-to-save" id="toc-decide-what-to-save" class="nav-link" data-scroll-target="#decide-what-to-save">Decide what to save</a></li>
+  <li><a href="#express-bold-through-a-linear-neurovascular-forward-model" id="toc-express-bold-through-a-linear-neurovascular-forward-model" class="nav-link active" data-scroll-target="#express-bold-through-a-linear-neurovascular-forward-model">1. Express BOLD through a linear neurovascular forward model</a></li>
+  <li><a href="#write-the-exact-trial-readout-measurement-model" id="toc-write-the-exact-trial-readout-measurement-model" class="nav-link" data-scroll-target="#write-the-exact-trial-readout-measurement-model">2. Write the exact trial-readout measurement model</a></li>
+  <li><a href="#invert-event-mixing-to-recover-an-additive-error-scale" id="toc-invert-event-mixing-to-recover-an-additive-error-scale" class="nav-link" data-scroll-target="#invert-event-mixing-to-recover-an-additive-error-scale">3. Invert event mixing to recover an additive-error scale</a></li>
+  <li><a href="#match-downstream-inference-to-the-structural-role-of-the-neural-variable" id="toc-match-downstream-inference-to-the-structural-role-of-the-neural-variable" class="nav-link" data-scroll-target="#match-downstream-inference-to-the-structural-role-of-the-neural-variable">4. Match downstream inference to the structural role of the neural variable</a></li>
+  <li><a href="#practical-record-keeping-across-steps" id="toc-practical-record-keeping-across-steps" class="nav-link" data-scroll-target="#practical-record-keeping-across-steps">Practical record-keeping across steps</a></li>
   </ul>
 </nav>
     </div>
@@ -300,54 +300,46 @@ window.Quarto = {
 </header>
 
 
-<section id="start-with-the-quantity-you-want-to-learn" class="level2">
-<h2 class="anchored" data-anchor-id="start-with-the-quantity-you-want-to-learn">Start with the quantity you want to learn</h2>
-<p>A model of how RPE predicts activity around feedback, an estimate of when a waveform peaks, and a model of how seed activity predicts target activity are three different problems. The first treats recovered activity as a response. The second depends on temporal resolution and the lag family. The third places an estimated variable on the right-hand side, where measurement error can bias the slope. Specify the event, source duration, spatial unit, and scientific contrast before choosing settings.</p>
+<p>Many task-fMRI studies aim to relate fast, trial-specific cognitive processes—such as reward prediction errors, choice conflict, or deliberation effort—to neural dynamics across brain regions and participants. Because the hemodynamic response blurs neural activity across 15–30 seconds and scanner observations carry serial and spatial noise, trial-level neural responses are not observed directly. Instead, they are estimated from noisy, overlapping BOLD time series and then entered into second-stage models across trials and participants.</p>
+<p>A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026) guides the design of MEDuSA: <strong>separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.</strong> The four subsections below develop how MEDuSA implements this principle from a single run’s forward model to population inference.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th>Scientific target</th>
-<th>Analysis quantity</th>
-<th>Main risk</th>
+<th>Substantive goal</th>
+<th>Target quantity</th>
+<th>MEDuSA stage &amp; approach</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Trial modulation at feedback onset</td>
-<td>Within-person slope at a prespecified parcel and lag</td>
-<td>Cue leakage, target gain, participant heterogeneity</td>
+<td>Test trial modulation at a planned parcel and lag</td>
+<td>Population within-person slope (<code>Neural ~ Behavior</code>)</td>
+<td>Steps 1–4 de-mixed parcel panel <span class="math inline">\(\to\)</span> Step 5 <code>mixed_by()</code> with participant random slopes and cohort precision weights</td>
 </tr>
 <tr class="even">
-<td>Activity during deliberation</td>
-<td>Duration-model height or integrated activity</td>
-<td>RT changes the meaning of the readout</td>
+<td>Separate firing rate from time-on-task during RT intervals</td>
+<td>Sustained boxcar height (<code>"rate"</code>) or area (<code>"integral"</code>)</td>
+<td>Step 3 duration-matched forward model (<code>source_model = "duration"</code>)</td>
 </tr>
 <tr class="odd">
-<td>Change over an epoch</td>
-<td>Planned window contrast or trajectory test</td>
-<td>Correlated lags, selection of a maximum, limited time resolution</td>
+<td>Characterize how an effect evolves across peri-event time</td>
+<td>Full lag trajectory, window contrast, or peak timing</td>
+<td>Step 5 <code>medusa_multilag_infer()</code> using cross-lag resolution and covariance matrices</td>
 </tr>
 <tr class="even">
-<td>Task-dependent connectivity</td>
-<td>Change in seed–target slope with an error-free modulator</td>
-<td>Attenuation, shared error, source mixing</td>
+<td>Estimate trial-level seed–target coupling or PPI</td>
+<td>Disattenuated neural slope (<code>Target ~ Seed * Task</code>)</td>
+<td>Step 6 <code>decon_connectivity_repair()</code> via regularized modified method of moments (M-MOMS)</td>
 </tr>
 </tbody>
 </table>
-</section>
-<section id="the-forward-model-and-its-inverse" class="level2">
-<h2 class="anchored" data-anchor-id="the-forward-model-and-its-inverse">The forward model and its inverse</h2>
-<p>For one run and voxel, write the measured BOLD vector as</p>
+<section id="express-bold-through-a-linear-neurovascular-forward-model" class="level2">
+<h2 class="anchored" data-anchor-id="express-bold-through-a-linear-neurovascular-forward-model">1. Express BOLD through a linear neurovascular forward model</h2>
+<p>Consider a single fMRI run and voxel (or parcel) observed at <span class="math inline">\(T\)</span> acquisition times. Let <span class="math inline">\(a \in \mathbb{R}^T\)</span> denote latent neural activity on the acquisition grid, <span class="math inline">\(H(h)\)</span> denote causal Toeplitz convolution with the local hemodynamic response function <span class="math inline">\(h\)</span>, <span class="math inline">\(Z\)</span> collect low-frequency drift and nuisance terms, and <span class="math inline">\(\varepsilon\)</span> denote zero-mean serial observation noise with covariance <span class="math inline">\(\Sigma\)</span>:</p>
 <p><span class="math display">\[
 y = H(h)a + Z\gamma + \varepsilon,
-\qquad E(\varepsilon)=0,\quad \operatorname{Cov}(\varepsilon)=\Sigma.
+\qquad \mathbb{E}(\varepsilon) = 0, \quad \operatorname{Cov}(\varepsilon) = \Sigma.
 \]</span></p>
-<p>Here <span class="math inline">\(a\)</span> is activity on the acquisition grid, <span class="math inline">\(H(h)\)</span> convolves it with the HRF, and <span class="math inline">\(Z\)</span> contains nuisance terms. Each event can influence many BOLD samples. Two activity patterns with different timing can yield very similar BOLD predictions. A regularized inverse selects among these nearly equivalent patterns using a penalty. In a simplified nuisance-adjusted model,</p>
-<p><span class="math display">\[
-\widehat a
-=\arg\min_a (y-Ha)^\top\Sigma^{-1}(y-Ha)+\lambda\|Pa\|^2.
-\]</span></p>
-<p>A larger penalty can suppress noise and broaden or attenuate activity. Smaller penalties can preserve sharper changes and amplify poorly identified directions. The data, forward model, observation mask, and penalty together determine what the estimate resolves. Conditional on fitted settings the inverse is a linear map <span class="math inline">\(D\)</span>. With nuisance handling absorbed into the map, the average recovered signal is <span class="math inline">\(DH a\)</span>. The matrix <span class="math inline">\(DH\)</span> describes <strong>resolution</strong>. Its off-diagonal entries describe mixing. Its diagonal entries and lobe integrals describe gain under different source definitions.</p>
 <div id="fig-forward" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Different latent decision and feedback events produce broad, overlapping predicted BOLD time courses.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-forward-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -358,33 +350,46 @@ Figure&nbsp;1.1: Two decision intervals of different length and two brief feedba
 </figcaption>
 </figure>
 </div>
-</section>
-<section id="event-alignment-asks-a-source-question" class="level2">
-<h2 class="anchored" data-anchor-id="event-alignment-asks-a-source-question">Event alignment asks a source question</h2>
-<p>An event-aligned readout is a weighted average of the reconstructed activity around an event. A weight vector answers a question about timing and support. It does not isolate the event’s own contribution if the reconstructed signal contains spillover. The source model makes that contribution explicit. For example, a boxcar with duration equal to RT represents a sustained process. Its height and its integral are different estimands. Report the convention and units, especially when comparing across TRs.</p>
-<p>Let <span class="math inline">\(B\)</span> denote the complete operator from the retained BOLD samples to corrected trial readouts, including centering if relevant. Let <span class="math inline">\(F\)</span> map the intended source coefficients <span class="math inline">\(\theta\)</span> into predicted BOLD. Then</p>
+<p>As <a href="#fig-forward" class="quarto-xref">Figure&nbsp;<span>1.1</span></a> illustrates, each brief or sustained neural event influences BOLD across many subsequent volumes, so nearby events overlap substantially in the recorded signal. Step 1 (<code>estimate_crossrun_hrf()</code>) identifies <span class="math inline">\(h\)</span> out of sample from the participant’s other runs and estimates <span class="math inline">\(\Sigma\)</span> on task-adjusted residuals. Step 2 (<code>deconvolve_crossrun_hrf()</code>) then reconstructs continuous activity on the acquisition grid via smoothness-penalized generalized least squares:</p>
 <p><span class="math display">\[
-\widehat z = B y,
-\qquad E(\widehat z\mid B,F) = K\theta,
-\qquad K=BF,
-\qquad \Omega=\operatorname{Cov}(\widehat z\mid B)=B\Sigma B^\top .
+\widehat{a} = \arg\min_a (y - Ha)^\top \Sigma^{-1}(y - Ha) + \lambda \|Pa\|^2.
 \]</span></p>
-<p><span class="math inline">\(K\)</span> and <span class="math inline">\(\Omega\)</span> answer different questions. <span class="math inline">\(K\)</span> describes gain and source mixing in the mean. <span class="math inline">\(\Omega\)</span> describes how measurement error propagates around that mean. A small SE does not tell you whether <span class="math inline">\(K\)</span> preserves the intended contrast. In <code>medusa</code>, <code>decon_epoch_regression()</code> applies the matched post-demixing resolution operator (<span class="math inline">\(M_{\text{post}}\)</span>) to centered trial predictors so the regression design and corrected response share compatible coordinates. The same principle governs every transformed panel: identify the linear map and carry both the design and measurement covariance through it.</p>
+<p>With nuisance projection absorbed into the whitened solve, the deconvolved series is a known linear transformation of the BOLD vector, <span class="math inline">\(\widehat{a} = D y\)</span>. Larger values of <span class="math inline">\(\lambda\)</span> suppress high-frequency noise while modestly broadening peaks; smaller values preserve rapid transitions at the cost of higher variance.</p>
 </section>
-<section id="what-is-independent" class="level2">
-<h2 class="anchored" data-anchor-id="what-is-independent">What is independent?</h2>
-<ul>
-<li><strong>Acquisitions within a run</strong> may have serial noise. Retain acquisition indices through censoring. Treating a deleted volume as a shortened clock changes both event design and modeled covariance.</li>
-<li><strong>Readouts within a run</strong> can share noise because neighboring events and lags use overlapping BOLD data. Run centering induces dependence of its own.</li>
-<li><strong>Voxels and parcels</strong> can share error. A parcel average can reduce independent noise while leaving common error. A seed and target can show an association from shared motion, vascular signals, nuisance fits, or acquisition noise.</li>
-<li><strong>Participants</strong> are ordinarily the independent sampling units for population claims. More trials help estimate each participant’s slope. They do not add independent people.</li>
-</ul>
-<p>The book uses “activity” for a latent signal under the fitted neurovascular model. Its scale inherits the HRF normalization and input BOLD units. It has no direct calibration to neuronal firing rates.</p>
-<p>Keep two kinds of uncertainty in view. Conditional propagation uses fitted HRFs, noise parameters, gains, penalties, and parcel weights as fixed. Sampling uncertainty in a population coefficient also reflects participant variation. For a likelihood or exact finite-sample claim, state the distributional and independence assumptions. Moment propagation itself requires a correct covariance and finite second moments. It does not require Gaussian errors. The <a href="./medusa_standard_errors_mmom.html">M-MOM SE chapter</a> explains how the conditional covariance enters a later model.</p>
+<section id="write-the-exact-trial-readout-measurement-model" class="level2">
+<h2 class="anchored" data-anchor-id="write-the-exact-trial-readout-measurement-model">2. Write the exact trial-readout measurement model</h2>
+<p>To move from continuous activity <span class="math inline">\(\widehat{a}\)</span> to event-locked trial quantities, suppose an investigator samples <span class="math inline">\(\widehat{a}\)</span> around target events using a local quadrature matrix <span class="math inline">\(S\)</span> (for instance, a triangle window centered at feedback onset). If the true event-related neural amplitudes are <span class="math inline">\(\theta\)</span> with forward BOLD design <span class="math inline">\(F\theta\)</span> (<span class="math inline">\(y = F\theta + \varepsilon\)</span> after nuisance removal), the raw trial readout <span class="math inline">\(\widehat{z}_{\text{raw}} = S\widehat{a} = SD y\)</span> can be written by adding and subtracting <span class="math inline">\(\theta\)</span>:</p>
+<p><span class="math display">\[
+\begin{aligned}
+\widehat{z}_{\text{raw}} &amp;= SD(F\theta + \varepsilon) \\
+&amp;= K_{\text{raw}}\theta + SD\varepsilon \\
+&amp;= \theta - (I - K_{\text{raw}})\theta + SD\varepsilon,
+\end{aligned}
+\]</span></p>
+<p>where <span class="math inline">\(K_{\text{raw}} = SDF\)</span> is the raw trial resolution matrix.</p>
+<p>Notice the direct parallel to Empirical Bayes random-effect predictions in multilevel models (Vig &amp; Hallquist, 2026): the estimation error <span class="math inline">\(\widehat{z}_{\text{raw}} - \theta\)</span> contains <strong>two distinct components</strong>. The first, <span class="math inline">\(-(I - K_{\text{raw}})\theta\)</span>, is systematic regularization attenuation (<span class="math inline">\([K_{\text{raw}}]_{ii} &lt; 1\)</span>) and spillover from neighboring cues or trials (<span class="math inline">\([K_{\text{raw}}]_{ij} \neq 0\)</span>), which depends on the signal itself. The second, <span class="math inline">\(SD\varepsilon\)</span>, is conditionally mean-zero observation noise propagated through deconvolution and readout.</p>
 </section>
-<section id="decide-what-to-save" class="level2">
-<h2 class="anchored" data-anchor-id="decide-what-to-save">Decide what to save</h2>
-<p>Save the event tables and acquisition masks, full subject fits, parcel map, lag grid, behavioral design, and version. Preserve operator summaries and participant identities when combining panels. A CSV can retain trial values and SEs while dropping the attributes used for cross-lag modeling and automatic shared-error correction. The fit objects are the reproducible record. The table is a convenient analysis view.</p>
+<section id="invert-event-mixing-to-recover-an-additive-error-scale" class="level2">
+<h2 class="anchored" data-anchor-id="invert-event-mixing-to-recover-an-additive-error-scale">3. Invert event mixing to recover an additive-error scale</h2>
+<p>If raw readouts were passed directly into trial regressions, regularization shrinkage would attenuate amplitudes while spillover from preceding cues or rapid neighboring trials could confound slopes. In Step 3 (<code>decon_epoch_regression()</code>), MEDuSA subtracts non-target spillover and applies a regularized inverse of the target mixing matrix (mirroring the inverse-shrinkage step in REPAIR) to form the composite epoch operator <span class="math inline">\(B\)</span>:</p>
+<p><span class="math display">\[
+\widehat{z} = B y \approx \theta + e,
+\qquad \mathbb{E}(e \mid \theta) = 0,
+\qquad \Omega = \operatorname{Cov}(e \mid B) = B \Sigma B^\top.
+\]</span></p>
+<p>Removing systematic mixing places <code>decon_demixed</code> (<span class="math inline">\(\widehat{z}\)</span>) on a <strong>classical additive measurement-error scale</strong>: target amplitude plus zero-mean propagated error with known trial-by-trial covariance <span class="math inline">\(\Omega\)</span> (whose diagonal square roots are <code>se_demixed</code>). When a small ridge term is retained in <span class="math inline">\(B\)</span> to stabilize very rapid inter-stimulus intervals, Step 3 applies the matching post-demixing resolution map <span class="math inline">\(M_{\text{post}}\)</span> to centered within-run covariates so both sides of a trial regression share identical coordinates. Step 4 then extends this exact operator across voxels within each anatomical parcel using task-free noise innovations to account for spatial error correlation.</p>
+</section>
+<section id="match-downstream-inference-to-the-structural-role-of-the-neural-variable" class="level2">
+<h2 class="anchored" data-anchor-id="match-downstream-inference-to-the-structural-role-of-the-neural-variable">4. Match downstream inference to the structural role of the neural variable</h2>
+<p>Once trial readouts <span class="math inline">\(\widehat{z}\)</span> are expressed as latent signal plus additive error <span class="math inline">\(e\)</span> with known variance <span class="math inline">\(s_i^2 = \Omega_{ii}\)</span>, how measurement error affects group inference depends on <strong>which side of the structural equation <span class="math inline">\(\widehat{z}\)</span> occupies</strong> (Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026):</p>
+<ol type="1">
+<li><strong>Neural activity as the outcome (<code>Neural ~ Behavior</code>, Step 5):</strong> When error-free task or behavioral variables predict <code>decon_demixed</code>, additive zero-mean error <span class="math inline">\(e_i\)</span> enters the regression residual without biasing fixed-effect slope estimates. However, error precision varies across trials, runs, and participants. Step 5 (<code>mixed_by()</code> and <code>medusa_multilag_infer()</code>) pairs participant random slopes—treating <strong>participants</strong> as the independent unit of population replication—with composite inverse-variance weights <span class="math inline">\((\widehat{\tau}_{\text{eff}}^2 + s_i^2)^{-1}\)</span> (<code>precision_weight_cohort</code>) and cross-lag covariance matrices so standard errors, simultaneous bands, and window contrasts remain calibrated.</li>
+<li><strong>Neural activity as a predictor (<code>Target ~ Seed * Task</code> or <code>Behavior ~ Seed</code>, Step 6):</strong> When a noisy parcel readout moves to the right-hand side as a predictor, trial error <span class="math inline">\(u_i\)</span> inflates the predictor variance <span class="math inline">\(X^\top X\)</span> (attenuating slopes toward zero) and any shared scanner or physiological noise <span class="math inline">\(\operatorname{Cov}(u_i, v_i) \neq 0\)</span> between seed and target shifts <span class="math inline">\(X^\top Y\)</span>. Step 6 (<code>decon_connectivity_repair()</code>) applies regularized modified method of moments (<strong>M-MOMS</strong>, <code>medusa_fit_mmom()</code>) to subtract per-trial error covariance blocks <span class="math inline">\(\Psi_i\)</span> and task-free cross-parcel noise covariances before pooling participant slopes at the group level.</li>
+</ol>
+</section>
+<section id="practical-record-keeping-across-steps" class="level2">
+<h2 class="anchored" data-anchor-id="practical-record-keeping-across-steps">Practical record-keeping across steps</h2>
+<p>Throughout the pipeline, latent “activity” is measured in input BOLD units scaled by the chosen HRF normalization convention (<code>normalize = "positive_lobe"</code> under <code>preset = "medusa"</code>), and conditional error propagation treats the learned Step 1–4 operators as fixed while Step 5–6 random-effects models capture between-participant variation. Retaining the full S3 fit objects (<code>hrf_fit</code>, <code>decon</code>, and per-participant <code>epochs</code> lists or <code>.rds</code>/Parquet panels) preserves both the trial table and the operator covariances used by multi-lag and connectivity analyses.</p>
 
 
 </section>

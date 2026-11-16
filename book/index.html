@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-11-15">
+<meta name="dcterms.date" content="2026-11-16">
 
 <title>MEDuSA</title>
 <style>
@@ -295,7 +295,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 15, 2026</p>
+      <p class="date">November 16, 2026</p>
     </div>
   </div>
   
@@ -312,24 +312,24 @@ window.Quarto = {
 <div class="medusa-intro">
 <p><strong>Multilevel Event-Related Deconvolved Signal Analysis (<code>medusa</code>)</strong> estimates continuous event-informed latent activity from fMRI BOLD time series, aligns and de-mixes overlapping trial epochs, propagates observation-noise covariance into parcel panels, and fits calibrated multilevel, trajectory, and measurement-error-corrected connectivity models across participants.</p>
 </div>
-<p>Imagine a reinforcement-learning task in which participants decide when to respond and then receive feedback. Choice deliberation varies in duration from trial to trial, while feedback triggers a phasic prediction error. Because hemodynamic responses span 15–30 seconds, BOLD signals evoked by cues, variable-duration decisions, and feedback overlap heavily even when the underlying neural processes are distinct. Depending on the scientific hypothesis, an investigator may want to test:</p>
+<p>Imagine a reinforcement-learning task in which participants decide when to respond and then receive feedback. Choice deliberation varies in duration from trial to trial, while feedback triggers a phasic prediction error. Because hemodynamic responses span 15–30 seconds, BOLD signals evoked by cues, variable-duration decisions, and feedback overlap substantially even when the underlying neural processes are distinct. Depending on the scientific question, an investigator may want to test:</p>
 <ul>
 <li>whether a trial-by-trial prediction error modulates feedback-onset activity within a prespecified parcel,</li>
-<li>whether neural activity during deliberation scales in firing <em>rate</em> (height) or <em>total integrated mass</em> across reaction times,</li>
+<li>whether neural activity during deliberation scales in firing <em>rate</em> (height) or <em>total integrated activity</em> across reaction times,</li>
 <li>how a population effect evolves continuously across an event-locked lag trajectory, or</li>
 <li>whether trial-to-trial coupling between two regions changes with task context (psychophysiological interaction, PPI) beyond shared physiological noise.</li>
 </ul>
-<p>Michael Hallquist’s 2022 MEDuSA Quant Talk introduced the clock-task motivation for placing deconvolution, event alignment, and multilevel modeling into a unified sequence, while highlighting open methodological challenges around amplitude scaling, temporal resolution, uncertainty propagation, and regional connectivity. This book documents how the standalone <code>medusa</code> R package solves each stage end to end, what assumptions each step makes, and where fundamental identifiability limits remain.</p>
+<p>Michael Hallquist’s 2022 MEDuSA Quant Talk introduced the clock-task motivation for placing deconvolution, event alignment, and multilevel modeling into a unified sequence. This book documents how the standalone <code>medusa</code> R package implements that framework end to end—walking through the statistical logic, modeling choices, and practical diagnostics at each stage.</p>
 <section id="why-use-medusaand-how-does-the-six-step-pipeline-fit-together" class="level2">
 <h2 class="anchored" data-anchor-id="why-use-medusaand-how-does-the-six-step-pipeline-fit-together">Why use MEDuSA—and how does the six-step pipeline fit together?</h2>
-<p>Standard fMRI analysis tools each address part of the problem:</p>
+<p>Common fMRI analysis strategies each address part of the problem:</p>
 <ul>
-<li><strong>Condition-level task GLMs</strong> test prespecified canonical BOLD predictors efficiently, but collapse trial-to-trial variability unless parametric modulators are specified upfront for one model at a time.</li>
-<li><strong>Finite impulse response (FIR) models</strong> relax HRF shape assumptions for condition averages, but struggle with rapid jittered trial-by-trial modulation and variable reaction-time intervals.</li>
-<li><strong>Single-trial GLMs (LSS / LSA)</strong> estimate one scalar amplitude per event under an assumed HRF, but do not directly yield a continuous event-locked trajectory across lags or separate cross-fitted vascular timing from continuous background dynamics.</li>
-<li><strong>Blind deconvolution</strong> (<code>deconvolve_nlreg()</code>, <code>deconvolve_reglin()</code>) reconstructs continuous time series without event timestamps, but suffers from HRF-delay ambiguity, task-contaminated variance scaling, oversmoothing, and lack of an operator-propagated trial error covariance.</li>
+<li><strong>Condition-level task GLMs</strong> test prespecified canonical BOLD predictors efficiently, while collapsing trial-to-trial variability unless parametric modulators are specified for one model at a time.</li>
+<li><strong>Finite impulse response (FIR) models</strong> relax HRF shape assumptions for condition averages, while becoming difficult to estimate under rapid jittered trial-by-trial modulation and variable reaction-time intervals.</li>
+<li><strong>Single-trial GLMs (LSS / LSA)</strong> estimate one scalar amplitude per event under an assumed HRF, rather than a continuous event-locked trajectory across lags with cross-fitted vascular timing.</li>
+<li><strong>Blind deconvolution</strong> (<code>deconvolve_nlreg()</code>, <code>deconvolve_reglin()</code>) reconstructs continuous time series without event timestamps, leaving neurovascular delay, task-free noise scaling, and trial-level error covariances unanchored.</li>
 </ul>
-<p>MEDuSA combines <strong>out-of-sample event-informed neurovascular identification</strong> with <strong>continuous regularized linear deconvolution</strong> and <strong>operator-propagated trial inference</strong>. Because every linear transformation from raw BOLD to trial readouts is retained explicitly, downstream epoch regressions, parcel aggregations, multilevel models, and connectivity estimators know both the <em>resolution matrix</em> (how neighboring events and lags mix in the mean) and the <em>propagated noise covariance</em> (how observation noise correlates across trials, lags, and parcels).</p>
+<p>MEDuSA combines <strong>out-of-sample event-informed neurovascular identification</strong> with <strong>continuous regularized linear deconvolution</strong> and <strong>operator-propagated trial inference</strong>. Because every linear transformation from raw BOLD to trial readouts is retained explicitly, downstream epoch regressions, parcel aggregations, multilevel models, and connectivity estimators carry both the <em>resolution matrix</em> (how neighboring events and lags mix in expectation) and the <em>propagated error covariance</em> (how observation noise varies and correlates across trials, lags, and parcels).</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -342,32 +342,32 @@ window.Quarto = {
 <tr class="odd">
 <td><a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">1. Estimate Cross-Run HRF &amp; Noise</a></td>
 <td><code>read_fmriprep_subject()</code>, <code>read_fmriprep_confounds()</code>, <code>read_nifti_ts()</code>, <code>build_spatial_graph()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
-<td>How do we ingest BIDS/fMRIPrep inputs with clock-preserving censoring (including <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-respiratory-fd-filter">fast-TR respiratory FD filtering</a>) and learn each parcel’s or cortical neighborhood’s HRF and AR(<span class="math inline">\(p\)</span>) noise out of sample?</td>
+<td>How do we ingest BIDS/fMRIPrep inputs on an intact acquisition clock (including <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-respiratory-fd-filter">fast-TR respiratory FD filtering</a>) and learn each parcel’s or cortical neighborhood’s HRF and AR(<span class="math inline">\(p\)</span>) noise out of sample?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">2. Deconvolve Continuous Signal</a></td>
 <td><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code></td>
-<td>What continuous latent time course is supported on the acquisition grid when event-informed GLS regression anchors noise scaling, adaptive glitch weighting, and SNR-stratified GCV smoothing (<code>lambda_mode = "auto"</code>)?</td>
+<td>What continuous latent time course is supported on the acquisition grid when event-informed GLS regression calibrates noise scaling, outlier weights, and SNR-stratified GCV smoothing (<code>lambda_mode = "auto"</code>)?</td>
 </tr>
 <tr class="odd">
 <td><a href="./medusa_step3_epochs/medusa_step3_epochs.html">3. Align Epochs &amp; De-Mix Overlap</a></td>
 <td><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code></td>
-<td>How do we read out event-locked lags, subtract non-target bleed, unmix adjacent target trials, model variable durations, stabilize voxelwise trial variance (<code>tau2_shrinkage = "graph_eb"</code>), and propagate per-trial standard errors?</td>
+<td>How do we read out event-locked lags, remove non-target spillover, invert target-to-target mixing to recover additive trial error, model variable durations, and compute per-trial standard errors?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">4. Assemble Parcel Panels</a></td>
 <td><code>decon_epoch_regression(..., parcel_groups = ...)</code></td>
-<td>How should voxels be precision-weighted into parcels while propagating spatial noise correlations, cohort weights, and ZCA-whitened predictors?</td>
+<td>How do we pool voxels into parcels using cross-run precision weights while propagating spatial noise correlations, cohort weights, and paired ZCA-whitened columns?</td>
 </tr>
 <tr class="odd">
 <td><a href="./medusa_step5_group_models/medusa_step5_group_models.html">5. Fit Group Multilevel &amp; Trajectory Models</a></td>
 <td><code>mixed_by()</code>, <code>medusa_multilag_infer()</code>, <code>backproject_medusa()</code></td>
-<td>How do we test planned lag slopes, full multi-lag trajectories, simultaneous bands, and window contrasts across participants?</td>
+<td>How do we test within-person slopes, full multi-lag trajectories, simultaneous confidence bands, window contrasts, and volumetric brain maps across participants?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">6. Estimate Connectivity &amp; PPI</a></td>
 <td><code>decon_connectivity_repair()</code>, <code>medusa_fit_mmom()</code></td>
-<td>How do we disattenuate noisy neural predictors on the right-hand side while accounting for shared regional measurement error?</td>
+<td>How do we correct predictor attenuation and shared regional measurement error when deconvolved neural activity predicts another region or behavior?</td>
 </tr>
 </tbody>
 </table>
@@ -375,10 +375,10 @@ window.Quarto = {
 <section id="how-to-read-this-book" class="level2">
 <h2 class="anchored" data-anchor-id="how-to-read-this-book">How to read this book</h2>
 <ol type="1">
-<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying linear-operator framework (<span class="math inline">\(y \to \hat{s} \to \hat{z}\)</span>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
-<li>Read the six step chapters in <strong>The six steps</strong>. Every step chapter opens with a plain-language <strong>Overview</strong>, explicit <strong>Goals</strong>, structured <strong>Inputs</strong> and <strong>Outputs</strong> tables explaining <em>why</em> the data structures are designed that way, and <strong>Recommended Settings</strong> contrasted against package defaults before examining detailed simulations and diagnostics.</li>
-<li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for a complete MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
-<li>Consult <strong>Measurement models and evidence</strong> for the mathematical derivations behind <a href="./medusa_standard_errors_mmom.html">M-MOM standard-error propagation</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity measurement models</a>, <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">multi-lag calibration</a>, <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">autocorrelation estimation</a>, and <a href="./evidence.html">validation scope</a>.</li>
+<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \hat{s} \to \hat{z}\)</span>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
+<li>Read the six chapters in <strong>The six steps</strong>. Each chapter opens with a thumbnail <strong>Overview</strong> and clean <strong>Goals, Inputs, and Outputs</strong> tables, walks step by step through each <strong>Substep and Choice Point</strong> from simple intuition to the full estimator, summarizes <strong>Recommended Settings</strong>, and closes with <strong>Practical Considerations, Diagnostics, and Scope</strong>.</li>
+<li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
+<li>Consult <strong>Measurement models and evidence</strong> for deeper derivations of <a href="./medusa_standard_errors_mmom.html">M-MOM standard-error propagation</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity measurement models</a>, <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">multi-lag calibration</a>, <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">autocorrelation estimation</a>, and <a href="./evidence.html">validation benchmarks</a>.</li>
 </ol>
 <p>All code examples, figures, and diagnostic tables in this book are generated directly from the standalone <code>medusa</code> package (<code>library(medusa)</code>). See <a href="./reference.html">Reproduction and references</a> for instructions on re-running the simulations and rendering the book from <code>book/</code>.</p>
 
