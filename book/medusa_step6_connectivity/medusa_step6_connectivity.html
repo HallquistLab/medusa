@@ -262,32 +262,32 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Methodological deep dives</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
+  <a href="../medusa_multilag_calibration/medusa_multilag_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a>
   </div>
 </li>
       </ul>
@@ -712,7 +712,7 @@ Figure&nbsp;9.2: Sensitivity curve in the shared-error null scenario: implied po
 <ol type="1">
 <li><strong>Report circuit, lag, and estimand choices:</strong> Document <code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code>, <code>orthogonalize_seed_x</code>, <code>control_target_seed_lag</code>, and multiplicity adjustment across region pairs.</li>
 <li><strong>Present naive and M-MOMS side by side:</strong> Include <code>"naive_unweighted"</code> alongside <code>"mmoms"</code> and summarize <code>ppi$subjects</code> (<code>r_shared_error</code>, <code>alpha_final</code>, <code>lambda_final</code>, participant/trial counts, and convergence; see the <a href="../medusa_qc_gallery/medusa_qc_gallery.html">Visual QC Gallery</a> for side-by-side participant connectivity distributions under intact vs.&nbsp;stripped <code>shared_error</code> metadata).</li>
-<li><strong>Scope boundaries:</strong> Just as in Vig &amp; Hallquist (2026), Step 6 treats first-stage error variances (<code>se_demixed^2</code>) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences (<span class="math inline">\(K_S \neq K_T\)</span>). For mathematical derivations and full-covariance extensions, see <a href="../medusa_standard_errors_mmom.html">From BOLD noise to M-MOM error variances</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models and REPAIR</a>.</li>
+<li><strong>Scope boundaries:</strong> Just as in Vig &amp; Hallquist (2026), Step 6 treats first-stage error variances (<code>se_demixed^2</code>) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences (<span class="math inline">\(K_S \neq K_T\)</span>). For mathematical derivations and full-covariance extensions, see <a href="../medusa_standard_errors_mmom.html">Propagating BOLD Noise into Trial Standard Errors</a> and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity Beyond Per-Trial Disattenuation</a>.</li>
 </ol>
 <hr>
 </section>

@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Measurement-Error Models and REPAIR – MEDuSA</title>
+<title>Latent Connectivity Beyond Per-Trial Disattenuation – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -72,7 +72,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../">
 <link href="../evidence.html" rel="next">
-<link href="../medusa_standard_errors_mmom.html" rel="prev">
+<link href="../medusa_multilag_calibration/medusa_multilag_calibration.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../medusa_connectivity_inference/medusa_connectivity_inference.html"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="../medusa_connectivity_inference/medusa_connectivity_inference.html"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -262,32 +262,32 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Methodological deep dives</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
+  <a href="../medusa_multilag_calibration/medusa_multilag_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a>
   </div>
 </li>
       </ul>
@@ -315,26 +315,27 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#summary-of-findings" id="toc-summary-of-findings" class="nav-link active" data-scroll-target="#summary-of-findings">Summary of Findings</a></li>
-  <li><a href="#define-the-neural-relationship-and-the-measurement-relationship" id="toc-define-the-neural-relationship-and-the-measurement-relationship" class="nav-link" data-scroll-target="#define-the-neural-relationship-and-the-measurement-relationship">1. Define the neural relationship and the measurement relationship</a></li>
-  <li><a href="#three-workable-measurement-models" id="toc-three-workable-measurement-models" class="nav-link" data-scroll-target="#three-workable-measurement-models">2. Three workable measurement models</a>
+  <li><a href="#overview-where-does-per-trial-m-moms-succeed-and-where-are-its-boundaries" id="toc-overview-where-does-per-trial-m-moms-succeed-and-where-are-its-boundaries" class="nav-link active" data-scroll-target="#overview-where-does-per-trial-m-moms-succeed-and-where-are-its-boundaries">Overview: Where Does Per-Trial M-MOMS Succeed, and Where Are Its Boundaries?</a></li>
+  <li><a href="#the-full-trial-vector-measurement-interface" id="toc-the-full-trial-vector-measurement-interface" class="nav-link" data-scroll-target="#the-full-trial-vector-measurement-interface">1. The Full Trial-Vector Measurement Interface</a></li>
+  <li><a href="#three-exact-routes-when-moving-beyond-diagonal-per-trial-m-moms" id="toc-three-exact-routes-when-moving-beyond-diagonal-per-trial-m-moms" class="nav-link" data-scroll-target="#three-exact-routes-when-moving-beyond-diagonal-per-trial-m-moms">2. Three Exact Routes When Moving Beyond Diagonal Per-Trial M-MOMS</a>
   <ul class="collapse">
-  <li><a href="#a.-likelihood-only-coefficients-in-a-modest-source-basis" id="toc-a.-likelihood-only-coefficients-in-a-modest-source-basis" class="nav-link" data-scroll-target="#a.-likelihood-only-coefficients-in-a-modest-source-basis">A. Likelihood-only coefficients in a modest source basis</a></li>
-  <li><a href="#b.-de-penalize-only-identifiable-contrasts" id="toc-b.-de-penalize-only-identifiable-contrasts" class="nav-link" data-scroll-target="#b.-de-penalize-only-identifiable-contrasts">B. De-penalize only identifiable contrasts</a></li>
-  <li><a href="#c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model" id="toc-c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model" class="nav-link" data-scroll-target="#c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model">C. Retain resolution <span class="math inline">\(K_S, K_T\)</span> inside a joint latent Gaussian model</a></li>
+  <li><a href="#route-a-unpenalized-likelihood-only-readouts-in-a-full-rank-trial-basis" id="toc-route-a-unpenalized-likelihood-only-readouts-in-a-full-rank-trial-basis" class="nav-link" data-scroll-target="#route-a-unpenalized-likelihood-only-readouts-in-a-full-rank-trial-basis">Route A: Unpenalized likelihood-only readouts in a full-rank trial basis</a></li>
+  <li><a href="#route-b-subspace-de-penalization-on-identifiable-contrasts" id="toc-route-b-subspace-de-penalization-on-identifiable-contrasts" class="nav-link" data-scroll-target="#route-b-subspace-de-penalization-on-identifiable-contrasts">Route B: Subspace de-penalization on identifiable contrasts</a></li>
+  <li><a href="#route-c-retaining-k_s-and-k_t-explicitly-in-a-joint-latent-gaussian-model" id="toc-route-c-retaining-k_s-and-k_t-explicitly-in-a-joint-latent-gaussian-model" class="nav-link" data-scroll-target="#route-c-retaining-k_s-and-k_t-explicitly-in-a-joint-latent-gaussian-model">Route C: Retaining <span class="math inline">\(K_S\)</span> and <span class="math inline">\(K_T\)</span> explicitly in a joint latent Gaussian model</a></li>
   </ul></li>
-  <li><a href="#full-cross-trial-corrected-score-estimating-equations" id="toc-full-cross-trial-corrected-score-estimating-equations" class="nav-link" data-scroll-target="#full-cross-trial-corrected-score-estimating-equations">3. Full cross-trial corrected-score estimating equations</a></li>
-  <li><a href="#conditional-simulation-benchmarks-400-repetitions-per-scenario" id="toc-conditional-simulation-benchmarks-400-repetitions-per-scenario" class="nav-link" data-scroll-target="#conditional-simulation-benchmarks-400-repetitions-per-scenario">4. Conditional simulation benchmarks (400 repetitions per scenario)</a></li>
+  <li><a href="#full-cross-trial-corrected-score-estimating-equations" id="toc-full-cross-trial-corrected-score-estimating-equations" class="nav-link" data-scroll-target="#full-cross-trial-corrected-score-estimating-equations">3. Full Cross-Trial Corrected-Score Estimating Equations</a></li>
+  <li><a href="#stress-test-benchmarks-shared-noise-serial-errors-unequal-k-and-small-s" id="toc-stress-test-benchmarks-shared-noise-serial-errors-unequal-k-and-small-s" class="nav-link" data-scroll-target="#stress-test-benchmarks-shared-noise-serial-errors-unequal-k-and-small-s">4. Stress-Test Benchmarks: Shared Noise, Serial Errors, Unequal <span class="math inline">\(K\)</span>, and Small <span class="math inline">\(S\)</span></a></li>
+  <li><a href="#implications-for-applied-step-6-connectivity-analyses" id="toc-implications-for-applied-step-6-connectivity-analyses" class="nav-link" data-scroll-target="#implications-for-applied-step-6-connectivity-analyses">5. Implications for Applied Step 6 Connectivity Analyses</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../medusa_connectivity_inference/medusa_connectivity_inference.html"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="../medusa_connectivity_inference/medusa_connectivity_inference.html"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-title">Measurement-Error Models and REPAIR</span></h1>
-<p class="subtitle lead">Source resolution, cross-trial shared-error moments, and participant-cluster inference beyond diagonal M-MOMS</p>
+<h1 class="title"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></h1>
+<p class="subtitle lead">When diagonal M-MOMS suffices—and what changes under unequal regional smoothing, cross-trial noise, and small cohorts</p>
 </div>
 
 
@@ -351,170 +352,144 @@ window.Quarto = {
 </header>
 
 
+<section id="overview-where-does-per-trial-m-moms-succeed-and-where-are-its-boundaries" class="level2">
+<h2 class="anchored" data-anchor-id="overview-where-does-per-trial-m-moms-succeed-and-where-are-its-boundaries">Overview: Where Does Per-Trial M-MOMS Succeed, and Where Are Its Boundaries?</h2>
+<p>In <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6 (<code>decon_connectivity_repair()</code>)</a>, MEDuSA adapts the REPAIR measurement-error framework (Vig &amp; Hallquist, 2026; Fuller, 1987) to trial-level functional connectivity and psychophysiological interaction (PPI): it subtracts per-trial seed measurement variance (<code>se_demixed^2</code>) from <span class="math inline">\(X^\top X\)</span>, subtracts task-free cross-parcel error covariance (<code>shared_error = "auto"</code>) from <span class="math inline">\(X^\top Y\)</span>, guards against ill-conditioned denominators via step-up regularization (<code>method = "mmoms"</code>), and pools participant slopes using finite-sample Hartung–Knapp–Sidik–Jonkman (HKSJ) <span class="math inline">\(t\)</span>-intervals.</p>
+<p>A mathematically minded colleague or reviewer may push one layer deeper: <em>Per-trial M-MOMS treats each trial’s measurement error as additive around an unblurred latent truth (<span class="math inline">\(\mathbb{E}[\widehat{z} \mid \theta] = \theta\)</span>). What happens in extreme fMRI regimes where (1) seed and target parcels undergo unequal temporal smoothing (<span class="math inline">\(K_S \neq K_T\)</span>), (2) observation errors correlate across consecutive trials (<span class="math inline">\(\Omega_{SS}, \Omega_{ST}\)</span> non-diagonal), or (3) sample sizes drop to <span class="math inline">\(S = 12\)</span> participants?</em></p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>How this chapter relates to Step 6 in <code>medusa</code>
+<span class="screen-reader-only">Note</span>Core Methodological Question &amp; Connection to the Pipeline
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>In <code>medusa</code>, <code>decon_connectivity_repair(..., shared_error = "auto")</code> implements per-trial M-MOMS predictor disattenuation, task-free cross-parcel <code>shared_noise_loading</code> / <code>unit_error_cor</code> error-moment subtraction (<code>err_xy</code>), and HKSJ participant-level random-effects pooling (<a href="../medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>). This chapter investigates what lies <strong>beyond</strong> diagonal per-trial M-MOMS: unequal regional trial resolution (<span class="math inline">\(K_S \neq K_T\)</span>), full cross-trial error covariance blocks (<span class="math inline">\(\Omega_{SS}, \Omega_{ST}\)</span>), likelihood-only finite-basis trial reconstruction, and participant-cluster estimating equations.</p>
+<p><em>What are the exact mathematical conditions required for unbiased, nominal-coverage latent connectivity and PPI inference—and how do those conditions explain both Step 6’s design choices (<code>shared_error = "auto"</code>, <code>use_whitened = FALSE</code>, HKSJ pooling) and its scope limits?</em></p>
+<p>This chapter develops the full cross-trial measurement-error theory extending <a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><strong>Step 6 (<code>decon_connectivity_repair()</code>)</strong></a> and tests three frontier measurement models across 400-replicate paired stress simulations.</p>
 </div>
 </div>
-<section id="summary-of-findings" class="level2">
-<h2 class="anchored" data-anchor-id="summary-of-findings">Summary of Findings</h2>
-<p><strong>Attaching diagonal trial SEs to ordinary M-MOMS disattenuates independent white measurement noise, but full latent connectivity inference faces three deeper structural requirements:</strong> unbiased source resolution, cross-parcel/cross-trial shared-error moments, and participant-cluster uncertainty calibration.</p>
-<ul>
-<li><strong>Recover an unbiased source mean (or model resolution explicitly):</strong> Regularized continuous deconvolution yields <span class="math inline">\(\mathbb{E}[\widehat{z}_{g} \mid \theta_g] = K_g \theta_g\)</span> with <span class="math inline">\(K_g \neq I\)</span>. In our controlled unequal-resolution experiment (<span class="math inline">\(K_S \neq K_T\)</span>), full noise-moment subtraction alone estimated connectivity as <strong>0.767</strong> when truth was <code>0.550</code>. Inverting known, well-conditioned resolution operators restored recovery to <strong>0.551</strong>.</li>
-<li><strong>Propagate shared errors and cluster at the participant level:</strong> Under unbiased source measurements with strong serial (<span class="math inline">\(0.55\)</span>) and shared cross-parcel (<span class="math inline">\(0.45\)</span>) Gaussian noise, the full cross-trial corrected-score estimator recovered <strong>0.546</strong>. Participant-cluster intervals covered truth in <strong>94.8%</strong> of repetitions, whereas row-based intervals covered only <strong>86.0%</strong>.</li>
-<li><strong>Respect finite-participant limits:</strong> With only 12 participants, asymptotic cluster sandwich intervals undercovered (91.8% connectivity coverage)—motivating the dispersion-scaled finite-sample <span class="math inline">\(t\)</span>-interval (HKSJ) pooling used in <code>medusa::decon_connectivity_repair()</code>.</li>
-</ul>
+<hr>
 </section>
-<section id="define-the-neural-relationship-and-the-measurement-relationship" class="level2">
-<h2 class="anchored" data-anchor-id="define-the-neural-relationship-and-the-measurement-relationship">1. Define the neural relationship and the measurement relationship</h2>
-<p>For participant <span class="math inline">\(s \in \{1, \dots, S\}\)</span> and trial <span class="math inline">\(i\)</span>, define a centered task modulator <span class="math inline">\(x_{si}\)</span> and latent seed/target trial amplitudes <span class="math inline">\((\theta_{S,si}, \theta_{T,si})\)</span> matching Step 6:</p>
+<section id="the-full-trial-vector-measurement-interface" class="level2">
+<h2 class="anchored" data-anchor-id="the-full-trial-vector-measurement-interface">1. The Full Trial-Vector Measurement Interface</h2>
+<p>For participant <span class="math inline">\(s \in \{1, \dots, S\}\)</span> and trial <span class="math inline">\(i \in \{1, \dots, m_s\}\)</span>, recall the latent within-person connectivity and PPI structural equation from Step 6 with centered task modulator <span class="math inline">\(x_{si}\)</span>:</p>
 <p><span class="math display">\[
-\theta_{T,si}=\alpha_s+\beta_S \theta_{S,si}+\beta_x x_{si}
-               +\beta_P (x_{si}\theta_{S,si})+\eta_{si}.
+\theta_{T,si} = \alpha_s + \beta_S \theta_{S,si} + \beta_x x_{si} + \beta_P (x_{si}\theta_{S,si}) + \eta_{si},
 \]</span></p>
-<p><span class="math inline">\(\beta_S\)</span> is the seed–target association at <span class="math inline">\(x=0\)</span>; <span class="math inline">\(\beta_P\)</span> is its task modulation (PPI). Across all trials of participant <span class="math inline">\(s\)</span>, the linear trial-readout measurement interface is:</p>
+<p>where <span class="math inline">\(\beta_S\)</span> is baseline seed–target coupling at <span class="math inline">\(x_{si} = 0\)</span>, <span class="math inline">\(\beta_x\)</span> absorbs direct task activation in the target region (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/">Cole et al., 2019</a>), and <span class="math inline">\(\beta_P\)</span> is task-modulated PPI coupling.</p>
+<p>Stacking all <span class="math inline">\(m_s\)</span> trials of participant <span class="math inline">\(s\)</span> into column vectors reveals the <strong>complete linear measurement relationship</strong> produced by deconvolution and epoch readout:</p>
 <p><span class="math display">\[
-\begin{bmatrix}\widehat{z}_{S,s}\\\widehat{z}_{T,s}\end{bmatrix}
+\begin{bmatrix} \widehat{z}_{S,s} \\ \widehat{z}_{T,s} \end{bmatrix}
 =
-\begin{bmatrix}K_{S,s}&amp;0\\0&amp;K_{T,s}\end{bmatrix}
-\begin{bmatrix}\theta_{S,s}\\\theta_{T,s}\end{bmatrix}
-+\begin{bmatrix}u_s\\v_s\end{bmatrix},
+\begin{bmatrix} K_{S,s} &amp; 0 \\ 0 &amp; K_{T,s} \end{bmatrix}
+\begin{bmatrix} \theta_{S,s} \\ \theta_{T,s} \end{bmatrix}
++
+\begin{bmatrix} u_s \\ v_s \end{bmatrix},
 \qquad
-\operatorname{Cov}\!\begin{pmatrix}u_s\\v_s\end{pmatrix}
+\operatorname{Cov}\!\begin{pmatrix} u_s \\ v_s \end{pmatrix}
 =
-\begin{bmatrix}\Omega_{SS,s}&amp;\Omega_{ST,s}\\
-\Omega_{ST,s}^{\top}&amp;\Omega_{TT,s}\end{bmatrix}.
+\begin{bmatrix}
+\Omega_{SS,s} &amp; \Omega_{ST,s} \\
+\Omega_{ST,s}^\top &amp; \Omega_{TT,s}
+\end{bmatrix}.
 \]</span></p>
-<p>Classical additive measurement-error correction assumes <span class="math inline">\(K_S = K_T = I\)</span>. In addition, <strong>PPI products and trial smoothing do not commute</strong>:</p>
-<p><span class="math display">\[
-K\,\operatorname{diag}(x)\theta_S \ne \operatorname{diag}(x)K \theta_S.
-\]</span></p>
-<p>Multiplying a smoothed or within-run decorrelated (ZCA-whitened) seed by the task modulator <span class="math inline">\(x\)</span> afterward does not match smoothing the latent interaction—which is why <code>decon_connectivity_repair()</code> defaults to <code>use_whitened = FALSE</code>.</p>
+<p>Writing the interface in block matrix form makes three structural properties transparent at a glance:</p>
+<ol type="1">
+<li><strong>Mean resolution (<span class="math inline">\(K_{S,s}, K_{T,s}\)</span>) vs.&nbsp;noise covariance (<span class="math inline">\(\Omega\)</span>):</strong> Subtracting error variances <span class="math inline">\(\Omega_{SS,s}\)</span> and <span class="math inline">\(\Omega_{ST,s}\)</span> removes bias caused by random observation noise <span class="math inline">\((u_s, v_s)\)</span>, which yields exact consistency whenever Step 3 demixing restores <span class="math inline">\(K_{S,s} \approx I\)</span> and <span class="math inline">\(K_{T,s} \approx I\)</span>. If strong regularization or unmodeled HRF mismatch leaves <span class="math inline">\(K_{S,s} \neq K_{T,s}\)</span> (for instance, a heavily smoothed low-SNR seed predicting a sharp high-SNR target), variance subtraction alone cannot undo the mismatch in deterministic resolution.</li>
+<li><strong>Non-commutativity of smoothing/whitening and PPI products:</strong> Notice that multiplying a linearly transformed seed vector <span class="math inline">\(K \theta_S\)</span> elementwise by the task vector <span class="math inline">\(x\)</span> is <em>not</em> equal to transforming the latent interaction <span class="math inline">\(\operatorname{diag}(x)\theta_S\)</span>: <span class="math display">\[
+K\,\operatorname{diag}(x)\theta_S \neq \operatorname{diag}(x)\,K\theta_S.
+\]</span> The exact same non-commutativity applies to separate parcel ZCA whitening matrices (<span class="math inline">\(T_S \neq T_T\)</span>), which is why <code>decon_connectivity_repair()</code> defaults to <strong><code>use_whitened = FALSE</code></strong> so <code>Seed</code>, <code>Target</code>, and <code>Seed:x</code> remain in matched run-centered trial coordinates.</li>
+<li><strong>Trial-level vs.&nbsp;participant-level inference units:</strong> Even after unbiased moment subtraction within each participant, off-diagonal serial entries in <span class="math inline">\(\Omega_{SS,s}\)</span> and <span class="math inline">\(\Omega_{TT,s}\)</span> make trial-level score contributions correlated within a scan. Treating pooled rows as independent understates uncertainty, whereas clustering or pooling at the <strong>participant level</strong> respects the true independent sampling unit.</li>
+</ol>
+<hr>
 </section>
-<section id="three-workable-measurement-models" class="level2">
-<h2 class="anchored" data-anchor-id="three-workable-measurement-models">2. Three workable measurement models</h2>
-<section id="a.-likelihood-only-coefficients-in-a-modest-source-basis" class="level3">
-<h3 class="anchored" data-anchor-id="a.-likelihood-only-coefficients-in-a-modest-source-basis">A. Likelihood-only coefficients in a modest source basis</h3>
-<p>Represent each parcel <span class="math inline">\(g\)</span>’s BOLD run series using a prespecified, low-dimensional neural event basis passed through its learned HRF:</p>
+<section id="three-exact-routes-when-moving-beyond-diagonal-per-trial-m-moms" class="level2">
+<h2 class="anchored" data-anchor-id="three-exact-routes-when-moving-beyond-diagonal-per-trial-m-moms">2. Three Exact Routes When Moving Beyond Diagonal Per-Trial M-MOMS</h2>
+<p>When rapid event schedules or low regional SNR push <span class="math inline">\(K_S\)</span> and <span class="math inline">\(K_T\)</span> away from the identity matrix, three principled measurement models characterize what can and cannot be recovered:</p>
+<section id="route-a-unpenalized-likelihood-only-readouts-in-a-full-rank-trial-basis" class="level3">
+<h3 class="anchored" data-anchor-id="route-a-unpenalized-likelihood-only-readouts-in-a-full-rank-trial-basis">Route A: Unpenalized likelihood-only readouts in a full-rank trial basis</h3>
+<p>Suppose each parcel <span class="math inline">\(g\)</span>’s run BOLD vector follows a finite <span class="math inline">\(m\)</span>-trial forward design <span class="math inline">\(y_g = G_g \theta_g + Z_g \gamma_g + \varepsilon_g\)</span> under its cross-fitted HRF, and the trial spacing keeps <span class="math inline">\(G_g\)</span> full column rank. Fitting unpenalized generalized least squares in whitened coordinates yields linear trial readouts <span class="math inline">\(\widehat{z}_g = B_g y_g\)</span> satisfying <strong>exact identity resolution</strong>:</p>
 <p><span class="math display">\[
-y_g=G_g \theta_g+Z_g\gamma_g+\varepsilon_g,
-\qquad \operatorname{Cov}(\varepsilon_g)=\Sigma_g.
+B_g G_g = I_m
+\quad \Longrightarrow \quad
+\mathbb{E}(\widehat{z}_g \mid \theta_g) = \theta_g,
+\qquad \Omega_{gg} = B_g \Sigma_g B_g^\top,
+\qquad \Omega_{ST} = B_S \Sigma_{\varepsilon_S, \varepsilon_T} B_T^\top.
 \]</span></p>
-<p>When <span class="math inline">\(G_g\)</span> has full column rank (e.g., well-spaced trial impulses or low-dimensional epoch bases) and is fit via unpenalized GLS in whitened coordinates,</p>
-<p><span class="math display">\[
-\widehat{z}_g=B_g y_g,\qquad B_g G_g=I,
-\qquad \mathbb{E}(\widehat{z}_g\mid \theta_g)=\theta_g,
-\qquad \Omega_{gg}=B_g\Sigma_g B_g^{\top},
-\qquad \Omega_{ST}=B_S\Sigma_{\varepsilon_S,\varepsilon_T}B_T^{\top}.
-\]</span></p>
-<p>This provides an exact unbiased additive measurement-error model (<span class="math inline">\(K_g = I\)</span>), closely paralleling likelihood-only coefficient reconstruction in REPAIR (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/">Abdulrahman &amp; Henson, 2016</a>). In <code>likelihood_only_bridge.R</code> (16 source amplitudes, 180 BOLD volumes, distinct regional HRFs, shared/serial AR noise), trial operators satisfy <span class="math inline">\(BG = I\)</span> to <strong>8.88e-16</strong>, and a 10,000-draw Monte Carlo check matches analytical source SDs within <strong>1.5%</strong>. Its trade-off is design conditioning: rapid jittered event schedules or omitted sustained activity can make unpenalized <span class="math inline">\(G_g\)</span> collinear or misspecified.</p>
+<p>This route is the exact fMRI analog of REPAIR’s likelihood-only OLS stage-1 score reconstruction (Vig &amp; Hallquist, 2026; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4692520/">Abdulrahman &amp; Henson, 2016</a>). In our numerical verification (<code>likelihood_only_bridge.R</code>: 16 events over 180 volumes, distinct regional HRFs, shared serial <span class="math inline">\(\text{AR}\)</span> noise), <span class="math inline">\(B_g G_g = I\)</span> holds to <strong>8.88e-16</strong>, and a 10,000-draw Monte Carlo audit matches analytical trial SDs within <strong>1.5%</strong>. Its practical boundary is collinearity: at sub-2-second jitter or when unmodeled sustained intervals occur between events, unpenalized <span class="math inline">\(G_g\)</span> becomes ill-conditioned—motivating Step 2–3’s mildly regularized demixing (<span class="math inline">\(K_g \approx I\)</span>).</p>
 </section>
-<section id="b.-de-penalize-only-identifiable-contrasts" class="level3">
-<h3 class="anchored" data-anchor-id="b.-de-penalize-only-identifiable-contrasts">B. De-penalize only identifiable contrasts</h3>
-<p>For a linear Gaussian posterior with precision <span class="math inline">\(C_{\rm post}^{-1} = J + P_{\rm prior}\)</span>, likelihood information <span class="math inline">\(J\)</span> is recoverable only on subspaces where <span class="math inline">\(J\)</span> is well-conditioned. In <code>likelihood_only_bridge.R</code>, the full 180-column continuous convolution matrix has numerical rank <strong>178</strong>, confirming why continuous TR-grid deconvolution cannot simply drop its penalty globally without projecting onto identifiable trial/window contrasts first.</p>
+<section id="route-b-subspace-de-penalization-on-identifiable-contrasts" class="level3">
+<h3 class="anchored" data-anchor-id="route-b-subspace-de-penalization-on-identifiable-contrasts">Route B: Subspace de-penalization on identifiable contrasts</h3>
+<p>In continuous TR-grid deconvolution (<span class="math inline">\(T_r = 180\)</span> latent timepoints), a Bayesian/penalized posterior precision takes the form <span class="math inline">\(C_{\text{post}}^{-1} = J + P_{\text{prior}}\)</span>. Can we subtract <span class="math inline">\(P_{\text{prior}}\)</span> globally on the TR grid? No: in <code>likelihood_only_bridge.R</code>, the 180-column Toeplitz convolution operator has numerical rank <strong>178</strong> because the HRF acts as a low-pass filter. Unshrinking is mathematically well-posed <em>only</em> after projecting onto lower-dimensional trial or window subspaces where Fisher information <span class="math inline">\(J\)</span> is nonsingular—precisely what Step 3’s target demixing operator <span class="math inline">\(W_\tau\)</span> performs at target event times.</p>
 </section>
-<section id="c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model" class="level3">
-<h3 class="anchored" data-anchor-id="c.-retain-resolution-k_s-k_t-inside-a-joint-latent-gaussian-model">C. Retain resolution <span class="math inline">\(K_S, K_T\)</span> inside a joint latent Gaussian model</h3>
-<p>When unshrinking is ill-conditioned, <span class="math inline">\(K_S\)</span> and <span class="math inline">\(K_T\)</span> can be retained explicitly inside a joint Gaussian marginal likelihood over <span class="math inline">\((\widehat{z}_{S,s}, \widehat{z}_{T,s}) \mid x_s\)</span>. In <code>joint_gaussian_demo.R</code> (known unequal <span class="math inline">\(K_S \neq K_T\)</span> and known <span class="math inline">\(\Omega\)</span>), maximum likelihood recovered connectivity <strong>0.507</strong> (truth <code>0.550</code>) and PPI <strong>0.336</strong> (truth <code>0.350</code>) with a positive-definite Hessian, trading stronger distributional assumptions and computation for exact handling of non-identity resolution.</p>
+<section id="route-c-retaining-k_s-and-k_t-explicitly-in-a-joint-latent-gaussian-model" class="level3">
+<h3 class="anchored" data-anchor-id="route-c-retaining-k_s-and-k_t-explicitly-in-a-joint-latent-gaussian-model">Route C: Retaining <span class="math inline">\(K_S\)</span> and <span class="math inline">\(K_T\)</span> explicitly in a joint latent Gaussian model</h3>
+<p>When regional SNR is so low that any inverse <span class="math inline">\((K_S)^{-1}\)</span> explodes variance, <span class="math inline">\(K_S\)</span> and <span class="math inline">\(K_T\)</span> can instead be kept <em>forward</em> inside a joint Gaussian marginal likelihood over <span class="math inline">\((\widehat{z}_{S,s}, \widehat{z}_{T,s}) \mid x_s\)</span>. In <code>joint_gaussian_demo.R</code> under deliberately mismatched resolution (<span class="math inline">\(K_S \neq K_T\)</span>) and known <span class="math inline">\(\Omega\)</span>, joint maximum likelihood recovers connectivity <strong>0.507</strong> (truth <code>0.550</code>) and PPI <strong>0.336</strong> (truth <code>0.350</code>), trading parametric Gaussian latent priors and numerical optimization for exact resolution invariance.</p>
 <details>
 <summary>
-Gaussian conditional-mean calibration variant
+Gaussian conditional-expectation calibration note
 </summary>
-<p>Let <span class="math inline">\(m_S = \mathbb{E}(\theta_S \mid \widehat{z}_S, x)\)</span> under a Gaussian seed prior. With independent regional errors, <span class="math display">\[
-\mathbb{E}(\widehat{z}_T \mid \widehat{z}_S, x) = K_T\{Z\gamma + \beta_S m_S + \beta_P\operatorname{diag}(x)m_S\},
-\]</span> requiring design columns <span class="math inline">\(K_T m_S\)</span> and <span class="math inline">\(K_T \operatorname{diag}(x) m_S\)</span> rather than multiplying <span class="math inline">\(m_S\)</span> by <span class="math inline">\(x\)</span> after applying <span class="math inline">\(K_T\)</span>, plus an explicit shared-noise regression term <span class="math inline">\(\Omega_{TS}(K_S V_S K_S^\top + \Omega_{SS})^{-1}(\widehat{z}_S - K_S \mu_S)\)</span> whenever <span class="math inline">\(\Omega_{TS} \neq 0\)</span>.</p>
+<p>If one substitutes Empirical-Bayes shrunken seed predictions <span class="math inline">\(m_S = \mathbb{E}(\theta_S \mid \widehat{z}_S, x)\)</span> into a target regression (<code>eb_predictor</code> intuition), non-identity target resolution <span class="math inline">\(K_T\)</span> and shared cross-parcel error <span class="math inline">\(\Omega_{TS}\)</span> require transformed regressors <span class="math inline">\(K_T m_S\)</span> and <span class="math inline">\(K_T\operatorname{diag}(x)m_S\)</span> (not <span class="math inline">\(\operatorname{diag}(x)K_T m_S\)</span>) together with an explicit shared-noise control term <span class="math inline">\(\Omega_{TS}(K_S V_S K_S^\top + \Omega_{SS})^{-1}(\widehat{z}_S - K_S \mu_S)\)</span>.</p>
 </details>
+<hr>
 </section>
 </section>
 <section id="full-cross-trial-corrected-score-estimating-equations" class="level2">
-<h2 class="anchored" data-anchor-id="full-cross-trial-corrected-score-estimating-equations">3. Full cross-trial corrected-score estimating equations</h2>
-<p>For unbiased trial readouts (<span class="math inline">\(K_S = K_T = I\)</span>), form participant <span class="math inline">\(s\)</span>’s centered trial design <span class="math inline">\(\widehat{X}_s = X_s + U_s\)</span> for columns <span class="math inline">\([\theta_S,\, x,\, \theta_S x]\)</span> and define full cross-trial error moments <span class="math inline">\(\Psi_s = \mathbb{E}(U_s^\top U_s)\)</span> and <span class="math inline">\(c_s = \mathbb{E}(U_s^\top v_s)\)</span> (including run-centering projections applied consistently to both data and <span class="math inline">\(\Omega_{SS}, \Omega_{ST}\)</span>). Solving the summed participant corrected score (<a href="https://academic.oup.com/biomet/article-abstract/77/1/127/271070">Nakamura, 1990</a>; <a href="https://academic.oup.com/biomet/article-abstract/83/2/433/289324">Buonaccorsi, 1996</a>):</p>
+<h2 class="anchored" data-anchor-id="full-cross-trial-corrected-score-estimating-equations">3. Full Cross-Trial Corrected-Score Estimating Equations</h2>
+<p>When source resolution is approximately unbiased (<span class="math inline">\(K_S \approx K_T \approx I\)</span>) while trial errors correlate serially across adjacent events (<span class="math inline">\(\Omega_{SS,s}, \Omega_{ST,s}\)</span> non-diagonal), we can generalize per-trial M-MOM to a <strong>full cross-trial corrected score</strong> (<a href="https://academic.oup.com/biomet/article-abstract/77/1/127/271070">Nakamura, 1990</a>; <a href="https://academic.oup.com/biomet/article-abstract/83/2/433/289324">Buonaccorsi, 1996</a>). Letting <span class="math inline">\(\widehat{X}_s = X_s + U_s\)</span> collect participant <span class="math inline">\(s\)</span>’s centered <code>[Seed, x, Seed:x]</code> matrix and setting <span class="math inline">\(\Psi_s = \mathbb{E}(U_s^\top U_s \mid x_s)\)</span> and <span class="math inline">\(c_s = \mathbb{E}(U_s^\top v_s \mid x_s)\)</span> from the full <span class="math inline">\(m_s \times m_s\)</span> matrices <span class="math inline">\((\Omega_{SS,s}, \Omega_{ST,s})\)</span>, each participant contributes a zero-mean estimating equation:</p>
 <p><span class="math display">\[
-q_s(\beta)=\widehat{X}_s^{\top}\widehat{z}_{T,s}-c_s
-       -(\widehat{X}_s^{\top}\widehat{X}_s-\Psi_s)\beta,
-\qquad \sum_{s=1}^S q_s(\widehat\beta)=0,
+q_s(\beta) = \widehat{X}_s^\top \widehat{z}_{T,s} - c_s - \bigl(\widehat{X}_s^\top \widehat{X}_s - \Psi_s\bigr)\beta,
+\qquad \sum_{s=1}^S q_s(\widehat{\beta}) = 0,
 \]</span></p>
-<p>yields an unbiased estimating equation <span class="math inline">\(\mathbb{E}[q_s(\beta_0)] = 0\)</span> with participant-cluster sandwich variance:</p>
+<p>with participant-cluster sandwich covariance:</p>
 <p><span class="math display">\[
-\widehat V=H^{-1}\left[\frac{S}{S-1}\sum_{s=1}^S
-q_s(\widehat\beta)q_s(\widehat\beta)^{\top}\right]H^{-\top},
-\quad
-H=\sum_{s=1}^S(\widehat{X}_s^{\top}\widehat{X}_s-\Psi_s).
+\widehat{V}_{\text{cluster}} = H^{-1}\left[\frac{S}{S - 1}\sum_{s=1}^S q_s(\widehat{\beta}) q_s(\widehat{\beta})^\top\right]H^{-\top},
+\qquad H = \sum_{s=1}^S \bigl(\widehat{X}_s^\top \widehat{X}_s - \Psi_s\bigr).
 \]</span></p>
-<details>
-<summary>
-Prototype interface (<code>measurement_error_models.R</code>)
-</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"measurement_error_models.R"</span>)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">fit_corrected</span>(blocks, <span class="at">mode =</span> <span class="st">"full"</span>)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(fit<span class="sc">$</span>ok)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>estimate  <span class="co"># neural association, task main effect, PPI</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>se        <span class="co"># participant-cluster score SEs</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The prototype refuses indefinite corrected information matrices rather than silently regularizing unidentified designs.</p>
-</details>
+<hr>
 </section>
-<section id="conditional-simulation-benchmarks-400-repetitions-per-scenario" class="level2">
-<h2 class="anchored" data-anchor-id="conditional-simulation-benchmarks-400-repetitions-per-scenario">4. Conditional simulation benchmarks (400 repetitions per scenario)</h2>
-<p>Each scenario simulates 400 repetitions of <span class="math inline">\(S = 60\)</span> participants (<code>Few participants</code> uses <span class="math inline">\(S = 12\)</span>) with 24 trials per participant, true connectivity <span class="math inline">\(\beta_S = 0.55\)</span>, task main effect <span class="math inline">\(\beta_x = 0.25\)</span>, and PPI <span class="math inline">\(\beta_P = 0.35\)</span> (<code>Null</code> sets <span class="math inline">\(\beta_S = \beta_P = 0\)</span>), under serial trial error correlation <span class="math inline">\(0.55\)</span> and shared cross-region error correlation <span class="math inline">\(0.45\)</span>.</p>
-<div id="fig-bias" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Noise correction recovers slopes under unbiased measurements, but remains biased with unequal resolution; the stable resolution inverse restores recovery in the controlled example.">
+<section id="stress-test-benchmarks-shared-noise-serial-errors-unequal-k-and-small-s" class="level2">
+<h2 class="anchored" data-anchor-id="stress-test-benchmarks-shared-noise-serial-errors-unequal-k-and-small-s">4. Stress-Test Benchmarks: Shared Noise, Serial Errors, Unequal <span class="math inline">\(K\)</span>, and Small <span class="math inline">\(S\)</span></h2>
+<p>To see exactly what each modeling ingredient buys—and what fails when an ingredient is omitted—we evaluate 400 paired Monte Carlo cohorts per scenario (<span class="math inline">\(S = 60\)</span> participants, or <span class="math inline">\(S = 12\)</span> in <code>Few participants</code>; 24 trials/participant; true <span class="math inline">\(\beta_S = 0.55\)</span>, <span class="math inline">\(\beta_x = 0.25\)</span>, <span class="math inline">\(\beta_P = 0.35\)</span>, or <span class="math inline">\(\beta_S = \beta_P = 0\)</span> under <code>Null</code>; serial trial error correlation <span class="math inline">\(0.55\)</span>; shared cross-parcel error correlation <span class="math inline">\(0.45\)</span>, under both Gaussian and heavy-tailed <span class="math inline">\(t_5\)</span> errors):</p>
+<div id="fig-bias" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Faceted dot-and-interval plot of connectivity and PPI bias across seven estimators and three stress scenarios.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-bias-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="bias.png" class="img-fluid figure-img" alt="Noise correction recovers slopes under unbiased measurements, but remains biased with unequal resolution; the stable resolution inverse restores recovery in the controlled example.">
+<img src="bias.png" class="img-fluid figure-img" style="width:100.0%" alt="Faceted dot-and-interval plot of connectivity and PPI bias across seven estimators and three stress scenarios.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bias-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;13.1: Mean coefficient bias across three stress scenarios. Bars show plus/minus 1.96 Monte Carlo SE; horizontal scales differ across columns. The oracle uses true neural amplitudes. Empty Undo K rows mean that method was only evaluated in the unequal-resolution scenario.
+Figure&nbsp;15.1: Mean coefficient bias across three stress regimes (<code>Shared / serial Gaussian</code>, <code>Shared / serial t5</code>, and <code>Different resolution</code> where <span class="math inline">\(K_S \neq K_T\)</span>). Horizontal intervals show <span class="math inline">\(\pm 1.96\)</span> Monte Carlo SEs. Subtracting full cross-trial and cross-parcel error moments eliminates bias under both Gaussian and heavy-tailed <span class="math inline">\(t_5\)</span> serial/shared noise, whereas unequal deterministic resolution (<span class="math inline">\(K_S \neq K_T\)</span>) requires inverting or modeling <span class="math inline">\(K\)</span> (<code>Undo K + full</code>).
 </figcaption>
 </figure>
 </div>
-<div id="fig-coverage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Participant-cluster inference improves connectivity coverage with serial errors; neither interval method fixes unequal-resolution bias. Undoing known stable resolution restores coverage in this controlled case.">
+<div id="fig-coverage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Faceted dot-and-interval plot of 95% CI coverage across seven estimators and three stress scenarios.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="coverage.png" class="img-fluid figure-img" alt="Participant-cluster inference improves connectivity coverage with serial errors; neither interval method fixes unequal-resolution bias. Undoing known stable resolution restores coverage in this controlled case.">
+<img src="coverage.png" class="img-fluid figure-img" style="width:100.0%" alt="Faceted dot-and-interval plot of 95% CI coverage across seven estimators and three stress scenarios.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;13.2: Coverage of nominal 95% normal intervals. Bars are exact binomial 95% intervals for the Monte Carlo coverage probability, not individual-model confidence intervals. The dashed reference is 95%; all horizontal axes span 0–100%. Full + row SE and Full + cluster SE have the same point estimate.
+Figure&nbsp;15.2: Empirical coverage of nominal 95% confidence intervals across the same three stress regimes (exact Clopper–Pearson 95% intervals around empirical coverage; dashed vertical line marks 95%). Notice that under serial trial errors, row-level SEs (<code>Full + row SE</code>) undercover on main connectivity even when point estimates are unbiased, whereas participant-cluster SEs (<code>Full + cluster SE</code>) achieve 95% coverage.
 </figcaption>
 </figure>
 </div>
 <div class="cell">
-<details class="code-fold">
-<summary>Show supporting code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>show <span class="ot">&lt;-</span> s[s<span class="sc">$</span>method <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Full moments, cluster SE"</span>, <span class="st">"Resolution inverse + full moments"</span>) <span class="sc">&amp;</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  s<span class="sc">$</span>scenario <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Serial + shared Gaussian"</span>, <span class="st">"Serial + shared t5"</span>, <span class="st">"Different resolution"</span>, <span class="st">"Few participants"</span>), ]</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>show <span class="ot">&lt;-</span> show[<span class="fu">order</span>(show<span class="sc">$</span>scenario, show<span class="sc">$</span>method, show<span class="sc">$</span>term), ]</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">Scenario =</span> show<span class="sc">$</span>scenario,</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">Method =</span> show<span class="sc">$</span>method,</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">Effect =</span> show<span class="sc">$</span>term,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">Mean =</span> <span class="fu">round</span>(show<span class="sc">$</span>mean, <span class="dv">3</span>),</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">Bias =</span> <span class="fu">round</span>(show<span class="sc">$</span>bias, <span class="dv">3</span>),</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">Coverage =</span> <span class="fu">pct</span>(show<span class="sc">$</span>coverage),</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">Coverage MCSE</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">pct</span>(show<span class="sc">$</span>coverage_mcse),</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"Selected conditional simulation benchmarks (400 repetitions per row)."</span></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</details>
+<div id="tbl-conn-benchmarks" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-conn-benchmarks-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;15.1: Selected conditional connectivity and PPI stress-test benchmarks (400 paired replications per row; true Connectivity = 0.550, true PPI = 0.350).
+</figcaption>
+<div aria-describedby="tbl-conn-benchmarks-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<table class="caption-top table table-sm table-striped small">
-<caption>Selected conditional simulation benchmarks (400 repetitions per row).</caption>
+<table class="cell caption-top table table-sm table-striped small">
 <thead>
 <tr class="header">
 <th style="text-align: left;">Scenario</th>
-<th style="text-align: left;">Method</th>
-<th style="text-align: left;">Effect</th>
+<th style="text-align: left;">Estimator</th>
+<th style="text-align: left;">Term</th>
 <th style="text-align: right;">Mean</th>
 <th style="text-align: right;">Bias</th>
-<th style="text-align: left;">Coverage</th>
+<th style="text-align: left;">95% Coverage</th>
 <th style="text-align: left;">Coverage MCSE</th>
 </tr>
 </thead>
@@ -613,34 +588,33 @@ Figure&nbsp;13.2: Coverage of nominal 95% normal intervals. Bars are exact binom
 </table>
 </div>
 </div>
-<p>Three practical lessons bridge these benchmarks back to empirical <code>medusa</code> analyses:</p>
+</figure>
+</div>
+</div>
+<hr>
+</section>
+<section id="implications-for-applied-step-6-connectivity-analyses" class="level2">
+<h2 class="anchored" data-anchor-id="implications-for-applied-step-6-connectivity-analyses">5. Implications for Applied Step 6 Connectivity Analyses</h2>
+<p>Every result in <a href="#fig-bias" class="quarto-xref">Figure&nbsp;<span>15.1</span></a>, <a href="#fig-coverage" class="quarto-xref">Figure&nbsp;<span>15.2</span></a>, and <a href="#tbl-conn-benchmarks" class="quarto-xref">Table&nbsp;<span>15.1</span></a> explains a specific design rule in <code>decon_connectivity_repair()</code>:</p>
 <ol type="1">
-<li><strong>Omitting shared cross-parcel error creates severe false connectivity:</strong> Under <code>Null serial + shared</code>, ignoring <span class="math inline">\(\Omega_{ST}\)</span> (<code>Zero shared covariance</code>) falsely rejects in <strong>95.0%</strong> of repetitions, whereas subtracting <span class="math inline">\(\Omega_{ST}\)</span> drops connectivity false positives to <strong>5.0%</strong>—directly motivating <code>shared_error = "auto"</code> in Step 6.</li>
-<li><strong>Unequal source resolution requires matched HRF/inverse scales:</strong> When two parcels have markedly different effective smoothing (<span class="math inline">\(K_S \neq K_T\)</span>), naive attenuation and resolution distortion can partially cancel (0.579) while variance-only disattenuation overshoots (0.767). Keep regularization policies matched across seed and target parcels and control shared task main effects carefully (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6422749/">Cole et al., 2019</a>).</li>
-<li><strong>Small-<span class="math inline">\(S\)</span> cohorts require finite-sample <span class="math inline">\(t\)</span>/HKSJ adjustments:</strong> Normal asymptotic cluster SEs undercover at <span class="math inline">\(S = 12\)</span> (<a href="https://arxiv.org/html/2205.03285v1">MacKinnon, Nielsen &amp; Webb, 2022</a>), which is why <code>decon_connectivity_repair()</code> uses HKSJ <span class="math inline">\(t\)</span>-intervals over participant slopes rather than normal row or unadjusted cluster <span class="math inline">\(z\)</span>-intervals.</li>
+<li><strong>Why <code>shared_error = "auto"</code> is essential (never strip cross-parcel noise metadata):</strong> In <a href="#fig-bias" class="quarto-xref">Figure&nbsp;<span>15.1</span></a> (<code>Shared / serial Gaussian</code> and <code>t5</code>), subtracting seed variance <em>without</em> subtracting shared seed–target error covariance (<code>No shared error</code> and <code>Diagonal moments</code>) severely over-estimates main connectivity, and under <code>Null serial + shared</code> falsely rejects the null in <strong>95.0%</strong> of cohorts—compared with <strong>5.0%</strong> once <span class="math inline">\(\Omega_{ST}\)</span> is subtracted. Always pass the <code>subject_epochs</code> list (or <code>.rds</code>/Parquet panels retaining <code>shared_noise_loading</code>) into <code>decon_connectivity_repair()</code>.</li>
+<li><strong>Why <code>decon_connectivity_repair()</code> pools participant slopes with HKSJ <span class="math inline">\(t\)</span>-intervals:</strong> In <a href="#fig-coverage" class="quarto-xref">Figure&nbsp;<span>15.2</span></a>, treating correlated trials as independent rows (<code>Full + row SE</code>) drops connectivity coverage to <strong>86.0%</strong>, while participant-cluster SEs restore <strong>94.8%</strong> at <span class="math inline">\(S = 60\)</span>—yet asymptotic normal cluster <span class="math inline">\(z\)</span>-intervals still drop to <strong>91.8%</strong> at <span class="math inline">\(S = 12\)</span> (<a href="https://arxiv.org/html/2205.03285v1">MacKinnon, Nielsen &amp; Webb, 2022</a>). Fitting M-MOMS within each participant and pooling across participants via HKSJ <span class="math inline">\(t\)</span>-intervals anchors degrees of freedom to <span class="math inline">\(S - 1\)</span> even in modest neuroimaging cohorts.</li>
+<li><strong>Why seed and target smoothing policies should match (<span class="math inline">\(K_S \approx K_T\)</span>):</strong> Under <code>Different resolution</code>, variance disattenuation alone overshoots connectivity (0.767 vs.&nbsp;truth <code>0.550</code>), whereas inverting well-conditioned resolution operators (<code>Undo K + full</code>) restores <strong>0.551</strong>. In empirical studies, keep Step 2–3 regularization and demixing settings matched across seed and target parcels (<code>demix_target_trials = TRUE</code>, <code>use_whitened = FALSE</code>) and inspect <code>diagnose_crossrun_recovery()</code> self-gain in both regions before interpreting asymmetric seed–target slopes.</li>
 </ol>
 <details>
 <summary>
-Reproducibility and complete 74-row simulation table
+Complete 74-Row Benchmark Table &amp; Reproduction Scripts
 </summary>
-<p>Run from <code>medusa_connectivity_inference/</code>:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> likelihood_only_bridge.R .</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> joint_gaussian_demo.R .</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="va">MEDUSA_REPS</span><span class="op">=</span>400 <span class="ex">Rscript</span> connectivity_prototype.R .</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> prepare_figures.R .</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_connectivity_inference.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Companion research scripts in <code>book/medusa_connectivity_inference/</code> (<code>measurement_error_models.R</code>, <code>likelihood_only_bridge.R</code>, <code>joint_gaussian_demo.R</code>, <code>connectivity_prototype.R</code>) implement the exact full-matrix corrected-score and joint-Gaussian benchmarks above (refusing indefinite corrected information matrices rather than regularizing unidentified designs). To regenerate all outputs from <code>book/medusa_connectivity_inference/</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> likelihood_only_bridge.R .</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> joint_gaussian_demo.R .</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="va">MEDUSA_REPS</span><span class="op">=</span>400 <span class="ex">Rscript</span> connectivity_prototype.R .</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> prepare_figures.R .</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_connectivity_inference.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell">
-<details class="code-fold">
-<summary>Show supporting code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  s[, <span class="fu">c</span>(<span class="st">"scenario"</span>, <span class="st">"G"</span>, <span class="st">"method"</span>, <span class="st">"term"</span>, <span class="st">"attempts"</span>, <span class="st">"usable"</span>, <span class="st">"failures"</span>, <span class="st">"mean"</span>, <span class="st">"bias"</span>, <span class="st">"mean_se"</span>, <span class="st">"coverage"</span>, <span class="st">"rejection"</span>)],</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">3</span>,</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"Complete conditional simulation results across all 74 scenario/method/term combinations."</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</details>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
-<caption>Complete conditional simulation results across all 74 scenario/method/term combinations.</caption>
+<caption>Complete conditional simulation results across all 74 scenario, estimator, and term combinations.</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;">scenario</th>
@@ -2182,13 +2156,13 @@ Reproducibility and complete 74-row simulation table
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="../medusa_standard_errors_mmom.html" class="pagination-link" aria-label="From BOLD Noise to M-MOM Error Variances">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></span>
+      <a href="../medusa_multilag_calibration/medusa_multilag_calibration.html" class="pagination-link" aria-label="Simultaneous Bands and Familywise Calibration Across Lags">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../evidence.html" class="pagination-link" aria-label="Validation and the Limits of the Evidence">
-        <span class="nav-page-text"><span class="chapter-title">Validation and the Limits of the Evidence</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../evidence.html" class="pagination-link" aria-label="What Validation Proves—and Building Study-Specific Checks">
+        <span class="nav-page-text"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

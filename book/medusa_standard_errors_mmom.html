@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>From BOLD Noise to M-MOM Error Variances – MEDuSA</title>
+<title>Propagating BOLD Noise into Trial Standard Errors – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -71,8 +71,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./medusa_connectivity_inference/medusa_connectivity_inference.html" rel="next">
-<link href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" rel="prev">
+<link href="./medusa_multilag_calibration/medusa_multilag_calibration.html" rel="next">
+<link href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -262,32 +262,32 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Methodological deep dives</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
+  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
+  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
+  <a href="./medusa_multilag_calibration/medusa_multilag_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
+  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
+  <a href="./evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a>
   </div>
 </li>
       </ul>
@@ -315,26 +315,28 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#estimate-the-bold-noise" id="toc-estimate-the-bold-noise" class="nav-link active" data-scroll-target="#estimate-the-bold-noise">1. Estimate the BOLD noise</a></li>
-  <li><a href="#propagate-noise-through-the-linear-inverse-and-epoch-operators" id="toc-propagate-noise-through-the-linear-inverse-and-epoch-operators" class="nav-link" data-scroll-target="#propagate-noise-through-the-linear-inverse-and-epoch-operators">2. Propagate noise through the linear inverse and epoch operators</a>
+  <li><a href="#overview-what-exactly-does-se_demixed-measure" id="toc-overview-what-exactly-does-se_demixed-measure" class="nav-link active" data-scroll-target="#overview-what-exactly-does-se_demixed-measure">Overview: What Exactly Does <code>se_demixed</code> Measure?</a></li>
+  <li><a href="#anchor-run-level-observation-noise-scale-prior-to-trial-regression" id="toc-anchor-run-level-observation-noise-scale-prior-to-trial-regression" class="nav-link" data-scroll-target="#anchor-run-level-observation-noise-scale-prior-to-trial-regression">1. Anchor Run-Level Observation Noise Scale Prior to Trial Regression</a></li>
+  <li><a href="#propagate-covariance-through-deconvolution-demixing-and-run-centering" id="toc-propagate-covariance-through-deconvolution-demixing-and-run-centering" class="nav-link" data-scroll-target="#propagate-covariance-through-deconvolution-demixing-and-run-centering">2. Propagate Covariance Through Deconvolution, Demixing, and Run-Centering</a>
   <ul class="collapse">
-  <li><a href="#keep-units-and-spatial-aggregation-consistent" id="toc-keep-units-and-spatial-aggregation-consistent" class="nav-link" data-scroll-target="#keep-units-and-spatial-aggregation-consistent">Keep units and spatial aggregation consistent</a></li>
+  <li><a href="#why-run-centering-introduces-1---1m-1" id="toc-why-run-centering-introduces-1---1m-1" class="nav-link" data-scroll-target="#why-run-centering-introduces-1---1m-1">Why run-centering introduces <span class="math inline">\((1 - 1/m)^{-1}\)</span></a></li>
+  <li><a href="#preserving-scale-equivalence-and-spatial-parcel-correlations" id="toc-preserving-scale-equivalence-and-spatial-parcel-correlations" class="nav-link" data-scroll-target="#preserving-scale-equivalence-and-spatial-parcel-correlations">Preserving scale equivalence and spatial parcel correlations</a></li>
   </ul></li>
-  <li><a href="#supply-measurement-error-moments-to-m-mom" id="toc-supply-measurement-error-moments-to-m-mom" class="nav-link" data-scroll-target="#supply-measurement-error-moments-to-m-mom">3. Supply measurement-error moments to M-MOM</a>
+  <li><a href="#matching-exported-variance-quantities-to-downstream-models" id="toc-matching-exported-variance-quantities-to-downstream-models" class="nav-link" data-scroll-target="#matching-exported-variance-quantities-to-downstream-models">3. Matching Exported Variance Quantities to Downstream Models</a>
   <ul class="collapse">
-  <li><a href="#minimal-applied-interface-medusa_fit_mmom" id="toc-minimal-applied-interface-medusa_fit_mmom" class="nav-link" data-scroll-target="#minimal-applied-interface-medusa_fit_mmom">Minimal applied interface (<code>medusa_fit_mmom()</code>)</a></li>
+  <li><a href="#constructing-psi_i-and-calling-medusa_fit_mmom-directly-for-behavior-neural" id="toc-constructing-psi_i-and-calling-medusa_fit_mmom-directly-for-behavior-neural" class="nav-link" data-scroll-target="#constructing-psi_i-and-calling-medusa_fit_mmom-directly-for-behavior-neural">Constructing <span class="math inline">\(\Psi_i\)</span> and calling <code>medusa_fit_mmom()</code> directly for <code>Behavior ~ Neural</code></a></li>
   </ul></li>
-  <li><a href="#distributional-assumptions-and-scope-conditions" id="toc-distributional-assumptions-and-scope-conditions" class="nav-link" data-scroll-target="#distributional-assumptions-and-scope-conditions">4. Distributional assumptions and scope conditions</a></li>
+  <li><a href="#scope-conditions-and-what-se_demixed-does-not-capture" id="toc-scope-conditions-and-what-se_demixed-does-not-capture" class="nav-link" data-scroll-target="#scope-conditions-and-what-se_demixed-does-not-capture">4. Scope Conditions and What <code>se_demixed</code> Does Not Capture</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></h1>
-<p class="subtitle lead">Propagating run-level AR(p) observation noise into trial standard errors and predictor error blocks</p>
+<h1 class="title"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></h1>
+<p class="subtitle lead">How run-level serial covariance travels through deconvolution, epoch demixing, and run-centering into M-MOMS error blocks</p>
 </div>
 
 
@@ -351,132 +353,180 @@ window.Quarto = {
 </header>
 
 
-<p>MEDuSA estimates how much observation noise enters <strong>each recovered trial activity estimate</strong>. When deconvolved neural activity becomes a predictor in Step 6 (<code>Target ~ Seed * Task</code> or <code>Behavior ~ Neural</code>), Method-of-Moments measurement-error correction (<code>medusa_fit_mmom()</code> / <code>decon_connectivity_repair()</code>) needs its <strong>measurement-error variance</strong>, typically <code>se_demixed^2</code>, expressed in the exact same units as the predictor. This trial-level measurement variance is distinct from the standard error of a fitted group regression coefficient.</p>
+<section id="overview-what-exactly-does-se_demixed-measure" class="level2">
+<h2 class="anchored" data-anchor-id="overview-what-exactly-does-se_demixed-measure">Overview: What Exactly Does <code>se_demixed</code> Measure?</h2>
+<p>When analysts inspect a Step 3 or Step 4 output panel (<code>epochs$panel</code>), every trial-by-parcel-by-lag row carries both a de-mixed neural estimate (<code>decon_demixed</code>) and an analytical standard error (<code>se_demixed</code>). Before using these quantities in multilevel outcome models (<a href="./medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a>) or measurement-error-corrected connectivity models (<a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>), a foundational question arises:</p>
+<p><em>How do we get an individual standard error for a single trial when that trial was never repeated—and how does <code>se_demixed</code> differ from a mixed-model slope SE or an Empirical-Bayes posterior SD?</em></p>
+<p>In MEDuSA, <code>se_demixed</code> is the <strong>conditional measurement-error standard deviation</strong> of the linear estimator that maps a noisy BOLD run vector <span class="math inline">\(y_r\)</span> onto trial <span class="math inline">\(i\)</span>’s de-mixed readout <span class="math inline">\(\widehat{z}_{ri} = \theta_{ri} + e_{ri}\)</span>. Because continuous deconvolution (<span class="math inline">\(D_r\)</span>), collateral event subtraction, target-trial demixing, and within-run centering compose into one explicit linear operator <span class="math inline">\(B_{r,\tau}\)</span>, any stationary observation noise covariance <span class="math inline">\(\operatorname{Cov}(\varepsilon_r) = \sigma_{\text{obs}}^2 \Sigma_{\text{cor}}\)</span> propagates algebraically from acquisition frames to trials:</p>
 <p><span class="math display">\[
-\underbrace{\widehat{\operatorname{Cov}}(\varepsilon_r)}_{\text{BOLD noise (Step 1)}}
+\underbrace{\sigma_{\text{obs}}^2 \Sigma_{\text{cor}}}_{\text{Run BOLD noise (Steps 1–2)}}
 \ \longrightarrow\
-\underbrace{\widehat\Omega_{r,\tau}}_{\text{trial error covariance (Steps 3–4)}}
+\underbrace{\widehat{\Omega}_{r,\tau} = \operatorname{Cov}(e_{r,\tau} \mid B_{r,\tau})}_{\text{Centered trial error covariance (Steps 3–4)}}
 \ \longrightarrow\
-\underbrace{s_{ri}=\sqrt{[\widehat\Omega_{r,\tau}]_{ii}}}_{\text{trial SE (`se_demixed`)}}
+\underbrace{s_{ri} = \sqrt{[\widehat{\Omega}_{r,\tau}]_{ii}}}_{\text{`se_demixed`}}
 \ \longrightarrow\
-\underbrace{\Psi_i}_{\text{M-MOM error block (Step 6)}}.
+\underbrace{\Psi_i(s_{S,i}^2),\; c_i}_{\text{M-MOMS error moments (Step 6)}}.
 \]</span></p>
-<section id="estimate-the-bold-noise" class="level2">
-<h2 class="anchored" data-anchor-id="estimate-the-bold-noise">1. Estimate the BOLD noise</h2>
-<p>For one run <span class="math inline">\(r\)</span> and voxel, write <span class="math inline">\(y_r = H_r a_r + Z_r\gamma_r + \varepsilon_r\)</span>, with</p>
-<p><span class="math display">\[
-\operatorname{Cov}(\varepsilon_r) = \sigma_{\rm obs}^2 \Sigma_{\rm cor}.
-\]</span></p>
-<p>Here <span class="math inline">\(H\)</span> applies the selected HRF and <span class="math inline">\(Z\)</span> contains nuisance terms. Step 1’s pooled AR(1) profile REML and shrunk residual AR(<span class="math inline">\(q\)</span>) correction define a cascaded AR(<span class="math inline">\(p\)</span>) temporal correlation model <span class="math inline">\(\Sigma_{\rm cor}\)</span> (evaluated at the exact retained acquisition indices <span class="math inline">\(\Gamma_N[\text{rows}, \text{rows}]\)</span> when frames are censored). The amplitude <span class="math inline">\(\sigma_{\rm obs}\)</span> is the <strong>marginal observation-noise SD</strong>, not the white-noise innovation SD.</p>
-<p>In <code>deconvolve_crossrun_hrf(..., scaling = "noise_sd")</code>, MEDuSA estimates <span class="math inline">\(\sigma_{\rm obs}\)</span> primarily from outlier-trimmed, leverage-adjusted task-free GLS residuals (Winsorized GLS residuals) after conditioning on Step 1’s cross-fitted HRF and post-selection AR(<span class="math inline">\(p\)</span>) correlation model, converting white-noise innovation scale to stationary marginal observation scale. As a standalone estimator for single-run <code>deconvolve_reglin()</code>, omitted-event safeguard, and low-degrees-of-freedom fallback, MEDuSA estimates marginal noise amplitude from second differences <span class="math inline">\(d_t = y_t - 2y_{t-1} + y_{t-2}\)</span>, which suppress smooth BOLD signal (combining sample SD with outlier-resistant median absolute deviation, <span class="math inline">\(\operatorname{MAD}_0\)</span>):</p>
-<p><span class="math display">\[
-\widehat\sigma_{\rm obs}
-=\frac{0.5\,\operatorname{SD}(d)+0.5\,\operatorname{MAD}_0(d)}
-       {\sqrt{6-8\widehat r_1+2\widehat r_2}}.
-\]</span></p>
-<p>The normal-consistent MAD is centered at zero, and the denominator adjusts analytically for lag-1 and lag-2 autocorrelation. Crucially, BOLD noise is estimated prior to downstream behavioral or connectivity regressions.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Core Methodological Question &amp; Connection to the Pipeline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><em>Why does Step 5 weight outcomes by <span class="math inline">\((\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span> (<code>precision_weight_cohort</code>), whereas Step 6 subtracts pure measurement variance <span class="math inline">\(s_{S,i}^2\)</span> (<code>se_demixed^2</code>) inside <span class="math inline">\(\Psi_i\)</span>—and why does run-centering introduce a <span class="math inline">\((1 - 1/m)^{-1}\)</span> finite-sample factor?</em></p>
+<p>This chapter traces the exact variance-propagation chain connecting <a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html"><strong>Steps 1–2</strong></a>, <a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><strong>Steps 3–4</strong></a>, and <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html"><strong>Step 6 (<code>decon_connectivity_repair()</code> / <code>medusa_fit_mmom()</code>)</strong></a>.</p>
+</div>
+</div>
+<hr>
 </section>
-<section id="propagate-noise-through-the-linear-inverse-and-epoch-operators" class="level2">
-<h2 class="anchored" data-anchor-id="propagate-noise-through-the-linear-inverse-and-epoch-operators">2. Propagate noise through the linear inverse and epoch operators</h2>
-<p>With HRF, regularization penalty, frame weights, nuisance projection, and noise parameters held fixed, deconvolution is a linear map <span class="math inline">\(\widehat{a}_r = D_r \tilde{y}_{r,o}\)</span>. Event interpolation, gain restoration, and Step 3’s cross-event and within-trial demixing combine with <span class="math inline">\(D_r\)</span> into a composite linear trial-readout operator <span class="math inline">\(B_{r,\tau}\)</span>. Therefore, conditional on the learned operators,</p>
+<section id="anchor-run-level-observation-noise-scale-prior-to-trial-regression" class="level2">
+<h2 class="anchored" data-anchor-id="anchor-run-level-observation-noise-scale-prior-to-trial-regression">1. Anchor Run-Level Observation Noise Scale Prior to Trial Regression</h2>
+<p>For run <span class="math inline">\(r\)</span> and a single voxel (or parcel stratum), recall the linear neurovascular forward model on retained acquisition frames:</p>
 <p><span class="math display">\[
-\Omega_{r,\tau,\rm raw}
-=\sigma_{\rm eff}^2\,\widetilde B_{r,\tau}\Sigma_{\rm cor}\widetilde B_{r,\tau}^\top,
+y_r = H_r a_r + Z_r \gamma_r + \varepsilon_r,
+\qquad \operatorname{Cov}(\varepsilon_r) = \sigma_{\text{obs}}^2 \Sigma_{\text{cor}},
 \]</span></p>
-<p>where <span class="math inline">\(\widetilde B_{r,\tau}\)</span> incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (<code>worked/mmom-check.R</code>), MEDuSA’s operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to <strong>1.11e-16</strong>.</p>
-<p><strong>Run-centered finite-sample calibration.</strong> Because downstream within-run regressions center trial series within each run, <code>decon_epoch_regression()</code> centers the propagated <span class="math inline">\(m \times m\)</span> trial error covariance (<span class="math inline">\(m &gt; 1\)</span> valid trials) and applies a finite-sample degrees-of-freedom factor <span class="math inline">\((1 - 1/m)^{-1}\)</span> (analogous to Bessel’s sample-variance correction):</p>
+<p>where <span class="math inline">\(H_r\)</span> is causal Toeplitz convolution with the cross-fitted HRF, <span class="math inline">\(Z_r\)</span> collects low-frequency drift and nuisance covariates, <span class="math inline">\(\Sigma_{\text{cor}}\)</span> is the unit-diagonal temporal correlation matrix from Step 1’s two-pass REML <span class="math inline">\(\text{AR}(p)\)</span> cascade (restricted to unmasked acquisition timestamps <span class="math inline">\(\Sigma_{\text{AR}}[I_r, I_r]\)</span> whenever motion scrubbing creates gaps), and <span class="math inline">\(\sigma_{\text{obs}}\)</span> is the <strong>marginal observation-noise standard deviation</strong> (not the white-noise innovation SD).</p>
+<p>Estimating <span class="math inline">\(\sigma_{\text{obs}}\)</span> accurately requires shielding the scale estimator from true task-evoked BOLD deflections and isolated motion glitches:</p>
+<ul>
+<li><strong>Primary cross-run estimator (<code>deconvolve_crossrun_hrf(..., scaling = "noise_sd")</code>):</strong> Conditions on Step 1’s cross-fitted HRF and Pass-2 <span class="math inline">\(\text{AR}(p)\)</span> correlation matrix, projects out the event and nuisance subspace in whitened coordinates, computes outlier-trimmed (Winsorized), leverage-standardized GLS innovation scale, and converts innovation scale analytically into stationary marginal observation SD <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span>.</li>
+<li><strong>Standalone single-run and omitted-event safeguard (<code>deconvolve_reglin()</code>):</strong> When cross-run event designs are unavailable or degrees of freedom are low, MEDuSA estimates marginal noise SD from second differences <span class="math inline">\(d_t = y_t - 2y_{t-1} + y_{t-2}\)</span>, which annihilate smooth hemodynamic trends while combining sample SD with zero-centered median absolute deviation (<span class="math inline">\(\operatorname{MAD}_0\)</span>), normalized analytically by lag-1 and lag-2 autocorrelations <span class="math inline">\((\widehat{r}_1, \widehat{r}_2)\)</span>:</li>
+</ul>
 <p><span class="math display">\[
-Q_m = I_m - \frac{\mathbf1\mathbf1^\top}{m},\qquad
-\widehat\Omega_{r,\tau} = \frac{Q_m\Omega_{r,\tau,\rm raw}Q_m}{1-1/m},
-\]</span> <span class="math display">\[
-\boxed{\texttt{se\_demixed}_{ri} = \sqrt{\max(0, [\widehat\Omega_{r,\tau}]_{ii})}}.
+\widehat{\sigma}_{\text{obs}}
+= \frac{0.5\,\operatorname{SD}(d) + 0.5\,\operatorname{MAD}_0(d)}
+       {\sqrt{6 - 8\widehat{r}_1 + 2\widehat{r}_2}}.
 \]</span></p>
-<p>Thus <code>se_demixed</code> represents a <strong>run-centered, finite-sample-calibrated trial measurement SE</strong>. The full off-diagonal <span class="math inline">\(\widehat\Omega_{r,\tau}\)</span> is used internally for biological variance estimation (<code>tau2_bio</code>) and optional ZCA panel whitening, while the panel exports diagonal <code>se_demixed</code> and adjacent-trial error autocorrelation <code>error_ac1</code>.</p>
-<section id="keep-units-and-spatial-aggregation-consistent" class="level3">
-<h3 class="anchored" data-anchor-id="keep-units-and-spatial-aggregation-consistent">Keep units and spatial aggregation consistent</h3>
-<p>If <span class="math inline">\(d\)</span> is the Step 2 scaling divisor, <code>restore_scale = FALSE</code> uses <span class="math inline">\(\sigma_{\rm eff} = \widehat\sigma_{\rm obs} / d\)</span>, whereas <code>restore_scale = TRUE</code> restores <span class="math inline">\(\sigma_{\rm eff} = \widehat\sigma_{\rm obs}\)</span> so activity and <code>se_demixed</code> scale together. Rescaling a predictor by <span class="math inline">\(c\)</span> requires rescaling its SE by <span class="math inline">\(|c|\)</span> and its error variance by <span class="math inline">\(c^2\)</span>.</p>
-<p>In Step 4, parcel aggregation forms precision-weighted parcel series using task-free Step 2 whitened <code>noise_innovations</code> to estimate both within-parcel spatial noise covariance (propagated through exact operator strata) and low-rank cross-parcel <code>shared_noise_loading</code> vectors that survive <code>rbindlist()</code> stacking.</p>
+<p>Crucially, both estimators determine <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span> <em>before</em> any behavioral covariate or seed-parcel connectivity hypothesis is tested, avoiding circular variance tuning.</p>
+<hr>
+</section>
+<section id="propagate-covariance-through-deconvolution-demixing-and-run-centering" class="level2">
+<h2 class="anchored" data-anchor-id="propagate-covariance-through-deconvolution-demixing-and-run-centering">2. Propagate Covariance Through Deconvolution, Demixing, and Run-Centering</h2>
+<p>Conditioning on the learned HRF, smoothness penalty <span class="math inline">\(\lambda_v\)</span>, adaptive frame weights, nuisance projection, and <span class="math inline">\(\text{AR}(p)\)</span> parameters, Step 2 deconvolution is an explicit linear map <span class="math inline">\(\widehat{a}_r = D_r \tilde{y}_{r,o}\)</span>. In Step 3 (<code>decon_epoch_regression()</code>), local kernel readout <span class="math inline">\(S_\tau\)</span>, non-target event subtraction, ridge-stabilized target-trial demixing <span class="math inline">\(W_\tau\)</span>, and diagonal gain restoration <span class="math inline">\(\tilde{G}_\tau\)</span> compose with <span class="math inline">\(D_r\)</span> into the run’s trial-readout operator <span class="math inline">\(B_{r,\tau}\)</span>. Applying the linear covariance law <span class="math inline">\(\operatorname{Cov}(Ay) = A\operatorname{Cov}(y)A^\top\)</span> gives the uncentered <span class="math inline">\(m \times m\)</span> trial error covariance across the <span class="math inline">\(m\)</span> valid target trials of run <span class="math inline">\(r\)</span>:</p>
+<p><span class="math display">\[
+\Omega_{r,\tau,\text{raw}}
+= \sigma_{\text{eff}}^2 \, \widetilde{B}_{r,\tau} \Sigma_{\text{cor}} \widetilde{B}_{r,\tau}^\top,
+\]</span></p>
+<p>where <span class="math inline">\(\widetilde{B}_{r,\tau}\)</span> absorbs input run-centering and whitened nuisance projections. In our independent algebraic audit (<code>worked/mmom-check.R</code>), MEDuSA’s factored cascade propagation matches brute-force dense <span class="math inline">\(\text{AR}(3)\)</span> Toeplitz matrix multiplication to <strong>1.11e-16</strong>.</p>
+<section id="why-run-centering-introduces-1---1m-1" class="level3">
+<h3 class="anchored" data-anchor-id="why-run-centering-introduces-1---1m-1">Why run-centering introduces <span class="math inline">\((1 - 1/m)^{-1}\)</span></h3>
+<p>Because BOLD runs lack an absolute baseline unit across scanner acquisitions, within-run trial regressions center trial vectors within each run using <span class="math inline">\(Q_m = I_m - \frac{1}{m}\mathbf{1}_m\mathbf{1}_m^\top\)</span>. Centering <span class="math inline">\(m\)</span> noisy trial estimates subtracts the sample mean error <span class="math inline">\(\bar{e}_r = \frac{1}{m}\sum_{j=1}^m e_{rj}\)</span> from every trial. Even if uncentered errors had variance <span class="math inline">\(\sigma^2\)</span>, the expected squared centered error is <span class="math inline">\(\mathbb{E}[(e_{ri} - \bar{e}_r)^2] = \sigma^2(1 - 1/m)\)</span>, so sample inner products over centered trials lose one degree of freedom per run (just like Bessel’s <span class="math inline">\(n/(n-1)\)</span> sample-variance correction). Dividing by <span class="math inline">\(1 - 1/m\)</span> calibrates the centered covariance matrix so <span class="math inline">\(\sum_{i=1}^m [\widehat{\Omega}_{r,\tau}]_{ii}\)</span> is an unbiased estimator of expected centered error sum of squares <span class="math inline">\(\mathbb{E}[\|Q_m e_r\|_2^2]\)</span> in Step 6 normal equations:</p>
+<p><span class="math display">\[
+Q_m = I_m - \frac{\mathbf{1}_m\mathbf{1}_m^\top}{m},
+\qquad
+\widehat{\Omega}_{r,\tau} = \frac{Q_m \Omega_{r,\tau,\text{raw}} Q_m}{1 - 1/m},
+\qquad
+\boxed{\texttt{se\_demixed}_{ri} = \sqrt{\max\!\bigl(0,\, [\widehat{\Omega}_{r,\tau}]_{ii}\bigr)}}.
+\]</span></p>
+<p>Why do individual trials within the same run have <em>different</em> values of <code>se_demixed</code>? Three geometric factors enter <span class="math inline">\([\widehat{\Omega}_{r,\tau}]_{ii}\)</span>:</p>
+<ol type="1">
+<li><strong>Temporal crowding:</strong> Closely spaced trials require stronger off-diagonal demixing weights in <span class="math inline">\(W_\tau\)</span>, amplifying propagated variance relative to well-isolated trials.</li>
+<li><strong>Motion-scrubbing shadows:</strong> Censored frames inside a trial’s causal HRF window reduce effective BOLD observations supporting that event, selectively elevating its diagonal entry (see <a href="./medusa_qc_gallery/medusa_qc_gallery.html#sec-qc-step34">Pair 3 in the Visual QC Gallery</a>).</li>
+<li><strong>Run boundaries:</strong> Trials near scanner shutoff lose late HRF tail samples, increasing uncertainty smoothly before extreme truncation triggers <code>min_bold_coverage</code> <code>NA</code> gating.</li>
+</ol>
+</section>
+<section id="preserving-scale-equivalence-and-spatial-parcel-correlations" class="level3">
+<h3 class="anchored" data-anchor-id="preserving-scale-equivalence-and-spatial-parcel-correlations">Preserving scale equivalence and spatial parcel correlations</h3>
+<p>When Step 2 standardizes series by <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span> (<code>scaling = "noise_sd"</code>), setting <strong><code>restore_scale = TRUE</code></strong> in Step 3 multiplies both <code>decon_demixed</code> and <code>se_demixed</code> back by <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span> so every run of a parcel shares physical BOLD units. More generally, rescaling any neural variable by a constant <span class="math inline">\(c\)</span> rescales its SE by <span class="math inline">\(|c|\)</span> and its error variance by <span class="math inline">\(c^2\)</span>.</p>
+<p>When voxels are aggregated into anatomical parcels in Step 4 (<code>parcel_groups</code>), summing voxel variances naively would underestimate parcel noise because neighboring voxels share physiological and thermal fluctuations. MEDuSA instead propagates Step 2’s task-free whitened <code>noise_innovations</code> through each voxel’s operator stratum to compute exact spatial noise covariance within each parcel, while storing low-rank cross-parcel innovation vectors (<code>shared_noise_loading</code> and <code>unit_error_cor</code>) for Step 6.</p>
+<hr>
 </section>
 </section>
-<section id="supply-measurement-error-moments-to-m-mom" class="level2">
-<h2 class="anchored" data-anchor-id="supply-measurement-error-moments-to-m-mom">3. Supply measurement-error moments to M-MOM</h2>
-<p>For an observed de-mixed trial predictor <span class="math inline">\(\widehat{z}_{S,i} = \theta_{S,i} + u_i\)</span>, set <span class="math inline">\(\psi_i = \operatorname{Var}(u_i) = \texttt{se\_demixed}_{S,i}^2\)</span>. A single noisy neural predictor uses <span class="math inline">\(\Psi_i = [\psi_i]\)</span>. For a PPI design <span class="math inline">\((\widehat{z}_{S,i},\, x_i,\, \widehat{z}_{S,i} x_i)\)</span> with error-free modulator <span class="math inline">\(x_i\)</span>,</p>
-<p><span class="math display">\[
-\Psi_i = \psi_i
-\begin{bmatrix}
-1 &amp; 0 &amp; x_i\\
-0 &amp; 0 &amp; 0\\
-x_i &amp; 0 &amp; x_i^2
-\end{bmatrix}.
-\]</span></p>
+<section id="matching-exported-variance-quantities-to-downstream-models" class="level2">
+<h2 class="anchored" data-anchor-id="matching-exported-variance-quantities-to-downstream-models">3. Matching Exported Variance Quantities to Downstream Models</h2>
+<p>A frequent source of confusion in two-stage neuroimaging workflows is mixing up <strong>pure measurement-error variance</strong>, <strong>biological trial-to-trial variance</strong>, and <strong>composite total variance</strong>. <a href="#tbl-se-roles" class="quarto-xref">Table&nbsp;<span>13.1</span></a> maps each exported Step 4 panel field to its exact downstream role:</p>
+<div id="tbl-se-roles" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-se-roles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;13.1: Mapping exported Step 3–4 variance and weight columns to their structural role in Steps 5 and 6.
+</figcaption>
+<div aria-describedby="tbl-se-roles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th style="text-align: left;">Exported quantity</th>
-<th style="text-align: left;">Role in downstream modeling</th>
+<th style="text-align: left;">Exported field</th>
+<th style="text-align: left;">Mathematical definition</th>
+<th style="text-align: left;">Correct downstream role</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;"><code>se_demixed^2</code></td>
-<td style="text-align: left;">Predictor measurement-error variance (<span class="math inline">\(\psi_i\)</span>) for <code>decon_demixed</code> in M-MOM / M-MOMS</td>
+<td style="text-align: left;"><code>se_demixed^2</code> (<span class="math inline">\(s_{ri}^2\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\([\widehat{\Omega}_{r,\tau}]_{ii}\)</span>, pure conditional BOLD-noise variance on trial <span class="math inline">\(i\)</span></td>
+<td style="text-align: left;"><strong>Step 6 predictor error variance</strong> (<span class="math inline">\(\psi_i\)</span>) subtracted from <span class="math inline">\(X^\top X\)</span> in <code>decon_connectivity_repair()</code> / <code>medusa_fit_mmom()</code></td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><code>se_whitened^2</code></td>
-<td style="text-align: left;">Transformed trial error variance for <code>decon_demixed_whitened</code></td>
+<td style="text-align: left;"><code>tau2_bio</code> (<span class="math inline">\(\widehat{\tau}_{\text{bio}}^2\)</span>)</td>
+<td style="text-align: left;">Method-of-moments / Graph-EB estimate of true trial-to-trial neural variance <span class="math inline">\(\operatorname{Var}(\theta)\)</span></td>
+<td style="text-align: left;">Reliability diagnostics (<span class="math inline">\(\widehat{\tau}^2 / (\widehat{\tau}^2 + s_{ri}^2)\)</span>) and EB shrinkage (<code>decon_eb</code>); <strong>not</strong> measurement noise</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><code>precision_weight_cohort</code> (<span class="math inline">\(w_{ri}\)</span>)</td>
+<td style="text-align: left;">Normalized inverse <em>total</em> variance <span class="math inline">\(\propto (\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span></td>
+<td style="text-align: left;"><strong>Step 5 outcome weights</strong> in <code>mixed_by()</code> (never pass inverse weights where <code>err_x</code> expects variances)</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><code>shared_noise_loading</code> / <code>unit_error_cor</code></td>
-<td style="text-align: left;">Task-free cross-parcel noise innovation basis used by <code>shared_error = "auto"</code> to estimate <span class="math inline">\(\operatorname{Cov}(u_i, v_i)\)</span> (<code>err_xy</code>)</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><code>tau2_bio</code></td>
-<td style="text-align: left;">Estimated latent biological trial-to-trial variance (not measurement error)</td>
+<td style="text-align: left;">Task-free cross-parcel noise correlation basis (<span class="math inline">\(\widehat{r}_{ST}\)</span>)</td>
+<td style="text-align: left;"><strong>Step 6 shared-error moment</strong> <span class="math inline">\(c_i = \widehat{r}_{ST} s_{S,i} s_{T,i}\)</span> subtracted from <span class="math inline">\(X^\top Y\)</span> under <code>shared_error = "auto"</code></td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><code>precision_weight</code> / <code>precision_weight_cohort</code></td>
-<td style="text-align: left;">Inverse total trial variance <span class="math inline">\((\widehat\tau_{\rm eff}^2 + s_i^2)^{-1}\)</span> for Step 5 outcome weighting (never substitute for <span class="math inline">\(\Psi_i\)</span>)</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><code>fit$coefficients$se</code></td>
-<td style="text-align: left;">Standard error of an estimated M-MOM regression slope</td>
+<td style="text-align: left;"><code>se_whitened^2</code></td>
+<td style="text-align: left;">Transformed error variance of ZCA-decorrelated <code>decon_demixed_whitened</code></td>
+<td style="text-align: left;">Diagnostic variance of within-run whitened Step 5 series (<code>use_whitened = TRUE</code>)</td>
 </tr>
 </tbody>
 </table>
-<section id="minimal-applied-interface-medusa_fit_mmom" class="level3">
-<h3 class="anchored" data-anchor-id="minimal-applied-interface-medusa_fit_mmom">Minimal applied interface (<code>medusa_fit_mmom()</code>)</h3>
-<p>When <code>decon_connectivity_repair()</code> handles parcel-to-parcel connectivity and PPI automatically, it calls <code>medusa_fit_mmom()</code> under the hood. You can also call <code>medusa_fit_mmom()</code> directly when predicting a behavioral outcome (<code>rt</code>, choice log-odds score, pupillometry) from one or more deconvolved parcel readouts within a participant:</p>
+</div>
+</figure>
+</div>
+<section id="constructing-psi_i-and-calling-medusa_fit_mmom-directly-for-behavior-neural" class="level3">
+<h3 class="anchored" data-anchor-id="constructing-psi_i-and-calling-medusa_fit_mmom-directly-for-behavior-neural">Constructing <span class="math inline">\(\Psi_i\)</span> and calling <code>medusa_fit_mmom()</code> directly for <code>Behavior ~ Neural</code></h3>
+<p>When testing parcel-to-parcel connectivity or PPI (<code>Target ~ Seed * Task</code>), <code>decon_connectivity_repair()</code> builds the <span class="math inline">\(3 \times 3\)</span> trial error block <span class="math inline">\(\Psi_i\)</span> automatically:</p>
+<p><span class="math display">\[
+\Psi_i = s_{S,i}^2
+\begin{bmatrix}
+1 &amp; 0 &amp; x_i \\
+0 &amp; 0 &amp; 0 \\
+x_i &amp; 0 &amp; x_i^2
+\end{bmatrix},
+\]</span></p>
+<p>capturing both heteroskedastic interaction noise <span class="math inline">\(x_i^2 s_{S,i}^2\)</span> and the off-diagonal covariance <span class="math inline">\(x_i s_{S,i}^2\)</span> induced because <code>Seed</code> and <code>Seed:x</code> share the same noisy neural realization <span class="math inline">\(u_i\)</span>.</p>
+<p>What if your scientific question instead places deconvolved neural activity on the right-hand side to predict a <strong>trial-level behavioral outcome</strong>—such as log reaction time, continuous confidence ratings, or drift-diffusion boundary shifts (<code>Behavior ~ Neural + Task</code>)? Because behavioral outcomes do not carry fMRI scanner noise (<code>err_y = 0</code>, <code>err_xy = 0</code>), you can call <code>medusa_fit_mmom()</code> directly per participant using <code>se_demixed^2</code>:</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show supporting code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20261110</span>)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">300</span>L</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>latent <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>task <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="fl">0.3</span>, <span class="fl">0.7</span>)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">decon_demixed =</span> latent <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> se),</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">se_demixed =</span> se,</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">task =</span> task,</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">outcome =</span> <span class="fl">0.6</span> <span class="sc">*</span> latent <span class="sc">+</span> <span class="fl">0.25</span> <span class="sc">*</span> task <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.8</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>theta_neural <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>task_cov <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>se_trial <span class="ot">&lt;-</span> <span class="fu">runif</span>(n, <span class="fl">0.30</span>, <span class="fl">0.70</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>trial_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">decon_demixed =</span> theta_neural <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> se_trial),</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">se_demixed    =</span> se_trial,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">task          =</span> task_cov,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">rt_z          =</span> <span class="fl">0.60</span> <span class="sc">*</span> theta_neural <span class="sc">+</span> <span class="fl">0.25</span> <span class="sc">*</span> task_cov <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.80</span>)</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">all</span>(<span class="fu">is.finite</span>(<span class="fu">as.matrix</span>(d))), <span class="fu">all</span>(d<span class="sc">$</span>se_demixed <span class="sc">&gt;=</span> <span class="dv">0</span>))</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>X <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">neural =</span> d<span class="sc">$</span>decon_demixed, <span class="at">task =</span> d<span class="sc">$</span>task) <span class="co"># intercept handled internally</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>Psi <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="dv">0</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">ncol</span>(X), <span class="fu">ncol</span>(X), <span class="fu">nrow</span>(X)))</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>Psi[<span class="dv">1</span>, <span class="dv">1</span>, ] <span class="ot">&lt;-</span> d<span class="sc">$</span>se_demixed<span class="sc">^</span><span class="dv">2</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">medusa_fit_mmom</span>(</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">outcome =</span> d<span class="sc">$</span>outcome,</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">predictors =</span> X,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">err_x =</span> Psi,                 <span class="co"># q x q x N predictor error covariance blocks</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">err_y =</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="fu">nrow</span>(d)),     <span class="co"># outcome measurement error variance (0 for error-free behavior)</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">regularization =</span> <span class="st">"step_up"</span>   <span class="co"># M-MOMS positive-definiteness safeguard</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>coefficients</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>X <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">neural =</span> trial_df<span class="sc">$</span>decon_demixed, <span class="at">task =</span> trial_df<span class="sc">$</span>task)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Psi <span class="ot">&lt;-</span> <span class="fu">array</span>(<span class="dv">0</span>, <span class="at">dim =</span> <span class="fu">c</span>(<span class="fu">ncol</span>(X), <span class="fu">ncol</span>(X), <span class="fu">nrow</span>(X)))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>Psi[<span class="dv">1</span>, <span class="dv">1</span>, ] <span class="ot">&lt;-</span> trial_df<span class="sc">$</span>se_demixed<span class="sc">^</span><span class="dv">2</span>   <span class="co"># neural predictor error variance; task is error-free (0)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">medusa_fit_mmom</span>(</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">outcome        =</span> trial_df<span class="sc">$</span>rt_z,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">predictors     =</span> X,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">err_x          =</span> Psi,                <span class="co"># q x q x N predictor error covariance array</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">err_y          =</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="fu">nrow</span>(X)),    <span class="co"># error-free behavioral outcome</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">regularization =</span> <span class="st">"step_up"</span>           <span class="co"># M-MOMS conditioning protection</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>coefficients</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>         term   estimate         se     zstat         pval      ci_low
 1 (Intercept) 0.06486254 0.04730830  1.371060 1.703562e-01 -0.02786003
@@ -488,23 +538,23 @@ x_i &amp; 0 &amp; x_i^2
 3 0.2832399</code></pre>
 </div>
 </div>
-<p>If the outcome is another deconvolved brain parcel, pass its squared <code>se_demixed</code> in <code>err_y</code> and supply per-trial predictor–outcome error covariances in <code>err_xy</code> (automated by <code>decon_connectivity_repair(..., shared_error = "auto")</code>).</p>
+<p>Across multiple participants, pool each participant’s <code>fit$coefficients</code> slope and SE via <code>medusa_between_subject_repair()</code> so cohort <span class="math inline">\(p\)</span>-values and confidence intervals reflect participant-level replication (HKSJ <span class="math inline">\(t\)</span>-intervals).</p>
+<hr>
 </section>
 </section>
-<section id="distributional-assumptions-and-scope-conditions" class="level2">
-<h2 class="anchored" data-anchor-id="distributional-assumptions-and-scope-conditions">4. Distributional assumptions and scope conditions</h2>
+<section id="scope-conditions-and-what-se_demixed-does-not-capture" class="level2">
+<h2 class="anchored" data-anchor-id="scope-conditions-and-what-se_demixed-does-not-capture">4. Scope Conditions and What <code>se_demixed</code> Does Not Capture</h2>
 <ol type="1">
-<li><strong>Operator covariance propagation is distribution-free up to second moments:</strong> <span class="math inline">\(\operatorname{Cov}(B\varepsilon) = B\operatorname{Cov}(\varepsilon)B^\top\)</span> requires finite second moments and an accurate temporal/spatial noise correlation model, not Gaussianity—though Winsorized/MAD scale factors calibrate to Gaussian efficiency.</li>
-<li><strong>Single-subject M-MOM SEs are conditional model-based estimates:</strong> Within-subject SEs from <code>repair::fit_mmom()</code> / <code>medusa_fit_mmom()</code> use a normal-error variance formula conditional on first-stage error moments. Across multiple participants, <code>decon_connectivity_repair()</code> pools participant slopes using dispersion-scaled finite-sample random-effects <span class="math inline">\(t\)</span>-intervals (Hartung–Knapp–Sidik–Jonkman, HKSJ pooling) so group <span class="math inline">\(p\)</span>-values rely on between-participant replication rather than single-subject row independence.</li>
-<li><strong>Zero-mean measurement error vs.&nbsp;regularization bias:</strong> Propagating <code>se_demixed^2</code> quantifies observation-noise variance <span class="math inline">\(B_{r,\tau}\Sigma_r B_{r,\tau}^\top\)</span>, <strong>not</strong> residual resolution distortion <span class="math inline">\((K - I)\theta\)</span> from strong regularization or HRF mismatch. When seed and target parcels experience substantially different effective trial resolution (<span class="math inline">\(K_S \neq K_T\)</span>), disattenuating variance alone does not undo unequal resolution; see <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-Error Models and REPAIR</a> for resolution-aware extensions.</li>
+<li><strong>Distribution-free second moments vs.&nbsp;plug-in conditioning:</strong> Conditional on the linear operator <span class="math inline">\(B_{r,\tau}\)</span> and noise covariance <span class="math inline">\(\Sigma_r\)</span>, <span class="math inline">\(\operatorname{Cov}(B_{r,\tau}\varepsilon_r) = B_{r,\tau}\Sigma_r B_{r,\tau}^\top\)</span> holds for any zero-mean noise process with finite variance (Winsorized/MAD scale factors calibrate efficiency under Gaussian innovations). Like REPAIR (Vig &amp; Hallquist, 2026), downstream Step 5–6 estimators treat first-stage <code>se_demixed^2</code> as known plug-in variances and anchor group uncertainty to between-participant dispersion.</li>
+<li><strong>Observation noise vs.&nbsp;unequal source resolution:</strong> <code>se_demixed^2</code> measures random scatter <span class="math inline">\(B_{r,\tau}\Sigma_r B_{r,\tau}^\top\)</span> around <span class="math inline">\(\mathbb{E}[\widehat{z} \mid \theta] = K\theta\)</span>, <em>not</em> deterministic resolution mismatch <span class="math inline">\((K - I)\theta\)</span> when strong smoothing or severe HRF mis-specification leaves <span class="math inline">\(K_S \neq K_T\)</span>. How unequal resolution and cross-trial error correlations behave—and how extended measurement models address them—is examined in <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity Beyond Per-Trial Disattenuation</a>.</li>
 </ol>
 <details>
 <summary>
-Implementation locations and reproduction
+Implementation Pointers &amp; Numerical Verification
 </summary>
-<p>Core implementation files in <code>medusa</code>: - <code>R/crossrun_hrf.R</code> (<code>hrf_estimate_gls_noise_sd</code>, <code>hrf_ar_cascade_info</code>, <code>fit_crossrun_decon</code>) - <code>R/deconvolve_reglin.R</code> (<code>estimate_decon_noise_sd</code>, <code>deconvolve_reglin</code>) - <code>R/hrf_noise_evidence.R</code> (<code>hrf_inverse_operator</code>) - <code>R/diagnose_crossrun_recovery.R</code> (<code>compute_ar1_operator_cov</code>, <code>decon_epoch_regression</code>) - <code>R/medusa_connectivity.R</code> / <code>R/diagnose_crossrun_recovery.R</code> (<code>medusa_fit_mmom</code>, <code>decon_connectivity_repair</code>, <code>medusa_between_subject_repair</code>)</p>
-<p>To regenerate the numerical cascade covariance check (<code>worked/mmom-check.rds</code>):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> worked <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> mmom-check.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Core variance-propagation routines in <code>medusa</code>: - <code>R/crossrun_hrf.R</code> &amp; <code>R/deconvolve_reglin.R</code>: <code>hrf_estimate_gls_noise_sd()</code>, <code>hrf_ar_cascade_info()</code>, <code>estimate_decon_noise_sd()</code> - <code>R/hrf_noise_evidence.R</code>: <code>hrf_inverse_operator()</code> - <code>R/diagnose_crossrun_recovery.R</code>: <code>compute_ar1_operator_cov()</code>, <code>decon_epoch_regression()</code> - <code>R/medusa_connectivity.R</code>: <code>medusa_fit_mmom()</code>, <code>decon_connectivity_repair()</code>, <code>medusa_between_subject_repair()</code></p>
+<p>To re-run the numerical <span class="math inline">\(\text{AR}(3)\)</span> cascade covariance identity check (<code>worked/mmom-check.rds</code>):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> worked <span class="kw">&amp;&amp;</span> <span class="ex">Rscript</span> mmom-check.R<span class="kw">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 
 
@@ -989,13 +1039,13 @@ Implementation locations and reproduction
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html" class="pagination-link" aria-label="Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</span></span>
+      <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="pagination-link" aria-label="Autocorrelation Prewhitening Under Fast-TR Event Designs">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="pagination-link" aria-label="Measurement-Error Models and REPAIR">
-        <span class="nav-page-text"><span class="chapter-title">Measurement-Error Models and REPAIR</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./medusa_multilag_calibration/medusa_multilag_calibration.html" class="pagination-link" aria-label="Simultaneous Bands and Familywise Calibration Across Lags">
+        <span class="nav-page-text"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

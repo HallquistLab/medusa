@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Calibration of Multi-Lag Trajectory Inference – MEDuSA</title>
+<title>Simultaneous Bands and Familywise Calibration Across Lags – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -71,8 +71,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../">
-<link href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" rel="next">
-<link href="../evidence.html" rel="prev">
+<link href="../medusa_connectivity_inference/medusa_connectivity_inference.html" rel="next">
+<link href="../medusa_standard_errors_mmom.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../medusa_pr62_calibration/medusa_pr62_calibration.html"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="../medusa_multilag_calibration/medusa_multilag_calibration.html"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -262,32 +262,32 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Methodological deep dives</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
+  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
+  <a href="../medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
+  <a href="../medusa_multilag_calibration/medusa_multilag_calibration.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
+  <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
+  <a href="../evidence.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a>
   </div>
 </li>
       </ul>
@@ -315,23 +315,21 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#simulation-design" id="toc-simulation-design" class="nav-link active" data-scroll-target="#simulation-design">Simulation Design</a></li>
-  <li><a href="#calibration-scorecard" id="toc-calibration-scorecard" class="nav-link" data-scroll-target="#calibration-scorecard">Calibration Scorecard</a>
-  <ul class="collapse">
-  <li><a href="#key-findings-from-the-rejection-and-coverage-benchmarks" id="toc-key-findings-from-the-rejection-and-coverage-benchmarks" class="nav-link" data-scroll-target="#key-findings-from-the-rejection-and-coverage-benchmarks">Key findings from the rejection and coverage benchmarks</a></li>
-  </ul></li>
-  <li><a href="#practical-guidance-summary" id="toc-practical-guidance-summary" class="nav-link" data-scroll-target="#practical-guidance-summary">Practical Guidance Summary</a></li>
-  <li><a href="#reproduce-the-calibration-study" id="toc-reproduce-the-calibration-study" class="nav-link" data-scroll-target="#reproduce-the-calibration-study">Reproduce the Calibration Study</a></li>
+  <li><a href="#overview-two-distinct-multiplicity-familiesand-two-finite-sample-stressors" id="toc-overview-two-distinct-multiplicity-familiesand-two-finite-sample-stressors" class="nav-link active" data-scroll-target="#overview-two-distinct-multiplicity-familiesand-two-finite-sample-stressors">Overview: Two Distinct Multiplicity Families—and Two Finite-Sample Stressors</a></li>
+  <li><a href="#why-naive-trajectory-bands-undercoverand-how-medusa-repairs-them" id="toc-why-naive-trajectory-bands-undercoverand-how-medusa-repairs-them" class="nav-link" data-scroll-target="#why-naive-trajectory-bands-undercoverand-how-medusa-repairs-them">1. Why Naive Trajectory Bands Undercover—and How MEDuSA Repairs Them</a></li>
+  <li><a href="#stress-test-design-complete-vs.-serially-dependent-gapped-cohorts" id="toc-stress-test-design-complete-vs.-serially-dependent-gapped-cohorts" class="nav-link" data-scroll-target="#stress-test-design-complete-vs.-serially-dependent-gapped-cohorts">2. Stress-Test Design: Complete vs.&nbsp;Serially Dependent Gapped Cohorts</a></li>
+  <li><a href="#empirical-rejection-and-coverage-scorecard" id="toc-empirical-rejection-and-coverage-scorecard" class="nav-link" data-scroll-target="#empirical-rejection-and-coverage-scorecard">3. Empirical Rejection and Coverage Scorecard</a></li>
+  <li><a href="#implications-for-applied-medusa-analyses" id="toc-implications-for-applied-medusa-analyses" class="nav-link" data-scroll-target="#implications-for-applied-medusa-analyses">4. Implications for Applied MEDuSA Analyses</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="../medusa_pr62_calibration/medusa_pr62_calibration.html"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="../medusa_multilag_calibration/medusa_multilag_calibration.html"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></h1>
-<p class="subtitle lead">Empirical Type I error and simultaneous confidence-band coverage across complete and gapped cohorts</p>
+<h1 class="title"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></h1>
+<p class="subtitle lead">How multi-lag trajectory tests maintain Type I error and 95% coverage under serial trial dependence and censored edge lags</p>
 </div>
 
 
@@ -348,84 +346,119 @@ window.Quarto = {
 </header>
 
 
-<p><a href="../medusa_step5_group_models/medusa_step5_group_models.html#sec-multilag-infer">Step 5</a> introduced <code>medusa_multilag_infer()</code> for joint peri-event trajectory estimation, simultaneous confidence bands, 1D TFCE, epoch omnibus testing, and planned window contrasts. This chapter evaluates the empirical Type I error and 95% confidence-band coverage of <code>medusa::medusa_multilag_infer()</code> across <strong>180 independent synthetic cohorts per scenario</strong>, separating two distinct error-rate targets:</p>
+<section id="overview-two-distinct-multiplicity-familiesand-two-finite-sample-stressors" class="level2">
+<h2 class="anchored" data-anchor-id="overview-two-distinct-multiplicity-familiesand-two-finite-sample-stressors">Overview: Two Distinct Multiplicity Families—and Two Finite-Sample Stressors</h2>
+<p>When an investigator plots a peri-event neural regression curve across 6–12 lags in <a href="../medusa_step5_group_models/medusa_step5_group_models.html#sec-multilag-infer">Step 5 (<code>medusa_multilag_infer()</code>)</a>, reviewers routinely raise two sharp inferential questions:</p>
 <ol type="1">
-<li><strong>Within-trajectory familywise calibration:</strong> Controlling false positives and simultaneous band coverage across all lags of a single prespecified <code>(parcel, term)</code> trajectory.</li>
-<li><strong>Study-wide familywise calibration:</strong> Controlling false discoveries when an analyst tests multiple parcels (here, one active parcel and two null parcels) simultaneously.</li>
+<li><strong>Finite-sample and missing-edge calibration:</strong> In cohorts of <span class="math inline">\(S = 15\text{--}30\)</span> participants where trial residuals correlate serially within runs and several participants lose late epoch lags to motion scrubbing or run-end truncation, do simultaneous <code>Max-|T|</code> confidence bands, 1D threshold-free cluster enhancement (<code>1D TFCE</code>), and planned window contrasts actually achieve nominal 5% false-positive rates and 95% simultaneous coverage?</li>
+<li><strong>Trajectory-wide vs.&nbsp;study-wide multiplicity:</strong> If <code>p_maxT</code> and <code>p_tfce</code> already control familywise error across all lags of a trajectory, what additional adjustment is needed when testing dozens or hundreds of cortical parcels?</li>
 </ol>
-<section id="simulation-design" class="level2">
-<h2 class="anchored" data-anchor-id="simulation-design">Simulation Design</h2>
-<p>Each Monte Carlo replication simulates <strong>20 participants</strong>, <strong>2 runs</strong> per participant, <strong>6 peri-event lags</strong> (<code>0</code> to <code>5</code> s), <strong>1 active parcel</strong>, and <strong>2 null parcels</strong> (<code>Null A</code> and <code>Null B</code>):</p>
-<ul>
-<li><strong>Realistic heteroskedasticity and cross-lag/cross-parcel dependence:</strong> Inter-trial intervals jitter between 3 and 9 seconds; Run 2 has <span class="math inline">\(1.6\times\)</span> the residual SD of Run 1; residuals share common cross-parcel noise and positive cross-lag autocorrelation; and true participant slopes vary randomly around the population trajectory in every parcel.</li>
-<li><strong>Two benchmark regimes (<code>180</code> replications each):</strong>
-<ul>
-<li><strong><code>Complete / independent trials</code>:</strong> Complete lag support for all 20 participants and independent trial innovations within each run.</li>
-<li><strong><code>Gaps / serially dependent trials</code>:</strong> Adds serial autocorrelation in both behavioral predictor and neural trial residuals, drops random subsets of trials within runs, and <strong>censors the final edge lag entirely in 3 of the 20 participants</strong>. Under <code>medusa_multilag_infer()</code>’s available-case cross-lag pooling, all 20 participants are retained at supported lags (<code>0–4</code> s) while the 17 uncensored participants inform lag <code>5</code> s.</li>
-</ul></li>
-<li><strong>Inference settings:</strong> Each replication runs the panel pathway of <code>medusa_multilag_infer()</code> with <code>trajectory_mode = "none"</code>, <code>contrast_source = "unsmoothed"</code>, <code>799</code> finite-sample-calibrated cross-lag covariance draws per trajectory (studentized Wishart null draws), and a planned <code>late_minus_early</code> contrast (<code>[3, 4] s</code> minus <code>[0, 1] s</code>).</li>
-</ul>
-<p>Note what this benchmark isolates: it starts at the participant trial panel to test group pooling, available-case edge support, finite-sample cross-lag covariance calibration (Wishart draws), and study-wide Holm adjustment under known lag covariance and serial trial dependence. End-to-end HRF/deconvolution estimation is evaluated separately in the <a href="../library/medusa_validation_suite.html">14-study validation suite</a>.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Core Methodological Question &amp; Connection to the Pipeline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><em>How does <code>medusa_multilag_infer()</code> calibrate simultaneous bands across correlated lags with missing participant edges—and where does within-trajectory familywise control end and multi-parcel multiplicity begin?</em></p>
+<p>This chapter provides the mathematical mechanism and 180-cohort Monte Carlo stress benchmarks underlying <a href="../medusa_step5_group_models/medusa_step5_group_models.html#sec-multilag-infer"><strong>Step 5 Substeps 5.3–5.4 (<code>medusa_multilag_infer()</code>)</strong></a>.</p>
+</div>
+</div>
+<hr>
 </section>
-<section id="calibration-scorecard" class="level2">
-<h2 class="anchored" data-anchor-id="calibration-scorecard">Calibration Scorecard</h2>
+<section id="why-naive-trajectory-bands-undercoverand-how-medusa-repairs-them" class="level2">
+<h2 class="anchored" data-anchor-id="why-naive-trajectory-bands-undercoverand-how-medusa-repairs-them">1. Why Naive Trajectory Bands Undercover—and How MEDuSA Repairs Them</h2>
+<p>Suppose we estimate population regression slopes <span class="math inline">\(\widehat{\beta} = (\widehat{\beta}_1, \dots, \widehat{\beta}_L)^\top\)</span> across <span class="math inline">\(L\)</span> peri-event lags for a single <code>(parcel, term)</code> pair across <span class="math inline">\(S\)</span> participants. Even when true neural slopes are zero everywhere (<span class="math inline">\(\beta = 0\)</span>), adjacent lags share strong positive correlation from hemodynamic overlap and smooth underlying activity. Three statistical subtleties govern finite-sample calibration:</p>
+<ol type="1">
+<li><strong>Uncertainty in the <span class="math inline">\(L \times L\)</span> cross-lag covariance matrix:</strong> If we knew the exact population covariance <span class="math inline">\(V_\beta\)</span> of <span class="math inline">\(\widehat{\beta}\)</span>, simulating Gaussian draws <span class="math inline">\(z \sim \mathcal{N}(0, R_\beta)\)</span> would yield exact simultaneous critical values <span class="math inline">\(c_{0.95}\)</span> for <span class="math inline">\(\max_\ell |T_\ell|\)</span>. With <span class="math inline">\(S = 20\)</span> participants, however, <span class="math inline">\(\widehat{V}_\beta\)</span> is itself estimated with <span class="math inline">\(S - 1\)</span> degrees of freedom; plugging <span class="math inline">\(\widehat{V}_\beta\)</span> into Gaussian draws ignores denominator variance uncertainty and produces anti-conservative bands. <code>medusa_multilag_infer()</code> instead generates <strong>studentized Wishart null draws</strong> that account jointly for cross-lag correlation and finite-participant covariance uncertainty.</li>
+<li><strong>Available-case cross-lag pooling when edge lags drop out:</strong> In real task runs, final trials or motion-censored blocks occasionally leave a participant with zero valid observations at an outer lag (e.g., <code>+4 s</code>) while interior lags (<code>-1..3 s</code>) remain intact. Dropping the entire participant listwise wastes interior precision, whereas ignoring unequal sample sizes distorts cross-lag off-diagonals. <code>medusa_multilag_infer()</code> pools pairwise overlapping participant sets across lags with positive-semidefinite projection so interior lags retain all <span class="math inline">\(S\)</span> participants while edge lags reflect exact effective <span class="math inline">\(n_\ell\)</span>.</li>
+<li><strong>Evaluating planned window contrasts prior to P-spline smoothing (<code>contrast_source = "unsmoothed"</code>):</strong> Penalized splines borrow strength across neighboring lags to visualize smooth trajectories, which slightly shrinks sharp transitions between early and late windows. Computing linear contrast vectors <span class="math inline">\(w^\top \widehat{\beta}\)</span> and <span class="math inline">\(\sqrt{w^\top \widehat{V}_\beta w}\)</span> directly on the unsmoothed lag vector preserves unbiased window differences and exact <span class="math inline">\(t\)</span>-interval coverage.</li>
+</ol>
+<hr>
+</section>
+<section id="stress-test-design-complete-vs.-serially-dependent-gapped-cohorts" class="level2">
+<h2 class="anchored" data-anchor-id="stress-test-design-complete-vs.-serially-dependent-gapped-cohorts">2. Stress-Test Design: Complete vs.&nbsp;Serially Dependent Gapped Cohorts</h2>
+<p>To evaluate these mechanisms where their assumptions are actively stressed, each Monte Carlo replication simulates <strong><span class="math inline">\(S = 20\)</span> participants</strong>, <strong><span class="math inline">\(R = 2\)</span> runs</strong> per participant (<span class="math inline">\(20\)</span> trials/run, jittered <span class="math inline">\(3\text{--}9\text{ s}\)</span> ISIs), <strong><span class="math inline">\(L = 6\)</span> peri-event lags</strong> (<code>-1</code> to <code>4 s</code>), <strong>1 active parcel</strong> (<code>Signal</code>, true lag profile <code>(0, 0.06, 0.22, 0.26, 0.19, 0.08)</code>), and <strong>2 null parcels</strong> (<code>Null A</code> and <code>Null B</code>, true profile <code>0</code> at every lag):</p>
+<ul>
+<li><strong>Realistic heteroskedasticity and spatial/lag correlation:</strong> Run 2 carries <span class="math inline">\(1.6\times\)</span> the residual SD of Run 1 (<code>precision_weight</code> downweights Run 2 accordingly); residuals share cross-parcel noise (<span class="math inline">\(r = 0.55\)</span>) and Toeplitz cross-lag correlation (<span class="math inline">\(0.65^{|\ell - \ell'|}\)</span>); and every parcel includes true between-participant random slope heterogeneity (<span class="math inline">\(\text{SD} = 0.13\)</span>).</li>
+<li><strong>Two benchmark regimes (<code>180</code> independent cohorts each):</strong>
+<ul>
+<li><strong><code>Complete / independent trials</code>:</strong> Full lag support (<code>-1..4 s</code>) in all 20 participants with independent trial innovations within each run.</li>
+<li><strong><code>Gaps / serially dependent trials</code>:</strong> Introduces strong within-run <span class="math inline">\(\text{AR}(1)\)</span> serial autocorrelation in both behavioral predictors (<span class="math inline">\(\rho_x = 0.65\)</span>) and trial neural errors (<span class="math inline">\(\rho_e = 0.62\)</span>), censors interior trial bursts (<code>4</code> of <code>20</code> trials per run), and <strong>censors the final edge lag (<code>+4 s</code>) completely in 3 of the 20 participants</strong> (<code>17</code> participants at lag <code>+4 s</code>, <code>20</code> participants at lags <code>-1..3 s</code>).</li>
+</ul></li>
+<li><strong>Evaluated estimands:</strong> Each replicate runs <code>medusa_multilag_infer()</code> (<code>trajectory_mode = "none"</code>, <code>contrast_source = "unsmoothed"</code>, <code>n_perm = 799</code> studentized Wishart draws) and evaluates both single-trajectory error/coverage (<code>Null A</code> and <code>Signal</code>) and study-family error across all three parcels (<code>Signal</code>, <code>Null A</code>, <code>Null B</code>), alongside a planned <code>late_minus_early</code> contrast (<code>[3, 4] s</code> minus <code>[0, 1] s</code>, true difference <span class="math inline">\(+0.005\)</span>).</li>
+</ul>
+<p><em>(Note scope isolation: this benchmark begins at the participant panel to isolate cross-lag covariance estimation, available-case edge pooling, and multiplicity control under known lag structure; full BOLD-to-panel pipeline benchmarks are synthesized in <a href="../evidence.html">What Validation Proves</a>.)</em></p>
+<hr>
+</section>
+<section id="empirical-rejection-and-coverage-scorecard" class="level2">
+<h2 class="anchored" data-anchor-id="empirical-rejection-and-coverage-scorecard">3. Empirical Rejection and Coverage Scorecard</h2>
 <div class="cell">
+<div id="tbl-multilag-scorecard" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-multilag-scorecard-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;14.1: Empirical false-positive rates and simultaneous 95% interval coverage across 180 simulated cohorts per regime (parentheses show exact Clopper–Pearson 95% Monte Carlo intervals).
+</figcaption>
+<div aria-describedby="tbl-multilag-scorecard-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
-<table class="caption-top table table-sm table-striped small">
+<table class="cell caption-top table table-sm table-striped small">
 <thead>
 <tr class="header">
-<th style="text-align: left;">Outcome</th>
-<th style="text-align: left;">Target</th>
-<th style="text-align: left;">Complete</th>
-<th style="text-align: left;">Stressed</th>
+<th style="text-align: left;">Inferential Quantity</th>
+<th style="text-align: left;">Nominal Target</th>
+<th style="text-align: left;">Complete / Independent</th>
+<th style="text-align: left;">Gaps / Serial Dependence</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">Null trajectory, any Max-|T| lag</td>
-<td style="text-align: left;">5%</td>
+<td style="text-align: left;">Single trajectory (Null A): any Max-|T| lag p &lt;= .05</td>
+<td style="text-align: left;">5.0%</td>
 <td style="text-align: left;">3.9%<br><small>(1.6–7.8%)</small></td>
 <td style="text-align: left;">7.2%<br><small>(3.9–12.0%)</small></td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Null trajectory, any TFCE lag</td>
-<td style="text-align: left;">5%</td>
+<td style="text-align: left;">Single trajectory (Null A): any 1D TFCE lag p &lt;= .05</td>
+<td style="text-align: left;">5.0%</td>
 <td style="text-align: left;">5.0%<br><small>(2.3–9.3%)</small></td>
 <td style="text-align: left;">6.1%<br><small>(3.1–10.7%)</small></td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Null trajectory, omnibus</td>
-<td style="text-align: left;">5%</td>
+<td style="text-align: left;">Single trajectory (Null A): epoch omnibus p &lt;= .05</td>
+<td style="text-align: left;">5.0%</td>
 <td style="text-align: left;">2.8%<br><small>(0.9–6.4%)</small></td>
 <td style="text-align: left;">2.8%<br><small>(0.9–6.4%)</small></td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Null trajectory, raw band coverage</td>
-<td style="text-align: left;">95%</td>
-<td style="text-align: left;">96.1%<br><small>(92.2–98.4%)</small></td>
-<td style="text-align: left;">92.8%<br><small>(88.0–96.1%)</small></td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Active trajectory, raw band coverage</td>
-<td style="text-align: left;">95%</td>
-<td style="text-align: left;">95.0%<br><small>(90.7–97.7%)</small></td>
-<td style="text-align: left;">96.7%<br><small>(92.9–98.8%)</small></td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Study family (2 null parcels), unadjusted omnibus</td>
+<td style="text-align: left;">3-parcel study family (2 nulls): unadjusted omnibus</td>
 <td style="text-align: left;">—</td>
 <td style="text-align: left;">4.4%<br><small>(1.9–8.6%)</small></td>
 <td style="text-align: left;">3.9%<br><small>(1.6–7.8%)</small></td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Study family (3 parcels), Holm-adjusted omnibus</td>
-<td style="text-align: left;">5%</td>
+<td style="text-align: left;">3-parcel study family (3 parcels): Holm-adjusted omnibus</td>
+<td style="text-align: left;">5.0%</td>
 <td style="text-align: left;">1.7%<br><small>(0.3–4.8%)</small></td>
 <td style="text-align: left;">1.7%<br><small>(0.3–4.8%)</small></td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Active trajectory, planned window CI coverage</td>
-<td style="text-align: left;">95%</td>
+<td style="text-align: left;">Single trajectory (Null A): simultaneous 95% Max-|T| band</td>
+<td style="text-align: left;">95.0%</td>
+<td style="text-align: left;">96.1%<br><small>(92.2–98.4%)</small></td>
+<td style="text-align: left;">92.8%<br><small>(88.0–96.1%)</small></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Single trajectory (Signal): simultaneous 95% Max-|T| band</td>
+<td style="text-align: left;">95.0%</td>
+<td style="text-align: left;">95.0%<br><small>(90.7–97.7%)</small></td>
+<td style="text-align: left;">96.7%<br><small>(92.9–98.8%)</small></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Planned window contrast ([3,4] - [0,1] s): 95% CI coverage</td>
+<td style="text-align: left;">95.0%</td>
 <td style="text-align: left;">95.6%<br><small>(91.4–98.1%)</small></td>
 <td style="text-align: left;">97.8%<br><small>(94.4–99.4%)</small></td>
 </tr>
@@ -433,83 +466,80 @@ window.Quarto = {
 </table>
 </div>
 </div>
-<p>Parentheses report exact Clopper–Pearson 95% binomial intervals for Monte Carlo uncertainty (<span class="math inline">\(N = 180\)</span> replications). Single-trajectory null metrics evaluate the prespecified <code>Null A</code> parcel in every replication; study-family metrics count rejecting <em>either</em> <code>Null A</code> or <code>Null B</code> when testing all three parcels (<code>Active</code>, <code>Null A</code>, <code>Null B</code>).</p>
-<div id="fig-rejection" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Within-trajectory null rejection rates cluster near the 5 percent target under both complete and gapped/serial designs, and Holm controls the multi-parcel family.">
+</figure>
+</div>
+</div>
+<div id="fig-rejection" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot-and-interval plot showing single-trajectory Max-T, 1D TFCE, and omnibus false-positive rates clustering around 5%, and Holm FWER controlling the 3-parcel family.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-rejection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="rejection.png" class="img-fluid figure-img" alt="Within-trajectory null rejection rates cluster near the 5 percent target under both complete and gapped/serial designs, and Holm controls the multi-parcel family.">
+<img src="rejection.png" class="img-fluid figure-img" style="width:92.0%" alt="Dot-and-interval plot showing single-trajectory Max-T, 1D TFCE, and omnibus false-positive rates clustering around 5%, and Holm FWER controlling the 3-parcel family.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-rejection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;15.1: Rejection rates for a prespecified null trajectory and for the three-parcel study family. Bars show 95% Monte Carlo intervals.
+Figure&nbsp;14.1: Empirical Type I error across single-trajectory tests (<code>Max-T</code>, <code>1D TFCE</code>, <code>Omnibus</code> on prespecified <code>Null A</code>) and across the 3-parcel study family (<code>Signal</code>, <code>Null A</code>, <code>Null B</code>, counting any false rejection among the null parcels). Horizontal bars denote exact 95% Clopper–Pearson Monte Carlo intervals.
 </figcaption>
 </figure>
 </div>
-<section id="key-findings-from-the-rejection-and-coverage-benchmarks" class="level3">
-<h3 class="anchored" data-anchor-id="key-findings-from-the-rejection-and-coverage-benchmarks">Key findings from the rejection and coverage benchmarks</h3>
-<ol type="1">
-<li><strong>Calibrated within-trajectory Type I error (<code>Max-|T|</code>, <code>TFCE</code>, <code>Omnibus</code>):</strong> Accounting for finite-participant covariance uncertainty via studentized Wishart draws keeps single-trajectory null false-positive rates squarely around the 5% target in the complete design (<strong>3.9%</strong> for <code>Max-|T|</code>, <strong>5.0%</strong> for <code>TFCE</code>, and <strong>2.8%</strong> for <code>Omnibus</code>), and remains well controlled under serial trial dependence and edge-lag missingness (<strong>7.2%</strong>, <strong>6.1%</strong>, and <strong>2.8%</strong>; all 95% Monte Carlo intervals contain 5%).</li>
-<li><strong>Study-wide multiplicity control via Holm:</strong> Applying Holm across the 3-parcel family (<code>Active</code>, <code>Null A</code>, <code>Null B</code>) holds familywise false-discovery rates to <strong>1.7%</strong> and <strong>1.7%</strong>—scaling cleanly to larger parcel parcellations where unadjusted epoch tests would accumulate false positives across dozens of regions.</li>
-</ol>
-<div id="fig-coverage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Simultaneous 95 percent Max-T band coverage and planned window interval coverage cluster tightly around the 95 percent nominal line in both scenarios.">
+<div id="fig-coverage" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot-and-interval plot showing simultaneous 95% Max-T band coverage and planned window interval coverage clustering around 95% under both complete and gapped/serial designs.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="coverage.png" class="img-fluid figure-img" alt="Simultaneous 95 percent Max-T band coverage and planned window interval coverage cluster tightly around the 95 percent nominal line in both scenarios.">
+<img src="coverage.png" class="img-fluid figure-img" style="width:92.0%" alt="Dot-and-interval plot showing simultaneous 95% Max-T band coverage and planned window interval coverage clustering around 95% under both complete and gapped/serial designs.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;15.2: Coverage of the raw Max-|T| band over all lags and of the planned window interval. The reference line is 95%. Bars show 95% Monte Carlo intervals.
+Figure&nbsp;14.2: Empirical 95% simultaneous confidence-band coverage over all 6 lags (<code>-1..4 s</code>) for null and active curves, plus 95% CI coverage for the planned <code>[3, 4] - [0, 1] s</code> window contrast (<code>contrast_source = 'unsmoothed'</code>).
 </figcaption>
 </figure>
 </div>
-<ol start="3" type="1">
-<li><strong>Simultaneous 95% confidence bands and window contrasts achieve nominal coverage:</strong> Across all 6 lags simultaneously, the raw <code>Max-|T|</code> band covers the entire true curve in <strong>96.1%</strong> (null) and <strong>95.0%</strong> (active) of complete replications, and <strong>92.8%</strong> (null) and <strong>96.7%</strong> (active) under gapped/serial stress. The planned <code>late_minus_early</code> window contrast (<code>contrast_source = "unsmoothed"</code>) covers the true population difference in <strong>95.6%</strong> and <strong>97.8%</strong> of replications, with negligible mean bias (+0.005 and +0.002 slope units).</li>
+<p>Three practical lessons stand out across <a href="#tbl-multilag-scorecard" class="quarto-xref">Table&nbsp;<span>14.1</span></a>, <a href="#fig-rejection" class="quarto-xref">Figure&nbsp;<span>14.1</span></a>, and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html#fig-coverage" class="quarto-xref">Figure&nbsp;<span>15.2</span></a>:</p>
+<ol type="1">
+<li><strong>Within-trajectory tests remain calibrated under serial dependence and missing participant edges:</strong> Studentized Wishart draws hold single-trajectory false positives near 5% in complete cohorts (<strong>3.9%</strong> for <code>Max-|T|</code>, <strong>5.0%</strong> for <code>1D TFCE</code>, <strong>2.8%</strong> for <code>Omnibus</code>) and remain well controlled when trials correlate serially and 15% of participants lose the final edge lag (<strong>7.2%</strong>, <strong>6.1%</strong>, and <strong>2.8%</strong>; every 95% Monte Carlo interval spans 5%).</li>
+<li><strong>Simultaneous bands and unsmoothed window contrasts hit 95% nominal coverage:</strong> Across all 6 lags jointly, <code>conf.low.sim</code>–<code>conf.high.sim</code> encloses the entire true population trajectory in <strong>96.1%</strong>–<strong>95.0%</strong> of complete cohorts and <strong>92.8%</strong>–<strong>96.7%</strong> of gapped/serial cohorts. Likewise, the unsmoothed <code>[3, 4] - [0, 1] s</code> contrast covers the true window difference in <strong>95.6%</strong> and <strong>97.8%</strong> of cohorts with near-zero bias (+0.005 and +0.002).</li>
+<li><strong>Why within-trajectory FWER does not replace cross-parcel multiplicity control:</strong> <code>p_maxT</code> and <code>p_tfce</code> control FWER across lags <em>within one <code>(parcel, term)</code> curve</em>. When screening <span class="math inline">\(P\)</span> parcels simultaneously, unadjusted 5% trajectory tests still accumulate false positives across null regions (<span class="math inline">\(1 - 0.95^{P_0}\)</span>); applying Holm (<code>p.adjust(omnibus_p, "holm")</code>) or Benjamini–Yekutieli (<code>"BY"</code>) across the planned parcel family keeps study-wide discoveries calibrated (<strong>1.7%</strong> and <strong>1.7%</strong> across the 3-parcel benchmark, where <code>Signal</code> is active and 2 of 3 parcels are null).</li>
 </ol>
+<hr>
 </section>
-</section>
-<section id="practical-guidance-summary" class="level2">
-<h2 class="anchored" data-anchor-id="practical-guidance-summary">Practical Guidance Summary</h2>
+<section id="implications-for-applied-medusa-analyses" class="level2">
+<h2 class="anchored" data-anchor-id="implications-for-applied-medusa-analyses">4. Implications for Applied MEDuSA Analyses</h2>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th style="text-align: left;">Inferential target</th>
-<th style="text-align: left;">Recommended <code>medusa_multilag_infer()</code> quantity</th>
-<th style="text-align: left;">Scope reminder</th>
+<th style="text-align: left;">Scientific goal</th>
+<th style="text-align: left;">Quantity to report from <code>medusa_multilag_infer()</code></th>
+<th style="text-align: left;">Multiplicity &amp; interpretation rule</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">Localizing individual active lags within one <code>(parcel, term)</code> profile</td>
-<td style="text-align: left;"><code>p_maxT</code> and simultaneous band <code>conf.low.sim</code> / <code>conf.high.sim</code></td>
-<td style="text-align: left;">Controls FWER across lags of <em>one</em> trajectory; adjust across parcels/terms if searching multiple regions.</td>
+<td style="text-align: left;">Pinpoint specific post-event lags where an effect is non-zero in an a priori ROI</td>
+<td style="text-align: left;">Raw <code>estimate</code>, <code>p_maxT</code>, and simultaneous band <code>[conf.low.sim, conf.high.sim]</code></td>
+<td style="text-align: left;"><code>p_maxT &lt;= .05</code> provides strong lag-level localization within one prespecified <code>(parcel, term)</code> trajectory.</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Detecting sustained same-sign deflections</td>
-<td style="text-align: left;"><code>p_tfce</code></td>
-<td style="text-align: left;">Summarizes contiguous cluster support across thresholds; do not interpret the smallest <code>p_tfce</code> lag as exact latency onset.</td>
+<td style="text-align: left;">Detect broad, sustained deflections across contiguous lags</td>
+<td style="text-align: left;"><code>p_tfce</code> paired with <code>omnibus_p</code></td>
+<td style="text-align: left;"><code>1D TFCE</code> boosts power for extended responses, but like spatial TFCE, supports cluster presence rather than exact first-onset latency (<a href="https://onlinelibrary.wiley.com/doi/10.1111/psyp.13335">Sassenhagen &amp; Draschkow, 2019</a>).</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Screening parcels/terms for any epoch-wide effect</td>
-<td style="text-align: left;">One <code>omnibus_p</code> per <code>(parcel, term)</code> + <code>p.adjust(..., method = "holm")</code> or <code>"BY"</code> across the planned study family</td>
-<td style="text-align: left;">Prevents study-wide false-positive inflation across parcellations.</td>
+<td style="text-align: left;">Screen multiple parcels or cortical networks for trajectory effects</td>
+<td style="text-align: left;">One <code>omnibus_p</code> per <code>(parcel, term)</code> adjusted via <code>"holm"</code> (FWER) or <code>"BY"</code> (FDR) across parcels, followed by lag visualization in surviving parcels</td>
+<td style="text-align: left;">Separates region-level discovery control from within-region temporal profile characterization.</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Comparing early vs.&nbsp;late epoch phases</td>
-<td style="text-align: left;"><code>$contrasts</code> with <code>contrast_source = "unsmoothed"</code></td>
-<td style="text-align: left;">Prespecify early and late lag windows before viewing group curves.</td>
+<td style="text-align: left;">Test early-vs.-late phase shifts (<code>[late] - [early]</code>)</td>
+<td style="text-align: left;"><code>$contrasts</code> (<code>contrast_source = "unsmoothed"</code>)</td>
+<td style="text-align: left;">Define early and late lag windows from task structure before inspecting group curves.</td>
 </tr>
 </tbody>
 </table>
-</section>
-<section id="reproduce-the-calibration-study" class="level2">
-<h2 class="anchored" data-anchor-id="reproduce-the-calibration-study">Reproduce the Calibration Study</h2>
-<div class="cell">
-<details class="code-fold">
-<summary>Show reproduction commands</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate.R</span>
+<details>
+<summary>
+Simulation Details &amp; Reproduction
+</summary>
+<p>To regenerate the 180-cohort Monte Carlo study (<code>calibration_summary.csv</code>, <code>calibration_draws.csv</code>) and figures from <code>book/medusa_multilag_calibration/</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> simulate.R</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> figures.R</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_pr62_calibration.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render medusa_multilag_calibration.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><a href="simulate.R">Simulation script</a> · <a href="figures.R">Figure script</a> · <a href="calibration_summary.csv">Calibration summary CSV</a> · <a href="calibration_draws.csv">Replicate draws CSV</a> · <a href="simulation.log">Simulation log</a></p>
 </details>
-</div>
-<p><a href="calibration_summary.csv">Calibration summary</a> · <a href="calibration_draws.csv">Replicate draws</a> · <a href="simulate.R">Simulation source</a> · <a href="figures.R">Figure source</a></p>
 
 
 </section>
@@ -993,13 +1023,13 @@ Figure&nbsp;15.2: Coverage of the raw Max-|T| band over all lags and of the plan
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="../evidence.html" class="pagination-link" aria-label="Validation and the Limits of the Evidence">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Validation and the Limits of the Evidence</span></span>
+      <a href="../medusa_standard_errors_mmom.html" class="pagination-link" aria-label="Propagating BOLD Noise into Trial Standard Errors">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="pagination-link" aria-label="Temporal Autocorrelation and Noise Calibration">
-        <span class="nav-page-text"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html" class="pagination-link" aria-label="Latent Connectivity Beyond Per-Trial Disattenuation">
+        <span class="nav-page-text"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

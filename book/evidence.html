@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Validation and the Limits of the Evidence – MEDuSA</title>
+<title>What Validation Proves—and Building Study-Specific Checks – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -26,6 +26,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -36,7 +71,7 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./medusa_pr62_calibration/medusa_pr62_calibration.html" rel="next">
+<link href="./reference.html" rel="next">
 <link href="./medusa_connectivity_inference/medusa_connectivity_inference.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
@@ -119,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./evidence.html"><span class="chapter-title">Validation and the Limits of the Evidence</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="./evidence.html"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -227,32 +262,32 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-3-label">Measurement models and evidence</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Methodological deep dives</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">From BOLD Noise to M-MOM Error Variances</span></a>
+  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Autocorrelation Prewhitening Under Fast-TR Event Designs</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Measurement-Error Models and REPAIR</span></a>
+  <a href="./medusa_standard_errors_mmom.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Propagating BOLD Noise into Trial Standard Errors</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./evidence.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">Validation and the Limits of the Evidence</span></a>
+  <a href="./medusa_multilag_calibration/medusa_multilag_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Simultaneous Bands and Familywise Calibration Across Lags</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></a>
+  <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Temporal Autocorrelation and Noise Calibration</span></a>
+  <a href="./evidence.html" class="sidebar-item-text sidebar-link active"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a>
   </div>
 </li>
       </ul>
@@ -280,17 +315,20 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#designing-a-study-specific-calibration-check" id="toc-designing-a-study-specific-calibration-check" class="nav-link active" data-scroll-target="#designing-a-study-specific-calibration-check">Designing a Study-Specific Calibration Check</a></li>
+  <li><a href="#overview-why-no-single-simulation-answers-every-empirical-question" id="toc-overview-why-no-single-simulation-answers-every-empirical-question" class="nav-link active" data-scroll-target="#overview-why-no-single-simulation-answers-every-empirical-question">Overview: Why No Single Simulation Answers Every Empirical Question</a></li>
+  <li><a href="#three-distinct-layers-of-evidence-in-medusa" id="toc-three-distinct-layers-of-evidence-in-medusa" class="nav-link" data-scroll-target="#three-distinct-layers-of-evidence-in-medusa">1. Three Distinct Layers of Evidence in <code>medusa</code></a></li>
+  <li><a href="#synthesis-map-claims-tested-vs.-scope-boundaries" id="toc-synthesis-map-claims-tested-vs.-scope-boundaries" class="nav-link" data-scroll-target="#synthesis-map-claims-tested-vs.-scope-boundaries">2. Synthesis Map: Claims Tested vs.&nbsp;Scope Boundaries</a></li>
+  <li><a href="#building-a-study-specific-calibration-on-your-own-schedule" id="toc-building-a-study-specific-calibration-on-your-own-schedule" class="nav-link" data-scroll-target="#building-a-study-specific-calibration-on-your-own-schedule">3. Building a Study-Specific Calibration on Your Own Schedule</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_standard_errors_mmom.html">Measurement models and evidence</a></li><li class="breadcrumb-item"><a href="./evidence.html"><span class="chapter-title">Validation and the Limits of the Evidence</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Methodological deep dives</a></li><li class="breadcrumb-item"><a href="./evidence.html"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-title">Validation and the Limits of the Evidence</span></h1>
-<p class="subtitle lead">Mechanism isolation checks, the 14-study validation suite, and designing study-specific calibrations</p>
+<h1 class="title"><span class="chapter-title">What Validation Proves—and Building Study-Specific Checks</span></h1>
+<p class="subtitle lead">Synthesizing mechanism benchmarks, the 14-study validation suite, and custom power/calibration simulations on empirical schedules</p>
 </div>
 
 
@@ -307,63 +345,155 @@ window.Quarto = {
 </header>
 
 
-<p>The standalone <code>medusa</code> package is evaluated through two complementary layers of evidence:</p>
+<section id="overview-why-no-single-simulation-answers-every-empirical-question" class="level2">
+<h2 class="anchored" data-anchor-id="overview-why-no-single-simulation-answers-every-empirical-question">Overview: Why No Single Simulation Answers Every Empirical Question</h2>
+<p>Across the stepwise tutorials (Part II), spatial workflows (Part III), and methodological deep dives (Part IV), every core component of <code>medusa</code> is paired with numerical checks and Monte Carlo simulations. A thoughtful investigator or peer reviewer should still ask a sharper meta-question:</p>
+<p><em>Which properties of MEDuSA are guaranteed by linear algebra, which depend on empirical regularity conditions tested in Monte Carlo benchmarks, and how can I verify that my own study’s event schedule, motion censoring, and sample size support calibrated inference before testing substantive hypotheses?</em></p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Core Methodological Question &amp; Connection to the Pipeline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><em>Where do general package benchmarks end and study-specific design geometry begin—and how do you turn an empirical <code>events</code> table and <code>valid_rows</code> mask from <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a> into a custom end-to-end calibration check?</em></p>
+<p>This capstone chapter synthesizes the evidence across all four Part IV deep dives and the <a href="library/medusa_validation_suite.html">14-Study Validation Suite</a>, then provides a compact R template for study-specific synthetic calibration.</p>
+</div>
+</div>
+<hr>
+</section>
+<section id="three-distinct-layers-of-evidence-in-medusa" class="level2">
+<h2 class="anchored" data-anchor-id="three-distinct-layers-of-evidence-in-medusa">1. Three Distinct Layers of Evidence in <code>medusa</code></h2>
+<p>Keeping three levels of validation distinct prevents both over-claiming and unnecessary skepticism:</p>
 <ol type="1">
-<li><strong>Controlled mechanism demonstrations across the stepwise and spatial chapters of this book</strong>, which isolate individual pipeline operators—cross-run HRF and 2-pass REML AR(<span class="math inline">\(p\)</span>) learning, event-informed vs.&nbsp;blind deconvolution, adaptive <code>rwls = "auto"</code> spike downweighting, epoch target/collateral demixing, innovation-based spatial parcel pooling, mixed-effects vs.&nbsp;multi-lag trajectory calibration, and measurement-error-corrected (<code>M-MOMS</code>) connectivity/PPI sensitivity—under known mathematical ground truth.</li>
-<li><strong>The 14-study end-to-end <a href="library/medusa_validation_suite.html">MEDuSA Validation Suite</a></strong>, which benchmarks full pipeline configurations across realistic event schedules, neurovascular heterogeneity, heavy-tailed artifact bursts, censoring masks, and sample sizes.</li>
+<li><strong>Exact conditional operator identities (algebraic &amp; numerical checks):</strong> Once run <span class="math inline">\(r\)</span>’s HRF, smoothing parameter <span class="math inline">\(\lambda_v\)</span>, adaptive weights, and noise correlation <span class="math inline">\(\Sigma_{\text{cor}}\)</span> are fixed, deconvolution (<span class="math inline">\(D_r\)</span>) and de-mixed epoch readout (<span class="math inline">\(B_{r,\tau}\)</span>) are deterministic linear maps. Identities such as <span class="math inline">\(\operatorname{Cov}(B_{r,\tau}\varepsilon_r) = \sigma_{\text{obs}}^2 B_{r,\tau}\Sigma_{\text{cor}}B_{r,\tau}^\top\)</span> (<a href="./medusa_standard_errors_mmom.html">Propagating BOLD Noise into Trial SEs</a>), scale invariance under <code>restore_scale = TRUE</code>, and <span class="math inline">\(B_g G_g = I\)</span> in full-rank finite bases (<a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity Beyond Per-Trial Disattenuation</a>) hold to machine precision (<span class="math inline">\(10^{-13}\text{--}10^{-15}\)</span>). They guarantee that the code computes the exact mathematical quantity promised—<em>conditional</em> on the first-stage operators.</li>
+<li><strong>Isolated mechanism stress tests (Part IV deep dives &amp; chapter benchmarks):</strong> Each mechanism study varies one realistic threat at a time while holding surrounding structure transparent—such as fast/slow neurovascular dispersion against <span class="math inline">\(\text{AR}(3)\)</span> noise (<a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Autocorrelation Prewhitening Under Fast-TR Event Designs</a>), censored edge lags and serial trial dependence in <code>medusa_multilag_infer()</code> (<a href="./medusa_multilag_calibration/medusa_multilag_calibration.html">Simultaneous Bands Across Lags</a>), or unequal regional smoothing <span class="math inline">\(K_S \neq K_T\)</span> and small-<span class="math inline">\(S\)</span> clustering in connectivity (<a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity Beyond Per-Trial Disattenuation</a>). These isolate <em>why</em> an estimator succeeds or breaks down.</li>
+<li><strong>End-to-end pipeline Monte Carlo benchmarks (<a href="library/medusa_validation_suite.html">14-Study Validation Suite</a>):</strong> Refits the entire sequence (<code>estimate_crossrun_hrf()</code> <span class="math inline">\(\to\)</span> <code>deconvolve_crossrun_hrf()</code> <span class="math inline">\(\to\)</span> <code>decon_epoch_regression()</code> <span class="math inline">\(\to\)</span> <code>mixed_by()</code> / <code>medusa_multilag_infer()</code> / <code>decon_connectivity_repair()</code>) inside every synthetic cohort, capturing how estimation uncertainty in Step 1 HRF selection and Step 2 GCV/RWLS tuning propagates into final population <span class="math inline">\(p\)</span>-values and confidence intervals.</li>
 </ol>
-<p>Keeping the scope of each test distinct is essential: an algebraic check verifies that operator covariance propagation is exact conditional on a fitted noise model, whereas a Monte Carlo study measures bias and interval coverage under its specific data-generating process.</p>
+<hr>
+</section>
+<section id="synthesis-map-claims-tested-vs.-scope-boundaries" class="level2">
+<h2 class="anchored" data-anchor-id="synthesis-map-claims-tested-vs.-scope-boundaries">2. Synthesis Map: Claims Tested vs.&nbsp;Scope Boundaries</h2>
+<div id="tbl-evidence-map" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-evidence-map-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;16.1: Synthesis of validation benchmarks across Part IV and the 14-study validation suite, paired with empirical scope conditions.
+</figcaption>
+<div aria-describedby="tbl-evidence-map-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th style="text-align: left;">Evidence layer</th>
-<th style="text-align: left;">What it evaluates</th>
-<th style="text-align: left;">How to use it in practice</th>
+<th style="text-align: left;">Evidence source</th>
+<th style="text-align: left;">Primary pipeline claim evaluated</th>
+<th style="text-align: left;">Key scope boundary to check in your study</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;"><strong>Studies 1–4</strong> (<a href="library/medusa_validation_suite.html">Validation suite</a>)</td>
-<td style="text-align: left;">Trial-slope recovery, precision weighting, sub-TR timing sensitivity, connectivity artifacts, and participant vs.&nbsp;trial sample-size scaling</td>
-<td style="text-align: left;">Compare estimator bias, RMSE, power, and false-positive calibration under realistic trial counts and ISI distributions.</td>
+<td style="text-align: left;"><strong><a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Autocorrelation Prewhitening</a></strong> &amp; Validation Study 12</td>
+<td style="text-align: left;">Two-pass target-excluding REML <span class="math inline">\(\text{AR}(p)\)</span> refit + Winsorized GLS <code>noise_sd</code> recovers true ACF and full trial covariance <span class="math inline">\(\Omega_{r,\tau}\)</span> (<code>4–8%</code> Frobenius error vs.&nbsp;<code>21–28%</code> under single-pass canonical HRF)</td>
+<td style="text-align: left;">Requires <span class="math inline">\(R \ge 2\)</span> runs (recommended <span class="math inline">\(R \ge 3\)</span>) and drift/motion confounds modeled so <span class="math inline">\(\widehat{\rho}\)</span> is not pinned at <code>0.90</code>; use <code>pooling = "graph"</code> when parcels cross pial/CSF borders.</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><strong>Studies 5–9</strong> (<a href="library/medusa_validation_suite.html">Validation suite</a>)</td>
-<td style="text-align: left;">Realistic multi-run BOLD generation, HRF basis/regularization ablations, parcel spatial weighting, and full-pipeline configuration stress tests</td>
-<td style="text-align: left;">Guide sensitivity analyses when adapting <code>medusa</code> to a study’s specific TR, event density, and tSNR.</td>
+<td style="text-align: left;"><strong><a href="./medusa_standard_errors_mmom.html">Propagating BOLD Noise into Trial SEs</a></strong> &amp; Validation Studies 1–4</td>
+<td style="text-align: left;">Operator-propagated <code>se_demixed</code>, <code>(1 - 1/m)^{-1}</code> run-centering calibration, and <code>precision_weight_cohort</code> improve group slope RMSE and maintain nominal mixed-model Type I error</td>
+<td style="text-align: left;">Treats first-stage <code>se_demixed^2</code> as fixed plug-in variances; requires centering within-person covariates (<code>x_within</code>) and specifying participant random slopes in <code>mixed_by()</code>.</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong>Study 10, <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>, and <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Measurement-error models</a></strong></td>
-<td style="text-align: left;">Predictor disattenuation (<code>M-MOMS</code>), <code>shared_error = "auto"</code> cross-parcel innovation subtraction, HKSJ participant pooling, and task-modulated shared-error PPI stress tests</td>
-<td style="text-align: left;">Verify disattenuation against naive slopes and run shared-error sensitivity curves before claiming latent PPI modulation.</td>
+<td style="text-align: left;"><strong><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 1–3</a></strong> &amp; Validation Studies 5–9, 13–14</td>
+<td style="text-align: left;">3D physiological HRF library (<code>preset = "medusa"</code>, <code>normalize = "positive_lobe"</code>), monotone SNR-stratified <code>lambda_mode = "auto"</code>, <code>rwls = "auto"</code> glitch protection, and <code>(T, O)</code> epoch demixing</td>
+<td style="text-align: left;">Sub-second fixed ISIs without inter-phase jitter remain fundamentally collinear under hemodynamic low-pass filtering (audit via <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a> and <code>diagnose_crossrun_recovery()</code>).</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><strong>Study 11 and <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">Multi-lag trajectory calibration</a></strong></td>
-<td style="text-align: left;"><code>medusa_multilag_infer()</code> available-case lag pooling, studentized Wishart <code>Max-|T|</code>, 1D TFCE, omnibus Mahalanobis tests, simultaneous bands, and <code>"unsmoothed"</code> window contrasts</td>
-<td style="text-align: left;">Distinguish single-trajectory familywise error (<code>p_maxT</code>, <code>p_tfce</code>) from study-wide multiplicity across parcels and covariates (<code>"holm"</code> / <code>"BY"</code>).</td>
+<td style="text-align: left;"><strong><a href="./medusa_multilag_calibration/medusa_multilag_calibration.html">Simultaneous Bands Across Lags</a></strong> &amp; Validation Study 11</td>
+<td style="text-align: left;">Studentized Wishart draws + available-case lag pooling hold <code>Max-|T|</code>, <code>1D TFCE</code>, <code>omnibus_p</code>, and <code>"unsmoothed"</code> window contrasts near nominal 5% / 95% targets under serial dependence and missing participant edge lags</td>
+<td style="text-align: left;"><code>p_maxT</code> and <code>p_tfce</code> control FWER across lags of <em>one</em> <code>(parcel, term)</code> curve; apply <code>"holm"</code> or <code>"BY"</code> across <code>omnibus_p</code> when testing multiple parcels.</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong>Study 12 and <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">Woolrich noise review</a></strong></td>
-<td style="text-align: left;">2-pass post-selection REML AR(<span class="math inline">\(p\)</span>) noise refitting, Winsorized GLS marginal <code>noise_sd</code>, gapped Toeplitz covariance, and comparison against tapered residual estimators</td>
-<td style="text-align: left;">Audit empirical residual ACFs and spatial homogeneity when choosing <code>spatial_groups</code> and nuisance bases.</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong>Studies 13–14 and <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a> / <a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a></strong></td>
-<td style="text-align: left;">3D physiological HRF manifold (<code>preset = "medusa"</code>) with positive-lobe (<code>normalize = "positive_lobe"</code>) gain consistency, event-informed vs.&nbsp;blind deconvolution, and adaptive heavy-tail <code>rwls = "auto"</code> frame weighting</td>
-<td style="text-align: left;">Retain <code>preset = "medusa"</code> and <code>rwls = "auto"</code> as defaults so neurovascular dispersion, negative undershoot variations, and isolated motion spikes do not distort trial amplitudes.</td>
+<td style="text-align: left;"><strong><a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity</a></strong>, <strong><a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a></strong>, &amp; Validation Study 10</td>
+<td style="text-align: left;">Per-trial M-MOMS + <code>shared_error = "auto"</code> + HKSJ participant <span class="math inline">\(t\)</span>-intervals remove predictor attenuation and stationary cross-parcel noise inflation</td>
+<td style="text-align: left;">Sensitive to <em>condition-modulated</em> shared physiological noise (<span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i)\)</span> varying with <span class="math inline">\(x_i\)</span>) and severe seed–target smoothing mismatch (<span class="math inline">\(K_S \neq K_T\)</span>); always run a <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html#fig-sensitivity">shared-error sensitivity curve</a>.</td>
 </tr>
 </tbody>
 </table>
-<section id="designing-a-study-specific-calibration-check" class="level2">
-<h2 class="anchored" data-anchor-id="designing-a-study-specific-calibration-check">Designing a Study-Specific Calibration Check</h2>
-<p>Before making high-stakes inferential claims on a novel task schedule—especially rapid event-related designs with variable-duration phases or trial-level PPI—run a compact synthetic calibration tailored to your exact study geometry:</p>
+</div>
+</figure>
+</div>
+<hr>
+</section>
+<section id="building-a-study-specific-calibration-on-your-own-schedule" class="level2">
+<h2 class="anchored" data-anchor-id="building-a-study-specific-calibration-on-your-own-schedule">3. Building a Study-Specific Calibration on Your Own Schedule</h2>
+<p>Whenever an empirical study uses a novel multi-phase trial timing, heavy motion scrubbing, or small cohort size, the most informative validation you can run is a <strong>synthetic twin of your exact task geometry</strong>. Because <code>read_fmriprep_subject()</code> (<a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a>) already extracts each participant’s real <code>events</code> table, run lengths, <code>TR</code>, and framewise-displacement <code>valid_rows</code> masks, you can simulate synthetic BOLD directly on top of your actual empirical design in ~35 lines of R—<em>without</em> peeking at real neural associations:</p>
 <ol type="1">
-<li><strong>Lock the estimand and multiplicity family upfront:</strong> Prespecify the target parcels, peri-event lag grid, behavioral covariates, planned time windows, and study-wide adjustment rule (<code>"holm"</code> or <code>"BY"</code>) before inspecting empirical <span class="math inline">\(p\)</span>-values.</li>
-<li><strong>Use your actual empirical event schedule and censor masks:</strong> Simulate BOLD on the exact empirical onset times, reaction-time durations, run lengths, and framewise-displacement censor masks (<code>valid_rows</code>) from your cohort so collinearity and edge truncation match your real data.</li>
-<li><strong>Simulate both active signals and realistic structured nulls:</strong> Include voxelwise HRF variation across the physiological manifold, AR(<span class="math inline">\(p\)</span>) temporal noise, spatially correlated parcel innovations, and—for Step 6 PPI—a stress null where shared physiological/motion noise varies across task conditions while true neural modulation is zero.</li>
-<li><strong>Refit the complete pipeline inside every Monte Carlo replicate:</strong> Keep Step 1 HRF/noise learning, Step 2 <code>lambda</code> and <code>rwls = "auto"</code> estimation, Step 3/4 epoch demixing and parcel weighting, and Step 5/6 inference inside the loop rather than freezing oracle operators.</li>
-<li><strong>Report bias, 95% CI coverage, null rejection, and convergence health together:</strong> Track missing edge-lag participants, <code>isSingular()</code> rates in <code>mixed_by()</code>, step-up regularization triggers in <code>decon_connectivity_repair()</code>, and binomial Monte Carlo intervals around empirical rejection and coverage rates.</li>
+<li><strong>Lock the estimand and multiplicity rule upfront:</strong> Prespecify the target condition, peri-event lag(s), covariates, window contrasts, and parcel-family adjustment (<code>"holm"</code> or <code>"BY"</code>).</li>
+<li><strong>Keep real onset times, durations, and censor masks intact:</strong> Use your cohort’s actual <code>events</code> timestamps, reaction-time durations, and <code>valid_rows</code> scrubbing vectors so collinearity between adjacent task phases and run-end/motion truncation match your study verbatim.</li>
+<li><strong>Include both an active parcel and a structured null parcel:</strong> Generate voxelwise HRF dispersion from <code>hrf_library()</code>, realistic <span class="math inline">\(\text{AR}(1)\)</span> temporal noise (<span class="math inline">\(\rho \approx 0.45\text{--}0.60\)</span>), and—if testing Step 6 PPI—shared cross-parcel background innovations.</li>
+<li><strong>Refit the full <code>medusa</code> pipeline in every replicate:</strong> Run <code>estimate_crossrun_hrf()</code>, <code>deconvolve_crossrun_hrf()</code>, and <code>decon_epoch_regression()</code> from scratch inside the loop rather than freezing oracle HRFs or smoothing parameters.</li>
+<li><strong>Audit bias, CI coverage, null false positives, and gating rates together:</strong> Check <code>mean(is.na(decon_demixed))</code>, <code>diagnose_crossrun_recovery()$summary$mean_gain</code>, <code>isSingular()</code> rates in <code>mixed_by()</code>, and empirical 95% coverage.</li>
 </ol>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Template: Synthetic twin check on one participant's real empirical schedule &amp; scrub mask</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Assumes `sub01` was loaded via read_fmriprep_subject() in Step 0</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>tr   <span class="ot">&lt;-</span> sub01<span class="sc">$</span>tr</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>cand <span class="ot">&lt;-</span> <span class="fu">hrf_library</span>(<span class="at">tr =</span> tr, <span class="at">preset =</span> <span class="st">"medusa"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>evs  <span class="ot">&lt;-</span> <span class="fu">split</span>(sub01<span class="sc">$</span>events, sub01<span class="sc">$</span>events<span class="sc">$</span>run)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>vrows <span class="ot">&lt;-</span> <span class="fu">lapply</span>(sub01<span class="sc">$</span>confounds<span class="sc">$</span>runs, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">"valid_rows"</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>sim_one_subject <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">beta_true =</span> <span class="fl">0.40</span>, <span class="at">noise_sd =</span> <span class="fl">0.35</span>, <span class="at">rho =</span> <span class="fl">0.50</span>) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  parcels <span class="ot">&lt;-</span> <span class="fu">setNames</span>(<span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Active_ROI"</span>, <span class="st">"Null_ROI"</span>), <span class="at">each =</span> <span class="dv">6</span>L), <span class="fu">paste0</span>(<span class="st">"v"</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>))</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  h_act   <span class="ot">&lt;-</span> cand[, <span class="fu">sample</span>(<span class="fu">ncol</span>(cand), <span class="dv">1</span>L)]   <span class="co"># random physiological HRF draw</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  h_null  <span class="ot">&lt;-</span> cand[, <span class="fu">sample</span>(<span class="fu">ncol</span>(cand), <span class="dv">1</span>L)]</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  bold_sim <span class="ot">&lt;-</span> cov_sim <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="fu">names</span>(evs)) {</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    n_t <span class="ot">&lt;-</span> <span class="fu">nrow</span>(sub01<span class="sc">$</span>bold[[r]])</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    ev  <span class="ot">&lt;-</span> evs[[r]]</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    t_idx <span class="ot">&lt;-</span> <span class="fu">which</span>(ev<span class="sc">$</span>condition <span class="sc">==</span> <span class="st">"feedback"</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    x_mod <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">scale</span>(<span class="fu">rnorm</span>(<span class="fu">length</span>(t_idx))))</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Forward neural impulse series on the real empirical timestamps</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    s_act <span class="ot">&lt;-</span> s_null <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_t)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    grid_t <span class="ot">&lt;-</span> (<span class="dv">0</span><span class="sc">:</span>(n_t <span class="sc">-</span> <span class="dv">1</span>L)) <span class="sc">*</span> tr</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_along</span>(t_idx)) {</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>      imp <span class="ot">&lt;-</span> <span class="fu">pmax</span>(<span class="dv">0</span>, <span class="dv">1</span> <span class="sc">-</span> <span class="fu">abs</span>(grid_t <span class="sc">/</span> tr <span class="sc">-</span> ev<span class="sc">$</span>onset[t_idx[j]] <span class="sc">/</span> tr))</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>      s_act  <span class="ot">&lt;-</span> s_act  <span class="sc">+</span> imp <span class="sc">*</span> (<span class="fl">1.0</span> <span class="sc">+</span> beta_true <span class="sc">*</span> x_mod[j])</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      s_null <span class="ot">&lt;-</span> s_null <span class="sc">+</span> imp <span class="sc">*</span> <span class="fl">1.0</span>            <span class="co"># evoked response, zero modulator slope</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    y_act  <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(stats<span class="sc">::</span><span class="fu">convolve</span>(s_act,  <span class="fu">rev</span>(h_act),  <span class="at">type =</span> <span class="st">"open"</span>))[<span class="fu">seq_len</span>(n_t)]</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    y_null <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(stats<span class="sc">::</span><span class="fu">convolve</span>(s_null, <span class="fu">rev</span>(h_null), <span class="at">type =</span> <span class="st">"open"</span>))[<span class="fu">seq_len</span>(n_t)]</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    ar_draw <span class="ot">&lt;-</span> <span class="cf">function</span>() <span class="fu">as.numeric</span>(stats<span class="sc">::</span><span class="fu">arima.sim</span>(<span class="fu">list</span>(<span class="at">ar =</span> rho), <span class="at">n =</span> n_t, <span class="at">sd =</span> noise_sd <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> rho<span class="sc">^</span><span class="dv">2</span>)))</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    Y <span class="ot">&lt;-</span> <span class="fu">cbind</span>(</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>      <span class="fu">replicate</span>(<span class="dv">6</span>L, <span class="dv">100</span> <span class="sc">+</span> y_act  <span class="sc">+</span> <span class="fu">ar_draw</span>()),</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>      <span class="fu">replicate</span>(<span class="dv">6</span>L, <span class="dv">100</span> <span class="sc">+</span> y_null <span class="sc">+</span> <span class="fu">ar_draw</span>())</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="fu">colnames</span>(Y) <span class="ot">&lt;-</span> <span class="fu">names</span>(parcels)</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    bold_sim[[r]] <span class="ot">&lt;-</span> Y</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    cov_sim[[r]]  <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">x_within =</span> x_mod)</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  hf <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(bold_sim, evs, <span class="at">tr =</span> tr, <span class="at">kernel_grid =</span> cand,</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>                              <span class="at">valid_rows =</span> vrows, <span class="at">spatial_groups =</span> parcels, <span class="at">pooling =</span> <span class="st">"parcel"</span>)</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  dc <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(bold_sim, hf, <span class="at">scaling =</span> <span class="st">"noise_sd"</span>, <span class="at">penalty =</span> <span class="st">"sobolev"</span>)</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">decon_epoch_regression</span>(dc, cov_sim, evs, <span class="at">target_condition =</span> <span class="st">"feedback"</span>,</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>                         <span class="at">lags =</span> <span class="dv">0</span>, <span class="at">parcel_groups =</span> parcels, <span class="at">restore_scale =</span> <span class="cn">TRUE</span>, <span class="at">return_panel =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Looping <code>sim_one_subject()</code> across your cohort’s <code>sub01..subN</code> schedules and feeding the resulting panels into <code>mixed_by()</code> (or <code>decon_connectivity_repair()</code>) gives an exact, pre-data answer to whether your task jitter, run count, and motion censoring support unbiased slope recovery and nominal 5% false-positive control in <code>Null_ROI</code>.</p>
+<details>
+<summary>
+Companion Validation Archives
+</summary>
+<ul>
+<li><strong>Full 14-Study End-to-End Validation Suite:</strong> <a href="library/medusa_validation_suite.html">Rendered HTML report</a> · <a href="library/medusa_validation_suite.qmd">Quarto source</a></li>
+<li><strong>Complete Book Reproduction Commands:</strong> See <a href="./reference.html">Package Architecture, Source Reports, and Reproduction</a> for one-line <code>Rscript</code> commands regenerating every simulation and figure across Parts I–IV.</li>
+</ul>
+</details>
 
 
 </section>
@@ -847,13 +977,13 @@ window.Quarto = {
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="pagination-link" aria-label="Measurement-Error Models and REPAIR">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Measurement-Error Models and REPAIR</span></span>
+      <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html" class="pagination-link" aria-label="Latent Connectivity Beyond Per-Trial Disattenuation">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Latent Connectivity Beyond Per-Trial Disattenuation</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html" class="pagination-link" aria-label="Calibration of Multi-Lag Trajectory Inference">
-        <span class="nav-page-text"><span class="chapter-title">Calibration of Multi-Lag Trajectory Inference</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./reference.html" class="pagination-link" aria-label="Package Architecture, Source Reports, and Reproduction">
+        <span class="nav-page-text"><span class="chapter-title">Package Architecture, Source Reports, and Reproduction</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
