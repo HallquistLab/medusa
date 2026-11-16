@@ -1,30 +1,116 @@
 ---
-title: "Validation and the Limits of the Evidence"
-subtitle: "Mechanism isolation checks, the 14-study validation suite, and designing study-specific calibrations"
+title: "What Validation Proves—and Building Study-Specific Checks"
+subtitle: "Synthesizing mechanism benchmarks, the 14-study validation suite, and custom power/calibration simulations on empirical schedules"
 ---
 
-The standalone `medusa` package is evaluated through two complementary layers of evidence:
+## Overview: Why No Single Simulation Answers Every Empirical Question
 
-1. **Controlled mechanism demonstrations across the stepwise and spatial chapters of this book**, which isolate individual pipeline operators—cross-run HRF and 2-pass REML AR($p$) learning, event-informed vs. blind deconvolution, adaptive `rwls = "auto"` spike downweighting, epoch target/collateral demixing, innovation-based spatial parcel pooling, mixed-effects vs. multi-lag trajectory calibration, and measurement-error-corrected (`M-MOMS`) connectivity/PPI sensitivity—under known mathematical ground truth.
-2. **The 14-study end-to-end [MEDuSA Validation Suite](library/medusa_validation_suite.html)**, which benchmarks full pipeline configurations across realistic event schedules, neurovascular heterogeneity, heavy-tailed artifact bursts, censoring masks, and sample sizes.
+Across the stepwise tutorials (Part II), spatial workflows (Part III), and methodological deep dives (Part IV), every core component of `medusa` is paired with numerical checks and Monte Carlo simulations. A thoughtful investigator or peer reviewer should still ask a sharper meta-question:
 
-Keeping the scope of each test distinct is essential: an algebraic check verifies that operator covariance propagation is exact conditional on a fitted noise model, whereas a Monte Carlo study measures bias and interval coverage under its specific data-generating process.
+*Which properties of MEDuSA are guaranteed by linear algebra, which depend on empirical regularity conditions tested in Monte Carlo benchmarks, and how can I verify that my own study's event schedule, motion censoring, and sample size support calibrated inference before testing substantive hypotheses?*
 
-| Evidence layer | What it evaluates | How to use it in practice |
+::: {.callout-note}
+### Core Methodological Question & Connection to the Pipeline
+*Where do general package benchmarks end and study-specific design geometry begin—and how do you turn an empirical `events` table and `valid_rows` mask from [Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd) into a custom end-to-end calibration check?*
+
+This capstone chapter synthesizes the evidence across all four Part IV deep dives and the [14-Study Validation Suite](library/medusa_validation_suite.html), then provides a compact R template for study-specific synthetic calibration.
+:::
+
+---
+
+## 1. Three Distinct Layers of Evidence in `medusa`
+
+Keeping three levels of validation distinct prevents both over-claiming and unnecessary skepticism:
+
+1. **Exact conditional operator identities (algebraic & numerical checks):** Once run $r$'s HRF, smoothing parameter $\lambda_v$, adaptive weights, and noise correlation $\Sigma_{\text{cor}}$ are fixed, deconvolution ($D_r$) and de-mixed epoch readout ($B_{r,\tau}$) are deterministic linear maps. Identities such as $\operatorname{Cov}(B_{r,\tau}\varepsilon_r) = \sigma_{\text{obs}}^2 B_{r,\tau}\Sigma_{\text{cor}}B_{r,\tau}^\top$ ([Propagating BOLD Noise into Trial SEs](medusa_standard_errors_mmom.qmd)), scale invariance under `restore_scale = TRUE`, and $B_g G_g = I$ in full-rank finite bases ([Latent Connectivity Beyond Per-Trial Disattenuation](medusa_connectivity_inference/medusa_connectivity_inference.qmd)) hold to machine precision ($10^{-13}\text{--}10^{-15}$). They guarantee that the code computes the exact mathematical quantity promised—*conditional* on the first-stage operators.
+2. **Isolated mechanism stress tests (Part IV deep dives & chapter benchmarks):** Each mechanism study varies one realistic threat at a time while holding surrounding structure transparent—such as fast/slow neurovascular dispersion against $\text{AR}(3)$ noise ([Autocorrelation Prewhitening Under Fast-TR Event Designs](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd)), censored edge lags and serial trial dependence in `medusa_multilag_infer()` ([Simultaneous Bands Across Lags](medusa_multilag_calibration/medusa_multilag_calibration.qmd)), or unequal regional smoothing $K_S \neq K_T$ and small-$S$ clustering in connectivity ([Latent Connectivity Beyond Per-Trial Disattenuation](medusa_connectivity_inference/medusa_connectivity_inference.qmd)). These isolate *why* an estimator succeeds or breaks down.
+3. **End-to-end pipeline Monte Carlo benchmarks ([14-Study Validation Suite](library/medusa_validation_suite.html)):** Refits the entire sequence (`estimate_crossrun_hrf()` $\to$ `deconvolve_crossrun_hrf()` $\to$ `decon_epoch_regression()` $\to$ `mixed_by()` / `medusa_multilag_infer()` / `decon_connectivity_repair()`) inside every synthetic cohort, capturing how estimation uncertainty in Step 1 HRF selection and Step 2 GCV/RWLS tuning propagates into final population $p$-values and confidence intervals.
+
+---
+
+## 2. Synthesis Map: Claims Tested vs. Scope Boundaries
+
+| Evidence source | Primary pipeline claim evaluated | Key scope boundary to check in your study |
 |:---|:---|:---|
-| **Studies 1–4** ([Validation suite](library/medusa_validation_suite.html)) | Trial-slope recovery, precision weighting, sub-TR timing sensitivity, connectivity artifacts, and participant vs. trial sample-size scaling | Compare estimator bias, RMSE, power, and false-positive calibration under realistic trial counts and ISI distributions. |
-| **Studies 5–9** ([Validation suite](library/medusa_validation_suite.html)) | Realistic multi-run BOLD generation, HRF basis/regularization ablations, parcel spatial weighting, and full-pipeline configuration stress tests | Guide sensitivity analyses when adapting `medusa` to a study's specific TR, event density, and tSNR. |
-| **Study 10, [Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd), and [Measurement-error models](medusa_connectivity_inference/medusa_connectivity_inference.qmd)** | Predictor disattenuation (`M-MOMS`), `shared_error = "auto"` cross-parcel innovation subtraction, HKSJ participant pooling, and task-modulated shared-error PPI stress tests | Verify disattenuation against naive slopes and run shared-error sensitivity curves before claiming latent PPI modulation. |
-| **Study 11 and [Multi-lag trajectory calibration](medusa_pr62_calibration/medusa_pr62_calibration.qmd)** | `medusa_multilag_infer()` available-case lag pooling, studentized Wishart `Max-|T|`, 1D TFCE, omnibus Mahalanobis tests, simultaneous bands, and `"unsmoothed"` window contrasts | Distinguish single-trajectory familywise error (`p_maxT`, `p_tfce`) from study-wide multiplicity across parcels and covariates (`"holm"` / `"BY"`). |
-| **Study 12 and [Woolrich noise review](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd)** | 2-pass post-selection REML AR($p$) noise refitting, Winsorized GLS marginal `noise_sd`, gapped Toeplitz covariance, and comparison against tapered residual estimators | Audit empirical residual ACFs and spatial homogeneity when choosing `spatial_groups` and nuisance bases. |
-| **Studies 13–14 and [Step 1](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd) / [Step 2](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)** | 3D physiological HRF manifold (`preset = "medusa"`) with positive-lobe (`normalize = "positive_lobe"`) gain consistency, event-informed vs. blind deconvolution, and adaptive heavy-tail `rwls = "auto"` frame weighting | Retain `preset = "medusa"` and `rwls = "auto"` as defaults so neurovascular dispersion, negative undershoot variations, and isolated motion spikes do not distort trial amplitudes. |
+| **[Autocorrelation Prewhitening](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd)** & Validation Study 12 | Two-pass target-excluding REML $\text{AR}(p)$ refit + Winsorized GLS `noise_sd` recovers true ACF and full trial covariance $\Omega_{r,\tau}$ (`4–8%` Frobenius error vs. `21–28%` under single-pass canonical HRF) | Requires $R \ge 2$ runs (recommended $R \ge 3$) and drift/motion confounds modeled so $\widehat{\rho}$ is not pinned at `0.90`; use `pooling = "graph"` when parcels cross pial/CSF borders. |
+| **[Propagating BOLD Noise into Trial SEs](medusa_standard_errors_mmom.qmd)** & Validation Studies 1–4 | Operator-propagated `se_demixed`, `(1 - 1/m)^{-1}` run-centering calibration, and `precision_weight_cohort` improve group slope RMSE and maintain nominal mixed-model Type I error | Treats first-stage `se_demixed^2` as fixed plug-in variances; requires centering within-person covariates (`x_within`) and specifying participant random slopes in `mixed_by()`. |
+| **[Step 1–3](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)** & Validation Studies 5–9, 13–14 | 3D physiological HRF library (`preset = "medusa"`, `normalize = "positive_lobe"`), monotone SNR-stratified `lambda_mode = "auto"`, `rwls = "auto"` glitch protection, and `(T, O)` epoch demixing | Sub-second fixed ISIs without inter-phase jitter remain fundamentally collinear under hemodynamic low-pass filtering (audit via [Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd) and `diagnose_crossrun_recovery()`). |
+| **[Simultaneous Bands Across Lags](medusa_multilag_calibration/medusa_multilag_calibration.qmd)** & Validation Study 11 | Studentized Wishart draws + available-case lag pooling hold `Max-|T|`, `1D TFCE`, `omnibus_p`, and `"unsmoothed"` window contrasts near nominal 5% / 95% targets under serial dependence and missing participant edge lags | `p_maxT` and `p_tfce` control FWER across lags of *one* `(parcel, term)` curve; apply `"holm"` or `"BY"` across `omnibus_p` when testing multiple parcels. |
+| **[Latent Connectivity](medusa_connectivity_inference/medusa_connectivity_inference.qmd)**, **[Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)**, & Validation Study 10 | Per-trial M-MOMS + `shared_error = "auto"` + HKSJ participant $t$-intervals remove predictor attenuation and stationary cross-parcel noise inflation | Sensitive to *condition-modulated* shared physiological noise ($\operatorname{Cov}(u_i, v_i \mid x_i)$ varying with $x_i$) and severe seed–target smoothing mismatch ($K_S \neq K_T$); always run a [shared-error sensitivity curve](medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-sensitivity). |
 
-## Designing a Study-Specific Calibration Check
+: Synthesis of validation benchmarks across Part IV and the 14-study validation suite, paired with empirical scope conditions. {#tbl-evidence-map}
 
-Before making high-stakes inferential claims on a novel task schedule—especially rapid event-related designs with variable-duration phases or trial-level PPI—run a compact synthetic calibration tailored to your exact study geometry:
+---
 
-1. **Lock the estimand and multiplicity family upfront:** Prespecify the target parcels, peri-event lag grid, behavioral covariates, planned time windows, and study-wide adjustment rule (`"holm"` or `"BY"`) before inspecting empirical $p$-values.
-2. **Use your actual empirical event schedule and censor masks:** Simulate BOLD on the exact empirical onset times, reaction-time durations, run lengths, and framewise-displacement censor masks (`valid_rows`) from your cohort so collinearity and edge truncation match your real data.
-3. **Simulate both active signals and realistic structured nulls:** Include voxelwise HRF variation across the physiological manifold, AR($p$) temporal noise, spatially correlated parcel innovations, and—for Step 6 PPI—a stress null where shared physiological/motion noise varies across task conditions while true neural modulation is zero.
-4. **Refit the complete pipeline inside every Monte Carlo replicate:** Keep Step 1 HRF/noise learning, Step 2 `lambda` and `rwls = "auto"` estimation, Step 3/4 epoch demixing and parcel weighting, and Step 5/6 inference inside the loop rather than freezing oracle operators.
-5. **Report bias, 95% CI coverage, null rejection, and convergence health together:** Track missing edge-lag participants, `isSingular()` rates in `mixed_by()`, step-up regularization triggers in `decon_connectivity_repair()`, and binomial Monte Carlo intervals around empirical rejection and coverage rates.
+## 3. Building a Study-Specific Calibration on Your Own Schedule
+
+Whenever an empirical study uses a novel multi-phase trial timing, heavy motion scrubbing, or small cohort size, the most informative validation you can run is a **synthetic twin of your exact task geometry**. Because `read_fmriprep_subject()` ([Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd)) already extracts each participant's real `events` table, run lengths, `TR`, and framewise-displacement `valid_rows` masks, you can simulate synthetic BOLD directly on top of your actual empirical design in ~35 lines of R—*without* peeking at real neural associations:
+
+1. **Lock the estimand and multiplicity rule upfront:** Prespecify the target condition, peri-event lag(s), covariates, window contrasts, and parcel-family adjustment (`"holm"` or `"BY"`).
+2. **Keep real onset times, durations, and censor masks intact:** Use your cohort's actual `events` timestamps, reaction-time durations, and `valid_rows` scrubbing vectors so collinearity between adjacent task phases and run-end/motion truncation match your study verbatim.
+3. **Include both an active parcel and a structured null parcel:** Generate voxelwise HRF dispersion from `hrf_library()`, realistic $\text{AR}(1)$ temporal noise ($\rho \approx 0.45\text{--}0.60$), and—if testing Step 6 PPI—shared cross-parcel background innovations.
+4. **Refit the full `medusa` pipeline in every replicate:** Run `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, and `decon_epoch_regression()` from scratch inside the loop rather than freezing oracle HRFs or smoothing parameters.
+5. **Audit bias, CI coverage, null false positives, and gating rates together:** Check `mean(is.na(decon_demixed))`, `diagnose_crossrun_recovery()$summary$mean_gain`, `isSingular()` rates in `mixed_by()`, and empirical 95% coverage.
+
+```{r}
+#| eval: false
+#| code-fold: false
+library(medusa)
+
+# Template: Synthetic twin check on one participant's real empirical schedule & scrub mask
+# Assumes `sub01` was loaded via read_fmriprep_subject() in Step 0
+tr   <- sub01$tr
+cand <- hrf_library(tr = tr, preset = "medusa")
+evs  <- split(sub01$events, sub01$events$run)
+vrows <- lapply(sub01$confounds$runs, `[[`, "valid_rows")
+
+sim_one_subject <- function(beta_true = 0.40, noise_sd = 0.35, rho = 0.50) {
+  parcels <- setNames(rep(c("Active_ROI", "Null_ROI"), each = 6L), paste0("v", 1:12))
+  h_act   <- cand[, sample(ncol(cand), 1L)]   # random physiological HRF draw
+  h_null  <- cand[, sample(ncol(cand), 1L)]
+  bold_sim <- cov_sim <- list()
+
+  for (r in names(evs)) {
+    n_t <- nrow(sub01$bold[[r]])
+    ev  <- evs[[r]]
+    t_idx <- which(ev$condition == "feedback")
+    x_mod <- as.numeric(scale(rnorm(length(t_idx))))
+
+    # Forward neural impulse series on the real empirical timestamps
+    s_act <- s_null <- numeric(n_t)
+    grid_t <- (0:(n_t - 1L)) * tr
+    for (j in seq_along(t_idx)) {
+      imp <- pmax(0, 1 - abs(grid_t / tr - ev$onset[t_idx[j]] / tr))
+      s_act  <- s_act  + imp * (1.0 + beta_true * x_mod[j])
+      s_null <- s_null + imp * 1.0            # evoked response, zero modulator slope
+    }
+    y_act  <- as.numeric(stats::convolve(s_act,  rev(h_act),  type = "open"))[seq_len(n_t)]
+    y_null <- as.numeric(stats::convolve(s_null, rev(h_null), type = "open"))[seq_len(n_t)]
+
+    ar_draw <- function() as.numeric(stats::arima.sim(list(ar = rho), n = n_t, sd = noise_sd * sqrt(1 - rho^2)))
+    Y <- cbind(
+      replicate(6L, 100 + y_act  + ar_draw()),
+      replicate(6L, 100 + y_null + ar_draw())
+    )
+    colnames(Y) <- names(parcels)
+    bold_sim[[r]] <- Y
+    cov_sim[[r]]  <- data.frame(x_within = x_mod)
+  }
+
+  hf <- estimate_crossrun_hrf(bold_sim, evs, tr = tr, kernel_grid = cand,
+                              valid_rows = vrows, spatial_groups = parcels, pooling = "parcel")
+  dc <- deconvolve_crossrun_hrf(bold_sim, hf, scaling = "noise_sd", penalty = "sobolev")
+  decon_epoch_regression(dc, cov_sim, evs, target_condition = "feedback",
+                         lags = 0, parcel_groups = parcels, restore_scale = TRUE, return_panel = TRUE)
+}
+```
+
+Looping `sim_one_subject()` across your cohort's `sub01..subN` schedules and feeding the resulting panels into `mixed_by()` (or `decon_connectivity_repair()`) gives an exact, pre-data answer to whether your task jitter, run count, and motion censoring support unbiased slope recovery and nominal 5% false-positive control in `Null_ROI`.
+
+<details>
+<summary>Companion Validation Archives</summary>
+
+- **Full 14-Study End-to-End Validation Suite:** [Rendered HTML report](library/medusa_validation_suite.html) · [Quarto source](library/medusa_validation_suite.qmd)
+- **Complete Book Reproduction Commands:** See [Package Architecture, Source Reports, and Reproduction](reference.qmd) for one-line `Rscript` commands regenerating every simulation and figure across Parts I–IV.
+
+</details>

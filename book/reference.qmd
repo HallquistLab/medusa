@@ -63,7 +63,7 @@ Rscript assets/compare_glm_fir_lss_medusa.R
 (cd medusa_step5_group_models && Rscript simulate_step5.R && Rscript figures_step5.R && Rscript simulate_pr62.R && Rscript figures_pr62.R)
 
 # Multi-lag trajectory empirical calibration (180 replications x 2 regimes)
-(cd medusa_pr62_calibration && Rscript simulate.R && Rscript figures.R)
+(cd medusa_multilag_calibration && Rscript simulate.R && Rscript figures.R)
 
 # Step 6: Trial-level connectivity, M-MOMS, & PPI sensitivity
 (cd medusa_step6_connectivity && Rscript simulate.R && Rscript figures.R)

@@ -1,0 +1,121 @@
+---
+title: "Simultaneous Bands and Familywise Calibration Across Lags"
+subtitle: "How multi-lag trajectory tests maintain Type I error and 95% coverage under serial trial dependence and censored edge lags"
+---
+
+```{r setup, include=FALSE}
+d <- read.csv("calibration_summary.csv")
+draws <- read.csv("calibration_draws.csv")
+pct <- function(x) sprintf("%.1f%%", 100 * x)
+rate_of <- function(metric, scenario) {
+  z <- d[d$metric == metric & d$scenario == scenario, "rate"]
+  stopifnot(length(z) == 1)
+  pct(z)
+}
+```
+
+## Overview: Two Distinct Multiplicity Families—and Two Finite-Sample Stressors
+
+When an investigator plots a peri-event neural regression curve across 6–12 lags in [Step 5 (`medusa_multilag_infer()`)](../medusa_step5_group_models/medusa_step5_group_models.qmd#sec-multilag-infer), reviewers routinely raise two sharp inferential questions:
+
+1. **Finite-sample and missing-edge calibration:** In cohorts of $S = 15\text{--}30$ participants where trial residuals correlate serially within runs and several participants lose late epoch lags to motion scrubbing or run-end truncation, do simultaneous `Max-|T|` confidence bands, 1D threshold-free cluster enhancement (`1D TFCE`), and planned window contrasts actually achieve nominal 5% false-positive rates and 95% simultaneous coverage?
+2. **Trajectory-wide vs. study-wide multiplicity:** If `p_maxT` and `p_tfce` already control familywise error across all lags of a trajectory, what additional adjustment is needed when testing dozens or hundreds of cortical parcels?
+
+::: {.callout-note}
+### Core Methodological Question & Connection to the Pipeline
+*How does `medusa_multilag_infer()` calibrate simultaneous bands across correlated lags with missing participant edges—and where does within-trajectory familywise control end and multi-parcel multiplicity begin?*
+
+This chapter provides the mathematical mechanism and 180-cohort Monte Carlo stress benchmarks underlying [**Step 5 Substeps 5.3–5.4 (`medusa_multilag_infer()`)**](../medusa_step5_group_models/medusa_step5_group_models.qmd#sec-multilag-infer).
+:::
+
+---
+
+## 1. Why Naive Trajectory Bands Undercover—and How MEDuSA Repairs Them
+
+Suppose we estimate population regression slopes $\widehat{\beta} = (\widehat{\beta}_1, \dots, \widehat{\beta}_L)^\top$ across $L$ peri-event lags for a single `(parcel, term)` pair across $S$ participants. Even when true neural slopes are zero everywhere ($\beta = 0$), adjacent lags share strong positive correlation from hemodynamic overlap and smooth underlying activity. Three statistical subtleties govern finite-sample calibration:
+
+1. **Uncertainty in the $L \times L$ cross-lag covariance matrix:** If we knew the exact population covariance $V_\beta$ of $\widehat{\beta}$, simulating Gaussian draws $z \sim \mathcal{N}(0, R_\beta)$ would yield exact simultaneous critical values $c_{0.95}$ for $\max_\ell |T_\ell|$. With $S = 20$ participants, however, $\widehat{V}_\beta$ is itself estimated with $S - 1$ degrees of freedom; plugging $\widehat{V}_\beta$ into Gaussian draws ignores denominator variance uncertainty and produces anti-conservative bands. `medusa_multilag_infer()` instead generates **studentized Wishart null draws** that account jointly for cross-lag correlation and finite-participant covariance uncertainty.
+2. **Available-case cross-lag pooling when edge lags drop out:** In real task runs, final trials or motion-censored blocks occasionally leave a participant with zero valid observations at an outer lag (e.g., `+4 s`) while interior lags (`-1..3 s`) remain intact. Dropping the entire participant listwise wastes interior precision, whereas ignoring unequal sample sizes distorts cross-lag off-diagonals. `medusa_multilag_infer()` pools pairwise overlapping participant sets across lags with positive-semidefinite projection so interior lags retain all $S$ participants while edge lags reflect exact effective $n_\ell$.
+3. **Evaluating planned window contrasts prior to P-spline smoothing (`contrast_source = "unsmoothed"`):** Penalized splines borrow strength across neighboring lags to visualize smooth trajectories, which slightly shrinks sharp transitions between early and late windows. Computing linear contrast vectors $w^\top \widehat{\beta}$ and $\sqrt{w^\top \widehat{V}_\beta w}$ directly on the unsmoothed lag vector preserves unbiased window differences and exact $t$-interval coverage.
+
+---
+
+## 2. Stress-Test Design: Complete vs. Serially Dependent Gapped Cohorts
+
+To evaluate these mechanisms where their assumptions are actively stressed, each Monte Carlo replication simulates **$S = 20$ participants**, **$R = 2$ runs** per participant ($20$ trials/run, jittered $3\text{--}9\text{ s}$ ISIs), **$L = 6$ peri-event lags** (`-1` to `4 s`), **1 active parcel** (`Signal`, true lag profile `(0, 0.06, 0.22, 0.26, 0.19, 0.08)`), and **2 null parcels** (`Null A` and `Null B`, true profile `0` at every lag):
+
+- **Realistic heteroskedasticity and spatial/lag correlation:** Run 2 carries $1.6\times$ the residual SD of Run 1 (`precision_weight` downweights Run 2 accordingly); residuals share cross-parcel noise ($r = 0.55$) and Toeplitz cross-lag correlation ($0.65^{|\ell - \ell'|}$); and every parcel includes true between-participant random slope heterogeneity ($\text{SD} = 0.13$).
+- **Two benchmark regimes (`180` independent cohorts each):**
+  - **`Complete / independent trials`:** Full lag support (`-1..4 s`) in all 20 participants with independent trial innovations within each run.
+  - **`Gaps / serially dependent trials`:** Introduces strong within-run $\text{AR}(1)$ serial autocorrelation in both behavioral predictors ($\rho_x = 0.65$) and trial neural errors ($\rho_e = 0.62$), censors interior trial bursts (`4` of `20` trials per run), and **censors the final edge lag (`+4 s`) completely in 3 of the 20 participants** (`17` participants at lag `+4 s`, `20` participants at lags `-1..3 s`).
+- **Evaluated estimands:** Each replicate runs `medusa_multilag_infer()` (`trajectory_mode = "none"`, `contrast_source = "unsmoothed"`, `n_perm = 799` studentized Wishart draws) and evaluates both single-trajectory error/coverage (`Null A` and `Signal`) and study-family error across all three parcels (`Signal`, `Null A`, `Null B`), alongside a planned `late_minus_early` contrast (`[3, 4] s` minus `[0, 1] s`, true difference $+0.005$).
+
+*(Note scope isolation: this benchmark begins at the participant panel to isolate cross-lag covariance estimation, available-case edge pooling, and multiplicity control under known lag structure; full BOLD-to-panel pipeline benchmarks are synthesized in [What Validation Proves](../evidence.qmd).)*
+
+---
+
+## 3. Empirical Rejection and Coverage Scorecard
+
+```{r}
+#| label: tbl-multilag-scorecard
+#| tbl-cap: "Empirical false-positive rates and simultaneous 95% interval coverage across 180 simulated cohorts per regime (parentheses show exact Clopper–Pearson 95% Monte Carlo intervals)."
+#| echo: false
+labels <- c(
+  null_maxT = "Single trajectory (Null A): any Max-|T| lag p <= .05",
+  null_tfce = "Single trajectory (Null A): any 1D TFCE lag p <= .05",
+  null_omnibus = "Single trajectory (Null A): epoch omnibus p <= .05",
+  raw_epoch_family = "3-parcel study family (2 nulls): unadjusted omnibus",
+  holm_epoch_family = "3-parcel study family (3 parcels): Holm-adjusted omnibus",
+  null_band = "Single trajectory (Null A): simultaneous 95% Max-|T| band",
+  active_band = "Single trajectory (Signal): simultaneous 95% Max-|T| band",
+  window_coverage = "Planned window contrast ([3,4] - [0,1] s): 95% CI coverage"
+)
+cell <- function(metric, scenario) {
+  z <- d[d$metric == metric & d$scenario == scenario, ]
+  sprintf("%s<br><small>(%.1f–%.1f%%)</small>", pct(z$rate), 100 * z$low, 100 * z$high)
+}
+tab <- data.frame(
+  `Inferential Quantity` = unname(labels),
+  `Nominal Target` = c(rep("5.0%", 3), "—", "5.0%", rep("95.0%", 3)),
+  `Complete / Independent` = vapply(names(labels), cell, character(1), scenario = "Complete / independent trials"),
+  `Gaps / Serial Dependence` = vapply(names(labels), cell, character(1), scenario = "Gaps / serially dependent trials"),
+  check.names = FALSE
+)
+knitr::kable(tab, row.names = FALSE, escape = FALSE)
+```
+
+![Empirical Type I error across single-trajectory tests (`Max-T`, `1D TFCE`, `Omnibus` on prespecified `Null A`) and across the 3-parcel study family (`Signal`, `Null A`, `Null B`, counting any false rejection among the null parcels). Horizontal bars denote exact 95% Clopper–Pearson Monte Carlo intervals.](rejection.png){#fig-rejection width="92%" fig-alt="Dot-and-interval plot showing single-trajectory Max-T, 1D TFCE, and omnibus false-positive rates clustering around 5%, and Holm FWER controlling the 3-parcel family."}
+
+![Empirical 95% simultaneous confidence-band coverage over all 6 lags (`-1..4 s`) for null and active curves, plus 95% CI coverage for the planned `[3, 4] - [0, 1] s` window contrast (`contrast_source = 'unsmoothed'`).](coverage.png){#fig-coverage width="92%" fig-alt="Dot-and-interval plot showing simultaneous 95% Max-T band coverage and planned window interval coverage clustering around 95% under both complete and gapped/serial designs."}
+
+Three practical lessons stand out across @tbl-multilag-scorecard, @fig-rejection, and @fig-coverage:
+
+1. **Within-trajectory tests remain calibrated under serial dependence and missing participant edges:** Studentized Wishart draws hold single-trajectory false positives near 5% in complete cohorts (**`r rate_of("null_maxT", "Complete / independent trials")`** for `Max-|T|`, **`r rate_of("null_tfce", "Complete / independent trials")`** for `1D TFCE`, **`r rate_of("null_omnibus", "Complete / independent trials")`** for `Omnibus`) and remain well controlled when trials correlate serially and 15% of participants lose the final edge lag (**`r rate_of("null_maxT", "Gaps / serially dependent trials")`**, **`r rate_of("null_tfce", "Gaps / serially dependent trials")`**, and **`r rate_of("null_omnibus", "Gaps / serially dependent trials")`**; every 95% Monte Carlo interval spans 5%).
+2. **Simultaneous bands and unsmoothed window contrasts hit 95% nominal coverage:** Across all 6 lags jointly, `conf.low.sim`–`conf.high.sim` encloses the entire true population trajectory in **`r rate_of("null_band", "Complete / independent trials")`**–**`r rate_of("active_band", "Complete / independent trials")`** of complete cohorts and **`r rate_of("null_band", "Gaps / serially dependent trials")`**–**`r rate_of("active_band", "Gaps / serially dependent trials")`** of gapped/serial cohorts. Likewise, the unsmoothed `[3, 4] - [0, 1] s` contrast covers the true window difference in **`r rate_of("window_coverage", "Complete / independent trials")`** and **`r rate_of("window_coverage", "Gaps / serially dependent trials")`** of cohorts with near-zero bias (`r sprintf("%+.3f", mean(draws$window_error[startsWith(draws$scenario, "Complete")]))` and `r sprintf("%+.3f", mean(draws$window_error[startsWith(draws$scenario, "Gaps")]))`).
+3. **Why within-trajectory FWER does not replace cross-parcel multiplicity control:** `p_maxT` and `p_tfce` control FWER across lags *within one `(parcel, term)` curve*. When screening $P$ parcels simultaneously, unadjusted 5% trajectory tests still accumulate false positives across null regions ($1 - 0.95^{P_0}$); applying Holm (`p.adjust(omnibus_p, "holm")`) or Benjamini–Yekutieli (`"BY"`) across the planned parcel family keeps study-wide discoveries calibrated (**`r rate_of("holm_epoch_family", "Complete / independent trials")`** and **`r rate_of("holm_epoch_family", "Gaps / serially dependent trials")`** across the 3-parcel benchmark, where `Signal` is active and 2 of 3 parcels are null).
+
+---
+
+## 4. Implications for Applied MEDuSA Analyses
+
+| Scientific goal | Quantity to report from `medusa_multilag_infer()` | Multiplicity & interpretation rule |
+|:---|:---|:---|
+| Pinpoint specific post-event lags where an effect is non-zero in an a priori ROI | Raw `estimate`, `p_maxT`, and simultaneous band `[conf.low.sim, conf.high.sim]` | `p_maxT <= .05` provides strong lag-level localization within one prespecified `(parcel, term)` trajectory. |
+| Detect broad, sustained deflections across contiguous lags | `p_tfce` paired with `omnibus_p` | `1D TFCE` boosts power for extended responses, but like spatial TFCE, supports cluster presence rather than exact first-onset latency ([Sassenhagen & Draschkow, 2019](https://onlinelibrary.wiley.com/doi/10.1111/psyp.13335)). |
+| Screen multiple parcels or cortical networks for trajectory effects | One `omnibus_p` per `(parcel, term)` adjusted via `"holm"` (FWER) or `"BY"` (FDR) across parcels, followed by lag visualization in surviving parcels | Separates region-level discovery control from within-region temporal profile characterization. |
+| Test early-vs.-late phase shifts (`[late] - [early]`) | `$contrasts` (`contrast_source = "unsmoothed"`) | Define early and late lag windows from task structure before inspecting group curves. |
+
+<details>
+<summary>Simulation Details & Reproduction</summary>
+
+To regenerate the 180-cohort Monte Carlo study (`calibration_summary.csv`, `calibration_draws.csv`) and figures from `book/medusa_multilag_calibration/`:
+
+```bash
+Rscript simulate.R
+Rscript figures.R
+quarto render medusa_multilag_calibration.qmd
+```
+
+[Simulation script](simulate.R) · [Figure script](figures.R) · [Calibration summary CSV](calibration_summary.csv) · [Replicate draws CSV](calibration_draws.csv) · [Simulation log](simulation.log)
+
+</details>
