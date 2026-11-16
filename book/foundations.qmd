@@ -1,8 +1,11 @@
-# Conceptual foundations {#sec-foundations}
+---
+title: "Conceptual Foundations"
+subtitle: "From neurovascular forward modeling to additive-error trial and connectivity inference"
+---
 
 Many task-fMRI studies aim to relate fast, trial-specific cognitive processes—such as reward prediction errors, choice conflict, or deliberation effort—to neural dynamics across brain regions and participants. Because the hemodynamic response blurs neural activity across 15–30 seconds and scanner observations carry serial and spatial noise, trial-level neural responses are not observed directly. Instead, they are estimated from noisy, overlapping BOLD time series and then entered into second-stage models across trials and participants.
 
-A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal & Laake, 2001; Vig & Hallquist, 2026) guides the design of MEDuSA: **separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.** The five subsections below develop how MEDuSA implements this principle from a single run's forward model to population inference and method selection.
+A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal & Laake, 2001; Vig & Hallquist, 2026) guides the design of MEDuSA: **separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.** The six subsections below develop how MEDuSA implements this principle from a single run's forward model to population inference, method selection, and unified notation.
 
 | Substantive goal | Target quantity | MEDuSA stage & approach |
 |---|---|---|
@@ -63,7 +66,7 @@ Removing systematic mixing places `decon_demixed` ($\widehat{z}$) on a **classic
 Once trial readouts $\widehat{z}$ are expressed as latent signal plus additive error $e$ with known variance $s_i^2 = \Omega_{ii}$, how measurement error affects group inference depends on **which side of the structural equation $\widehat{z}$ occupies** (Skrondal & Laake, 2001; Vig & Hallquist, 2026):
 
 1. **Neural activity as the outcome (`Neural ~ Behavior`, Step 5):** When error-free task or behavioral variables predict `decon_demixed`, additive zero-mean error $e_i$ enters the regression residual without biasing fixed-effect slope estimates. However, error precision varies across trials, runs, and participants. Step 5 (`mixed_by()` and `medusa_multilag_infer()`) pairs participant random slopes—treating **participants** as the independent unit of population replication—with composite inverse-variance weights $(\widehat{\tau}_{\text{eff}}^2 + s_i^2)^{-1}$ (`precision_weight_cohort`) and cross-lag covariance matrices so standard errors, simultaneous bands, and window contrasts remain calibrated.
-2. **Neural activity as a predictor (`Target ~ Seed * Task` or `Behavior ~ Seed`, Step 6):** When a noisy parcel readout moves to the right-hand side as a predictor, trial error $u_i$ inflates the predictor variance $X^\top X$ (attenuating slopes toward zero) and any shared scanner or physiological noise $\operatorname{Cov}(u_i, v_i) \neq 0$ between seed and target shifts $X^\top Y$. Step 6 (`decon_connectivity_repair()`) subtracts per-trial predictor error covariance blocks $\Psi_i$ and task-free cross-parcel noise covariances from the sample cross-products while guarding against unstable small denominators in low-reliability scans (**Modified Method of Moments with Step-up Regularization, M-MOMS**, `medusa_fit_mmom()`), before pooling participant slopes at the group level.
+2. **Neural activity as a predictor (`Target ~ Seed * Task` or `Behavior ~ Seed`, Step 6):** When a noisy parcel readout moves to the right-hand side as a predictor ($\widehat{z}_{S,i} = \theta_{S,i} + u_i$ predicting $\widehat{z}_{T,i} = \theta_{T,i} + v_i$), trial error $u_i$ inflates the predictor variance $X^\top X$ (attenuating slopes toward zero) and any shared scanner or physiological noise $\operatorname{Cov}(u_i, v_i) \neq 0$ between seed and target shifts $X^\top Y$. Step 6 (`decon_connectivity_repair()`) subtracts per-trial predictor error covariance blocks $\Psi_i$ and task-free cross-parcel noise covariances from the sample cross-products while guarding against unstable small denominators in low-reliability scans (**Modified Method of Moments with Step-up Regularization, M-MOMS**, `medusa_fit_mmom()`), before pooling participant slopes at the group level.
 
 ## 5. When does MEDuSA agree with—or outperform—GLM, FIR, and LSS beta-series? {#sec-glm-fir-lss-comparison}
 
@@ -110,6 +113,26 @@ knitr::kable(
 | **Multi-phase cognitive tasks** (`cue` $\to$ variable-RT `decision` $\to$ `feedback`) or **subcortical / fast-HRF territories** | Canonical GLM and LSS attenuate effects when regional HRFs peak early/late or correlated trial phases overlap. | Out-of-sample HRF learning ([Step 1](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd)) + duration-aware `(T, O)` epoch de-mixing ([Step 3](medusa_step3_epochs/medusa_step3_epochs.qmd)) prevent vascular-mismatch loss and neighbor bleed. |
 | **Temporally evolving or biphasic dynamics** (early phasic salience vs. late sustained regulation, peak latency shifts) | Scalar GLM/LSS integrate opposing lobes; FIR remains in delayed BOLD time without single-trial readouts. | `medusa_multilag_infer()` ([Step 5](medusa_step5_group_models/medusa_step5_group_models.qmd)) estimates neural-time trajectories, simultaneous bands, and window contrasts while retaining trial panels. |
 | **Trial-to-trial seed–target connectivity & PPI** | LSS beta-series contain unquantified trial estimation error and shared physiological noise that bias `Target ~ Seed * Task` slopes. | `decon_connectivity_repair()` ([Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)) propagates per-trial error variances and task-free cross-parcel noise correlations into M-MOMS disattenuation. |
+
+## 6. Unified notation, dimensions, and package object map {#sec-notation}
+
+Every chapter in this book uses a shared set of symbols linking mathematical operators to the columns and S3 fields produced by `medusa`:
+
+| Symbol | Meaning | Dimensions | Corresponding `medusa` Object / Column |
+|---|---|---|---|
+| $r \in \{1,\dots,R\}$, $s \in \{1,\dots,S\}$ | Scanner run index $r$; participant index $s$ | Integers | `names(bold)` / `panel$run`, `panel$id` |
+| $T_r$, $m_r$, $V$, $m$, $L$ | Volumes in run $r$; valid unmasked frames ($I_r$); voxels; target trials in run $r$; peri-event lags | Integers | `nrow(bold[[r]])`, `sum(valid_rows[[r]])`, `ncol(bold[[r]])`, `length(lags)` |
+| $y_r$, $\tilde{y}_{r,o}$ | Observed run BOLD vector; centered, noise-scaled BOLD on valid frames $I_r$ ($M_{r,o}$ row selector) | $T_r \times 1$, $m_r \times 1$ | `bold[[r]]` (`T_r × V`), `valid_rows[[r]]` |
+| $h$, $H_r$ | Regional hemodynamic response waveform; causal Toeplitz convolution matrix | $L_{\text{hrf}} \times 1$, $T_r \times T_r$ | `hrf_fit$selected_kernels[[r]]` |
+| $Z_r$, $\varepsilon_r$, $\Sigma_r = \sigma_{\text{obs}}^2 \Sigma_{\text{cor}}$, $W_r$ | Nuisance/drift basis; serial BOLD noise; marginal variance $\sigma_{\text{obs}}^2$ times $\text{AR}(p)$ correlation $\Sigma_{\text{cor}}$; whitener $W_r$ | $T_r \times p_Z$, $T_r \times T_r$ | `hrf_fit$noise[[r]]`, `decon$scaling[[r]]$noise_sd`, `decon$noise_innovations[[r]]` |
+| $a_r$, $\widehat{a}_r = D_r \tilde{y}_{r,o}$ | True and deconvolved continuous neural activity on the acquisition grid | $T_r \times 1$ | `decon$activity[[r]]` (`T_r × V`) |
+| $P$, $\lambda$, $D_r$, $R_r = D_r M_{r,o} H_r$ | Roughness penalty matrix; smoothing weight; Step 2 linear inverse operator; continuous resolution matrix | $T_r \times T_r$, $T_r \times m_r$ | `decon$scaling[[r]]$lambda`, `hrf_inverse_operator()`, `diagnose_crossrun_recovery()` |
+| $\theta_T$, $\theta_O$, $G_\tau$, $G_O$ | True target-trial and non-target event neural amplitudes; forward BOLD event designs | $m \times 1$, $T_r \times m$ | `events` (`target_condition` vs. other conditions) |
+| $S_\tau$, $K_{\text{raw},\tau}$, $B_{r,\tau}$ | Local lag-$\tau$ readout matrix; raw trial resolution $S_\tau D_r G_\tau$; composite de-mixed trial operator | $m \times T_r$, $m \times m$, $m \times m_r$ | `decon_epoch_regression(..., lags = ...)` |
+| $\widehat{z}_{\text{raw},\tau}$, $\widehat{z}_{r,\tau} = \theta_T + e_{r,\tau}$ | Raw vs. de-mixed additive-error trial readout at lag $\tau$ | $m \times 1$ | `panel$decon_raw`, `panel$decon_demixed` |
+| $\Omega_{r,\tau}$, $s_{ri} = \sqrt{[\Omega_{r,\tau}]_{ii}}$ | Propagated trial error covariance ($Q_m B_{r,\tau} \Sigma_r B_{r,\tau}^\top Q_m$); per-trial measurement SE | $m \times m$, scalar | `panel$se_demixed`, `panel$error_ac1`, `epochs$lag_error_cor` |
+| $\tau_{\text{bio}}^2$, $w_{ri}$ | Latent biological trial-to-trial variance; composite precision weight $(\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$ | Scalar | `panel$tau2_bio`, `panel$precision_weight`, `panel$precision_weight_cohort`, `panel$decon_eb` |
+| $\widehat{z}_{S,i}, \widehat{z}_{T,i}$, $\Psi_i$, $c_i$ | Paired seed and target `decon_demixed` readouts ($\theta_{S,i}+u_i$, $\theta_{T,i}+v_i$); predictor error block; shared cross-parcel error covariance $\operatorname{Cov}(u_i, v_i)$ | $q \times q$, scalar | `epochs$unit_error_cor`, `panel$shared_noise_loading`, `decon_connectivity_repair()`, `medusa_fit_mmom()` |
 
 ## Practical record-keeping across steps
 

@@ -1,4 +1,7 @@
-# Calibration of multi-lag trajectory inference
+---
+title: "Calibration of Multi-Lag Trajectory Inference"
+subtitle: "Empirical Type I error and simultaneous confidence-band coverage across complete and gapped cohorts"
+---
 
 ```{r setup, include=FALSE}
 d <- read.csv("calibration_summary.csv")
@@ -11,7 +14,7 @@ rate_of <- function(metric, scenario) {
 }
 ```
 
-[Step 5](../medusa_step5_group_models/medusa_step5_group_models.qmd#sec-pr62) introduced `medusa_multilag_infer()` for joint peri-event trajectory estimation, simultaneous confidence bands, 1D TFCE, epoch omnibus testing, and planned window contrasts. This chapter evaluates the empirical Type I error and 95% confidence-band coverage of `medusa::medusa_multilag_infer()` across **180 independent synthetic cohorts per scenario**, separating two distinct error-rate targets:
+[Step 5](../medusa_step5_group_models/medusa_step5_group_models.qmd#sec-multilag-infer) introduced `medusa_multilag_infer()` for joint peri-event trajectory estimation, simultaneous confidence bands, 1D TFCE, epoch omnibus testing, and planned window contrasts. This chapter evaluates the empirical Type I error and 95% confidence-band coverage of `medusa::medusa_multilag_infer()` across **180 independent synthetic cohorts per scenario**, separating two distinct error-rate targets:
 
 1. **Within-trajectory familywise calibration:** Controlling false positives and simultaneous band coverage across all lags of a single prespecified `(parcel, term)` trajectory.
 2. **Study-wide familywise calibration:** Controlling false discoveries when an analyst tests multiple parcels (here, one active parcel and two null parcels) simultaneously.

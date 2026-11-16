@@ -1,12 +1,6 @@
 ---
 title: "Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows"
 subtitle: "Geodesic bilateral pooling, SNR-stratified deconvolution, Graph-EB trial variance, and ggbrain visualization"
-format:
-  html:
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
 ---
 
 ```{r}
@@ -70,7 +64,7 @@ Notice the synergy in **Pathway B**: even when your final group hypothesis in St
 | **Step 1 HRF & noise** | `pooling = "graph"`, `parcel_boundary = "soft"`, `spatial_fwhm = 6` | `pooling = "graph"` (`parcel_boundary = "soft"`) *or* `pooling = "parcel"` when parcels are small and homogeneous |
 | **Step 2 deconvolution** | `scaling = "noise_sd"`, `lambda_mode = "auto"` (monotone SNR-stratified smoothing) | `scaling = "noise_sd"`, `lambda_mode = "auto"` (propagates per-voxel $\lambda_v$ into Step 4) |
 | **Step 3 / 4 epoch readout** | `aggregate_by_parcel = FALSE`, `restore_scale = TRUE`, `tau2_shrinkage = "graph_eb"` | `parcel_groups = ts$parcel_ids`, `restore_scale = TRUE`, `whiten_panel = TRUE`, `return_panel = TRUE` |
-| **Spatial smoothing of $\hat{s}(t)$ or $\hat{\beta}$?** | **No.** Only cross-run HRF scores, REML noise $(\hat{\rho}, \log\hat{\sigma})$, smoothed task-$R^2$ tiers, and variance parameters $(\hat{\tau}_{\text{bio}}^2, \hat{\sigma}_{\text{res}}^2)$ pool across concordant neighbors | Aggregates continuous deconvolved series within each parcel using SNR-optimal `parcel_weights` and propagates spatial covariance via task-free `noise_innovations` |
+| **Spatial smoothing of $\widehat{a}(t)$ or $\hat{\beta}$?** | **No.** Only cross-run HRF scores, REML noise $(\hat{\rho}, \log\hat{\sigma})$, smoothed task-$R^2$ tiers, and variance parameters $(\hat{\tau}_{\text{bio}}^2, \hat{\sigma}_{\text{res}}^2)$ pool across concordant neighbors | Aggregates continuous deconvolved series within each parcel using SNR-optimal `parcel_weights` and propagates spatial covariance via task-free `noise_innovations` |
 | **Volumetric NIfTI export** | `write_nifti_ts(stat_vec, file, reference = decon)` (uses carried `voxel_map` + `geometry` directly) | `backproject_medusa(coef_df, brain_mask = decon, ...)` (maps integer `atlas_value` parcels directly onto 3D/4D NIfTIs) |
 
 ---
