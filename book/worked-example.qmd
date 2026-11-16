@@ -1,4 +1,7 @@
-# A worked analysis from BOLD to a group claim {#sec-worked}
+---
+title: "A Worked Analysis from BOLD to a Group Claim"
+subtitle: "Tracing a 12-participant reinforcement-learning cohort from run matrices to population trajectories and PPI"
+---
 
 ```{r setup, include=FALSE}
 num <- function(x) sprintf("%.3f", x)
@@ -172,9 +175,11 @@ Finally, when `Parcel_A` moves to the right-hand side to test whether its coupli
 
 ## 5. Practical checks: Censoring support and file handoffs
 
-Two quick diagnostic checks illustrate how MEDuSA handles incomplete data and file serialization gracefully:
+Two quick diagnostic checks illustrate how MEDuSA handles incomplete data and file serialization gracefully.
 
-1. **Observability gating & available-case lag pooling:** If late-run frames more than `r check$edge_cut` s after the final feedback trial are censored (`valid_rows = FALSE`), Step 3 retains `sim01`'s final trial at lag $0\text{ s}$ while marking later lags `Missing` once causal HRF energy falls inside the masked tail. Similarly, if one participant lacks all $+4\text{ s}$ readouts, `medusa_multilag_infer()` retains all 12 participants at lags $-2$ to $+3\text{ s}$ and pools the 11 supported participants at $+4\text{ s}$:
+### Observability gating and available-case lag pooling
+
+If late-run frames more than `r check$edge_cut` s after the final feedback trial are censored (`valid_rows = FALSE`), Step 3 retains `sim01`'s final trial at lag $0\text{ s}$ while marking later lags `Missing` once causal HRF energy falls inside the masked tail. Similarly, if one participant lacks all $+4\text{ s}$ readouts, `medusa_multilag_infer()` retains all 12 participants at lags $-2$ to $+3\text{ s}$ and pools the 11 supported participants at $+4\text{ s}$:
 
 ```{r support-table, echo=FALSE}
 knitr::kable(data.frame(
@@ -184,7 +189,9 @@ knitr::kable(data.frame(
   check.names=FALSE),row.names=FALSE)
 ```
 
-2. **Preserving cross-parcel error metadata across exports (`#sec-worked-handoff`):** Step 6's `shared_error = "auto"` reads full `$unit_error_cor` matrices when given `subject_epochs`, or falls back to the `$panel$shared_noise_loading` column when given a stacked `data.table` or `.rds`/Parquet file. Stripping `shared_noise_loading` during a compact plain-text export leaves no cross-parcel error metadata, causing `"auto"` to fall back transparently to zero shared error:
+### Preserving cross-parcel error metadata across exports {#sec-worked-handoff}
+
+Step 6's `shared_error = "auto"` reads full `$unit_error_cor` matrices when given `subject_epochs`, or falls back to the `$panel$shared_noise_loading` column when given a stacked `data.table` or `.rds`/Parquet file. Stripping `shared_noise_loading` during a compact plain-text export leaves no cross-parcel error metadata, causing `"auto"` to fall back transparently to zero shared error:
 
 ```{r ppi-handoff-table, echo=FALSE}
 h <- as.data.frame(check$handoff)

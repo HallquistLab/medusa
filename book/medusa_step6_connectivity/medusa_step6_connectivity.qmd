@@ -1,4 +1,7 @@
-# Step 6: Trial-Level Connectivity and PPI {#sec-step6}
+---
+title: "Step 6: Trial-Level Connectivity and PPI"
+subtitle: "Correcting predictor measurement error and shared regional noise in neural-to-neural and neural-to-behavior models"
+---
 
 ```{r setup, include=FALSE}
 d <- read.csv("ppi_summary.csv")
@@ -32,6 +35,11 @@ ppi <- decon_connectivity_repair(
 )
 ```
 
+::: {.callout-note}
+### Position in the MEDuSA Pipeline
+[**Step 4 (`subject_epochs` / `group_panel` + `se_demixed` + `unit_error_cor`)**](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd) $\longrightarrow$ **Step 6 (`decon_connectivity_repair` / `medusa_fit_mmom`)** $\longrightarrow$ Disattenuated participant & cohort connectivity / PPI slopes
+:::
+
 The walkthrough below develops Step 6 in four substeps directly paralleling the REPAIR two-step moment framework: specifying the latent structural equation (`6.1`), constructing the trial-specific error covariance matrices (`6.2`), estimating participant slopes via regularized M-MOMS (`6.3`), and pooling across participants (`6.4`).
 
 ---
@@ -50,7 +58,7 @@ The walkthrough below develops Step 6 in four substeps directly paralleling the 
 | Input | Structure | Why Step 6 Uses It |
 |:---|:---|:---|
 | **`panel_dt`** | Named `subject_epochs` list (preferred) or stacked `group_panel` (`data.table` / `.rds` / Parquet) | Pairs seed and target trial readouts by `(id, run, trial)` while supplying `se_demixed` and Step 4's cross-parcel noise correlations (`$unit_error_cor` on `subject_epochs`, or `$panel$shared_noise_loading` on stacked panels). |
-| **`seed_region`, `target_region`, `seed_lag`, `target_lag`** | Parcel names and peri-event lags (e.g., `seed_lag = 0, target_lag = 0` or lagged `seed_lag = 0, target_lag = 1`) | Select the paired seed readout $W_i$ and target readout $Y_i$ along with their trial-specific measurement SEs. |
+| **`seed_region`, `target_region`, `seed_lag`, `target_lag`** | Parcel names and peri-event lags (e.g., `seed_lag = 0, target_lag = 0` or lagged `seed_lag = 0, target_lag = 1`) | Select the paired seed readout $\widehat{z}_{S,i}$ and target readout $\widehat{z}_{T,i}$ along with their trial-specific measurement SEs. |
 | **`covariates` & `test_ppi`** | Character vector of centered task covariates; logical `test_ppi` | When `test_ppi = TRUE`, the first element of `covariates` defines the error-free psychological modulator $x_i$ forming `seed:x`, while any additional covariates enter as additive controls. |
 | **`shared_error` & `method`** | `shared_error = c("auto", "supplied", "zero")`; `method = c("mmoms", "mmom", "naive_unweighted")` | Govern cross-parcel error subtraction and moment-matrix conditioning. |
 
@@ -68,26 +76,26 @@ The walkthrough below develops Step 6 in four substeps directly paralleling the 
 
 ### 6.1 Specify the latent trial connectivity or PPI structural equation
 
-Within a participant (after centering seed, target, and task covariates within each run), let $S_i$ denote true latent seed activity at `seed_lag`, $T_i$ denote latent target activity at `target_lag`, and $x_i$ denote an error-free centered task modulator on trial $i$:
+Within a participant (after centering seed, target, and task covariates within each run), let $\theta_{S,i}$ denote true latent seed amplitude at `seed_lag`, $\theta_{T,i}$ denote latent target amplitude at `target_lag`, and $x_i$ denote an error-free centered task modulator on trial $i$:
 
 $$
-T_i = \beta_S S_i + \beta_x x_i + \beta_P (S_i x_i) + \varepsilon_i.
+\theta_{T,i} = \beta_S \theta_{S,i} + \beta_x x_i + \beta_P (\theta_{S,i} x_i) + \varepsilon_i.
 $$
 
 Each coefficient answers a distinct biological question: $\beta_S$ is baseline trial-to-trial seed–target coupling at the mean of $x_i$ ($x_i = 0$), $\beta_x$ absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and $\beta_P$ is the **PPI slope**—how much seed–target coupling changes per unit change in $x_i$ (for $x_i \in \{-1, +1\}$, $2\beta_P$ is the slope difference between task conditions).
 
 **Choice point — Seed parameterization (`orthogonalize_seed_x`) and lagged control (`control_target_at_seed_lag`):**
 
-- **Direct vs. residualized seed (`orthogonalize_seed_x`):** Setting `orthogonalize_seed_x = FALSE` (recommended when testing the direct structural equation above) enters centered $S_i$ and $x_i$ symmetrically without altering quadratic task structure. Setting `orthogonalize_seed_x = TRUE` first residualizes the seed against `covariates` (projecting `diag(se_demixed^2)` through $P D_u P^\top$) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to $x_i$, residualizing shifts the product column by a term proportional to $x_i^2$.
+- **Direct vs. residualized seed (`orthogonalize_seed_x`):** Setting `orthogonalize_seed_x = FALSE` (recommended when testing the direct structural equation above) enters centered $\theta_{S,i}$ and $x_i$ symmetrically without altering quadratic task structure. Setting `orthogonalize_seed_x = TRUE` first residualizes the seed against `covariates` (projecting `diag(se_demixed^2)` through $P D_u P^\top$) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to $x_i$, residualizing shifts the product column by a term proportional to $x_i^2$.
 - **Concurrent vs. lagged Granger-style coupling (`control_target_at_seed_lag`):** When `target_lag > seed_lag`, setting `control_target_at_seed_lag = TRUE` includes target activity at `seed_lag` as an additional error-corrected neural predictor so $\beta_S$ and $\beta_P$ test whether seed activity predicts *subsequent change* in the target parcel.
 
 ---
 
 ### 6.2 Construct trial-specific predictor and shared-error covariance matrices
 
-In practice, Step 4 provides de-mixed additive-error readouts $W_i = S_i + u_i$ and $Y_i = T_i + v_i$ rather than latent $(S_i, T_i)$, with known conditional sampling variances $s_{S,i}^2 = \texttt{se\_demixed}_{S,i}^2$ and $s_{T,i}^2 = \texttt{se\_demixed}_{T,i}^2$. Forming the observed predictor row $X_i = [W_i,\, x_i,\, W_i x_i]^\top$ induces predictor error $e_{X,i} = [u_i,\, 0,\, x_i u_i]^\top$.
+In practice, Step 4 provides de-mixed additive-error readouts $\widehat{z}_{S,i} = \theta_{S,i} + u_i$ and $\widehat{z}_{T,i} = \theta_{T,i} + v_i$ rather than latent $(\theta_{S,i}, \theta_{T,i})$, with known conditional sampling variances $s_{S,i}^2 = \texttt{se\_demixed}_{S,i}^2$ and $s_{T,i}^2 = \texttt{se\_demixed}_{T,i}^2$. Forming the observed predictor row $X_i = [\widehat{z}_{S,i},\, x_i,\, \widehat{z}_{S,i} x_i]^\top$ and observed outcome $Y_i = \widehat{z}_{T,i}$ induces predictor error $e_{X,i} = [u_i,\, 0,\, x_i u_i]^\top$.
 
-Notice that even though $u_i$ is a scalar on trial $i$, both the `seed` column ($W_i$) and the `ppi` column ($W_i x_i$) contain the **same** noise draw $u_i$, producing a structured $3 \times 3$ predictor measurement-error covariance block on trial $i$:
+Notice that even though $u_i$ is a scalar on trial $i$, both the `seed` column ($\widehat{z}_{S,i}$) and the `ppi` column ($\widehat{z}_{S,i} x_i$) contain the **same** noise draw $u_i$, producing a structured $3 \times 3$ predictor measurement-error covariance block on trial $i$:
 
 $$
 \Psi_i = \operatorname{Cov}(e_{X,i} \mid x_i) = s_{S,i}^2 \begin{pmatrix} 1 & 0 & x_i \\ 0 & 0 & 0 \\ x_i & 0 & x_i^2 \end{pmatrix}.

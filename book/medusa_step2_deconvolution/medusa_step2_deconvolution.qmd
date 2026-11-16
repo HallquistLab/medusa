@@ -1,12 +1,6 @@
 ---
 title: "Step 2: Event-Informed Continuous Deconvolution"
 subtitle: "Reconstructing continuous latent neural activity via event-anchored GLS regularization"
-format:
-  html:
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
 ---
 
 ```{r}
@@ -17,9 +11,9 @@ bve <- d2$blind_vs_event
 
 ## Overview
 
-Given each run's cross-fitted HRF and serial noise model from Step 1, Step 2 (`deconvolve_crossrun_hrf()`) reconstructs a **continuous latent neural activity time series** $\hat{s}_r(t)$ on the original acquisition grid for every run and voxel. Because hemodynamic convolution smooths rapid neural fluctuations over 15–30 seconds, Step 2 solves a smoothness-penalized, $\text{AR}(p)$-whitened generalized least squares (GLS) inverse problem that recovers continuous neural dynamics while controlling high-frequency noise amplification.
+Given each run's cross-fitted HRF and serial noise model from Step 1, Step 2 (`deconvolve_crossrun_hrf()`) reconstructs a **continuous latent neural activity time series** $\widehat{a}_r(t)$ on the original acquisition grid for every run and voxel. Because hemodynamic convolution smooths rapid neural fluctuations over 15–30 seconds, Step 2 solves a smoothness-penalized, $\text{AR}(p)$-whitened generalized least squares (GLS) inverse problem that recovers continuous neural dynamics while controlling high-frequency noise amplification.
 
-The defining feature of MEDuSA's Step 2 is its **event-informed continuous architecture**: the latent time series $\hat{s}_r(t)$ itself is estimated continuously and unconstrained across the entire run, while an auxiliary event-informed GLS regression model calibrates the three quantities that govern inversion quality—(1) task-free observation-noise scaling (`scaling = "noise_sd"`), (2) neural-safe downweighting of transient scanner glitches (`rwls = "auto"`), and (3) SNR-stratified cross-run smoothing (`lambda_mode = "auto"`).
+The defining feature of MEDuSA's Step 2 is its **event-informed continuous architecture**: the latent time series $\widehat{a}_r(t)$ itself is estimated continuously and unconstrained across the entire run, while an auxiliary event-informed GLS regression model calibrates the three quantities that govern inversion quality—(1) task-free observation-noise scaling (`scaling = "noise_sd"`), (2) neural-safe downweighting of transient scanner glitches (`rwls = "auto"`), and (3) SNR-stratified cross-run smoothing (`lambda_mode = "auto"`).
 
 ```{r}
 #| eval: false
@@ -49,7 +43,7 @@ The five substeps below develop this estimator from the basic continuous GLS inv
 
 ### Goals of Step 2
 
-1. **Recover continuous, unconstrained latent neural time courses:** Estimate a `time × voxel` activity matrix $\hat{s}_r$ on the intact acquisition grid via prewhitened penalized GLS.
+1. **Recover continuous, unconstrained latent neural time courses:** Estimate a `time × voxel` activity matrix $\widehat{a}_r$ on the intact acquisition grid via prewhitened penalized GLS.
 2. **Standardize voxels and runs by pure observation noise:** Estimate marginal observation-noise SD ($\hat{\sigma}_{\text{marg}}$) from task-projected GLS residuals (`scaling = "noise_sd"`) so strong task activation does not compress recovered amplitudes.
 3. **Downweight transient non-task glitches safely:** Attenuate isolated sub-scrubbing motion or RF spikes (`rwls = "auto"`) while leaving genuine high-amplitude neural bursts unclipped.
 4. **Adapt regularization (`lambda`) to regional task SNR:** Tune smoothness automatically across runs while grouping voxels from quiet background cortex up to strong task foci so noisier regions receive stronger smoothing (`lambda_mode = "auto"`).
@@ -76,7 +70,7 @@ The five substeps below develop this estimator from the basic continuous GLS inv
 | `scaling` | Named list of per-run `data.frame`s (`voxel`, `center`, `scale`, `noise_sd`, `lambda`, `status`) | Records the pre-deconvolution divisor (`scale`), marginal observation-noise SD (`noise_sd`), and per-voxel penalty (`lambda`), enabling Step 3 to restore physical BOLD units (`restore_scale = TRUE`) and propagate exact SEs. |
 | `noise_innovations` | Named list of `n_valid_rows × n_voxels` unit-norm task-free whitened residual matrices | Captures spatial error correlations after removing task-evoked BOLD variance, supporting unbiased parcel noise estimation in Step 4 and shared-error connectivity correction in Step 6. |
 | `frame_weights` | Named list of length-`n_valid_rows` vectors in $(0, 1]$ | Preserves any adaptive `rwls` glitch weights so Step 3 reconstructs the exact weighted inverse operator and error covariance. |
-| `hrf_fit`, `settings`, `voxel_map`, & `geometry` | Embedded `crossrun_hrf` + tuning tables (`lambda_strata`, `lambda_tuning`) + NIfTI metadata | Allows Steps 3–4 to rebuild stratum operators $D_r$ on the fly without storing gigabytes of dense $n_r \times m_r$ matrices in memory, and supports direct NIfTI export via `write_nifti_ts()`. |
+| `hrf_fit`, `settings`, `voxel_map`, & `geometry` | Embedded `crossrun_hrf` + tuning tables (`lambda_strata`, `lambda_tuning`) + NIfTI metadata | Allows Steps 3–4 to rebuild stratum operators $D_r$ on the fly without storing gigabytes of dense $T_r \times m_r$ matrices in memory, and supports direct NIfTI export via `write_nifti_ts()`. |
 
 ---
 
@@ -84,19 +78,19 @@ The five substeps below develop this estimator from the basic continuous GLS inv
 
 ### 2.1 Formulate the continuous prewhitened GLS deconvolution objective
 
-Start with a single run $r$ and voxel whose centered, standardized usable BOLD observations $\tilde{y}_{r,o}$ follow the forward convolution model $\tilde{y}_{r,o} = M_{r,o} H_r s_r + \varepsilon_{r,o}$, where $H_r$ convolves latent neural activity $s_r \in \mathbb{R}^{n_r}$ with Step 1's HRF, $M_{r,o}$ selects unmasked frames (`valid_rows[[r]] == TRUE`), and $W_r$ whitens the $\text{AR}(p)$ error covariance.
+Start with a single run $r$ and voxel whose centered, standardized usable BOLD observations $\tilde{y}_{r,o}$ follow the forward convolution model $\tilde{y}_{r,o} = M_{r,o} H_r a_r + \varepsilon_{r,o}$, where $H_r$ convolves latent neural activity $a_r \in \mathbb{R}^{T_r}$ with Step 1's HRF, $M_{r,o}$ selects the $m_r$ unmasked frames (`valid_rows[[r]] == TRUE`), and $W_r$ whitens the $\text{AR}(p)$ error covariance.
 
-Because $H_r$ acts as a low-pass filter, high-frequency oscillations in $s_r$ leave convolved BOLD almost unchanged (@fig-step2-ambiguity). Inverting $H_r$ with virtually no penalty (`lambda = 0.0001`) therefore amplifies high-frequency noise dramatically, whereas an overly large penalty (`lambda = 3`) smooths away phasic peaks (@fig-step2-lambda).
+Because $H_r$ acts as a low-pass filter, high-frequency oscillations in $a_r$ leave convolved BOLD almost unchanged (@fig-step2-ambiguity). Inverting $H_r$ with virtually no penalty (`lambda = 0.0001`) therefore amplifies high-frequency noise dramatically, whereas an overly large penalty (`lambda = 3`) smooths away phasic peaks (@fig-step2-lambda).
 
 ![High-frequency forward ambiguity: adding rapid alternating neural fluctuations produces virtually identical convolved BOLD.](figures/01-ambiguity.png){#fig-step2-ambiguity width="95%" fig-alt="Two latent sources differing by a fast oscillation and their nearly identical convolved BOLD series."}
 
 ![Effect of varying `lambda` (`0.0001`, `0.03`, `3`) on the same noisy BOLD series under the `sobolev` penalty.](figures/02-lambda.png){#fig-step2-lambda width="95%" fig-alt="Three-panel comparison of weak, moderate, and strong lambda regularization."}
 
-Step 2 estimates $\hat{s}_r$ by minimizing the penalized prewhitened GLS objective across the full $n_r$-sample run grid:
+Step 2 estimates $\widehat{a}_r$ by minimizing the penalized prewhitened GLS objective across the full $T_r$-sample run grid:
 $$
-\hat{s}_r = \arg\min_{s \in \mathbb{R}^{n_r}} \left\| W_r \bigl(\tilde{y}_{r,o} - M_{r,o} H_r s\bigr) \right\|_2^2 + \lambda s^\top P s.
+\widehat{a}_r = \arg\min_{a \in \mathbb{R}^{T_r}} \left\| W_r \bigl(\tilde{y}_{r,o} - M_{r,o} H_r a\bigr) \right\|_2^2 + \lambda a^\top P a.
 $$
-Notice that **no event timestamps appear inside $P$ or restrict $s$**: spontaneous inter-trial fluctuations, sustained deliberation plateaus, and brief phasic bursts can occur anywhere on the acquisition clock, and the solution is a linear map $\hat{s}_r = D_r \tilde{y}_{r,o}$.
+Notice that **no event timestamps appear inside $P$ or restrict $a$**: spontaneous inter-trial fluctuations, sustained deliberation plateaus, and brief phasic bursts can occur anywhere on the acquisition clock, and the solution is a linear map $\widehat{a}_r = D_r \tilde{y}_{r,o}$.
 
 ![Comparison of all five penalty families (`ridge`, `diff1`, `diff2`, `matern1`, `sobolev`) on the same run.](figures/03-penalties.png){#fig-step2-penalties width="95%" fig-alt="Five-panel comparison of deconvolved series across penalty geometries."}
 
@@ -120,7 +114,7 @@ knitr::kable(d2$metrics, digits = 3, row.names = FALSE,
 
 Before solving the penalized GLS objective across thousands of voxels, each run and voxel is centered and divided by a reference scale so $\lambda$ acts comparably everywhere. A common convention in blind deconvolution is whole-run z-scoring (`scaling = "zscore"`), which divides by total temporal $\text{SD}(y)$. However, in a strongly task-responsive voxel, $\text{SD}(y)$ combines background noise *and* task-evoked BOLD variance—inflating the denominator and compressing recovered neural slopes relative to quieter voxels.
 
-To separate observation noise from task signal without constraining $\hat{s}_r$, `scaling = "noise_sd"` fits an **auxiliary event-informed GLS regression** containing run drift, user nuisance columns, free per-trial convolved event regressors under Step 1's HRF, and 1st/2nd HRF Taylor derivatives (absorbing trial-to-trial latency jitter). From the outlier-trimmed, leverage-adjusted residuals of this projection (Winsorized GLS residuals), MEDuSA extracts two quantities:
+To separate observation noise from task signal without constraining $\widehat{a}_r$, `scaling = "noise_sd"` fits an **auxiliary event-informed GLS regression** containing run drift, user nuisance columns, free per-trial convolved event regressors under Step 1's HRF, and 1st/2nd HRF Taylor derivatives (absorbing trial-to-trial latency jitter). From the outlier-trimmed, leverage-adjusted residuals of this projection (Winsorized GLS residuals), MEDuSA extracts two quantities:
 
 1. **Uncontaminated marginal observation-noise SD ($\hat{\sigma}_{\text{marg}}$):** Tracks true background noise uniformly across high-gain, moderate-gain, and null voxels (@fig-step2-scaling and @tbl-step2-blind-scale).
 2. **Task-free whitened `noise_innovations`:** Orthonormalized residual series carried forward to measure pure spatial noise correlations in Steps 4 and 6.
@@ -172,10 +166,10 @@ Stepping back across Substeps `2.1`–`2.4` clarifies how MEDuSA relates to both
 
 | Method Family | HRF & Noise Model | Scaling Reference | Glitch vs. Burst Handling | Latent Output & Downstream SEs |
 |---|---|---|---|---|
-| **Blind Nonlinear (`deconvolve_nlreg` / Bush 2011)** | Fixed canonical HRF; unwhitened OLS | Whole-run `zscore` (mixes task variance into divisor) | Logistic sigmoid squashes all excursions into $(0,1)$ | Bounded nonlinear encoding; no linear operator or analytical trial SEs |
+| **Blind Nonlinear (`deconvolve_nlreg` / Bush & Cisler, 2013)** | Fixed canonical HRF; unwhitened OLS | Whole-run `zscore` (mixes task variance into divisor) | Logistic sigmoid squashes all excursions into $(0,1)$ | Bounded nonlinear encoding; no linear operator or analytical trial SEs |
 | **Blind Linear (`deconvolve_reglin`)** | Fixed HRF; optional scalar AR(1) | Whole-run `zscore` or raw $\Delta^2$ | Unweighted (glitches ring) or GCV oversmoothed by null voxels | Continuous linear series without cross-run HRF, task-free innovations, or epoch de-mixing |
 | **Standard Parametric GLM / LSS** | Assumed HRF/basis; fixed event boxcars | Residual error | Fixed trial basis; zero neural activity assumed outside events | Scalar trial betas only; no continuous lag-flexible trajectory |
-| **MEDuSA Event-Informed Continuous GLS (`deconvolve_crossrun_hrf`)** | Cross-fitted 3D HRF + 2-pass REML $\text{AR}(p)$ | Event-projected GLS marginal `noise_sd` | `rwls = "auto"` downweights non-task glitches while protecting neural bursts | Unconstrained continuous $\hat{s}(t)$ **plus** exact operator $D_r$, `noise_innovations`, and propagated trial covariance |
+| **MEDuSA Event-Informed Continuous GLS (`deconvolve_crossrun_hrf`)** | Cross-fitted 3D HRF + 2-pass REML $\text{AR}(p)$ | Event-projected GLS marginal `noise_sd` | `rwls = "auto"` downweights non-task glitches while protecting neural bursts | Unconstrained continuous $\widehat{a}_r(t)$ **plus** exact operator $D_r$, `noise_innovations`, and propagated trial covariance |
 
 @fig-step2-event-vs-blind and @tbl-step2-blind-metrics demonstrate all of these differences on identical simulated BOLD containing a genuine heavy neural burst at $65\text{ s}$ (`3.8` units) and an isolated non-task scanner glitch at $124\text{ s}$ (`+0.55` BOLD units): event-informed continuous GLS preserves burst height (`0.746` vs. `0.676` blind linear) and waveform correlation (`0.835` vs. `0.699` Bush nonlinear) while keeping frame weight $w_t = 1.00$ on the $65\text{ s}$ burst and cutting $124\text{ s}$ glitch ringing in half (`0.200` vs. `0.391` unweighted).
 
@@ -228,7 +222,7 @@ recovery <- diagnose_crossrun_recovery(decon, lags = 0)
 
 ## Practical Considerations: Operator Resolution, Boundaries, and Handoff to Step 3
 
-1. **Why continuous `activity` has finite resolution—and why Step 3 handles de-mixing:** Under any positive $\lambda > 0$, the continuous resolution matrix $R_r = D_r H_r$ attenuates isolated impulse height ($R_{tt} < 1$) and spreads energy smoothly across neighboring TRs and closely spaced events (@fig-step2-resolution, @fig-step2-leakage). Simply dividing $\hat{s}_r$ pointwise by $R_{tt}$ would amplify side-lobe noise everywhere (@fig-step2-resolution, bottom). Instead, `diagnose_crossrun_recovery(decon)` audits self-gain and neighbor cross-talk on your event schedule, and passing the full `decon` object to [Step 3 (`decon_epoch_regression()`)](../medusa_step3_epochs/medusa_step3_epochs.qmd) performs matrix de-mixing and gain restoration specifically at the trial epochs of interest.
+1. **Why continuous `activity` has finite resolution—and why Step 3 handles de-mixing:** Under any positive $\lambda > 0$, the continuous resolution matrix $R_r = D_r M_{r,o} H_r$ attenuates isolated impulse height ($R_{tt} < 1$) and spreads energy smoothly across neighboring TRs and closely spaced events (@fig-step2-resolution, @fig-step2-leakage). Simply dividing $\widehat{a}_r$ pointwise by $R_{tt}$ would amplify side-lobe noise everywhere (@fig-step2-resolution, bottom). Instead, `diagnose_crossrun_recovery(decon)` audits self-gain and neighbor cross-talk on your event schedule, and passing the full `decon` object to [Step 3 (`decon_epoch_regression()`)](../medusa_step3_epochs/medusa_step3_epochs.qmd) performs matrix de-mixing and gain restoration specifically at the trial epochs of interest.
 2. **Bridging censored gaps (`observation_mask = "fit"`):** Across masked frames (`70–80 s` in @fig-step2-mask-nuisance, bottom), the smoothness penalty interpolates cleanly from surrounding unmasked BOLD without letting artifacts corrupt adjacent trials; Step 3 will automatically check causal BOLD support (`obs_frac_tau >= 0.20`) so deeply masked events are flagged as `NA` rather than treated as observed data.
 3. **Run-end boundaries (`tail_padding = 0L`) and HRF timing (@fig-step2-sensitivity):** Appending synthetic zero BOLD frames after the end of a run (`tail_padding > 0`) pulls genuine late-run activity downward, while a 2-second HRF delay misspecification shifts recovered peaks in the opposite direction—confirming the value of `tail_padding = 0L` and Step 1's cross-run HRF estimation.
 
@@ -241,12 +235,12 @@ recovery <- diagnose_crossrun_recovery(decon, lags = 0)
 <details>
 <summary>Mathematical Reference & Reproduction</summary>
 
-Let $I_r \subset \{1, \dots, n_r\}$ index the $m_r$ valid rows (`valid_rows[[r]] == TRUE`), $M_{r,o}$ select rows $I_r$, $H_r \in \mathbb{R}^{n_r \times n_r}$ be the causal Toeplitz HRF convolution matrix for stratum kernel $h$, and $Z_{r,o}$ be the active nuisance basis (`[1, trend, nuisance]` under `nuisance_mode = "joint"`, empty under `"ignore"`).
+Let $I_r \subset \{1, \dots, T_r\}$ index the $m_r$ valid frames (`valid_rows[[r]] == TRUE`), $M_{r,o}$ select rows $I_r$, $H_r \in \mathbb{R}^{T_r \times T_r}$ be the causal Toeplitz HRF convolution matrix for stratum kernel $h$, and $Z_{r,o}$ be the active nuisance basis (`[1, trend, nuisance]` under `nuisance_mode = "joint"`, empty under `"ignore"`).
 
 - **Exact gapped whitening & Woodbury SBL:** $W_r = L_r^{-1}$ is the inverse Cholesky factor of the stationary $\text{AR}(p)$ correlation submatrix $\Sigma_{\text{AR}}[I_r, I_r]$. Under `rwls_space = "woodbury"` with transient variances $\delta_t^2 = (1 - w_t)/w_t$ on flagged frames $S$, MEDuSA whitens against $\Sigma_{\text{AR}}[I_r, I_r] + \operatorname{diag}(\delta^2)$ via a rank-$|S|$ Sherman–Morrison–Woodbury update in $O(m_r |S|)$ operations. Orthogonalizing $Q_Z = \operatorname{orth}(W_r Z_{r,o})$ projects out nuisance terms jointly via $\tilde{W}_r = (I - Q_Z Q_Z^\top) W_r$.
-- **Linear inverse operator:** With $A_r = \tilde{W}_r M_{r,o} H_r$ and penalty $P_{\lambda} = \lambda P + \epsilon_{\text{ridge}} I_{n_r}$, the frozen inverse operator is
+- **Linear inverse operator:** With $A_r = \tilde{W}_r M_{r,o} H_r$ and penalty $P_{\lambda} = \lambda P + \epsilon_{\text{ridge}} I_{T_r}$, the frozen inverse operator is
   $$
-  D_r = \bigl(A_r^\top A_r + P_{\lambda}\bigr)^{-1} A_r^\top \tilde{W}_r \in \mathbb{R}^{n_r \times m_r},
+  D_r = \bigl(A_r^\top A_r + P_{\lambda}\bigr)^{-1} A_r^\top \tilde{W}_r \in \mathbb{R}^{T_r \times m_r},
   $$
   evaluated across voxel batches via Cholesky solves in C++ (`backend = "cpp"`, agreeing with `backend = "r"` to `r format(d2$backend_err, digits = 3)`), with `restore_scale` reproducing `demean` units to `r format(max(d2$restore_err), digits = 3)`. Internal R helpers implementing Substeps 2.2–2.4 in `R/crossrun_hrf.R` are `hrf_estimate_gls_noise_sd()`, `hrf_estimate_rwls_weights()`, `hrf_tune_decon_lambda()`, `hrf_tune_decon_lambda_stratified()`, and `hrf_pava_nonincreasing()`.
 

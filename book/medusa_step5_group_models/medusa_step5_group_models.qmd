@@ -1,4 +1,7 @@
-# Step 5: Group and Trajectory Inference {#sec-step5}
+---
+title: "Step 5: Group and Trajectory Inference"
+subtitle: "Testing within-person trial associations, joint peri-event lag trajectories, and volumetric brain maps across participants"
+---
 
 ```{r setup, include=FALSE}
 d <- readRDS("step5_examples.rds")
@@ -39,6 +42,11 @@ group_models <- mixed_by(
   weights            = "precision_weight_cohort"
 )
 ```
+
+::: {.callout-note}
+### Position in the MEDuSA Pipeline
+[**Step 4 (`subject_epochs` / `group_panel`)**](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd) $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`)** $\longrightarrow$ Population slopes, simultaneous lag trajectories, window contrasts, & NIfTI maps (`backproject_medusa`)
+:::
 
 | Scientific question | Recommended Step 5 pathway | Primary inferential output |
 |:---|:---|:---|
@@ -130,10 +138,10 @@ group_panel <- merge(
 
 ### 5.2 Fit participant random-slope mixed models with cohort precision weights
 
-At a single `(parcel, evt_time)` split, the standard multilevel model expresses trial readout $Y_{sri}$ (`decon_demixed`) as
+At a single `(parcel, evt_time)` split, the standard multilevel model expresses de-mixed trial readout $\widehat{z}_{sri}$ (`decon_demixed`) as
 
 $$
-Y_{sri} = \beta_0 + \beta_W x^W_{sri} + \beta_B \bar{x}_s + b_{0s} + b_{Ws} x^W_{sri} + a_{sr} + \varepsilon_{sri},
+\widehat{z}_{sri} = \beta_0 + \beta_W x^W_{sri} + \beta_B \bar{x}_s + b_{0s} + b_{Ws} x^W_{sri} + a_{sr} + \varepsilon_{sri},
 $$
 
 with participant random intercept and slope $(b_{0s}, b_{Ws})$ (`(1 + x_within || id)`) and participant-nested run intercept $a_{sr}$ (`(1 | id:run)`). In a balanced design with $S$ participants, $m$ trials per participant, slope variance $\sigma_b^2$, and trial residual variance $\sigma_\varepsilon^2$, the sampling variance of the population slope is
@@ -160,7 +168,7 @@ Across 3 simulated parcels (`Phasic`, `Sustained`, `Null`) × 8 lags × 2 focal 
 
 ---
 
-### 5.3 Model multi-lag trajectories jointly with `medusa_multilag_infer()` {#sec-pr62}
+### 5.3 Model multi-lag trajectories jointly with `medusa_multilag_infer()` {#sec-multilag-infer}
 
 Because neighboring lags share both deconvolution smoothness ($R_{\text{lag}}$) and correlated observation noise ($C_{\text{lag}}$), modeling the lag vector $\widehat{b} = (\widehat{b}_1, \dots, \widehat{b}_L)^\top$ jointly is substantially more informative than treating lags as unrelated splits:
 

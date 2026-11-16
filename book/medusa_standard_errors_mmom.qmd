@@ -1,4 +1,7 @@
-# From BOLD noise to M-MOM error variances
+---
+title: "From BOLD Noise to M-MOM Error Variances"
+subtitle: "Propagating run-level AR(p) observation noise into trial standard errors and predictor error blocks"
+---
 
 ```{r setup, include=FALSE}
 covariance_check <- readRDS("worked/mmom-check.rds")$covariance_check
@@ -7,21 +10,21 @@ covariance_check <- readRDS("worked/mmom-check.rds")$covariance_check
 MEDuSA estimates how much observation noise enters **each recovered trial activity estimate**. When deconvolved neural activity becomes a predictor in Step 6 (`Target ~ Seed * Task` or `Behavior ~ Neural`), Method-of-Moments measurement-error correction (`medusa_fit_mmom()` / `decon_connectivity_repair()`) needs its **measurement-error variance**, typically `se_demixed^2`, expressed in the exact same units as the predictor. This trial-level measurement variance is distinct from the standard error of a fitted group regression coefficient.
 
 $$
-\underbrace{\widehat{\operatorname{Cov}}(\varepsilon)}_{\text{BOLD noise (Step 1)}}
+\underbrace{\widehat{\operatorname{Cov}}(\varepsilon_r)}_{\text{BOLD noise (Step 1)}}
 \ \longrightarrow\ 
-\underbrace{\widehat\Omega_\tau}_{\text{trial error covariance (Steps 3–4)}}
+\underbrace{\widehat\Omega_{r,\tau}}_{\text{trial error covariance (Steps 3–4)}}
 \ \longrightarrow\ 
-\underbrace{s_i=\sqrt{\widehat\Omega_{\tau,ii}}}_{\text{trial SE (`se_demixed`)}}
+\underbrace{s_{ri}=\sqrt{[\widehat\Omega_{r,\tau}]_{ii}}}_{\text{trial SE (`se_demixed`)}}
 \ \longrightarrow\ 
 \underbrace{\Psi_i}_{\text{M-MOM error block (Step 6)}}.
 $$
 
-### 1. Estimate the BOLD noise
+## 1. Estimate the BOLD noise
 
-For one run and voxel, write $y = Hs + Z\gamma + \varepsilon$, with
+For one run $r$ and voxel, write $y_r = H_r a_r + Z_r\gamma_r + \varepsilon_r$, with
 
 $$
-\operatorname{Cov}(\varepsilon) = \sigma_{\rm obs}^2 \Sigma_{\rm cor}.
+\operatorname{Cov}(\varepsilon_r) = \sigma_{\rm obs}^2 \Sigma_{\rm cor}.
 $$
 
 Here $H$ applies the selected HRF and $Z$ contains nuisance terms. Step 1's pooled AR(1) profile REML and shrunk residual AR($q$) correction define a cascaded AR($p$) temporal correlation model $\Sigma_{\rm cor}$ (evaluated at the exact retained acquisition indices $\Gamma_N[\text{rows}, \text{rows}]$ when frames are censored). The amplitude $\sigma_{\rm obs}$ is the **marginal observation-noise SD**, not the white-noise innovation SD.
@@ -36,38 +39,38 @@ $$
 
 The normal-consistent MAD is centered at zero, and the denominator adjusts analytically for lag-1 and lag-2 autocorrelation. Crucially, BOLD noise is estimated prior to downstream behavioral or connectivity regressions.
 
-### 2. Propagate noise through the linear inverse and epoch operators
+## 2. Propagate noise through the linear inverse and epoch operators
 
-With HRF, regularization penalty, frame weights, nuisance projection, and noise parameters held fixed, deconvolution is a linear map $\widehat s = My$. Event interpolation, gain restoration, and Step 3's cross-event and within-trial demixing combine with $M$ into a linear trial-readout operator $B_\tau$. Therefore, conditional on the learned operators,
+With HRF, regularization penalty, frame weights, nuisance projection, and noise parameters held fixed, deconvolution is a linear map $\widehat{a}_r = D_r \tilde{y}_{r,o}$. Event interpolation, gain restoration, and Step 3's cross-event and within-trial demixing combine with $D_r$ into a composite linear trial-readout operator $B_{r,\tau}$. Therefore, conditional on the learned operators,
 
 $$
-\Omega_{\tau,\rm raw}
-=\sigma_{\rm eff}^2\,\widetilde B_\tau\Sigma_{\rm cor}\widetilde B_\tau^\top,
+\Omega_{r,\tau,\rm raw}
+=\sigma_{\rm eff}^2\,\widetilde B_{r,\tau}\Sigma_{\rm cor}\widetilde B_{r,\tau}^\top,
 $$
 
-where $\widetilde B_\tau$ incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (`worked/mmom-check.R`), MEDuSA's operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to **`r format(covariance_check, scientific = TRUE, digits = 3)`**.
+where $\widetilde B_{r,\tau}$ incorporates input run-centering and inverse nuisance/whitening projections. In our independent numerical verification (`worked/mmom-check.R`), MEDuSA's operator-propagated cascade covariance matches an explicit stationary AR(3) Toeplitz reference to **`r format(covariance_check, scientific = TRUE, digits = 3)`**.
 
 **Run-centered finite-sample calibration.** Because downstream within-run regressions center trial series within each run, `decon_epoch_regression()` centers the propagated $m \times m$ trial error covariance ($m > 1$ valid trials) and applies a finite-sample degrees-of-freedom factor $(1 - 1/m)^{-1}$ (analogous to Bessel's sample-variance correction):
 
 $$
 Q_m = I_m - \frac{\mathbf1\mathbf1^\top}{m},\qquad
-\widehat\Omega_\tau = \frac{Q_m\Omega_{\tau,\rm raw}Q_m}{1-1/m},
+\widehat\Omega_{r,\tau} = \frac{Q_m\Omega_{r,\tau,\rm raw}Q_m}{1-1/m},
 $$
 $$
-\boxed{\texttt{se\_demixed}_i = \sqrt{\max(0, \widehat\Omega_{\tau,ii})}}.
+\boxed{\texttt{se\_demixed}_{ri} = \sqrt{\max(0, [\widehat\Omega_{r,\tau}]_{ii})}}.
 $$
 
-Thus `se_demixed` represents a **run-centered, finite-sample-calibrated trial measurement SE**. The full off-diagonal $\widehat\Omega_\tau$ is used internally for biological variance estimation (`tau2_bio`) and optional ZCA panel whitening, while the panel exports diagonal `se_demixed` and adjacent-trial error autocorrelation `error_ac1`.
+Thus `se_demixed` represents a **run-centered, finite-sample-calibrated trial measurement SE**. The full off-diagonal $\widehat\Omega_{r,\tau}$ is used internally for biological variance estimation (`tau2_bio`) and optional ZCA panel whitening, while the panel exports diagonal `se_demixed` and adjacent-trial error autocorrelation `error_ac1`.
 
-#### Keep units and spatial aggregation consistent
+### Keep units and spatial aggregation consistent
 
 If $d$ is the Step 2 scaling divisor, `restore_scale = FALSE` uses $\sigma_{\rm eff} = \widehat\sigma_{\rm obs} / d$, whereas `restore_scale = TRUE` restores $\sigma_{\rm eff} = \widehat\sigma_{\rm obs}$ so activity and `se_demixed` scale together. Rescaling a predictor by $c$ requires rescaling its SE by $|c|$ and its error variance by $c^2$.
 
-In Step 4, parcel aggregation forms precision-weighted parcel series using task-free Step 1 whitened `noise_innovations` to estimate both within-parcel spatial noise covariance (propagated through exact operator strata) and low-rank cross-parcel `shared_noise_loading` vectors that survive `rbindlist()` stacking.
+In Step 4, parcel aggregation forms precision-weighted parcel series using task-free Step 2 whitened `noise_innovations` to estimate both within-parcel spatial noise covariance (propagated through exact operator strata) and low-rank cross-parcel `shared_noise_loading` vectors that survive `rbindlist()` stacking.
 
-### 3. Supply measurement-error moments to M-MOM
+## 3. Supply measurement-error moments to M-MOM
 
-For an observed predictor $\widehat a_i = a_i + u_i$, set $\psi_i = \operatorname{Var}(u_i) = \texttt{se\_demixed}_i^2$. A single noisy neural predictor uses $\Psi_i = [\psi_i]$. For a PPI design $(\widehat a_i,\, x_i,\, \widehat a_i x_i)$ with error-free modulator $x_i$,
+For an observed de-mixed trial predictor $\widehat{z}_{S,i} = \theta_{S,i} + u_i$, set $\psi_i = \operatorname{Var}(u_i) = \texttt{se\_demixed}_{S,i}^2$. A single noisy neural predictor uses $\Psi_i = [\psi_i]$. For a PPI design $(\widehat{z}_{S,i},\, x_i,\, \widehat{z}_{S,i} x_i)$ with error-free modulator $x_i$,
 
 $$
 \Psi_i = \psi_i
@@ -87,7 +90,7 @@ $$
 | `precision_weight` / `precision_weight_cohort` | Inverse total trial variance $(\widehat\tau_{\rm eff}^2 + s_i^2)^{-1}$ for Step 5 outcome weighting (never substitute for $\Psi_i$) |
 | `fit$coefficients$se` | Standard error of an estimated M-MOM regression slope |
 
-#### Minimal applied interface (`medusa_fit_mmom()`)
+### Minimal applied interface (`medusa_fit_mmom()`)
 
 When `decon_connectivity_repair()` handles parcel-to-parcel connectivity and PPI automatically, it calls `medusa_fit_mmom()` under the hood. You can also call `medusa_fit_mmom()` directly when predicting a behavioral outcome (`rt`, choice log-odds score, pupillometry) from one or more deconvolved parcel readouts within a participant:
 
@@ -125,11 +128,11 @@ fit$coefficients
 
 If the outcome is another deconvolved brain parcel, pass its squared `se_demixed` in `err_y` and supply per-trial predictor–outcome error covariances in `err_xy` (automated by `decon_connectivity_repair(..., shared_error = "auto")`).
 
-### 4. Distributional assumptions and scope conditions
+## 4. Distributional assumptions and scope conditions
 
 1. **Operator covariance propagation is distribution-free up to second moments:** $\operatorname{Cov}(B\varepsilon) = B\operatorname{Cov}(\varepsilon)B^\top$ requires finite second moments and an accurate temporal/spatial noise correlation model, not Gaussianity—though Winsorized/MAD scale factors calibrate to Gaussian efficiency.
 2. **Single-subject M-MOM SEs are conditional model-based estimates:** Within-subject SEs from `repair::fit_mmom()` / `medusa_fit_mmom()` use a normal-error variance formula conditional on first-stage error moments. Across multiple participants, `decon_connectivity_repair()` pools participant slopes using dispersion-scaled finite-sample random-effects $t$-intervals (Hartung–Knapp–Sidik–Jonkman, HKSJ pooling) so group $p$-values rely on between-participant replication rather than single-subject row independence.
-3. **Zero-mean measurement error vs. regularization bias:** Propagating `se_demixed^2` quantifies observation-noise variance $B\Sigma_\varepsilon B^\top$, **not** source resolution bias $(R - I)s$ from ridge/difference regularization or HRF mismatch. When seed and target parcels experience substantially different temporal smoothing ($R_S \neq R_T$), disattenuating variance alone does not undo unequal resolution; see [Measurement-error models and REPAIR](medusa_connectivity_inference/medusa_connectivity_inference.qmd) for resolution-aware extensions.
+3. **Zero-mean measurement error vs. regularization bias:** Propagating `se_demixed^2` quantifies observation-noise variance $B_{r,\tau}\Sigma_r B_{r,\tau}^\top$, **not** residual resolution distortion $(K - I)\theta$ from strong regularization or HRF mismatch. When seed and target parcels experience substantially different effective trial resolution ($K_S \neq K_T$), disattenuating variance alone does not undo unequal resolution; see [Measurement-Error Models and REPAIR](medusa_connectivity_inference/medusa_connectivity_inference.qmd) for resolution-aware extensions.
 
 <details>
 <summary>Implementation locations and reproduction</summary>

@@ -1,12 +1,6 @@
 ---
 title: "Step 1: Cross-Run HRF and Noise Estimation"
 subtitle: "Learning out-of-sample neurovascular shapes and run-specific AR(p) noise covariance"
-format:
-  html:
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
 ---
 
 ```{r}
@@ -286,7 +280,7 @@ Before passing `hrf_fit` to `deconvolve_crossrun_hrf()` ([Step 2](../medusa_step
 <details>
 <summary>Mathematical Details & Reproduction</summary>
 
-- **Cross-fitted evidence pooling:** For candidate $m$ on training run $s \neq r$, whitened nuisance-orthogonalized BOLD $y_{s,\perp}$ is regressed onto whitened candidate design $X_{s,m,\perp}$ (rank $d_{s,m}$ over $n_s$ valid rows), yielding adjusted partial $R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{n_s - p_Z}{n_s - p_Z - d_{s,m}}$. Across training runs, scores are weighted by effective degrees of freedom and checked for sign/peak compatibility (`stability`).
+- **Cross-fitted evidence pooling:** For candidate $m$ on training run $s \neq r$, whitened nuisance-orthogonalized BOLD $y_{s,\perp}$ is regressed onto whitened candidate design $X_{s,m,\perp}$ (rank $d_{s,m}$ over $m_s$ valid frames), yielding adjusted partial $R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{m_s - p_Z}{m_s - p_Z - d_{s,m}}$. Across training runs, scores are weighted by effective degrees of freedom and checked for sign/peak compatibility (`stability`).
 - **Soft-average shrinkage:** Compatible candidates within `score_margin` receive Boltzmann weights $w_m \propto \exp(\Delta R^2_m / \tau_{\text{SE}})$ blended with column 1 (`(1 - \eta) e_1 + \eta w`), where Empirical-Bayes shrinkage $\eta \in [0, 1]$ approaches 0 as calibrated task $F$-statistics weaken toward the `evidence_alpha` threshold.
 - **Exact gapped covariance:** When `valid_rows[[r]]` masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2's whitener $W_r$ inverts the exact stationary Toeplitz submatrix $\Sigma_{\text{AR}}[I_r, I_r]$ on retained timestamps $I_r$ so multi-TR scrub gaps decay correlation by $\gamma(|t_a - t_b|)$.
 - **Zero-phase respiratory IIR filtering:** For sampling rate $f_s = 1/\text{TR}$ and stopband $[f_1, f_2] = \text{BPM}/60$ ($f_0 = (f_1 + f_2)/2$, $\Delta f = f_2 - f_1$, $Q = f_0/\Delta f$, $\omega_0 = 2\pi f_0/f_s$, $\alpha = \sin\omega_0/(2Q)$), `read_fmriprep_confounds()` designs the RBJ biquad notch transfer function $H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}$ (or bilinear-warped Butterworth poles for `motion_lowpass_hz`) and applies forward-backward Direct Form II Transposed filtering (`filtfilt`) with steady-state initial conditions and reflection padding to all 6 realignment parameters before computing Power (2012) FD.

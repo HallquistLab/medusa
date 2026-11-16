@@ -1,12 +1,6 @@
 ---
 title: "Step 3: Epoch Alignment, De-Mixing, and Uncertainty Propagation"
 subtitle: "Mapping continuous deconvolved series onto trial-level readouts, durations, and standard errors"
-format:
-  html:
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
 ---
 
 ```{r}
@@ -18,7 +12,7 @@ dur_tbl <- read.csv("duration_metrics.csv")
 
 ## Overview
 
-Step 2 produces a continuous deconvolved time series $\hat{s}_r(t)$ on the acquisition grid, whereas cognitive hypotheses typically concern **event-locked trial responses**—for example, neural activity across lags $-2\text{ s}$ to $+4\text{ s}$ around feedback onset, or sustained deliberation activity across variable reaction times. Because regularized deconvolution smooths slightly across time, simply slicing $\hat{s}_r(t)$ at event timestamps yields readouts that combine the target trial's signal with regularization attenuation and spillover from nearby cues or adjacent trials.
+Step 2 produces a continuous deconvolved time series $\widehat{a}_r(t)$ on the acquisition grid, whereas cognitive hypotheses typically concern **event-locked trial responses**—for example, neural activity across lags $-2\text{ s}$ to $+4\text{ s}$ around feedback onset, or sustained deliberation activity across variable reaction times. Because regularized deconvolution smooths slightly across time, simply slicing $\widehat{a}_r(t)$ at event timestamps yields readouts that combine the target trial's signal with regularization attenuation and spillover from nearby cues or adjacent trials.
 
 Step 3 (`decon_epoch_regression()`) converts continuous deconvolved activity into **conditionally unbiased, additive-error trial readouts** accompanied by exact propagated measurement uncertainties. Passing the forward event schedule through Step 2's frozen linear operator $D_r$, it samples requested peri-event lags via smooth local time-averaging (symmetric kernel quadrature), subtracts spillover from non-target events, inverts target-to-target mixing to restore amplitude gain, and propagates $\text{AR}(p)$ observation noise through the composite operator to deliver per-trial standard errors (`se_demixed`), Empirical-Bayes precision weights, and optional within-run decorrelated (`*_whitened`) variables.
 
@@ -84,7 +78,7 @@ Following the same measurement-model progression used in two-step multilevel inf
 
 ### 3.1 Define the event-locked neural source and kernel readout
 
-Consider reading out continuous deconvolved activity $\hat{s}_r$ around target event $i$ at timestamp $t_i + \tau$. Because $t_i + \tau$ rarely lands on an exact integer TR, Step 3 forms a row-normalized weight vector $S_\tau[i, :]$ over nearby acquisition samples (@fig-step3-readout). While `"linear"` uses 2-point bracket interpolation, `"triangle"` (width $1.5 \times \text{TR}$) averages 9 symmetrically weighted sub-interval points across adjacent samples (symmetric kernel quadrature)—respecting sub-TR jitter while attenuating high-frequency inverse noise.
+Consider reading out continuous deconvolved activity $\widehat{a}_r$ around target event $i$ at timestamp $t_i + \tau$. Because $t_i + \tau$ rarely lands on an exact integer TR, Step 3 forms a row-normalized weight vector $S_\tau[i, :]$ over nearby acquisition samples (@fig-step3-readout). While `"linear"` uses 2-point bracket interpolation, `"triangle"` (width $1.5 \times \text{TR}$) averages 9 symmetrically weighted sub-interval points across adjacent samples (symmetric kernel quadrature)—respecting sub-TR jitter while attenuating high-frequency inverse noise.
 
 ![Acquisition-grid readout weights around an off-grid target timestamp (`20.35 s`, `TR = 1 s`) for `"linear"`, `"boxcar"`, `"triangle"`, and `"gaussian"` kernels.](figures/01-readout.png){#fig-step3-readout width="92%" fig-alt="Four-panel bar plot of acquisition-grid weights for linear, boxcar, triangle, and gaussian readout kernels."}
 
@@ -102,7 +96,7 @@ Alongside the readout window, Step 3 asks a substantive question about **source 
 
 ### 3.2 Write the epoch measurement model and subtract non-target spillover
 
-Now consider a cue–feedback paradigm where each `Cue` precedes `Feedback` by 1–3 seconds. Let $\theta_T$ denote true target (`Feedback`) trial amplitudes with forward BOLD design $G_\tau$, and $\theta_O$ denote non-target (`Cue`) amplitudes with forward design $G_O$. Applying readout $S_\tau$ to deconvolved activity $\hat{s}_r = D_r y_r$ yields a raw trial readout whose conditional expectation contains two distinct terms:
+Now consider a cue–feedback paradigm where each `Cue` precedes `Feedback` by 1–3 seconds. Let $\theta_T$ denote true target (`Feedback`) trial amplitudes with forward BOLD design $G_\tau$, and $\theta_O$ denote non-target (`Cue`) amplitudes with forward design $G_O$. Applying readout $S_\tau$ to deconvolved activity $\widehat{a}_r = D_r y_r$ yields a raw trial readout whose conditional expectation contains two distinct terms:
 
 $$
 \mathbb{E}\bigl[\hat{z}_{\text{raw},\tau} \mid \theta_T, \theta_O\bigr]
@@ -126,7 +120,7 @@ Enabling `demix_other_events = TRUE` estimates and subtracts the operator-predic
 After removing non-target spillover, the cleaned readout still reflects Step 2's regularization blur across target trials, $K_{\text{clean},\tau} = S_{\text{clean},\tau} D_r G_\tau$. Writing this in the exact measurement-model form of Vig & Hallquist (2026) by adding and subtracting $\theta_T$:
 
 $$
-S_{\text{clean},\tau}\hat{s}_r
+S_{\text{clean},\tau}\widehat{a}_r
 = \theta_T - (I - K_{\text{clean},\tau})\theta_T + S_{\text{clean},\tau} D_r \varepsilon_r.
 $$
 
@@ -223,7 +217,7 @@ epochs <- decon_epoch_regression(
 <details>
 <summary>Mathematical Reference & Reproduction</summary>
 
-For run $r$, lag $\tau$, valid observation rows $I_r$, and frozen Step 2 inverse $D_r \in \mathbb{R}^{n_r \times m_r}$:
+For run $r$, lag $\tau$, valid observation frames $I_r$ ($m_r$ of $T_r$ volumes), and frozen Step 2 inverse $D_r \in \mathbb{R}^{T_r \times m_r}$:
 
 1. **Non-target subtraction:** Let $S_{r,0}$ (`build_epoch_readout_matrix()`) read out all events at lag 0 and $G_{r,0}$ be their column-centered forward HRF design. `build_other_demix_operator()` forms $L_{\text{other}}$ (condition-mean least squares for `demix_ridge >= 0.03`, or 2nd-order iterated Tikhonov joint inversion for `< 0.03`), yielding cleaned target readout rows $S_{\text{clean},\tau} = S_\tau - (S_\tau D_r G_{r,0,\text{other}}) L_{\text{other}}$.
 2. **Target cross-talk & duration baseline invariance:** Given uncentered and column-centered target forward designs $(G_{\tau,\text{unc}}, G_\tau)$, `solve_duration_demix_operator()` row-normalizes $R_{\text{unc}} = \operatorname{diag}(g_{\text{safe}})^{-1} S_\tau D_r G_{\tau,\text{unc}}$, solves $(R_{\text{unc}}^\top R_{\text{unc}} + \lambda_{\text{demix}} Q_m + 10^{-8} I) W_{\text{unc}} = R_{\text{unc}}^\top \operatorname{diag}(g_{\text{safe}})^{-1}$ (penalizing centered fluctuations $Q_m = I_m - \frac{1}{m}\mathbf{1}\mathbf{1}^\top$), applies a Sherman–Morrison rank-1 centering update to obtain $W_\tau$, and restores centered diagonal gain $\tilde{G}_\tau$.

@@ -1,12 +1,6 @@
 ---
 title: "Step 4: Parcel Aggregation and Analysis Panels"
 subtitle: "Precision-weighted spatial pooling, task-free spatial noise propagation, and group-ready panel columns"
-format:
-  html:
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
 ---
 
 ```{r}
@@ -104,7 +98,7 @@ Quieter voxels with stronger cross-fitted Step 1 task $R^2$ receive higher weigh
 
 Suppose voxels inside the same parcel belong to different `(HRF, AR, lambda)` strata—for example, when Step 1 used `pooling = "graph"` (separating pial-vein autocorrelation from interior gray matter) and Step 2 used `lambda_mode = "auto"`. Because matrix inversion is nonlinear, deconvolving under a single parcel-averaged HRF $\bar{h} = \frac{1}{2}(h_4 + h_8)$ differs systematically from averaging voxelwise deconvolved series (`r sprintf("%.1f%%", 100 * d4$mixed_ratio)` waveform discrepancy in @fig-step4-mixed: $\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h})F(\bar{h})$).
 
-Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series $\hat{s}_{r,g} = \sum_{v \in g} u_v \hat{s}_{r,v}$ and simultaneously accumulating the exact stratum-weighted forward/inverse operator $\sum_s w_s D_s F_s$ used in Step 3 de-mixing (@fig-step4-mixed).
+Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series $\widehat{a}_{r,g} = \sum_{v \in g} u_v \widehat{a}_{r,v}$ and simultaneously accumulating the exact stratum-weighted forward/inverse operator $\sum_s w_s D_s F_s$ used in Step 3 de-mixing (@fig-step4-mixed).
 
 ![Exact multi-stratum parcel reconstruction (`MEDuSA multi-stratum parcel operator`) vs. a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.](figures/03-mixed-hrf.png){#fig-step4-mixed width="92%" fig-alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation."}
 

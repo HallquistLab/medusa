@@ -1,4 +1,7 @@
-# Validation and the limits of the evidence {#sec-evidence}
+---
+title: "Validation and the Limits of the Evidence"
+subtitle: "Mechanism isolation checks, the 14-study validation suite, and designing study-specific calibrations"
+---
 
 The standalone `medusa` package is evaluated through two complementary layers of evidence:
 
