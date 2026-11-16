@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -201,9 +201,14 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
@@ -332,7 +337,7 @@ window.Quarto = {
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_step5_group_models/medusa_step5_group_models.html"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title"><span id="sec-step5" class="quarto-section-identifier"><span class="chapter-title">Step 5: Group and Trajectory Inference</span></span></h1>
 </div>
@@ -530,14 +535,14 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="decompose-behavioral-predictors-into-within-person-and-between-person-components">5.1 Decompose behavioral predictors into within-person and between-person components</h3>
 <p>A raw trial predictor <span class="math inline">\(x_{sri}\)</span> (participant <span class="math inline">\(s\)</span>, run <span class="math inline">\(r\)</span>, trial <span class="math inline">\(i\)</span>) combines phasic trial-to-trial variation around a participant’s mean with stable differences across participants: <span class="math display">\[
 x_{sri} = \underbrace{(x_{sri} - \bar{x}_s)}_{\text{within-person state } x^W_{sri}} + \underbrace{\bar{x}_s}_{\text{between-person mean}}.
-\]</span> Testing whether high-value trials evoke stronger activity than low-value trials <em>within</em> the same person is distinct from comparing participants who experience higher average value overall. In <a href="#fig-within" class="quarto-xref">Figure&nbsp;<span>7.1</span></a>, the true within-person slope is <span class="math inline">\(+0.55\)</span> while the between-person slope is <span class="math inline">\(-0.72\)</span>; entering uncentered <span class="math inline">\(x_{sri}\)</span> estimates a confounded pooled slope of <strong>-0.432</strong>, whereas decomposing <code>x_within</code> and <code>x_mean</code> recovers <strong>0.521</strong> and <strong>-0.731</strong> cleanly.</p>
+\]</span> Testing whether high-value trials evoke stronger activity than low-value trials <em>within</em> the same person is distinct from comparing participants who experience higher average value overall. In <a href="#fig-within" class="quarto-xref">Figure&nbsp;<span>8.1</span></a>, the true within-person slope is <span class="math inline">\(+0.55\)</span> while the between-person slope is <span class="math inline">\(-0.72\)</span>; entering uncentered <span class="math inline">\(x_{sri}\)</span> estimates a confounded pooled slope of <strong>-0.432</strong>, whereas decomposing <code>x_within</code> and <code>x_mean</code> recovers <strong>0.521</strong> and <strong>-0.731</strong> cleanly.</p>
 <div id="fig-within" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Blue trial-level slopes are positive for six individuals. Orange participant means fall as the predictor rises.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-within-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/01-within-between.png" class="img-fluid figure-img" alt="Blue trial-level slopes are positive for six individuals. Orange participant means fall as the predictor rises.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-within-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.1: Simulated participant means slope down across people even though the within-participant lines slope up (six representative participants shown).
+Figure&nbsp;8.1: Simulated participant means slope down across people even though the within-participant lines slope up (six representative participants shown).
 </figcaption>
 </figure>
 </div>
@@ -574,36 +579,36 @@ Y_{sri} = \beta_0 + \beta_W x^W_{sri} + \beta_B \bar{x}_s + b_{0s} + b_{Ws} x^W_
 <p><span class="math display">\[
 \operatorname{Var}(\widehat{\beta}_W) = \frac{\sigma_b^2}{S} + \frac{\sigma_\varepsilon^2}{Sm}.
 \]</span></p>
-<p>Adding more trials <span class="math inline">\(m\)</span> sharpens each participant’s slope (<span class="math inline">\(\sigma_\varepsilon^2 / Sm \to 0\)</span>) while leaving between-participant heterogeneity <span class="math inline">\(\sigma_b^2 / S\)</span> unchanged. Including the random slope <span class="math inline">\(b_{Ws}\)</span> reflects that structure: in <a href="#fig-null" class="quarto-xref">Figure&nbsp;<span>7.2</span></a> (12 participants, <span class="math inline">\(\beta_W = 0\)</span>, <span class="math inline">\(\sigma_b &gt; 0\)</span>), random-slope/participant-slope inference holds nominal Type I error at <strong>5.2%</strong> at 192 trials per person, whereas trial-row OLS without random slopes reaches <strong>79.8%</strong>.</p>
+<p>Adding more trials <span class="math inline">\(m\)</span> sharpens each participant’s slope (<span class="math inline">\(\sigma_\varepsilon^2 / Sm \to 0\)</span>) while leaving between-participant heterogeneity <span class="math inline">\(\sigma_b^2 / S\)</span> unchanged. Including the random slope <span class="math inline">\(b_{Ws}\)</span> reflects that structure: in <a href="#fig-null" class="quarto-xref">Figure&nbsp;<span>8.2</span></a> (12 participants, <span class="math inline">\(\beta_W = 0\)</span>, <span class="math inline">\(\sigma_b &gt; 0\)</span>), random-slope/participant-slope inference holds nominal Type I error at <strong>5.2%</strong> at 192 trials per person, whereas trial-row OLS without random slopes reaches <strong>79.8%</strong>.</p>
 <div id="fig-null" class="quarto-float quarto-figure quarto-figure-center anchored" alt="With 12 people, the trial-row test rejects about 80 percent of the time at 192 trials per person. The participant-slope test remains around 5 percent.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-null-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/02-null.png" class="img-fluid figure-img" alt="With 12 people, the trial-row test rejects about 80 percent of the time at 192 trials per person. The participant-slope test remains around 5 percent.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-null-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.2: Two tests of the same zero population slope across 3,000 replications per trial count (12 participants, nonzero slope heterogeneity). Participant-slope inference stays near 5%, whereas trial-row OLS inflates with trial count.
+Figure&nbsp;8.2: Two tests of the same zero population slope across 3,000 replications per trial count (12 participants, nonzero slope heterogeneity). Participant-slope inference stays near 5%, whereas trial-row OLS inflates with trial count.
 </figcaption>
 </figure>
 </div>
-<p>Simultaneously, conditional residual variance varies across trials and scans because <span class="math inline">\(\operatorname{Var}(\varepsilon_{sri}) = \tau_{\text{latent}}^2 + s_{sri}^2\)</span>. Passing <code>weights = "precision_weight_cohort"</code> supplies <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{sri}^2)^{-1}\)</span> normalized across the full cohort split, allowing noisier runs and participants to carry appropriately wider conditional residual spread (<code>0.191</code> and <code>0.396</code> vs.&nbsp;true <code>0.194</code> and <code>0.403</code> in <a href="#fig-weights" class="quarto-xref">Figure&nbsp;<span>7.3</span></a>, compared with <code>0.313</code> unweighted).</p>
+<p>Simultaneously, conditional residual variance varies across trials and scans because <span class="math inline">\(\operatorname{Var}(\varepsilon_{sri}) = \tau_{\text{latent}}^2 + s_{sri}^2\)</span>. Passing <code>weights = "precision_weight_cohort"</code> supplies <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{sri}^2)^{-1}\)</span> normalized across the full cohort split, allowing noisier runs and participants to carry appropriately wider conditional residual spread (<code>0.191</code> and <code>0.396</code> vs.&nbsp;true <code>0.194</code> and <code>0.403</code> in <a href="#fig-weights" class="quarto-xref">Figure&nbsp;<span>8.3</span></a>, compared with <code>0.313</code> unweighted).</p>
 <div id="fig-weights" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Weighted model residual SDs closely match known SDs of 0.19 and 0.40. The unweighted model estimates 0.31 for both runs.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/03-weights.png" class="img-fluid figure-img" alt="Weighted model residual SDs closely match known SDs of 0.19 and 0.40. The unweighted model estimates 0.31 for both runs.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.3: Conditional residual spread recovered by weighted vs.&nbsp;unweighted <code>lmer()</code> across a quiet run (SD = 0.194) and a noisy run (SD = 0.403).
+Figure&nbsp;8.3: Conditional residual spread recovered by weighted vs.&nbsp;unweighted <code>lmer()</code> across a quiet run (SD = 0.194) and a noisy run (SD = 0.403).
 </figcaption>
 </figure>
 </div>
-<p>Across 3 simulated parcels (<code>Phasic</code>, <code>Sustained</code>, <code>Null</code>) × 8 lags × 2 focal predictors (<span class="math inline">\(48\)</span> planned tests; <a href="#fig-profiles" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>, <a href="#fig-family" class="quarto-xref">Figure&nbsp;<span>7.5</span></a>), Benjamini–Yekutieli (<code>"BY"</code>) adjustment isolates <strong>7</strong> true discoveries around the phasic <code>value_within</code> peak (<span class="math inline">\(+1\text{ s}\)</span>) and sustained <code>entropy_within</code> plateau (<span class="math inline">\(+1\)</span> to <span class="math inline">\(+4\text{ s}\)</span>) while filtering out isolated pointwise fluctuations (9 unadjusted hits).</p>
+<p>Across 3 simulated parcels (<code>Phasic</code>, <code>Sustained</code>, <code>Null</code>) × 8 lags × 2 focal predictors (<span class="math inline">\(48\)</span> planned tests; <a href="#fig-profiles" class="quarto-xref">Figure&nbsp;<span>8.4</span></a>, <a href="#fig-family" class="quarto-xref">Figure&nbsp;<span>8.5</span></a>), Benjamini–Yekutieli (<code>"BY"</code>) adjustment isolates <strong>7</strong> true discoveries around the phasic <code>value_within</code> peak (<span class="math inline">\(+1\text{ s}\)</span>) and sustained <code>entropy_within</code> plateau (<span class="math inline">\(+1\)</span> to <span class="math inline">\(+4\text{ s}\)</span>) while filtering out isolated pointwise fluctuations (9 unadjusted hits).</p>
 <div id="fig-profiles" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The value slope peaks near one second in the phasic parcel. The entropy slope persists for several seconds in the sustained parcel. Both slopes fluctuate around zero in the null parcel.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-profiles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/04-profiles.png" class="img-fluid figure-img" alt="The value slope peaks near one second in the phasic parcel. The entropy slope persists for several seconds in the sustained parcel. Both slopes fluctuate around zero in the null parcel.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-profiles-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.4: Simulated population slope profiles across three parcels with pointwise 95% Satterthwaite intervals (dashed lines mark generating truth).
+Figure&nbsp;8.4: Simulated population slope profiles across three parcels with pointwise 95% Satterthwaite intervals (dashed lines mark generating truth).
 </figcaption>
 </figure>
 </div>
@@ -613,7 +618,7 @@ Figure&nbsp;7.4: Simulated population slope profiles across three parcels with p
 <img src="figures/05-family.png" class="img-fluid figure-img" alt="Most discoveries are near the simulated phasic value peak and the sustained entropy response. Two cells pass only the unadjusted threshold.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-family-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.5: Multiplicity map across the 48 parcel × lag × term tests: teal cells survive Benjamini–Yekutieli FDR control across the family; orange cells pass unadjusted p &lt;= .05 only.
+Figure&nbsp;8.5: Multiplicity map across the 48 parcel × lag × term tests: teal cells survive Benjamini–Yekutieli FDR control across the family; orange cells pass unadjusted p &lt;= .05 only.
 </figcaption>
 </figure>
 </div>
@@ -625,8 +630,8 @@ Figure&nbsp;7.5: Multiplicity map across the 48 parcel × lag × term tests: tea
 <p>Because neighboring lags share both deconvolution smoothness (<span class="math inline">\(R_{\text{lag}}\)</span>) and correlated observation noise (<span class="math inline">\(C_{\text{lag}}\)</span>), modeling the lag vector <span class="math inline">\(\widehat{b} = (\widehat{b}_1, \dots, \widehat{b}_L)^\top\)</span> jointly is substantially more informative than treating lags as unrelated splits:</p>
 <ol type="1">
 <li><strong>Joint within-run regression and available-case lag pooling:</strong> <code>medusa_multilag_infer()</code> fits all supplied time-varying <code>covariates</code> together within each run (routing any participant-constant covariates to Level-2 WLS with HC2 SEs) and pools participant slopes across lags using available cases—retaining participants at interior lags even if boundary censoring removed an edge lag.</li>
-<li><strong>Spectral deblurring and covariance-aware P-splines:</strong> Under <code>trajectory_mode = "auto"</code> (with upstream <code>demix_within_trial = FALSE</code>), <code>medusa_multilag_infer()</code> applies a regularized spectral inverse of <span class="math inline">\(R_{\text{lag}}\)</span> (<code>"deblur"</code>, <a href="#fig-pr62-deblur" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>) followed by boosted P-spline smoothing (<code>"deblur_pspline"</code>), incorporating Marra–Wood posterior smoothing-bias uncertainty into <span class="math inline">\(\Sigma_{\text{multilag}}\)</span>.</li>
-<li><strong>Studentized Wishart epoch inference (<code>n_perm</code> draws):</strong> Accounts for finite-sample covariance estimation across participants to deliver simultaneous <code>Max-|T|</code> bands (<code>p_maxT</code>, <code>conf.low.sim</code>, <code>conf.high.sim</code>), threshold-free cluster enhancement (<code>p_tfce</code>) for sustained deflections, and an epoch Mahalanobis test (<code>omnibus_p</code>; <a href="#fig-pr62-trajectory" class="quarto-xref">Figure&nbsp;<span>7.7</span></a>, <a href="#fig-pr62-tests" class="quarto-xref">Figure&nbsp;<span>7.8</span></a>).</li>
+<li><strong>Spectral deblurring and covariance-aware P-splines:</strong> Under <code>trajectory_mode = "auto"</code> (with upstream <code>demix_within_trial = FALSE</code>), <code>medusa_multilag_infer()</code> applies a regularized spectral inverse of <span class="math inline">\(R_{\text{lag}}\)</span> (<code>"deblur"</code>, <a href="#fig-pr62-deblur" class="quarto-xref">Figure&nbsp;<span>8.6</span></a>) followed by boosted P-spline smoothing (<code>"deblur_pspline"</code>), incorporating Marra–Wood posterior smoothing-bias uncertainty into <span class="math inline">\(\Sigma_{\text{multilag}}\)</span>.</li>
+<li><strong>Studentized Wishart epoch inference (<code>n_perm</code> draws):</strong> Accounts for finite-sample covariance estimation across participants to deliver simultaneous <code>Max-|T|</code> bands (<code>p_maxT</code>, <code>conf.low.sim</code>, <code>conf.high.sim</code>), threshold-free cluster enhancement (<code>p_tfce</code>) for sustained deflections, and an epoch Mahalanobis test (<code>omnibus_p</code>; <a href="#fig-pr62-trajectory" class="quarto-xref">Figure&nbsp;<span>8.7</span></a>, <a href="#fig-pr62-tests" class="quarto-xref">Figure&nbsp;<span>8.8</span></a>).</li>
 </ol>
 <div id="fig-pr62-deblur" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The blurred effect is wider than the known target. The deblurred curve is closer to the target in this controlled example.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -634,7 +639,7 @@ Figure&nbsp;7.5: Multiplicity map across the 48 parcel × lag × term tests: tea
 <img src="figures/09-pr62-deblur.png" class="img-fluid figure-img" alt="The blurred effect is wider than the known target. The deblurred curve is closer to the target in this controlled example.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pr62-deblur-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.6: Spectral cross-lag deblurring on a deterministic coefficient curve spread by <code>C_blur</code>: the deblurred trajectory recovers the underlying phasic width.
+Figure&nbsp;8.6: Spectral cross-lag deblurring on a deterministic coefficient curve spread by <code>C_blur</code>: the deblurred trajectory recovers the underlying phasic width.
 </figcaption>
 </figure>
 </div>
@@ -644,7 +649,7 @@ Figure&nbsp;7.6: Spectral cross-lag deblurring on a deterministic coefficient cu
 <img src="figures/07-pr62-trajectory.png" class="img-fluid figure-img" alt="The simultaneous band is wider than the pointwise intervals. A smoothed curve peaks around one second, near the raw peak.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pr62-trajectory-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.7: Raw lag estimates, pointwise 95% intervals, simultaneous 95% Max-|T| band, and smoothed P-spline trajectory on the simulated Phasic parcel.
+Figure&nbsp;8.7: Raw lag estimates, pointwise 95% intervals, simultaneous 95% Max-|T| band, and smoothed P-spline trajectory on the simulated Phasic parcel.
 </figcaption>
 </figure>
 </div>
@@ -654,11 +659,11 @@ Figure&nbsp;7.7: Raw lag estimates, pointwise 95% intervals, simultaneous 95% Ma
 <img src="figures/08-pr62-tests.png" class="img-fluid figure-img" alt="The two generated signals pass all three tests. The null entropy trajectory stays well above 0.05 on all three tests.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pr62-tests-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.8: Epoch-level significance summaries (<code>min_p_maxT</code>, <code>min_p_tfce</code>, <code>omnibus_p</code>) across Phasic value, Sustained entropy, and Null entropy trajectories (4,000 Wishart draws).
+Figure&nbsp;8.8: Epoch-level significance summaries (<code>min_p_maxT</code>, <code>min_p_tfce</code>, <code>omnibus_p</code>) across Phasic value, Sustained entropy, and Null entropy trajectories (4,000 Wishart draws).
 </figcaption>
 </figure>
 </div>
-<p>In <a href="#fig-pr62-tests" class="quarto-xref">Figure&nbsp;<span>7.8</span></a>, both generated effects hit the 4,000-draw floor (<code>min_p_maxT =</code> 0.0002, <code>omnibus_p =</code> 0.0005), while the null trajectory stays well above <code>.05</code> (<code>omnibus_p =</code> 0.269). Custom first-stage participant slope tables can also enter directly via the coefficient-table interface:</p>
+<p>In <a href="#fig-pr62-tests" class="quarto-xref">Figure&nbsp;<span>8.8</span></a>, both generated effects hit the 4,000-draw floor (<code>min_p_maxT =</code> 0.0002, <code>omnibus_p =</code> 0.0005), while the null trajectory stays well above <code>.05</code> (<code>omnibus_p =</code> 0.269). Custom first-stage participant slope tables can also enter directly via the coefficient-table interface:</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show optional custom participant slope-table call</summary>
@@ -829,7 +834,7 @@ Figure&nbsp;7.8: Epoch-level significance summaries (<code>min_p_maxT</code>, <c
 <section id="practical-diagnostics-interpretation-conventions-and-scope" class="level2">
 <h2 class="anchored" data-anchor-id="practical-diagnostics-interpretation-conventions-and-scope">Practical Diagnostics, Interpretation Conventions, and Scope</h2>
 <ol type="1">
-<li><strong>Auditing split-level convergence and residual dependence:</strong> Inspect participant counts, <code>lme4::isSingular()</code> flags, and within-run lag-1 conditional residual correlations across splits (<a href="#fig-residuals" class="quarto-xref">Figure&nbsp;<span>7.9</span></a>):</li>
+<li><strong>Auditing split-level convergence and residual dependence:</strong> Inspect participant counts, <code>lme4::isSingular()</code> flags, and within-run lag-1 conditional residual correlations across splits (<a href="#fig-residuals" class="quarto-xref">Figure&nbsp;<span>8.9</span></a>):</li>
 </ol>
 <div class="cell">
 <details class="code-fold">
@@ -849,7 +854,7 @@ Figure&nbsp;7.8: Epoch-level significance summaries (<code>min_p_maxT</code>, <c
 <img src="figures/06-residuals.png" class="img-fluid figure-img" alt="Participant-run residual correlations scatter on both sides of zero, with no obvious consistent direction across the two runs.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-residuals-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.9: Lag-1 correlations of scaled conditional residuals per participant and run in the focal mixed model.
+Figure&nbsp;8.9: Lag-1 correlations of scaled conditional residuals per participant and run in the focal mixed model.
 </figcaption>
 </figure>
 </div>

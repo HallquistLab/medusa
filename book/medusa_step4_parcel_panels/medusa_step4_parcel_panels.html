@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>6&nbsp; Step 4: Parcel Aggregation and Analysis Panels – MEDuSA</title>
+<title>7&nbsp; Step 4: Parcel Aggregation and Analysis Panels – MEDuSA</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -201,9 +201,14 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
@@ -305,29 +310,29 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">6.1</span> Overview</a></li>
-  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs"><span class="header-section-number">6.2</span> Goals, Inputs, and Outputs</a>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">7.1</span> Overview</a></li>
+  <li><a href="#goals-inputs-and-outputs" id="toc-goals-inputs-and-outputs" class="nav-link" data-scroll-target="#goals-inputs-and-outputs"><span class="header-section-number">7.2</span> Goals, Inputs, and Outputs</a>
   <ul class="collapse">
-  <li><a href="#goals-of-step-4" id="toc-goals-of-step-4" class="nav-link" data-scroll-target="#goals-of-step-4"><span class="header-section-number">6.2.1</span> Goals of Step 4</a></li>
-  <li><a href="#inputs-what-step-4-receives-and-why" id="toc-inputs-what-step-4-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-4-receives-and-why"><span class="header-section-number">6.2.2</span> Inputs: What Step 4 Receives and Why</a></li>
-  <li><a href="#outputs-what-step-4-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-4-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-4-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">6.2.3</span> Outputs: What Step 4 Produces and Why It Is Set Up That Way</a></li>
+  <li><a href="#goals-of-step-4" id="toc-goals-of-step-4" class="nav-link" data-scroll-target="#goals-of-step-4"><span class="header-section-number">7.2.1</span> Goals of Step 4</a></li>
+  <li><a href="#inputs-what-step-4-receives-and-why" id="toc-inputs-what-step-4-receives-and-why" class="nav-link" data-scroll-target="#inputs-what-step-4-receives-and-why"><span class="header-section-number">7.2.2</span> Inputs: What Step 4 Receives and Why</a></li>
+  <li><a href="#outputs-what-step-4-produces-and-why-it-is-set-up-that-way" id="toc-outputs-what-step-4-produces-and-why-it-is-set-up-that-way" class="nav-link" data-scroll-target="#outputs-what-step-4-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">7.2.3</span> Outputs: What Step 4 Produces and Why It Is Set Up That Way</a></li>
   </ul></li>
-  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">6.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</a>
+  <li><a href="#step-by-step-walkthrough-substeps-and-choice-points" id="toc-step-by-step-walkthrough-substeps-and-choice-points" class="nav-link" data-scroll-target="#step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">7.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</a>
   <ul class="collapse">
-  <li><a href="#weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support" id="toc-weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support" class="nav-link" data-scroll-target="#weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support"><span class="header-section-number">6.3.1</span> 4.1 Weight voxels within each parcel by cross-run precision and task support</a></li>
-  <li><a href="#accumulate-exact-multi-stratum-parcel-operators" id="toc-accumulate-exact-multi-stratum-parcel-operators" class="nav-link" data-scroll-target="#accumulate-exact-multi-stratum-parcel-operators"><span class="header-section-number">6.3.2</span> 4.2 Accumulate exact multi-stratum parcel operators</a></li>
-  <li><a href="#estimate-spatial-noise-covariance-from-task-free-innovations" id="toc-estimate-spatial-noise-covariance-from-task-free-innovations" class="nav-link" data-scroll-target="#estimate-spatial-noise-covariance-from-task-free-innovations"><span class="header-section-number">6.3.3</span> 4.3 Estimate spatial noise covariance from task-free innovations</a></li>
-  <li><a href="#compute-biological-trial-variance-cohort-weights-and-panel-columns" id="toc-compute-biological-trial-variance-cohort-weights-and-panel-columns" class="nav-link" data-scroll-target="#compute-biological-trial-variance-cohort-weights-and-panel-columns"><span class="header-section-number">6.3.4</span> 4.4 Compute biological trial variance, cohort weights, and panel columns</a></li>
+  <li><a href="#weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support" id="toc-weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support" class="nav-link" data-scroll-target="#weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support"><span class="header-section-number">7.3.1</span> 4.1 Weight voxels within each parcel by cross-run precision and task support</a></li>
+  <li><a href="#accumulate-exact-multi-stratum-parcel-operators" id="toc-accumulate-exact-multi-stratum-parcel-operators" class="nav-link" data-scroll-target="#accumulate-exact-multi-stratum-parcel-operators"><span class="header-section-number">7.3.2</span> 4.2 Accumulate exact multi-stratum parcel operators</a></li>
+  <li><a href="#estimate-spatial-noise-covariance-from-task-free-innovations" id="toc-estimate-spatial-noise-covariance-from-task-free-innovations" class="nav-link" data-scroll-target="#estimate-spatial-noise-covariance-from-task-free-innovations"><span class="header-section-number">7.3.3</span> 4.3 Estimate spatial noise covariance from task-free innovations</a></li>
+  <li><a href="#compute-biological-trial-variance-cohort-weights-and-panel-columns" id="toc-compute-biological-trial-variance-cohort-weights-and-panel-columns" class="nav-link" data-scroll-target="#compute-biological-trial-variance-cohort-weights-and-panel-columns"><span class="header-section-number">7.3.4</span> 4.4 Compute biological trial variance, cohort weights, and panel columns</a></li>
   </ul></li>
-  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings"><span class="header-section-number">6.4</span> Recommended Settings</a></li>
-  <li><a href="#practical-considerations-voxel-dropout-role-specific-columns-and-handoffs" id="toc-practical-considerations-voxel-dropout-role-specific-columns-and-handoffs" class="nav-link" data-scroll-target="#practical-considerations-voxel-dropout-role-specific-columns-and-handoffs"><span class="header-section-number">6.5</span> Practical Considerations: Voxel Dropout, Role-Specific Columns, and Handoffs</a></li>
+  <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings"><span class="header-section-number">7.4</span> Recommended Settings</a></li>
+  <li><a href="#practical-considerations-voxel-dropout-role-specific-columns-and-handoffs" id="toc-practical-considerations-voxel-dropout-role-specific-columns-and-handoffs" class="nav-link" data-scroll-target="#practical-considerations-voxel-dropout-role-specific-columns-and-handoffs"><span class="header-section-number">7.5</span> Practical Considerations: Voxel Dropout, Role-Specific Columns, and Handoffs</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_step4_parcel_panels/medusa_step4_parcel_panels.html"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title"><span class="chapter-title">Step 4: Parcel Aggregation and Analysis Panels</span></h1>
 <p class="subtitle lead">Precision-weighted spatial pooling, task-free spatial noise propagation, and group-ready panel columns</p>
@@ -347,8 +352,8 @@ window.Quarto = {
 </header>
 
 
-<section id="overview" class="level2" data-number="6.1">
-<h2 data-number="6.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">6.1</span> Overview</h2>
+<section id="overview" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">7.1</span> Overview</h2>
 <p>Many task-fMRI hypotheses are formulated at the level of <strong>anatomical regions or functional parcels</strong> rather than single voxels. Combining voxels within a parcel boosts trial-level signal-to-noise ratio substantially, provided aggregation happens at the right point in the pipeline: after each voxel’s run has been deconvolved under its own HRF and <span class="math inline">\(\text{AR}(p)\)</span> whitener, and before trial-level event de-mixing and precision weighting.</p>
 <p>Step 4—executed inside <code>decon_epoch_regression(..., parcel_groups = parcel_ids)</code>—pools continuous deconvolved time series within each parcel using cross-run precision and task-support weights, accumulates exact multi-stratum linear operators when intra-parcel voxels differ in HRF or noise stratum, measures spatial noise correlation directly from Step 2’s <strong>task-free <code>noise_innovations</code></strong>, and outputs a tidy participant <code>panel</code> ready to stack across a cohort for Steps 5 and 6.</p>
 <div class="cell">
@@ -383,10 +388,10 @@ window.Quarto = {
 <p>The walkthrough below develops Step 4 in four substeps: computing SNR-informed voxel weights (<code>4.1</code>), combining mixed intra-parcel operator strata (<code>4.2</code>), propagating spatial noise correlations without task contamination (<code>4.3</code>), and constructing cohort-ready weights and panel columns (<code>4.4</code>).</p>
 <hr>
 </section>
-<section id="goals-inputs-and-outputs" class="level2" data-number="6.2">
-<h2 data-number="6.2" class="anchored" data-anchor-id="goals-inputs-and-outputs"><span class="header-section-number">6.2</span> Goals, Inputs, and Outputs</h2>
-<section id="goals-of-step-4" class="level3" data-number="6.2.1">
-<h3 data-number="6.2.1" class="anchored" data-anchor-id="goals-of-step-4"><span class="header-section-number">6.2.1</span> Goals of Step 4</h3>
+<section id="goals-inputs-and-outputs" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="goals-inputs-and-outputs"><span class="header-section-number">7.2</span> Goals, Inputs, and Outputs</h2>
+<section id="goals-of-step-4" class="level3" data-number="7.2.1">
+<h3 data-number="7.2.1" class="anchored" data-anchor-id="goals-of-step-4"><span class="header-section-number">7.2.1</span> Goals of Step 4</h3>
 <ol type="1">
 <li><strong>Aggregate voxels using cross-run SNR-optimal weights (<code>parcel_weights</code>):</strong> Weight constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span>.</li>
 <li><strong>Preserve intra-parcel <code>(HRF, AR, lambda)</code> heterogeneity:</strong> Combine per-stratum forward and inverse operators (<span class="math inline">\(\sum_s w_s D_s F_s\)</span>) directly rather than approximating a parcel with a single averaged HRF.</li>
@@ -394,8 +399,8 @@ window.Quarto = {
 <li><strong>Produce a self-contained participant trial panel for cohort inference:</strong> Export aligned de-mixed readouts, conditional standard errors, cohort-comparable precision weights, paired ZCA-whitened variables, and cross-parcel shared-noise loadings.</li>
 </ol>
 </section>
-<section id="inputs-what-step-4-receives-and-why" class="level3" data-number="6.2.2">
-<h3 data-number="6.2.2" class="anchored" data-anchor-id="inputs-what-step-4-receives-and-why"><span class="header-section-number">6.2.2</span> Inputs: What Step 4 Receives and Why</h3>
+<section id="inputs-what-step-4-receives-and-why" class="level3" data-number="7.2.2">
+<h3 data-number="7.2.2" class="anchored" data-anchor-id="inputs-what-step-4-receives-and-why"><span class="header-section-number">7.2.2</span> Inputs: What Step 4 Receives and Why</h3>
 <p>In addition to the Step 3 arguments (<code>deconvolution</code>, <code>events</code>, <code>target_condition</code>, <code>lags</code>, <code>covariates</code>), Step 4 uses four spatial and panel parameters:</p>
 <table class="caption-top table">
 <thead>
@@ -429,8 +434,8 @@ window.Quarto = {
 </tbody>
 </table>
 </section>
-<section id="outputs-what-step-4-produces-and-why-it-is-set-up-that-way" class="level3" data-number="6.2.3">
-<h3 data-number="6.2.3" class="anchored" data-anchor-id="outputs-what-step-4-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">6.2.3</span> Outputs: What Step 4 Produces and Why It Is Set Up That Way</h3>
+<section id="outputs-what-step-4-produces-and-why-it-is-set-up-that-way" class="level3" data-number="7.2.3">
+<h3 data-number="7.2.3" class="anchored" data-anchor-id="outputs-what-step-4-produces-and-why-it-is-set-up-that-way"><span class="header-section-number">7.2.3</span> Outputs: What Step 4 Produces and Why It Is Set Up That Way</h3>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -480,59 +485,59 @@ window.Quarto = {
 <hr>
 </section>
 </section>
-<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2" data-number="6.3">
-<h2 data-number="6.3" class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">6.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</h2>
-<section id="weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support" class="level3" data-number="6.3.1">
-<h3 data-number="6.3.1" class="anchored" data-anchor-id="weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support"><span class="header-section-number">6.3.1</span> 4.1 Weight voxels within each parcel by cross-run precision and task support</h3>
+<section id="step-by-step-walkthrough-substeps-and-choice-points" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="step-by-step-walkthrough-substeps-and-choice-points"><span class="header-section-number">7.3</span> Step-by-Step Walkthrough: Substeps and Choice Points</h2>
+<section id="weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support" class="level3" data-number="7.3.1">
+<h3 data-number="7.3.1" class="anchored" data-anchor-id="weight-voxels-within-each-parcel-by-cross-run-precision-and-task-support"><span class="header-section-number">7.3.1</span> 4.1 Weight voxels within each parcel by cross-run precision and task support</h3>
 <p>Consider a parcel containing four voxels whose observation-noise SDs range from <code>0.013</code> (interior gray matter) to <code>0.032</code> (noisy pial edge). An unweighted average gives the noisy edge voxel the same influence as the quietest voxel. Instead, Step 4 forms fixed cross-run voxel weights <span class="math inline">\(u_v\)</span> normalized to <span class="math inline">\(\sum_{v \in g} u_v = 1\)</span>:</p>
 <p><span class="math display">\[
 u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)}.
 \]</span></p>
-<p>Quieter voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span> receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (<a href="#fig-step4-weights" class="quarto-xref">Figure&nbsp;<span>6.1</span></a>).</p>
+<p>Quieter voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span> receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (<a href="#fig-step4-weights" class="quarto-xref">Figure&nbsp;<span>7.1</span></a>).</p>
 <div id="fig-step4-weights" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/01-weights.png" class="img-fluid figure-img" style="width:92.0%" alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.1: Nominal four-voxel parcel weights in Run 1 (<code>sd = 0.013, 0.018, 0.022, 0.032</code>) and automatic renormalization in Run 2 when Voxel 1 is marked invalid.
+Figure&nbsp;7.1: Nominal four-voxel parcel weights in Run 1 (<code>sd = 0.013, 0.018, 0.022, 0.032</code>) and automatic renormalization in Run 2 when Voxel 1 is marked invalid.
 </figcaption>
 </figure>
 </div>
 <p><strong>Choice point — Parcel panels (<code>parcel_groups</code>) vs.&nbsp;voxelwise Graph-EB mapping:</strong> Parcel aggregation is ideal when hypotheses target network ROIs, multi-lag group trajectories (<code>medusa_multilag_infer()</code>), or region-to-region connectivity (<code>decon_connectivity_repair()</code>). When effects may occupy small sub-parcel nuclei (<span class="math inline">\(&lt; 15\%\)</span> of a parcel) or cross shifted individual functional boundaries, omit <code>parcel_groups</code> to run voxelwise Graph-EB mapping (see <a href="../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html#sec-voxel-vs-parcel-guide">Spatial Graph Pooling</a> for a direct benchmark).</p>
 <hr>
 </section>
-<section id="accumulate-exact-multi-stratum-parcel-operators" class="level3" data-number="6.3.2">
-<h3 data-number="6.3.2" class="anchored" data-anchor-id="accumulate-exact-multi-stratum-parcel-operators"><span class="header-section-number">6.3.2</span> 4.2 Accumulate exact multi-stratum parcel operators</h3>
-<p>Suppose voxels inside the same parcel belong to different <code>(HRF, AR, lambda)</code> strata—for example, when Step 1 used <code>pooling = "graph"</code> (separating pial-vein autocorrelation from interior gray matter) and Step 2 used <code>lambda_mode = "auto"</code>. Because matrix inversion is nonlinear, deconvolving under a single parcel-averaged HRF <span class="math inline">\(\bar{h} = \frac{1}{2}(h_4 + h_8)\)</span> differs systematically from averaging voxelwise deconvolved series (16.6% waveform discrepancy in <a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>6.2</span></a>: <span class="math inline">\(\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h})F(\bar{h})\)</span>).</p>
-<p>Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series <span class="math inline">\(\hat{s}_{r,g} = \sum_{v \in g} u_v \hat{s}_{r,v}\)</span> and simultaneously accumulating the exact stratum-weighted forward/inverse operator <span class="math inline">\(\sum_s w_s D_s F_s\)</span> used in Step 3 de-mixing (<a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>6.2</span></a>).</p>
+<section id="accumulate-exact-multi-stratum-parcel-operators" class="level3" data-number="7.3.2">
+<h3 data-number="7.3.2" class="anchored" data-anchor-id="accumulate-exact-multi-stratum-parcel-operators"><span class="header-section-number">7.3.2</span> 4.2 Accumulate exact multi-stratum parcel operators</h3>
+<p>Suppose voxels inside the same parcel belong to different <code>(HRF, AR, lambda)</code> strata—for example, when Step 1 used <code>pooling = "graph"</code> (separating pial-vein autocorrelation from interior gray matter) and Step 2 used <code>lambda_mode = "auto"</code>. Because matrix inversion is nonlinear, deconvolving under a single parcel-averaged HRF <span class="math inline">\(\bar{h} = \frac{1}{2}(h_4 + h_8)\)</span> differs systematically from averaging voxelwise deconvolved series (16.6% waveform discrepancy in <a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>7.2</span></a>: <span class="math inline">\(\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h})F(\bar{h})\)</span>).</p>
+<p>Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series <span class="math inline">\(\hat{s}_{r,g} = \sum_{v \in g} u_v \hat{s}_{r,v}\)</span> and simultaneously accumulating the exact stratum-weighted forward/inverse operator <span class="math inline">\(\sum_s w_s D_s F_s\)</span> used in Step 3 de-mixing (<a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>7.2</span></a>).</p>
 <div id="fig-step4-mixed" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-mixed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/03-mixed-hrf.png" class="img-fluid figure-img" style="width:92.0%" alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-mixed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.2: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-stratum parcel operator</code>) vs.&nbsp;a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.
+Figure&nbsp;7.2: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-stratum parcel operator</code>) vs.&nbsp;a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.
 </figcaption>
 </figure>
 </div>
 <hr>
 </section>
-<section id="estimate-spatial-noise-covariance-from-task-free-innovations" class="level3" data-number="6.3.3">
-<h3 data-number="6.3.3" class="anchored" data-anchor-id="estimate-spatial-noise-covariance-from-task-free-innovations"><span class="header-section-number">6.3.3</span> 4.3 Estimate spatial noise covariance from task-free innovations</h3>
+<section id="estimate-spatial-noise-covariance-from-task-free-innovations" class="level3" data-number="7.3.3">
+<h3 data-number="7.3.3" class="anchored" data-anchor-id="estimate-spatial-noise-covariance-from-task-free-innovations"><span class="header-section-number">7.3.3</span> 4.3 Estimate spatial noise covariance from task-free innovations</h3>
 <p>To compute valid parcel standard errors (<code>se_demixed</code>), we need the effective observation-noise variance of the weighted parcel combination <span class="math inline">\(\sum_{v \in g} u_v e_v\)</span>. For voxel noise SDs <span class="math inline">\(\sigma_v\)</span> and spatial noise correlations <span class="math inline">\(R_{\text{spatial}, uv}\)</span>, that variance is</p>
 <p><span class="math display">\[
 \sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv}.
 \]</span></p>
 <p>In our 4-voxel example (<code>simulate_step4.R</code>), <span class="math inline">\(\sigma_{\text{parcel}}\)</span> equals <code>0.0091</code> if voxel errors are independent (<span class="math inline">\(R_{\text{spatial}} = I\)</span>), but rises nearly twofold to <code>0.0171</code> if all four voxels share common noise (<span class="math inline">\(R_{\text{spatial}} = \mathbf{1}\mathbf{1}^\top\)</span>). Estimating spatial correlation from second differences of deconvolved <code>activity</code> (<span class="math inline">\(\Delta^2 \hat{a}\)</span>) conflates shared task-evoked neural responses with shared noise—pegging estimated noise near the <code>0.0171</code> ceiling even when true noise is independent (<code>0.00</code>) or negatively correlated (<code>-0.20</code>).</p>
-<p>By instead projecting <span class="math inline">\(u \odot \sigma\)</span> onto Step 2’s <strong>task-free whitened <code>noise_innovations</code></strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA recovers the true spatial noise SD across all four correlation regimes (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>6.3</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>6.1</span></a>) and matches analytical <code>se_demixed</code> to 9.71e-17. Pooling normalized parcel innovation vectors across runs also yields the cross-parcel error correlation matrix <code>unit_error_cor</code> and its factor representation <code>shared_noise_loading</code> for Step 6.</p>
+<p>By instead projecting <span class="math inline">\(u \odot \sigma\)</span> onto Step 2’s <strong>task-free whitened <code>noise_innovations</code></strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA recovers the true spatial noise SD across all four correlation regimes (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>7.3</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>7.1</span></a>) and matches analytical <code>se_demixed</code> to 9.71e-17. Pooling normalized parcel innovation vectors across runs also yields the cross-parcel error correlation matrix <code>unit_error_cor</code> and its factor representation <code>shared_noise_loading</code> for Step 6.</p>
 <div id="fig-step4-noise" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/02-noise.png" class="img-fluid figure-img" style="width:95.0%" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.3: Effective parcel BOLD noise SD across four spatial correlation regimes (<code>-0.20</code>, <code>0.00</code>, <code>0.65</code>, <code>0.95</code>): true oracle spatial SD vs.&nbsp;MEDuSA’s task-free innovation estimator vs.&nbsp;a naive <span class="math inline">\(\Delta^2\)</span> activity proxy.
+Figure&nbsp;7.3: Effective parcel BOLD noise SD across four spatial correlation regimes (<code>-0.20</code>, <code>0.00</code>, <code>0.65</code>, <code>0.95</code>): true oracle spatial SD vs.&nbsp;MEDuSA’s task-free innovation estimator vs.&nbsp;a naive <span class="math inline">\(\Delta^2\)</span> activity proxy.
 </figcaption>
 </figure>
 </div>
@@ -548,7 +553,7 @@ Figure&nbsp;6.3: Effective parcel BOLD noise SD across four spatial correlation 
 <div id="tbl-step4-noise" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;6.1: Parcel spatial noise SD recovery and exact analytical SE check (<code>parcel_noise_check.csv</code>).
+Table&nbsp;7.1: Parcel spatial noise SD recovery and exact analytical SE check (<code>parcel_noise_check.csv</code>).
 </figcaption>
 <div aria-describedby="tbl-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -655,13 +660,13 @@ Table&nbsp;6.1: Parcel spatial noise SD recovery and exact analytical SE check (
 </div>
 <hr>
 </section>
-<section id="compute-biological-trial-variance-cohort-weights-and-panel-columns" class="level3" data-number="6.3.4">
-<h3 data-number="6.3.4" class="anchored" data-anchor-id="compute-biological-trial-variance-cohort-weights-and-panel-columns"><span class="header-section-number">6.3.4</span> 4.4 Compute biological trial variance, cohort weights, and panel columns</h3>
+<section id="compute-biological-trial-variance-cohort-weights-and-panel-columns" class="level3" data-number="7.3.4">
+<h3 data-number="7.3.4" class="anchored" data-anchor-id="compute-biological-trial-variance-cohort-weights-and-panel-columns"><span class="header-section-number">7.3.4</span> 4.4 Compute biological trial variance, cohort weights, and panel columns</h3>
 <p>On the aggregated parcel series, Step 4 estimates biological trial-to-trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> and builds three complementary sets of panel columns:</p>
 <ol type="1">
-<li><strong>Within-person vs.&nbsp;cohort precision weights (<a href="#fig-step4-precision" class="quarto-xref">Figure&nbsp;<span>6.4</span></a>):</strong> Both use composite inverse variance <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>. <code>precision_weight</code> normalizes to mean 1 within each participant/parcel, whereas <code>precision_weight_cohort</code> retains unnormalized inverse variance so Step 5 <code>mixed_by()</code> appropriately downweights high-noise scans and participants across the cohort.</li>
-<li><strong>Empirical-Bayes shrunk readouts (<code>decon_eb</code>, <a href="#fig-step4-shrinkage" class="quarto-xref">Figure&nbsp;<span>6.5</span></a>):</strong> Shrinks noisy individual trials toward the run mean using trial reliability <span class="math inline">\(\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)\)</span> for clean single-trial visualization.</li>
-<li><strong>Paired ZCA-whitened columns (<code>whiten_panel = TRUE</code>, <a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>6.6</span></a>):</strong> Applies a run-mean-preserving regularized ZCA map equally to <code>decon_demixed</code> and supplied covariates on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>.</li>
+<li><strong>Within-person vs.&nbsp;cohort precision weights (<a href="#fig-step4-precision" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>):</strong> Both use composite inverse variance <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>. <code>precision_weight</code> normalizes to mean 1 within each participant/parcel, whereas <code>precision_weight_cohort</code> retains unnormalized inverse variance so Step 5 <code>mixed_by()</code> appropriately downweights high-noise scans and participants across the cohort.</li>
+<li><strong>Empirical-Bayes shrunk readouts (<code>decon_eb</code>, <a href="#fig-step4-shrinkage" class="quarto-xref">Figure&nbsp;<span>7.5</span></a>):</strong> Shrinks noisy individual trials toward the run mean using trial reliability <span class="math inline">\(\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)\)</span> for clean single-trial visualization.</li>
+<li><strong>Paired ZCA-whitened columns (<code>whiten_panel = TRUE</code>, <a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>):</strong> Applies a run-mean-preserving regularized ZCA map equally to <code>decon_demixed</code> and supplied covariates on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>.</li>
 </ol>
 <div id="fig-step4-precision" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -669,7 +674,7 @@ Table&nbsp;6.1: Parcel spatial noise SD recovery and exact analytical SE check (
 <img src="figures/04-precision.png" class="img-fluid figure-img" style="width:90.0%" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-precision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixed</code> under <code>"marginal"</code> and <code>"residual"</code> working trial-variance modes.
+Figure&nbsp;7.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixed</code> under <code>"marginal"</code> and <code>"residual"</code> working trial-variance modes.
 </figcaption>
 </figure>
 </div>
@@ -679,7 +684,7 @@ Figure&nbsp;6.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixe
 <img src="figures/05-shrinkage.png" class="img-fluid figure-img" style="width:90.0%" alt="Scatter plot showing shrinkage of noisy trials toward the run mean.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-shrinkage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) vs.&nbsp;<code>decon_demixed</code> colored by <code>reliability_trial</code> (<code>Nearly common</code> parcel, Run 1).
+Figure&nbsp;7.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) vs.&nbsp;<code>decon_demixed</code> colored by <code>reliability_trial</code> (<code>Nearly common</code> parcel, Run 1).
 </figcaption>
 </figure>
 </div>
@@ -689,7 +694,7 @@ Figure&nbsp;6.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) v
 <img src="figures/06-zca.png" class="img-fluid figure-img" style="width:92.0%" alt="27x27 correlation heatmaps before and after regularized ZCA.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-zca-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;6.6: Within-run parcel correlation matrix <span class="math inline">\(\Sigma_{\text{tot}}\)</span> before and after paired regularized ZCA (<code>Nearly common</code> parcel, Run 1).
+Figure&nbsp;7.6: Within-run parcel correlation matrix <span class="math inline">\(\Sigma_{\text{tot}}\)</span> before and after paired regularized ZCA (<code>Nearly common</code> parcel, Run 1).
 </figcaption>
 </figure>
 </div>
@@ -697,8 +702,8 @@ Figure&nbsp;6.6: Within-run parcel correlation matrix <span class="math inline">
 <hr>
 </section>
 </section>
-<section id="recommended-settings" class="level2" data-number="6.4">
-<h2 data-number="6.4" class="anchored" data-anchor-id="recommended-settings"><span class="header-section-number">6.4</span> Recommended Settings</h2>
+<section id="recommended-settings" class="level2" data-number="7.4">
+<h2 data-number="7.4" class="anchored" data-anchor-id="recommended-settings"><span class="header-section-number">7.4</span> Recommended Settings</h2>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Participant-level parcel panel call (Steps 3 + 4 combined)</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>ep <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
@@ -767,8 +772,8 @@ Figure&nbsp;6.6: Within-run parcel correlation matrix <span class="math inline">
 </table>
 <hr>
 </section>
-<section id="practical-considerations-voxel-dropout-role-specific-columns-and-handoffs" class="level2" data-number="6.5">
-<h2 data-number="6.5" class="anchored" data-anchor-id="practical-considerations-voxel-dropout-role-specific-columns-and-handoffs"><span class="header-section-number">6.5</span> Practical Considerations: Voxel Dropout, Role-Specific Columns, and Handoffs</h2>
+<section id="practical-considerations-voxel-dropout-role-specific-columns-and-handoffs" class="level2" data-number="7.5">
+<h2 data-number="7.5" class="anchored" data-anchor-id="practical-considerations-voxel-dropout-role-specific-columns-and-handoffs"><span class="header-section-number">7.5</span> Practical Considerations: Voxel Dropout, Role-Specific Columns, and Handoffs</h2>
 <ol type="1">
 <li><strong>Checking run-to-run voxel coverage:</strong> When partial FoV clipping drops voxels from a small parcel in one run, renormalization shifts the parcel’s spatial center slightly; inspect <code>decon$scaling[[r]]$status</code> whenever dropout is non-trivial.</li>
 <li><strong>Matching panel columns to their statistical role:</strong> Mirrors the distinction between unshrunk likelihood-only readouts and shrunken EB predictions (Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026):

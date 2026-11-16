@@ -26,6 +26,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -48,7 +83,7 @@ ul.task-list li input[type="checkbox"] {
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -166,9 +201,14 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
@@ -274,6 +314,7 @@ window.Quarto = {
   <li><a href="#write-the-exact-trial-readout-measurement-model" id="toc-write-the-exact-trial-readout-measurement-model" class="nav-link" data-scroll-target="#write-the-exact-trial-readout-measurement-model">2. Write the exact trial-readout measurement model</a></li>
   <li><a href="#invert-event-mixing-to-recover-an-additive-error-scale" id="toc-invert-event-mixing-to-recover-an-additive-error-scale" class="nav-link" data-scroll-target="#invert-event-mixing-to-recover-an-additive-error-scale">3. Invert event mixing to recover an additive-error scale</a></li>
   <li><a href="#match-downstream-inference-to-the-structural-role-of-the-neural-variable" id="toc-match-downstream-inference-to-the-structural-role-of-the-neural-variable" class="nav-link" data-scroll-target="#match-downstream-inference-to-the-structural-role-of-the-neural-variable">4. Match downstream inference to the structural role of the neural variable</a></li>
+  <li><a href="#sec-glm-fir-lss-comparison" id="toc-sec-glm-fir-lss-comparison" class="nav-link" data-scroll-target="#sec-glm-fir-lss-comparison">5. When does MEDuSA agree with—or outperform—GLM, FIR, and LSS beta-series?</a></li>
   <li><a href="#practical-record-keeping-across-steps" id="toc-practical-record-keeping-across-steps" class="nav-link" data-scroll-target="#practical-record-keeping-across-steps">Practical record-keeping across steps</a></li>
   </ul>
 </nav>
@@ -301,7 +342,7 @@ window.Quarto = {
 
 
 <p>Many task-fMRI studies aim to relate fast, trial-specific cognitive processes—such as reward prediction errors, choice conflict, or deliberation effort—to neural dynamics across brain regions and participants. Because the hemodynamic response blurs neural activity across 15–30 seconds and scanner observations carry serial and spatial noise, trial-level neural responses are not observed directly. Instead, they are estimated from noisy, overlapping BOLD time series and then entered into second-stage models across trials and participants.</p>
-<p>A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026) guides the design of MEDuSA: <strong>separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.</strong> The four subsections below develop how MEDuSA implements this principle from a single run’s forward model to population inference.</p>
+<p>A central insight from two-step latent-variable and multilevel measurement-error modeling (Croon, 2002; Fuller, 1987; Skrondal &amp; Laake, 2001; Vig &amp; Hallquist, 2026) guides the design of MEDuSA: <strong>separating signal estimation from downstream structural inference works cleanly when the first stage places estimates on an unshrunk, additive-error scale and carries unit-specific error covariances into the second stage.</strong> The five subsections below develop how MEDuSA implements this principle from a single run’s forward model to population inference and method selection.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -386,6 +427,198 @@ Figure&nbsp;1.1: Two decision intervals of different length and two brief feedba
 <li><strong>Neural activity as the outcome (<code>Neural ~ Behavior</code>, Step 5):</strong> When error-free task or behavioral variables predict <code>decon_demixed</code>, additive zero-mean error <span class="math inline">\(e_i\)</span> enters the regression residual without biasing fixed-effect slope estimates. However, error precision varies across trials, runs, and participants. Step 5 (<code>mixed_by()</code> and <code>medusa_multilag_infer()</code>) pairs participant random slopes—treating <strong>participants</strong> as the independent unit of population replication—with composite inverse-variance weights <span class="math inline">\((\widehat{\tau}_{\text{eff}}^2 + s_i^2)^{-1}\)</span> (<code>precision_weight_cohort</code>) and cross-lag covariance matrices so standard errors, simultaneous bands, and window contrasts remain calibrated.</li>
 <li><strong>Neural activity as a predictor (<code>Target ~ Seed * Task</code> or <code>Behavior ~ Seed</code>, Step 6):</strong> When a noisy parcel readout moves to the right-hand side as a predictor, trial error <span class="math inline">\(u_i\)</span> inflates the predictor variance <span class="math inline">\(X^\top X\)</span> (attenuating slopes toward zero) and any shared scanner or physiological noise <span class="math inline">\(\operatorname{Cov}(u_i, v_i) \neq 0\)</span> between seed and target shifts <span class="math inline">\(X^\top Y\)</span>. Step 6 (<code>decon_connectivity_repair()</code>) applies regularized modified method of moments (<strong>M-MOMS</strong>, <code>medusa_fit_mmom()</code>) to subtract per-trial error covariance blocks <span class="math inline">\(\Psi_i\)</span> and task-free cross-parcel noise covariances before pooling participant slopes at the group level.</li>
 </ol>
+</section>
+<section id="sec-glm-fir-lss-comparison" class="level2">
+<h2 class="anchored" data-anchor-id="sec-glm-fir-lss-comparison">5. When does MEDuSA agree with—or outperform—GLM, FIR, and LSS beta-series?</h2>
+<p>Before committing to a full deconvolution pipeline, a practical question is when MEDuSA yields the same answer as simpler fMRI estimators—and when its extra machinery materially improves inference. To make that comparison concrete, <code>assets/compare_glm_fir_lss_medusa.R</code> evaluates four widely used methods on identical 16-participant, 3-run BOLD cohorts (<span class="math inline">\(\text{TR} = 1.0\text{ s}\)</span>, 6 voxels per parcel, shared + voxel-specific <span class="math inline">\(\text{AR}(1)\)</span> noise, population feedback RPE slope <span class="math inline">\(\beta = 0.50\)</span>):</p>
+<ol type="1">
+<li><strong>Parametric Canonical GLM:</strong> Standard run-wise prewhitened general linear model convolving <code>feedback</code> and centered <code>rpe</code> (plus <code>cue</code> and <code>decision</code> boxcars when present) with a canonical <span class="math inline">\(6.0\text{ s}\)</span> two-gamma HRF, followed by a group random-effects <span class="math inline">\(t\)</span>-test.</li>
+<li><strong>LSS Single-Trial Beta-Series (Mumford et al., 2012):</strong> Separate prewhitened canonical-HRF GLM for every feedback trial (one column for the target trial, one column summing all other feedback trials, plus cue/decision regressors), followed by a multilevel model (<code>beta_lss ~ rpe_within + (1 + rpe_within || id) + (1 | id:run)</code>).</li>
+<li><strong>Condition-Modulated FIR:</strong> Prewhitened finite impulse response basis (<span class="math inline">\(-2\)</span> to <span class="math inline">\(+14\text{ s}\)</span>) for both the feedback main effect and <code>rpe</code> modulation, summarizing the peak-scaled canonical BOLD window (<span class="math inline">\(+4\)</span> to <span class="math inline">\(+6\text{ s}\)</span>) across participants alongside the full BOLD-time curve.</li>
+<li><strong>MEDuSA:</strong> Out-of-sample parcel HRF cross-fitting (<code>estimate_crossrun_hrf()</code>), event-informed Sobolev deconvolution (<code>deconvolve_crossrun_hrf()</code>), de-mixed parcel epoch extraction (<code>decon_epoch_regression()</code>), and cohort-weighted multilevel / trajectory inference (<code>mixed_by()</code> and <code>medusa_multilag_infer()</code>).</li>
+</ol>
+<p><a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>1.2</span></a> and <a href="#tbl-glm-fir-lss-medusa" class="quarto-xref">Table&nbsp;<span>1.1</span></a> compare all four estimators across three progressively more demanding task regimes:</p>
+<ul>
+<li><strong>Regime 1 — Well-spaced single-phase events with a canonical HRF (<code>7.5–10.5 s</code> ITI):</strong> When isolated impulses evoke a canonical <span class="math inline">\(6.0\text{ s}\)</span> hemodynamic response, all four estimators converge on nearly identical, well-calibrated group slopes (0.478 to 0.474). When classical GLM assumptions hold, MEDuSA introduces no bias or efficiency loss.</li>
+<li><strong>Regime 2 — Rapid multi-phase RL trials (<code>Cue -&gt; variable-RT Decision -&gt; Feedback</code>) in a fast-HRF region (<code>3.0 s</code> peak):</strong> Here expected value at <code>cue</code> correlates negatively with signed <code>rpe</code> at <code>feedback</code>, deliberation varies in reaction time, and the local vasculature peaks 3 seconds earlier than the canonical template (as often observed in striatum, thalamus, and insula). Canonical-HRF Parametric GLM (0.191) and LSS (0.169) suffer substantial vascular-mismatch attenuation and cue bleed, while a canonical <span class="math inline">\(4\text{--}6\text{ s}\)</span> FIR peak window (0.284) partially misses the early hemodynamic peak. By learning the <span class="math inline">\(3.0\text{ s}\)</span> HRF out of sample and de-mixing <code>cue</code> and variable-duration <code>decision</code> intervals, MEDuSA recovers the generating onset slope (0.542).</li>
+<li><strong>Regime 3 — Biphasic neural trajectory (<code>+0.50</code> early phasic burst at <code>0–1.0 s</code>, <code>-0.45</code> late regulatory dip at <code>1.6–3.6 s</code>):</strong> Single-scalar GLM (-0.007) and LSS (0.014) project the entire peri-event trajectory onto one basis function, integrating across opposing early and late lobes so the two phases largely cancel. Condition-modulated FIR (<a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>, Panel C) captures the biphasic wave only in delayed, vascularly smeared BOLD time (<span class="math inline">\(+2\)</span> to <span class="math inline">\(+12\text{ s}\)</span>) without trial-level readouts. MEDuSA (<a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>, Panel B) resolves both the early positive burst and the late negative dip directly on <strong>neural event time</strong>, with simultaneous <code>Max-|T|</code> bands and a <code>late_minus_early</code> window contrast (-0.316, <span class="math inline">\(\text{SE} = 0.033\)</span>).</li>
+</ul>
+<div id="fig-glm-fir-lss-medusa" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Top: three forest-plot facets showing all four methods agreeing in Regime 1, MEDuSA recovering 0.50 in Regime 2 while canonical GLM/LSS drop below 0.20, and MEDuSA resolving onset burst in Regime 3 while scalar GLM/LSS cancel phases. Bottom: MEDuSA neural-time biphasic trajectory vs delayed BOLD-time FIR wave.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="assets/glm-fir-lss-medusa.png" class="img-fluid figure-img" style="width:100.0%" alt="Top: three forest-plot facets showing all four methods agreeing in Regime 1, MEDuSA recovering 0.50 in Regime 2 while canonical GLM/LSS drop below 0.20, and MEDuSA resolving onset burst in Regime 3 while scalar GLM/LSS cancel phases. Bottom: MEDuSA neural-time biphasic trajectory vs delayed BOLD-time FIR wave.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1.2: Head-to-head comparison of Parametric Canonical GLM, LSS Single-Trial Beta-Series (Mumford et al., 2012), Condition-Modulated FIR, and MEDuSA across 16-participant multi-run cohorts (<code>assets/compare_glm_fir_lss_medusa.R</code>). (A) Population onset RPE slope recovery (95% CI; dashed line = <code>+0.50</code> truth) across three task regimes. (B) Regime 3 biphasic trajectory recovered by <code>medusa_multilag_infer()</code> on neural event time with simultaneous 95% <code>Max-|T|</code> bands vs.&nbsp;scalar LSS cancellation. (C) The same Regime 3 signal viewed through condition-modulated FIR in delayed BOLD time.
+</figcaption>
+</figure>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Show supporting code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>comp_disp <span class="ot">&lt;-</span> comp_tbl</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>comp_disp<span class="sc">$</span>ci <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"[%.3f, %.3f]"</span>, comp_disp<span class="sc">$</span>conf.low, comp_disp<span class="sc">$</span>conf.high)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>comp_disp<span class="sc">$</span>p_fmt <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(comp_disp<span class="sc">$</span>p.value <span class="sc">&lt;</span> <span class="fl">1e-12</span>, <span class="st">"&lt; 1e-12"</span>, <span class="fu">sprintf</span>(<span class="st">"%.2e"</span>, comp_disp<span class="sc">$</span>p.value))</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  comp_disp[, <span class="fu">c</span>(<span class="st">"regime"</span>, <span class="st">"method"</span>, <span class="st">"estimate"</span>, <span class="st">"se"</span>, <span class="st">"ci"</span>, <span class="st">"p_fmt"</span>)],</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Experimental Regime"</span>, <span class="st">"Estimator"</span>, <span class="st">"Estimate"</span>, <span class="st">"SE"</span>, <span class="st">"95% CI"</span>, <span class="st">"p-value"</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">0</span>),</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-glm-fir-lss-medusa" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1.1: Population feedback RPE slope estimates across 16 simulated participants (3 runs/participant; true onset RPE slope = 0.500).
+</figcaption>
+<div aria-describedby="tbl-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Experimental Regime</th>
+<th style="text-align: left;">Estimator</th>
+<th style="text-align: right;">Estimate</th>
+<th style="text-align: right;">SE</th>
+<th style="text-align: left;">95% CI</th>
+<th style="text-align: left;">p-value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Regime 1: Slow single-phase (canonical HRF)</td>
+<td style="text-align: left;">Parametric GLM (Canonical)</td>
+<td style="text-align: right;">0.478</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: left;">[0.423, 0.532]</td>
+<td style="text-align: left;">8.37e-12</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Regime 1: Slow single-phase (canonical HRF)</td>
+<td style="text-align: left;">LSS Beta-Series (Canonical)</td>
+<td style="text-align: right;">0.476</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: left;">[0.423, 0.528]</td>
+<td style="text-align: left;">6.00e-12</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Regime 1: Slow single-phase (canonical HRF)</td>
+<td style="text-align: left;">FIR (4-6 s BOLD Peak Window)</td>
+<td style="text-align: right;">0.472</td>
+<td style="text-align: right;">0.024</td>
+<td style="text-align: left;">[0.420, 0.523]</td>
+<td style="text-align: left;">4.39e-12</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Regime 1: Slow single-phase (canonical HRF)</td>
+<td style="text-align: left;">MEDuSA (Lag 0 s Onset)</td>
+<td style="text-align: right;">0.474</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: left;">[0.419, 0.529]</td>
+<td style="text-align: left;">8.35e-12</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Regime 2: Rapid RL cue-RT-feedback (fast 3.0 s HRF)</td>
+<td style="text-align: left;">Parametric GLM (Canonical)</td>
+<td style="text-align: right;">0.191</td>
+<td style="text-align: right;">0.013</td>
+<td style="text-align: left;">[0.164, 0.219]</td>
+<td style="text-align: left;">1.95e-10</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Regime 2: Rapid RL cue-RT-feedback (fast 3.0 s HRF)</td>
+<td style="text-align: left;">LSS Beta-Series (Canonical)</td>
+<td style="text-align: right;">0.169</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: left;">[0.144, 0.194]</td>
+<td style="text-align: left;">4.03e-10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Regime 2: Rapid RL cue-RT-feedback (fast 3.0 s HRF)</td>
+<td style="text-align: left;">FIR (4-6 s BOLD Peak Window)</td>
+<td style="text-align: right;">0.284</td>
+<td style="text-align: right;">0.016</td>
+<td style="text-align: left;">[0.251, 0.318]</td>
+<td style="text-align: left;">1.29e-11</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Regime 2: Rapid RL cue-RT-feedback (fast 3.0 s HRF)</td>
+<td style="text-align: left;">MEDuSA (Lag 0 s Onset)</td>
+<td style="text-align: right;">0.542</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: left;">[0.481, 0.603]</td>
+<td style="text-align: left;">6.27e-12</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Regime 3: Biphasic burst (+0.50) then late dip (-0.45)</td>
+<td style="text-align: left;">Parametric GLM (Canonical)</td>
+<td style="text-align: right;">-0.007</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: left;">[-0.057, 0.042]</td>
+<td style="text-align: left;">7.53e-01</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Regime 3: Biphasic burst (+0.50) then late dip (-0.45)</td>
+<td style="text-align: left;">LSS Beta-Series (Canonical)</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: left;">[-0.027, 0.056]</td>
+<td style="text-align: left;">4.73e-01</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Regime 3: Biphasic burst (+0.50) then late dip (-0.45)</td>
+<td style="text-align: left;">FIR (4-6 s BOLD Peak Window)</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: left;">[-0.029, 0.068]</td>
+<td style="text-align: left;">4.03e-01</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Regime 3: Biphasic burst (+0.50) then late dip (-0.45)</td>
+<td style="text-align: left;">MEDuSA (Lag 0 s Onset)</td>
+<td style="text-align: right;">0.196</td>
+<td style="text-align: right;">0.021</td>
+<td style="text-align: left;">[0.152, 0.239]</td>
+<td style="text-align: left;">9.94e-08</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Scientific question &amp; task regime</th>
+<th>When GLM / LSS / FIR suffices</th>
+<th>When MEDuSA provides a clear advantage</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Single-phase, well-spaced events</strong> (<span class="math inline">\(\text{ITI} \ge 8\text{ s}\)</span>) in cortical regions near canonical HRF timing, testing one scalar modulator</td>
+<td>Parametric GLM and LSS recover nearly identical population slopes with minimal setup.</td>
+<td>Useful mainly if trial-specific precision weights (<code>se_demixed</code>) or downstream M-MOMS connectivity (<a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>) are needed.</td>
+</tr>
+<tr class="even">
+<td><strong>Multi-phase cognitive tasks</strong> (<code>cue</code> <span class="math inline">\(\to\)</span> variable-RT <code>decision</code> <span class="math inline">\(\to\)</span> <code>feedback</code>) or <strong>subcortical / fast-HRF territories</strong></td>
+<td>Canonical GLM and LSS attenuate effects when regional HRFs peak early/late or correlated trial phases overlap.</td>
+<td>Out-of-sample HRF learning (<a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a>) + duration-aware <code>(T, O)</code> epoch de-mixing (<a href="./medusa_step3_epochs/medusa_step3_epochs.html">Step 3</a>) prevent vascular-mismatch loss and neighbor bleed.</td>
+</tr>
+<tr class="odd">
+<td><strong>Temporally evolving or biphasic dynamics</strong> (early phasic salience vs.&nbsp;late sustained regulation, peak latency shifts)</td>
+<td>Scalar GLM/LSS integrate opposing lobes; FIR remains in delayed BOLD time without single-trial readouts.</td>
+<td><code>medusa_multilag_infer()</code> (<a href="./medusa_step5_group_models/medusa_step5_group_models.html">Step 5</a>) estimates neural-time trajectories, simultaneous bands, and window contrasts while retaining trial panels.</td>
+</tr>
+<tr class="even">
+<td><strong>Trial-to-trial seed–target connectivity &amp; PPI</strong></td>
+<td>LSS beta-series contain unquantified trial estimation error and shared physiological noise that bias <code>Target ~ Seed * Task</code> slopes.</td>
+<td><code>decon_connectivity_repair()</code> (<a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>) propagates per-trial error variances and task-free cross-parcel noise correlations into M-MOMS disattenuation.</td>
+</tr>
+</tbody>
+</table>
 </section>
 <section id="practical-record-keeping-across-steps" class="level2">
 <h2 class="anchored" data-anchor-id="practical-record-keeping-across-steps">Practical record-keeping across steps</h2>

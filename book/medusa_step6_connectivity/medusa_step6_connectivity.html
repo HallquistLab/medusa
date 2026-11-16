@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -154,7 +154,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a></li></ol></nav>
         <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -201,9 +201,14 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
@@ -332,7 +337,7 @@ window.Quarto = {
 <!-- main -->
 <main class="content" id="quarto-document-content" tabindex="-1">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">The six steps</a></li><li class="breadcrumb-item"><a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html">The MEDuSA pipeline</a></li><li class="breadcrumb-item"><a href="../medusa_step6_connectivity/medusa_step6_connectivity.html"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title"><span id="sec-step6" class="quarto-section-identifier"><span class="chapter-title">Step 6: Trial-Level Connectivity and PPI</span></span></h1>
 </div>
@@ -495,7 +500,7 @@ T_i = \beta_S S_i + \beta_x x_i + \beta_P (S_i x_i) + \varepsilon_i.
 <section id="pool-participant-slopes-and-compare-against-naive-regression" class="level3">
 <h3 class="anchored" data-anchor-id="pool-participant-slopes-and-compare-against-naive-regression">6.4 Pool participant slopes and compare against naive regression</h3>
 <p>Across independent participants, <code>decon_connectivity_repair()</code> pools participant slopes <span class="math inline">\(\widehat{\beta}_s\)</span> and standard errors via <strong>Hartung–Knapp–Sidik–Jonkman (HKSJ)</strong> random-effects meta-regression (with leverage protection against extreme precision weights), anchoring group degrees of freedom to the number of participants <span class="math inline">\(S\)</span>.</p>
-<p>To see how M-MOMS behaves when disattenuating genuine trial-level PPI (<code>Genuine PPI</code> scenario in <code>simulate.R</code>: 120 simulated cohorts of <span class="math inline">\(S = 16\)</span> participants, 2 runs × 60 trials, true population interaction <span class="math inline">\(\beta_P = 0.35\)</span>, seed and target measurement error SDs <span class="math inline">\(= 0.70\)</span>, independent errors), compare the top three rows of the benchmark table and left panel of <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>8.1</span></a>:</p>
+<p>To see how M-MOMS behaves when disattenuating genuine trial-level PPI (<code>Genuine PPI</code> scenario in <code>simulate.R</code>: 120 simulated cohorts of <span class="math inline">\(S = 16\)</span> participants, 2 runs × 60 trials, true population interaction <span class="math inline">\(\beta_P = 0.35\)</span>, seed and target measurement error SDs <span class="math inline">\(= 0.70\)</span>, independent errors), compare the top three rows of the benchmark table and left panel of <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>9.1</span></a>:</p>
 <ul>
 <li><strong>Naive regression</strong> is attenuated by roughly one-third (<strong>0.230</strong> vs.&nbsp;true <code>0.350</code>), yielding <strong>0.0%</strong> 95% CI coverage because tight group SEs center around the attenuated value.</li>
 <li><strong>M-MOMS</strong> removes the attenuation (<strong>0.343</strong>), cuts population RMSE more than threefold (from 0.123 to <strong>0.039</strong>), and restores nominal <strong>95.0%</strong> confidence-interval coverage.</li>
@@ -586,7 +591,7 @@ T_i = \beta_S S_i + \beta_x x_i + \beta_P (S_i x_i) + \varepsilon_i.
 <img src="ppi_estimates.png" class="img-fluid figure-img" alt="M-MOMS centers near 0.35 for genuine PPI and near 0.32 for shared-error null. The known-error correction brings the latter near zero.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ppi-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;8.1: Population PPI estimates across 120 simulated cohorts per scenario (dashed line marks generating truth). Left: M-MOMS recovers the true 0.35 interaction under independent errors. Right: under a condition-flipped shared-error null, disattenuation alone amplifies the artifact unless condition-specific cross-error moments are subtracted.
+Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scenario (dashed line marks generating truth). Left: M-MOMS recovers the true 0.35 interaction under independent errors. Right: under a condition-flipped shared-error null, disattenuation alone amplifies the artifact unless condition-specific cross-error moments are subtracted.
 </figcaption>
 </figure>
 </div>
@@ -670,15 +675,15 @@ Figure&nbsp;8.1: Population PPI estimates across 120 simulated cohorts per scena
 <h2 class="anchored" data-anchor-id="practical-diagnostics-shared-error-sensitivity-and-scope">Practical Diagnostics, Shared-Error Sensitivity, and Scope</h2>
 <section id="evaluating-sensitivity-to-condition-dependent-shared-noise" class="level3">
 <h3 class="anchored" data-anchor-id="evaluating-sensitivity-to-condition-dependent-shared-noise">Evaluating sensitivity to condition-dependent shared noise</h3>
-<p>Stationary <code>shared_error = "auto"</code> subtracts baseline cross-parcel noise correlation <span class="math inline">\(\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T\)</span>, which protects main-effect <code>seed</code> connectivity. What if physiological or motion noise correlation between two regions <em>changes sign or magnitude with task condition</em>—for instance, condition-locked breath-holding or head motion during <span class="math inline">\(x_i = +1\)</span> trials (<code>Shared-error null</code> in <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>8.1</span></a>, right: <span class="math inline">\(\beta_P = 0\)</span>, <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span>, zero run-wide average correlation)?</p>
-<p>Because <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0\)</span>, naive regression already shows a positive artifact (0.214), and dividing by the disattenuated denominator <span class="math inline">\(X^\top X - \sum \Psi_i\)</span> without knowing the condition-flipped cross-error magnifies it (0.322), returning to zero (-0.018) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across plausible condition-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> (<a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>8.2</span></a>)—paired with physiological/motion nuisance modeling in Steps 1–2 and a negative-control reference parcel—makes it transparent how large a condition-locked artifact would need to be to account for an observed PPI.</p>
+<p>Stationary <code>shared_error = "auto"</code> subtracts baseline cross-parcel noise correlation <span class="math inline">\(\operatorname{Cov}(u, v) = r_0 \sigma_S \sigma_T\)</span>, which protects main-effect <code>seed</code> connectivity. What if physiological or motion noise correlation between two regions <em>changes sign or magnitude with task condition</em>—for instance, condition-locked breath-holding or head motion during <span class="math inline">\(x_i = +1\)</span> trials (<code>Shared-error null</code> in <a href="#fig-ppi" class="quarto-xref">Figure&nbsp;<span>9.1</span></a>, right: <span class="math inline">\(\beta_P = 0\)</span>, <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i) = 0.65 x_i \sigma^2\)</span>, zero run-wide average correlation)?</p>
+<p>Because <span class="math inline">\(\mathbb{E}[x_i u_i v_i] = r \sigma^2 \neq 0\)</span>, naive regression already shows a positive artifact (0.214), and dividing by the disattenuated denominator <span class="math inline">\(X^\top X - \sum \Psi_i\)</span> without knowing the condition-flipped cross-error magnifies it (0.322), returning to zero (-0.018) once the condition-specific cross-error moment is supplied. Plotting the implied M-MOMS slope across plausible condition-modulated cross-error correlations <span class="math inline">\(r(x)\)</span> (<a href="#fig-sensitivity" class="quarto-xref">Figure&nbsp;<span>9.2</span></a>)—paired with physiological/motion nuisance modeling in Steps 1–2 and a negative-control reference parcel—makes it transparent how large a condition-locked artifact would need to be to account for an observed PPI.</p>
 <div id="fig-sensitivity" class="quarto-float quarto-figure quarto-figure-center anchored" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="ppi_sensitivity.png" class="img-fluid figure-img" alt="The inferred PPI decreases from about 0.32 at zero assumed shared error to zero at the generating assumption of 0.65.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sensitivity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;8.2: Sensitivity curve in the shared-error null scenario: implied population PPI slope as a function of hypothesized condition-dependent cross-error correlation amplitude (crossing zero at the generating value 0.65).
+Figure&nbsp;9.2: Sensitivity curve in the shared-error null scenario: implied population PPI slope as a function of hypothesized condition-dependent cross-error correlation amplitude (crossing zero at the generating value 0.65).
 </figcaption>
 </figure>
 </div>

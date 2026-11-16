@@ -71,7 +71,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" rel="next">
+<link href="./medusa_step0_design_bids/medusa_step0_design_bids.html" rel="next">
 <link href="./foundations.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -201,9 +201,14 @@ window.Quarto = {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
- <span class="menu-text" id="quarto-sidebar-section-1-label">The six steps</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+ <span class="menu-text" id="quarto-sidebar-section-1-label">The MEDuSA pipeline</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
       </div>
       <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></a>
+  </div>
+</li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></a>
@@ -342,7 +347,7 @@ window.Quarto = {
 
 
 <p>Before examining each step in full detail, it is helpful to watch a single scientific question move through the complete MEDuSA pipeline from raw run matrices to population inference. Suppose our primary question is whether signed <strong>reward prediction error (RPE)</strong> modulates neural activity at feedback onset in a prespecified cortical parcel (<code>Parcel_A</code>), and how that effect evolves over the surrounding seconds.</p>
-<p>Our teaching dataset simulates 12 participants, each completing three runs of 20 reinforcement-learning trials (<code>worked/workflow-source.Rmd</code>). Every trial comprises a visual cue, a variable-duration decision interval equal to reaction time, and brief feedback. Two parcels (<code>Parcel_A</code> and <code>Parcel_B</code>) contain three voxels each, and RPE modulates feedback activity in both parcels. Below, we walk through the five core stages of the analysis in execution order and then illustrate two practical data-support and handoff checks.</p>
+<p>Our teaching dataset simulates 12 participants, each completing three runs of 20 reinforcement-learning trials (<code>worked/workflow-source.Rmd</code>). Every trial comprises a visual cue, a variable-duration decision interval equal to reaction time, and brief feedback. Two parcels (<code>Parcel_A</code> and <code>Parcel_B</code>) contain three voxels each, and RPE modulates feedback activity in both parcels. (If you are starting from raw BIDS/<code>fMRIPrep</code> directories on disk, see <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0: Task Design and BIDS/fMRIPrep Ingestion</a>; for a quantitative comparison against canonical GLM, FIR, and LSS beta-series, see <a href="./foundations.html#sec-glm-fir-lss-comparison">Conceptual foundations §5</a>.) Below, we walk through the five core stages of the analysis in execution order and then illustrate two practical data-support and handoff checks.</p>
 <section id="estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14" class="level2">
 <h2 class="anchored" data-anchor-id="estimate-participant-hrfs-deconvolve-runs-and-align-parcel-epochs-steps-14">1. Estimate participant HRFs, deconvolve runs, and align parcel epochs (Steps 1–4)</h2>
 <p>For each participant, three function calls carry the run-level BOLD matrices and event schedules to a de-mixed, parcel-aggregated trial panel:</p>
@@ -1151,8 +1156,8 @@ Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Or
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html" class="pagination-link" aria-label="Step 1: Cross-Run HRF and Noise Estimation">
-        <span class="nav-page-text"><span class="chapter-title">Step 1: Cross-Run HRF and Noise Estimation</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html" class="pagination-link" aria-label="Step 0: Task Design and BIDS/fMRIPrep Ingestion">
+        <span class="nav-page-text"><span class="chapter-title">Step 0: Task Design and BIDS/fMRIPrep Ingestion</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
