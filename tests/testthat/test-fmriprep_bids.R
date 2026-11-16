@@ -1110,13 +1110,17 @@ test_that("Respiratory motion filter handles TR inference, Nyquist edge cases, v
     }
   }
   if (requireNamespace("BrainGnomes", quietly = TRUE)) {
-    set.seed(99L)
-    x_test <- cumsum(rnorm(150L, sd = 0.05)) + 0.2 * sin(2 * pi * 0.25 * seq(0, by = 0.8, length.out = 150L))
-    notch_c <- medusa:::design_iir_notch(f0 = 0.25, bandwidth = 0.10, fs = 1.25)
-    for (pt in c("constant", "odd", "even", "zero")) {
-      y_med <- medusa:::filtfilt_1d(x_test, b = notch_c$b, a = notch_c$a, padtype = pt, use_zi = TRUE)
-      y_bg <- as.double(BrainGnomes:::filtfilt_cpp(x_test, b = notch_c$b, a = notch_c$a, padtype = pt, use_zi = TRUE))
-      expect_equal(y_med, y_bg, tolerance = 1e-13)
+    bg_ns <- asNamespace("BrainGnomes")
+    if (exists("filtfilt_cpp", envir = bg_ns, inherits = FALSE)) {
+      bg_filtfilt <- get("filtfilt_cpp", envir = bg_ns)
+      set.seed(99L)
+      x_test <- cumsum(rnorm(150L, sd = 0.05)) + 0.2 * sin(2 * pi * 0.25 * seq(0, by = 0.8, length.out = 150L))
+      notch_c <- medusa:::design_iir_notch(f0 = 0.25, bandwidth = 0.10, fs = 1.25)
+      for (pt in c("constant", "odd", "even", "zero")) {
+        y_med <- medusa:::filtfilt_1d(x_test, b = notch_c$b, a = notch_c$a, padtype = pt, use_zi = TRUE)
+        y_bg <- as.double(bg_filtfilt(x_test, b = notch_c$b, a = notch_c$a, padtype = pt, use_zi = TRUE))
+        expect_equal(y_med, y_bg, tolerance = 1e-13)
+      }
     }
   }
 })
