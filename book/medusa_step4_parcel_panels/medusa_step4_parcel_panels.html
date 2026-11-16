@@ -396,7 +396,7 @@ window.Quarto = {
 <li><strong>Aggregate voxels using cross-run SNR-optimal weights (<code>parcel_weights</code>):</strong> Weight constituent voxels inversely by their cross-run observation-noise variance and upweight voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span>.</li>
 <li><strong>Preserve intra-parcel <code>(HRF, AR, lambda)</code> heterogeneity:</strong> Combine per-stratum forward and inverse operators (<span class="math inline">\(\sum_s w_s D_s F_s\)</span>) directly rather than approximating a parcel with a single averaged HRF.</li>
 <li><strong>Propagate within- and between-parcel spatial noise correlation accurately:</strong> Estimate parcel measurement noise and cross-parcel error correlations from Step 2’s task-free whitened <code>noise_innovations</code>.</li>
-<li><strong>Produce a self-contained participant trial panel for cohort inference:</strong> Export aligned de-mixed readouts, conditional standard errors, cohort-comparable precision weights, paired ZCA-whitened variables, and cross-parcel shared-noise loadings.</li>
+<li><strong>Produce a self-contained participant trial panel for cohort inference:</strong> Export aligned de-mixed readouts, conditional standard errors, cohort-comparable precision weights, paired within-run decorrelated (<code>*_whitened</code>) variables, and cross-parcel shared-noise loadings.</li>
 </ol>
 </section>
 <section id="inputs-what-step-4-receives-and-why" class="level3" data-number="7.2.2">
@@ -429,7 +429,7 @@ window.Quarto = {
 <tr class="even">
 <td><code>restore_scale</code> &amp; <code>whiten_panel</code></td>
 <td>Logical flags (<code>TRUE</code> recommended for both)</td>
-<td>Place runs onto physical BOLD units before pooling and export paired within-run ZCA-decorrelated outcome and predictor columns on the parcel covariance.</td>
+<td>Place runs onto physical BOLD units before pooling and export paired within-run symmetrically decorrelated (<code>*_whitened</code>, regularized ZCA) outcome and predictor columns on the parcel covariance.</td>
 </tr>
 </tbody>
 </table>
@@ -666,7 +666,7 @@ Table&nbsp;7.1: Parcel spatial noise SD recovery and exact analytical SE check (
 <ol type="1">
 <li><strong>Within-person vs.&nbsp;cohort precision weights (<a href="#fig-step4-precision" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>):</strong> Both use composite inverse variance <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>. <code>precision_weight</code> normalizes to mean 1 within each participant/parcel, whereas <code>precision_weight_cohort</code> retains unnormalized inverse variance so Step 5 <code>mixed_by()</code> appropriately downweights high-noise scans and participants across the cohort.</li>
 <li><strong>Empirical-Bayes shrunk readouts (<code>decon_eb</code>, <a href="#fig-step4-shrinkage" class="quarto-xref">Figure&nbsp;<span>7.5</span></a>):</strong> Shrinks noisy individual trials toward the run mean using trial reliability <span class="math inline">\(\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)\)</span> for clean single-trial visualization.</li>
-<li><strong>Paired ZCA-whitened columns (<code>whiten_panel = TRUE</code>, <a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>):</strong> Applies a run-mean-preserving regularized ZCA map equally to <code>decon_demixed</code> and supplied covariates on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>.</li>
+<li><strong>Paired within-run decorrelated columns (<code>whiten_panel = TRUE</code>, <a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>):</strong> Applies a run-mean-preserving symmetric decorrelation map (regularized zero-phase component analysis, or ZCA whitening) equally to <code>decon_demixed</code> and supplied covariates on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>, removing serial trial error correlations while keeping each trial aligned to its original ordering.</li>
 </ol>
 <div id="fig-step4-precision" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -789,7 +789,7 @@ Mathematical Reference &amp; Reproduction
 </summary>
 <ul>
 <li><strong>Within-parcel effective noise variance:</strong> Let <span class="math inline">\(Z_r \in \mathbb{R}^{m_r \times V}\)</span> denote Step 2’s column-unit-norm task-projected whitened innovations (<code>colSums(Z_r^2) == 1</code>). For parcel <span class="math inline">\(g\)</span> with valid voxels <span class="math inline">\(V_g\)</span>, normalized weights <span class="math inline">\(u_g\)</span>, and voxel observation-noise SDs <span class="math inline">\(\sigma_{r,V_g}\)</span>, define <span class="math inline">\(\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})\)</span>. Because <span class="math inline">\(\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}\)</span>, <span class="math inline">\(\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}\)</span> estimates parcel observation-noise variance without task contamination, bounded into <span class="math inline">\([0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]\)</span>.</li>
-<li><strong>Cross-parcel <code>shared_noise_loading</code>:</strong> Normalizing <span class="math inline">\(\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2\)</span> and pooling <span class="math inline">\(\tilde{Z}_r^\top \tilde{Z}_r\)</span> across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk on noisy off-diagonals, and projected onto the PSD cone) yields <code>unit_error_cor</code>, whose principal factor loadings are stored in <code>panel$shared_noise_loading</code>.</li>
+<li><strong>Cross-parcel <code>shared_noise_loading</code>:</strong> Normalizing <span class="math inline">\(\tilde{z}_{r,g} = \zeta_{r,g} / \|\zeta_{r,g}\|_2\)</span> and pooling <span class="math inline">\(\tilde{Z}_r^\top \tilde{Z}_r\)</span> across runs (weighted by residual degrees of freedom, adjusted for inter-stratum operator overlap, Empirical-Bayes shrunk on noisy off-diagonals, and projected onto the nearest positive semi-definite correlation matrix) yields <code>unit_error_cor</code>, whose principal factor loadings are stored in <code>panel$shared_noise_loading</code>.</li>
 </ul>
 <p><a href="simulate_step4.R">Step 4 simulation script</a> · <a href="figures_step4.R">Figure script</a> · <a href="parcel_noise_check.csv">Parcel noise table</a></p>
 </details>

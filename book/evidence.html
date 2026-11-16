@@ -303,7 +303,7 @@ window.Quarto = {
 
 <p>The standalone <code>medusa</code> package is evaluated through two complementary layers of evidence:</p>
 <ol type="1">
-<li><strong>Controlled mechanism demonstrations across Chapters 3–12 of this book</strong>, which isolate individual pipeline operators—cross-run HRF and 2-pass REML AR(<span class="math inline">\(p\)</span>) learning, event-informed vs.&nbsp;blind deconvolution, adaptive <code>rwls = "auto"</code> spike downweighting, epoch target/collateral demixing, innovation-based spatial parcel pooling, mixed-effects vs.&nbsp;multi-lag trajectory calibration, and M-MOMS connectivity/PPI sensitivity—under known mathematical ground truth.</li>
+<li><strong>Controlled mechanism demonstrations across the stepwise and spatial chapters of this book</strong>, which isolate individual pipeline operators—cross-run HRF and 2-pass REML AR(<span class="math inline">\(p\)</span>) learning, event-informed vs.&nbsp;blind deconvolution, adaptive <code>rwls = "auto"</code> spike downweighting, epoch target/collateral demixing, innovation-based spatial parcel pooling, mixed-effects vs.&nbsp;multi-lag trajectory calibration, and measurement-error-corrected (<code>M-MOMS</code>) connectivity/PPI sensitivity—under known mathematical ground truth.</li>
 <li><strong>The 14-study end-to-end <a href="library/medusa_validation_suite.html">MEDuSA Validation Suite</a></strong>, which benchmarks full pipeline configurations across realistic event schedules, neurovascular heterogeneity, heavy-tailed artifact bursts, censoring masks, and sample sizes.</li>
 </ol>
 <p>Keeping the scope of each test distinct is essential: an algebraic check verifies that operator covariance propagation is exact conditional on a fitted noise model, whereas a Monte Carlo study measures bias and interval coverage under its specific data-generating process.</p>
@@ -343,7 +343,7 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Studies 13–14 and <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">Step 1</a> / <a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 2</a></strong></td>
-<td style="text-align: left;">3D physiological HRF manifold (<code>preset = "medusa"</code>) with positive-lobe <code>normalize = "area"</code> gain consistency, event-informed vs.&nbsp;blind deconvolution, and adaptive heavy-tail <code>rwls = "auto"</code> frame weighting</td>
+<td style="text-align: left;">3D physiological HRF manifold (<code>preset = "medusa"</code>) with positive-lobe (<code>normalize = "positive_lobe"</code>) gain consistency, event-informed vs.&nbsp;blind deconvolution, and adaptive heavy-tail <code>rwls = "auto"</code> frame weighting</td>
 <td style="text-align: left;">Retain <code>preset = "medusa"</code> and <code>rwls = "auto"</code> as defaults so neurovascular dispersion, negative undershoot variations, and isolated motion spikes do not distort trial amplitudes.</td>
 </tr>
 </tbody>

@@ -358,7 +358,7 @@ window.Quarto = {
 <tr class="odd">
 <td><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">2. Deconvolve Continuous Signal</a></td>
 <td><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code></td>
-<td>What continuous latent time course is supported on the acquisition grid when event-informed GLS regression calibrates noise scaling, outlier weights, and SNR-stratified GCV smoothing (<code>lambda_mode = "auto"</code>)?</td>
+<td>What continuous latent time course is supported on the acquisition grid when event-informed GLS regression calibrates noise scaling, outlier weights, and signal-to-noise-stratified cross-run smoothing (<code>lambda_mode = "auto"</code>)?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step3_epochs/medusa_step3_epochs.html">3. Align Epochs &amp; De-Mix Overlap</a></td>
@@ -368,7 +368,7 @@ window.Quarto = {
 <tr class="odd">
 <td><a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">4. Assemble Parcel Panels</a></td>
 <td><code>decon_epoch_regression(..., parcel_groups = ...)</code></td>
-<td>How do we pool voxels into parcels using cross-run precision weights while propagating spatial noise correlations, cohort weights, and paired ZCA-whitened columns?</td>
+<td>How do we pool voxels into parcels using cross-run precision weights while propagating spatial noise correlations, cohort weights, and paired within-run decorrelated (<code>*_whitened</code>) columns?</td>
 </tr>
 <tr class="even">
 <td><a href="./medusa_step5_group_models/medusa_step5_group_models.html">5. Fit Group Multilevel &amp; Trajectory Models</a></td>
@@ -389,7 +389,7 @@ window.Quarto = {
 <li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \hat{s} \to \hat{z}\)</span>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
 <li>Read the seven chapters in <strong>The MEDuSA pipeline</strong> (Steps 0–6). Each chapter opens with a thumbnail <strong>Overview</strong> and clean <strong>Goals, Inputs, and Outputs</strong> tables, walks step by step through each <strong>Substep and Choice Point</strong> from simple intuition to the full estimator, summarizes <strong>Recommended Settings</strong>, and closes with <strong>Practical Considerations, Diagnostics, and Scope</strong>.</li>
 <li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
-<li>Consult <strong>Measurement models and evidence</strong> for deeper derivations of <a href="./medusa_standard_errors_mmom.html">M-MOM standard-error propagation</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity measurement models</a>, <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">multi-lag calibration</a>, <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">autocorrelation estimation</a>, and <a href="./evidence.html">validation benchmarks</a>.</li>
+<li>Consult <strong>Measurement models and evidence</strong> for deeper derivations of <a href="./medusa_standard_errors_mmom.html">method-of-moments (M-MOM) standard-error propagation</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity measurement models</a>, <a href="./medusa_pr62_calibration/medusa_pr62_calibration.html">multi-lag calibration</a>, <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">autocorrelation estimation</a>, and <a href="./evidence.html">validation benchmarks</a>.</li>
 </ol>
 <p>All code examples, figures, and diagnostic tables in this book are generated directly from the standalone <code>medusa</code> package (<code>library(medusa)</code>). See <a href="./reference.html">Reproduction and references</a> for instructions on re-running the simulations and rendering the book from <code>book/</code>.</p>
 

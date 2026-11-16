@@ -359,7 +359,7 @@ window.Quarto = {
 <ul>
 <li><strong>Recover an unbiased source mean (or model resolution explicitly):</strong> Regularized continuous deconvolution yields <span class="math inline">\(\mathbb{E}[\widehat a_r \mid a_r] = K_r a_r\)</span> with <span class="math inline">\(K_r \neq I\)</span>. In our controlled unequal-resolution experiment (<span class="math inline">\(K_s \neq K_t\)</span>), full noise-moment subtraction alone estimated connectivity as <strong>0.767</strong> when truth was <code>0.550</code>. Inverting known, well-conditioned resolution operators restored recovery to <strong>0.551</strong>.</li>
 <li><strong>Propagate shared errors and cluster at the participant level:</strong> Under unbiased source measurements with strong serial (<span class="math inline">\(0.55\)</span>) and shared cross-parcel (<span class="math inline">\(0.45\)</span>) Gaussian noise, the full cross-trial corrected-score estimator recovered <strong>0.546</strong>. Participant-cluster intervals covered truth in <strong>94.8%</strong> of repetitions, whereas row-based intervals covered only <strong>86.0%</strong>.</li>
-<li><strong>Respect finite-participant limits:</strong> With only 12 participants, asymptotic cluster sandwich intervals undercovered (91.8% connectivity coverage)—motivating the HKSJ <span class="math inline">\(t\)</span>-distribution small-sample pooling used in <code>medusa::decon_connectivity_repair()</code>.</li>
+<li><strong>Respect finite-participant limits:</strong> With only 12 participants, asymptotic cluster sandwich intervals undercovered (91.8% connectivity coverage)—motivating the dispersion-scaled finite-sample <span class="math inline">\(t\)</span>-interval (HKSJ) pooling used in <code>medusa::decon_connectivity_repair()</code>.</li>
 </ul>
 </section>
 <section id="define-the-neural-relationship-and-the-measurement-relationship" class="level3">
@@ -386,7 +386,7 @@ a_{t,gi}=\alpha_g+\beta a_{s,gi}+\gamma z_{gi}
 <p><span class="math display">\[
 K\,\operatorname{diag}(z)a_s \ne \operatorname{diag}(z)K a_s.
 \]</span></p>
-<p>Multiplying a smoothed or ZCA-whitened seed by the task modulator <span class="math inline">\(z\)</span> afterward does not match smoothing the latent interaction—which is why <code>decon_connectivity_repair()</code> defaults to <code>use_whitened = FALSE</code>.</p>
+<p>Multiplying a smoothed or within-run decorrelated (ZCA-whitened) seed by the task modulator <span class="math inline">\(z\)</span> afterward does not match smoothing the latent interaction—which is why <code>decon_connectivity_repair()</code> defaults to <code>use_whitened = FALSE</code>.</p>
 </section>
 <section id="three-workable-measurement-models" class="level3">
 <h3 class="anchored" data-anchor-id="three-workable-measurement-models">2. Three workable measurement models</h3>

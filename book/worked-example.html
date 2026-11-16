@@ -482,7 +482,7 @@ Figure&nbsp;2.1: Top: generating and cross-fitted HRF for Parcel A using realize
 </section>
 <section id="characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer" class="level2">
 <h2 class="anchored" data-anchor-id="characterize-the-full-lag-trajectory-and-window-contrasts-step-5-medusa_multilag_infer">3. Characterize the full lag trajectory and window contrasts (Step 5: <code>medusa_multilag_infer()</code>)</h2>
-<p>When the scientific question extends across the entire <span class="math inline">\(-2\text{ s}\)</span> to <span class="math inline">\(+4\text{ s}\)</span> peri-event epoch, passing the named <code>subject_epochs</code> list to <code>medusa_multilag_infer()</code> pools participant lag slopes jointly and constructs a simultaneous 95% <code>Max-|T|</code> confidence band covering all seven lags together:</p>
+<p>When the scientific question extends across the entire <span class="math inline">\(-2\text{ s}\)</span> to <span class="math inline">\(+4\text{ s}\)</span> peri-event epoch, passing the named <code>subject_epochs</code> list to <code>medusa_multilag_infer()</code> pools participant lag slopes jointly and constructs a simultaneous 95% confidence band covering all seven lags together (<code>Max-|T|</code>):</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>profile <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  subject_epochs, <span class="at">covariates =</span> <span class="st">"rpe"</span>, <span class="at">use_whitened =</span> <span class="cn">FALSE</span>,</span>
@@ -507,7 +507,7 @@ Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Or
 <p>Notice why the recovered raw lag curve in <a href="#fig-worked-lags" class="quarto-xref">Figure&nbsp;<span>2.2</span></a> spans neighboring lags even though the simulated effect occurs instantaneously at <span class="math inline">\(0\text{ s}\)</span>: regularized continuous deconvolution spreads a brief impulse smoothly across adjacent lags (matching the noiseless operator projection, teal dashed line).</p>
 <section id="sec-worked-contrasts" class="level3">
 <h3 class="anchored" data-anchor-id="sec-worked-contrasts">Choice point: Comparing a planned window contrast across trajectory curves</h3>
-<p>Suppose we test a planned <code>late_minus_early</code> contrast (<code>[2, 4] s</code> minus <code>[0, 1] s</code>) under <code>trajectory_mode = "deblur_pspline"</code>, which applies group-level spectral cross-lag deblurring followed by P-spline smoothing. <code>contrast_source</code> lets us choose which curve defines the contrast estimand:</p>
+<p>Suppose we test a planned <code>late_minus_early</code> contrast (<code>[2, 4] s</code> minus <code>[0, 1] s</code>) under <code>trajectory_mode = "deblur_pspline"</code>, which sharpens the group curve against the known cross-lag mixing matrix (spectral deblurring) before fitting a penalized spline (P-spline). <code>contrast_source</code> lets us choose which curve defines the contrast estimand:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">

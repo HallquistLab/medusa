@@ -353,40 +353,41 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 0 · Task design &amp; BIDS/fMRIPrep ingestion</strong></td>
 <td style="text-align: left;"><code>read_fmriprep_subject()</code>, <code>read_bids_events()</code>, <code>read_fmriprep_confounds()</code>, <code>read_nifti_ts()</code></td>
-<td style="text-align: left;">Multi-run &amp; inter-phase jitter feasibility benchmarks, streaming C++ 4D NIfTI ↔︎ <code>T × V</code> matrix extraction with pre-flight geometry checks, BIDS/<code>fMRIPrep</code>/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code>, explicit <code>missed_feedback</code> nuisance event retention, and <code>event_index</code>-keyed trial joins.</td>
+<td style="text-align: left;">Multi-run &amp; inter-phase jitter feasibility benchmarks, direct 4D NIfTI ↔︎ <code>T × V</code> matrix extraction with pre-flight geometry checks, BIDS/<code>fMRIPrep</code>/<code>BrainGnomes</code> ingestion with clock-preserving <code>valid_rows</code>, explicit <code>missed_feedback</code> nuisance event retention, and <code>event_index</code>-keyed trial joins.</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 1 · Spatial Graph, Cross-Run HRF &amp; AR(<span class="math inline">\(p\)</span>) noise</strong></td>
 <td style="text-align: left;"><code>build_spatial_graph()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
-<td style="text-align: left;">Zero-phase respiratory motion filtering (<code>motion_bandstop_bpm</code> / <code>motion_lowpass_hz</code>), 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and geodesic bilateral graph pooling (<code>pooling = "graph"</code>), and 2-pass target-excluding REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
+<td style="text-align: left;">Zero-phase respiratory motion filtering (<code>motion_bandstop_bpm</code> / <code>motion_lowpass_hz</code>), 3D physiological HRF manifold (<code>preset = "medusa"</code>), out-of-sample parcel and edge-preserving cortical-sheet pooling (<code>pooling = "graph"</code>), and 2-pass target-excluding REML AR(<span class="math inline">\(p\)</span>) noise refit.</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 2 · Event-informed continuous deconvolution</strong></td>
 <td style="text-align: left;"><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code>, <code>deconvolve_reglin()</code>, <code>deconvolve_nlreg()</code></td>
-<td style="text-align: left;">Continuous neural source recovery with FDR-gated SNR-stratified PAVA <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>), adaptive kurtosis/tail-triggered <code>rwls = "auto"</code> glitch downweighting, Winsorized GLS marginal <code>"noise_sd"</code> scaling, task-free <code>noise_innovations</code>, explicit <code>hrf_inverse_operator()</code> strata, and streaming C++ 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler 2011 comparator).</td>
+<td style="text-align: left;">Continuous neural source recovery with monotone SNR-stratified <code>lambda</code> tuning (<code>lambda_mode = "auto"</code>, PAVA), task-guarded <code>rwls = "auto"</code> glitch downweighting, outlier-trimmed GLS marginal <code>"noise_sd"</code> scaling, task-free <code>noise_innovations</code>, explicit <code>hrf_inverse_operator()</code> strata, and 3D/4D NIfTI export (<code>deconvolve_nlreg()</code> retained as blind Bush &amp; Cisler 2011 comparator).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 3 · Trial-epoch readout, alignment &amp; demixing</strong></td>
 <td style="text-align: left;"><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code>, <code>evt_align_decon_files()</code></td>
-<td style="text-align: left;">Kernel quadrature onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), post-readout ridge target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, pre-truncation bilateral Graph-EB trial variance (<code>tau2_shrinkage = "graph_eb"</code>) &amp; moderated sandwich scales, exact Toeplitz error propagation (<code>se_demixed</code>), and fast C++ matrix-native descriptive alignment (<code>align_medusa_ts()</code>).</td>
+<td style="text-align: left;">Local time-averaging (kernel quadrature) onto peri-event lag grids, collateral non-target removal (<code>demix_other_events</code>), ridge-stabilized target demixing (<code>demix_target_trials</code>), within-trial lag demixing (<code>demix_within_trial</code>), duration <code>"rate"</code> vs.&nbsp;<code>"integral"</code> readout, edge-preserving neighborhood trial-variance shrinkage (<code>tau2_shrinkage = "graph_eb"</code>), exact stationary error propagation (<code>se_demixed</code>), and descriptive peri-event alignment (<code>align_medusa_ts()</code>).</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 4 · Parcel panels &amp; cohort weights</strong></td>
 <td style="text-align: left;"><code>decon_epoch_regression(..., parcel_groups = ...)</code></td>
-<td style="text-align: left;">Multi-stratum inverse-variance parcel pooling using task-free <code>noise_innovations</code>, <code>shared_noise_loading</code> &amp; <code>unit_error_cor</code> export, <code>precision_weight</code> &amp; <code>precision_weight_cohort</code>, and matched ZCA panel whitening (<code>whiten_panel</code>).</td>
+<td style="text-align: left;">Multi-stratum inverse-variance parcel pooling using task-free <code>noise_innovations</code>, <code>shared_noise_loading</code> &amp; <code>unit_error_cor</code> export, <code>precision_weight</code> &amp; <code>precision_weight_cohort</code>, and paired within-run trial decorrelation (<code>whiten_panel</code>, ZCA).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Step 5 · Group &amp; trajectory inference</strong></td>
 <td style="text-align: left;"><code>mixed_by()</code>, <code>medusa_multilag_infer()</code>, <code>backproject_medusa()</code></td>
-<td style="text-align: left;">Cohort-weighted split-wise REML mixed models (<code>lmerTest</code>, supporting disk-backed Parquet/<code>.rds</code>/CSV streaming and <code>split_filter</code> pushdown), joint multi-lag trajectories with available-case pooling, spectral deblurring, Marra–Wood P-splines, studentized Wishart <code>Max-|T|</code> / 1D TFCE / omnibus tests, <code>"unsmoothed"</code> window contrasts, and streaming NIfTI map backprojection.</td>
+<td style="text-align: left;">Cohort-weighted split-wise REML mixed models (<code>lmerTest</code>, supporting disk-backed Parquet/<code>.rds</code>/CSV streaming and <code>split_filter</code> pushdown), joint multi-lag trajectories with available-case pooling, cross-lag deblurring, uncertainty-aware penalized splines (Marra–Wood), finite-sample covariance draws (studentized Wishart) for <code>Max-|T|</code> / 1D TFCE / omnibus tests, <code>"unsmoothed"</code> window contrasts, and NIfTI map backprojection.</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Step 6 · Trial connectivity &amp; PPI</strong></td>
 <td style="text-align: left;"><code>decon_connectivity_repair()</code>, <code>medusa_fit_mmom()</code>, <code>medusa_between_subject_repair()</code></td>
-<td style="text-align: left;">Within-trial M-MOMS predictor disattenuation, automatic cross-parcel <code>shared_error = "auto"</code> subtraction, exact residualized-seed covariance projection, and HKSJ random-effects participant pooling.</td>
+<td style="text-align: left;">Within-trial predictor disattenuation with conditioning protection (M-MOMS), automatic cross-parcel <code>shared_error = "auto"</code> subtraction, exact residualized-seed covariance projection, and finite-sample random-effects <span class="math inline">\(t\)</span>-interval pooling (HKSJ).</td>
 </tr>
 </tbody>
 </table>
+<p><em>(Under the hood, computationally intensive 3D/4D NIfTI streaming, cortical-sheet graph filters, batched Cholesky deconvolution solves, and peri-event alignment run in compiled <code>Rcpp</code>/<code>RcppArmadillo</code> kernels while exposing clean R S3 objects.)</em></p>
 <p>For NIfTI matrix and file-backed workflows (<code>read_nifti_ts()</code>, <code>write_nifti_ts()</code>, <code>build_spatial_graph()</code>, <code>align_medusa_ts()</code>, <code>voxelwise_deconvolution()</code>, and <code>evt_align_decon_files()</code>), see the package vignettes (<code>vignettes/medusa-workflows.Rmd</code> and <code>vignettes/medusa-docs.md</code>) and function reference (<code>?read_nifti_ts</code>, <code>?build_spatial_graph</code>, <code>?estimate_crossrun_hrf</code>, <code>?deconvolve_crossrun_hrf</code>, <code>?align_medusa_ts</code>, <code>?decon_epoch_regression</code>, <code>?medusa_multilag_infer</code>, <code>?decon_connectivity_repair</code>).</p>
 </section>
 <section id="reproducing-all-simulations-figures-and-the-book" class="level2">
