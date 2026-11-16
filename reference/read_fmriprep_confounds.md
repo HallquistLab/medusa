@@ -356,11 +356,18 @@ An S3 list of class `"medusa_confounds"` containing:
   when `motion_bandstop_bpm` or `motion_lowpass_hz` is requested (`NULL`
   otherwise).
 
+- `variance_confounds`: Run-named list of numeric frame-level
+  variance-envelope matrices (`framewise_displacement`,
+  `std_dvars`/`dvars`, and optional `rvt`) for
+  [`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md).
+
 The `"medusa_confounds"` object can be passed directly as
 `nuisance = conf` to
 [`estimate_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/estimate_crossrun_hrf.md)
-(automatically supplying both `nuisance` and `valid_rows`) or as
-`valid = conf` to
+(automatically supplying both `nuisance` and `valid_rows`), as
+`variance_confounds = conf` to
+[`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md),
+or as `valid = conf` to
 [`align_medusa_ts`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md).
 
 ## See also
@@ -395,8 +402,8 @@ conf$valid_rows$run1
 conf$summary
 #>    run
 #> 1 run1
-#>                                                                               file
-#> 1 /tmp/RtmpZVrqlY/sub-01_task-mid_run-01_19c469003a7_desc-confounds_timeseries.tsv
+#>                                                                                file
+#> 1 /tmp/RtmphxUkOI/sub-01_task-mid_run-01_19d9298a7585_desc-confounds_timeseries.tsv
 #>   n_volumes n_valid n_censored pct_censored n_fd_outliers n_dvars_outliers
 #> 1         5       3          2           40             1                0
 #>   n_non_steady_state n_external_censor mean_fd max_fd motion_filtered

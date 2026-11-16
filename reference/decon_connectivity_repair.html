@@ -92,7 +92,8 @@ error variances for Granger-style auto-lag controls (<code>targ_t0</code>).</p>
 <span>  se_col <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  eb_col <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  modulator <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  return_augmented_panel <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  return_augmented_panel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  crosstrial_se <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -101,8 +102,11 @@ error variances for Granger-style auto-lag controls (<code>targ_t0</code>).</p>
 
 
 <dl><dt id="arg-panel-dt">panel_dt<a class="anchor" aria-label="anchor" href="#arg-panel-dt"></a></dt>
-<dd><p>A <code>data.frame</code> or <code>data.table</code> returned in
-<code>$panel</code> by <code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code>.</p></dd>
+<dd><p>A <code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code> result list, a
+trial-level <code>data.frame</code>/<code>data.table</code> (including CSV, <code>.csv.gz</code>,
+Parquet, or RDS panels where pipe-delimited list columns are automatically
+restored), a list of per-subject results/panels, or a file path (or character
+vector of file paths) readable by <code>medusa_read_table()</code>.</p></dd>
 
 
 <dt id="arg-seed-region">seed_region<a class="anchor" aria-label="anchor" href="#arg-seed-region"></a></dt>
@@ -226,6 +230,14 @@ unmixed trial states before error correction) and <code>TRUE</code> for
 trial panel augmented with moment-preserving REPAIR predictor columns
 (<code>seed_repair</code>, <code>ppi_repair</code>, <code>repair_weight</code>) that reproduce
 subject-level <code>M-MOMS</code> slopes in weighted least squares / <code>lmer()</code>.</p></dd>
+
+
+<dt id="arg-crosstrial-se">crosstrial_se<a class="anchor" aria-label="anchor" href="#arg-crosstrial-se"></a></dt>
+<dd><p>Logical; if <code>TRUE</code> (default), computes cross-trial
+(\(i \neq j\)) hybrid operator + gated onset-kernel sandwich standard errors
+and Satterthwaite effective degrees of freedom (<code>df</code>) for single-subject
+(\(N = 1\)) and subject-level inference while keeping diagonal M-MOMS
+estimation weights.</p></dd>
 
 </dl></div>
     <div class="section level2">

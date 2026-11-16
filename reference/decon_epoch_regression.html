@@ -81,7 +81,10 @@ per-trial operator precision weights and within-run error covariance.</p>
 <span>  whiten_panel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  return_epochs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  return_panel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  run_col <span class="op">=</span> <span class="st">"run"</span></span>
+<span>  run_col <span class="op">=</span> <span class="st">"run"</span>,</span>
+<span>  variance_confounds <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  shared_error_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"poet_covreg"</span>, <span class="st">"legacy"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  bold <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -331,6 +334,31 @@ covariate columns for downstream <code><a href="mixed_by.html">mixed_by()</a></c
 <dt id="arg-run-col">run_col<a class="anchor" aria-label="anchor" href="#arg-run-col"></a></dt>
 <dd><p>Column name in <code>events</code> identifying runs when <code>events</code>
 is supplied as a combined multi-run <code>data.frame</code>. Default <code>"run"</code>.</p></dd>
+
+
+<dt id="arg-variance-confounds">variance_confounds<a class="anchor" aria-label="anchor" href="#arg-variance-confounds"></a></dt>
+<dd><p>Optional frame-level variance confound envelopes
+(e.g., framewise displacement, <code>std_dvars</code>/<code>dvars</code>, RVT) for
+LTZ-gated heteroskedastic covariance regression with exact Schur-complement
+restoration when confound columns are gated out. Accepts a
+<code>"medusa_confounds"</code> object from <code><a href="read_fmriprep_confounds.html">read_fmriprep_confounds</a></code>,
+a <code>"medusa_nifti_ts"</code> object with <code>$confounds</code> from
+<code><a href="read_fmriprep_subject.html">read_fmriprep_subject</a></code>, a per-run list of numeric
+matrices/<code>data.frame</code>s/vectors, a multi-run <code>data.frame</code> containing
+<code>run_col</code>, or (for single-run fits) a numeric matrix/<code>data.frame</code>/vector.</p></dd>
+
+
+<dt id="arg-shared-error-method">shared_error_method<a class="anchor" aria-label="anchor" href="#arg-shared-error-method"></a></dt>
+<dd><p>Shared cross-unit and dynamic error covariance
+estimator: <code>"poet_covreg"</code> (default; v3 Subspace-Debiased Adaptive-POET
++ Multi-Lag Toeplitz &amp; General-\(W_s\) Covariance Regression),
+<code>"legacy"</code> (stationary innovation shrinkage), or <code>"none"</code>.</p></dd>
+
+
+<dt id="arg-bold">bold<a class="anchor" aria-label="anchor" href="#arg-bold"></a></dt>
+<dd><p>Optional list of per-run BOLD matrices (not required when
+<code>deconvolution</code> comes from current <code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code>,
+which caches observed/sketched prewhitened series automatically).</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -2,6 +2,9 @@
 
 ## All functions
 
+- [`aggregate_decon_panel()`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md)
+  : Aggregate a Voxel-Level MEDuSA Trial Panel to Parcels / ROIs
+
 - [`align_medusa_ts()`](https://hallquistlab.github.io/medusa/reference/align_medusa_ts.md)
   : Event-lock and interpolate MEDuSA time-series matrices onto an epoch
   grid

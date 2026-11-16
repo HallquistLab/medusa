@@ -401,9 +401,14 @@ timecourses (<code>FALSE</code>, default).</p></dd>
 <li><p><code>framewise_displacement_raw</code>: Run-named list of unfiltered FD
       vectors when <code>motion_bandstop_bpm</code> or <code>motion_lowpass_hz</code> is
       requested (<code>NULL</code> otherwise).</p></li>
+<li><p><code>variance_confounds</code>: Run-named list of numeric frame-level
+      variance-envelope matrices (<code>framewise_displacement</code>,
+      <code>std_dvars</code>/<code>dvars</code>, and optional <code>rvt</code>) for
+      <code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code>.</p></li>
 </ul><p>The <code>"medusa_confounds"</code> object can be passed directly as
   <code>nuisance = conf</code> to <code><a href="estimate_crossrun_hrf.html">estimate_crossrun_hrf</a></code> (automatically
-  supplying both <code>nuisance</code> and <code>valid_rows</code>) or as
+  supplying both <code>nuisance</code> and <code>valid_rows</code>), as
+  <code>variance_confounds = conf</code> to <code><a href="decon_epoch_regression.html">decon_epoch_regression</a></code>, or as
   <code>valid = conf</code> to <code><a href="align_medusa_ts.html">align_medusa_ts</a></code>.</p>
     </div>
     <div class="section level2">
@@ -435,8 +440,8 @@ timecourses (<code>FALSE</code>, default).</p></dd>
 <span class="r-in"><span><span class="va">conf</span><span class="op">$</span><span class="va">summary</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    run</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 run1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                               file</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 /tmp/RtmpZVrqlY/sub-01_task-mid_run-01_19c469003a7_desc-confounds_timeseries.tsv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                file</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 /tmp/RtmphxUkOI/sub-01_task-mid_run-01_19d9298a7585_desc-confounds_timeseries.tsv</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_volumes n_valid n_censored pct_censored n_fd_outliers n_dvars_outliers</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1         5       3          2           40             1                0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_non_steady_state n_external_censor mean_fd max_fd motion_filtered</span>

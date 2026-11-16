@@ -36,7 +36,10 @@ decon_epoch_regression(
   whiten_panel = FALSE,
   return_epochs = FALSE,
   return_panel = FALSE,
-  run_col = "run"
+  run_col = "run",
+  variance_confounds = NULL,
+  shared_error_method = c("poet_covreg", "legacy", "none"),
+  bold = NULL
 )
 ```
 
@@ -288,6 +291,34 @@ decon_epoch_regression(
 
   Column name in `events` identifying runs when `events` is supplied as
   a combined multi-run `data.frame`. Default `"run"`.
+
+- variance_confounds:
+
+  Optional frame-level variance confound envelopes (e.g., framewise
+  displacement, `std_dvars`/`dvars`, RVT) for LTZ-gated heteroskedastic
+  covariance regression with exact Schur-complement restoration when
+  confound columns are gated out. Accepts a `"medusa_confounds"` object
+  from
+  [`read_fmriprep_confounds`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_confounds.md),
+  a `"medusa_nifti_ts"` object with `$confounds` from
+  [`read_fmriprep_subject`](https://hallquistlab.github.io/medusa/reference/read_fmriprep_subject.md),
+  a per-run list of numeric matrices/`data.frame`s/vectors, a multi-run
+  `data.frame` containing `run_col`, or (for single-run fits) a numeric
+  matrix/`data.frame`/vector.
+
+- shared_error_method:
+
+  Shared cross-unit and dynamic error covariance estimator:
+  `"poet_covreg"` (default; v3 Subspace-Debiased Adaptive-POET +
+  Multi-Lag Toeplitz & General-\\W_s\\ Covariance Regression),
+  `"legacy"` (stationary innovation shrinkage), or `"none"`.
+
+- bold:
+
+  Optional list of per-run BOLD matrices (not required when
+  `deconvolution` comes from current
+  [`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
+  which caches observed/sketched prewhitened series automatically).
 
 ## Value
 

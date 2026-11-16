@@ -38,7 +38,8 @@ decon_connectivity_repair(
   se_col = NULL,
   eb_col = NULL,
   modulator = NULL,
-  return_augmented_panel = FALSE
+  return_augmented_panel = FALSE,
+  crosstrial_se = TRUE
 )
 ```
 
@@ -46,8 +47,13 @@ decon_connectivity_repair(
 
 - panel_dt:
 
-  A `data.frame` or `data.table` returned in `$panel` by
-  [`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md).
+  A
+  [`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)
+  result list, a trial-level `data.frame`/`data.table` (including CSV,
+  `.csv.gz`, Parquet, or RDS panels where pipe-delimited list columns
+  are automatically restored), a list of per-subject results/panels, or
+  a file path (or character vector of file paths) readable by
+  `medusa_read_table()`.
 
 - seed_region:
 
@@ -167,6 +173,14 @@ decon_connectivity_repair(
   moment-preserving REPAIR predictor columns (`seed_repair`,
   `ppi_repair`, `repair_weight`) that reproduce subject-level `M-MOMS`
   slopes in weighted least squares / `lmer()`.
+
+- crosstrial_se:
+
+  Logical; if `TRUE` (default), computes cross-trial (\\i \neq j\\)
+  hybrid operator + gated onset-kernel sandwich standard errors and
+  Satterthwaite effective degrees of freedom (`df`) for single-subject
+  (\\N = 1\\) and subject-level inference while keeping diagonal M-MOMS
+  estimation weights.
 
 ## Value
 
