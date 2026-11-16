@@ -371,10 +371,13 @@ inspect_braingnomes_provenance <- function(bold_path, use_jsonlite = TRUE) {
     operations = character(0L),
     scrub_timepoints = FALSE,
     confound_regression = FALSE,
+    apply_aroma = FALSE,
     temporal_filter = FALSE,
     scrub_interpolate = FALSE,
     spatial_mask = NA_character_,
-    upstream_confounds = NA_character_
+    upstream_confounds = NA_character_,
+    melodic_mix = NA_character_,
+    aroma_metrics = NA_character_
   )
   if (!is.character(bold_path) || length(bold_path) != 1L || is.na(bold_path) || !nzchar(bold_path)) {
     return(empty)
@@ -392,6 +395,8 @@ inspect_braingnomes_provenance <- function(bold_path, use_jsonlite = TRUE) {
   active_ops <- NULL
   spatial_mask <- NA_character_
   upstream_conf <- NA_character_
+  melodic_mix <- NA_character_
+  aroma_metrics <- NA_character_
 
   if (isTRUE(use_jsonlite) && requireNamespace("jsonlite", quietly = TRUE)) {
     parsed_json <- tryCatch(jsonlite::fromJSON(json_path, simplifyVector = FALSE), error = function(e) NULL)
@@ -412,6 +417,8 @@ inspect_braingnomes_provenance <- function(bold_path, use_jsonlite = TRUE) {
           if (is.list(sf) && is.character(sf$role) && is.character(sf$path) && length(sf$path) == 1L) {
             if (identical(sf$role, "spatial_mask") && is.na(spatial_mask)) spatial_mask <- sf$path
             if (identical(sf$role, "confounds") && is.na(upstream_conf)) upstream_conf <- sf$path
+            if (identical(sf$role, "melodic_mix") && is.na(melodic_mix)) melodic_mix <- sf$path
+            if (identical(sf$role, "aroma_metrics") && is.na(aroma_metrics)) aroma_metrics <- sf$path
           }
         }
       }
@@ -444,6 +451,8 @@ inspect_braingnomes_provenance <- function(bold_path, use_jsonlite = TRUE) {
     }
     spatial_mask <- extract_sf_path("spatial_mask")
     upstream_conf <- extract_sf_path("confounds")
+    melodic_mix <- extract_sf_path("melodic_mix")
+    aroma_metrics <- extract_sf_path("aroma_metrics")
   }
 
   list(
@@ -451,10 +460,13 @@ inspect_braingnomes_provenance <- function(bold_path, use_jsonlite = TRUE) {
     operations = active_ops,
     scrub_timepoints = "scrub_timepoints" %in% active_ops,
     confound_regression = "confound_regression" %in% active_ops,
+    apply_aroma = "apply_aroma" %in% active_ops,
     temporal_filter = "temporal_filter" %in% active_ops,
     scrub_interpolate = "scrub_interpolate" %in% active_ops,
     spatial_mask = spatial_mask,
-    upstream_confounds = upstream_conf
+    upstream_confounds = upstream_conf,
+    melodic_mix = melodic_mix,
+    aroma_metrics = aroma_metrics
   )
 }
 
@@ -840,6 +852,8 @@ confound_strategy_columns <- function(strategy) {
     "12p" = c(base_6p, deriv_6p),
     "24p" = c(base_6p, deriv_6p, pow2_6p, dpow2_6p),
     "27p" = c(base_6p, deriv_6p, pow2_6p, dpow2_6p, "csf", "white_matter", "global_signal"),
+    "csf_wm" = csf_wm_base,
+    "csf_wm_8p" = csf_wm_8p,
     "24p_csf_wm" = ,
     "32p" = c(base_6p, deriv_6p, pow2_6p, dpow2_6p, csf_wm_8p),
     "36p" = c(base_6p, deriv_6p, pow2_6p, dpow2_6p, csf_wm_8p, gsr_4p),
@@ -855,7 +869,7 @@ expand_confound_column_specs <- function(specs, avail_names) {
   out <- character(0L)
   for (sp in specs) {
     sc <- confound_strategy_columns(sp)
-    if (!is.null(sc) && tolower(sp) %in% c("6p", "12p", "24p", "27p", "24p_csf_wm", "32p", "36p")) {
+    if (!is.null(sc) && tolower(sp) %in% c("6p", "12p", "24p", "27p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "32p", "36p")) {
       out <- c(out, sc)
       next
     }
@@ -1412,6 +1426,580 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
   out
 }
 
+impute_nuisance_missing_only <- function(z_mat, valid_r, impute = "mean") {
+  if (ncol(z_mat) == 0L || nrow(z_mat) == 0L) return(z_mat)
+  for (j in seq_len(ncol(z_mat))) {
+    vj <- z_mat[, j]
+    if (any(!is.finite(vj))) {
+      ok_valid <- valid_r & is.finite(vj)
+      fill_val <- if (identical(impute, "mean") && any(ok_valid)) mean(vj[ok_valid]) else 0
+      vj[!is.finite(vj)] <- fill_val
+      z_mat[, j] <- vj
+    }
+  }
+  z_mat
+}
+
+finalize_nuisance_matrix <- function(
+  z_mat,
+  valid_r,
+  impute = "mean",
+  impute_censored = TRUE,
+  center = TRUE,
+  scale = FALSE,
+  drop_constant = TRUE
+) {
+  if (ncol(z_mat) == 0L) return(z_mat)
+  keep_col <- rep(TRUE, ncol(z_mat))
+  for (j in seq_len(ncol(z_mat))) {
+    vj <- z_mat[, j]
+    ok_valid <- valid_r & is.finite(vj)
+    fill_val <- if (identical(impute, "mean") && any(ok_valid)) mean(vj[ok_valid]) else 0
+    bad_valid <- valid_r & !is.finite(vj)
+    if (any(bad_valid)) vj[bad_valid] <- fill_val
+    if (isTRUE(impute_censored)) {
+      if (any(!valid_r)) vj[!valid_r] <- fill_val
+    } else {
+      bad_cens <- !valid_r & !is.finite(vj)
+      if (any(bad_cens)) vj[bad_cens] <- fill_val
+    }
+    if (isTRUE(center)) {
+      mu_v <- if (any(valid_r)) mean(vj[valid_r]) else 0
+      vj <- vj - mu_v
+    }
+    sd_v <- if (sum(valid_r) >= 2L) stats::sd(vj[valid_r]) else 0
+    if (isTRUE(scale) && is.finite(sd_v) && sd_v > 1e-12) {
+      vj <- vj / sd_v
+    }
+    if (isTRUE(drop_constant) && (!is.finite(sd_v) || sd_v <= 1e-12)) {
+      keep_col[j] <- FALSE
+    }
+    z_mat[, j] <- vj
+  }
+  z_mat[, keep_col, drop = FALSE]
+}
+
+find_matching_aroma_sidecar <- function(ref_row, cand_tbl) {
+  if (nrow(cand_tbl) == 0L) return(NA_character_)
+  keep <- rep(TRUE, nrow(cand_tbl))
+  for (field in c("sub", "ses", "task", "acq", "ce", "rec", "dir", "echo")) {
+    b_val <- ref_row[[field]]
+    c_val <- cand_tbl[[field]]
+    if (!is.na(b_val) && nzchar(b_val)) {
+      keep <- keep & !is.na(c_val) & tolower(c_val) == tolower(b_val)
+    } else {
+      keep <- keep & (is.na(c_val) | !nzchar(c_val))
+    }
+  }
+  b_run <- canonical_run_key(ref_row$run)
+  c_run <- canonical_run_key(cand_tbl$run)
+  if (!is.na(b_run)) {
+    keep <- keep & !is.na(c_run) & (c_run == b_run)
+  } else if (!is.na(ref_row$run) && nzchar(ref_row$run)) {
+    keep <- keep & !is.na(cand_tbl$run) & (tolower(cand_tbl$run) == tolower(ref_row$run))
+  } else {
+    keep <- keep & (is.na(cand_tbl$run) | !nzchar(cand_tbl$run))
+  }
+  idx <- which(keep)
+  if (!length(idx)) return(NA_character_)
+  if (length(idx) == 1L) return(cand_tbl$file[idx])
+
+  sub_tbl <- cand_tbl[idx, , drop = FALSE]
+  stems <- strip_neuro_ext(sub_tbl$file)
+  if (length(unique(stems)) == 1L) return(sub_tbl$file[1L])
+
+  # Score candidates: prefer exact space/res match when available and fMRIPost-AROMA lowercase desc
+  score <- integer(nrow(sub_tbl))
+  if (!is.na(ref_row$space) && nzchar(ref_row$space)) {
+    score <- score + 4L * as.integer(!is.na(sub_tbl$space) & sub_tbl$space == ref_row$space)
+  }
+  if (!is.na(ref_row$res) && nzchar(ref_row$res)) {
+    score <- score + 2L * as.integer(!is.na(sub_tbl$res) & sub_tbl$res == ref_row$res)
+  }
+  score <- score + as.integer(!is.na(sub_tbl$desc) & sub_tbl$desc %in% c("melodic", "aroma"))
+  best <- which(score == max(score))
+  best_files <- sub_tbl$file[best]
+  if (length(unique(strip_neuro_ext(best_files))) == 1L) return(best_files[1L])
+  stop(
+    sprintf(
+      "Multiple AROMA sidecar files matched run '%s': %s",
+      basename(ref_row$file), paste(basename(best_files), collapse = ", ")
+    ),
+    call. = FALSE
+  )
+}
+
+discover_aroma_classification_for_mixing <- function(mix_path) {
+  if (!is.character(mix_path) || length(mix_path) != 1L || is.na(mix_path) || !file.exists(mix_path)) {
+    return(NA_character_)
+  }
+  d <- dirname(mix_path)
+  mix_row <- parse_bids_entity_table(mix_path)
+  met_cands <- list.files(d, pattern = "_desc-aroma_metrics\\.tsv(\\.gz)?$", full.names = TRUE, ignore.case = TRUE)
+  if (length(met_cands)) {
+    hit <- find_matching_aroma_sidecar(mix_row, parse_bids_entity_table(met_cands))
+    if (!is.na(hit)) return(hit)
+  }
+  csv_cands <- list.files(d, pattern = "_AROMAnoiseICs\\.(csv|txt)(\\.gz)?$", full.names = TRUE, ignore.case = TRUE)
+  if (length(csv_cands)) {
+    hit <- find_matching_aroma_sidecar(mix_row, parse_bids_entity_table(csv_cands))
+    if (!is.na(hit)) return(hit)
+  }
+  NA_character_
+}
+
+read_melodic_mixing_one <- function(path, run_label = "mixing", na_strings = default_bids_na_strings()) {
+  checkmate::assert_file_exists(path)
+  if (R.utils::isGzipped(path, method = "extension")) {
+    loadNamespace("R.utils")
+  }
+  con <- if (grepl("\\.gz$", path, ignore.case = TRUE)) gzfile(path, "rt") else path
+  lines_head <- local({
+    if (inherits(con, "connection")) on.exit(close(con), add = TRUE)
+    readLines(con, n = 10L, warn = FALSE)
+  })
+  lines_head <- trimws(lines_head)
+  lines_head <- lines_head[nzchar(lines_head) & !grepl("^#", lines_head)]
+  if (!length(lines_head)) {
+    stop(sprintf("AROMA mixing file '%s' (%s) is empty.", path, run_label), call. = FALSE)
+  }
+  first_line <- lines_head[1L]
+  sep_guess <- if (grepl("\t", first_line, fixed = TRUE)) {
+    "\t"
+  } else if (grepl(",", first_line, fixed = TRUE)) {
+    ","
+  } else {
+    "\\s+"
+  }
+  toks <- if (identical(sep_guess, "\\s+")) {
+    unlist(strsplit(first_line, "\\s+"), use.names = FALSE)
+  } else {
+    unlist(strsplit(first_line, sep_guess, fixed = TRUE), use.names = FALSE)
+  }
+  toks <- gsub('^["\']|["\']$', "", trimws(toks))
+  toks <- toks[nzchar(toks)]
+  has_header <- !(length(toks) > 0L && !anyNA(suppressWarnings(as.numeric(toks))))
+
+  dt <- if (identical(sep_guess, "\t")) {
+    data.table::fread(path, sep = "\t", header = has_header, na.strings = na_strings, data.table = FALSE)
+  } else if (identical(sep_guess, ",")) {
+    data.table::fread(path, sep = ",", header = has_header, na.strings = na_strings, data.table = FALSE)
+  } else {
+    data.table::fread(path, header = has_header, na.strings = na_strings, data.table = FALSE)
+  }
+  if (nrow(dt) < 3L || ncol(dt) < 1L) {
+    stop(
+      sprintf(
+        "AROMA mixing matrix '%s' (%s) must have at least 3 rows and 1 component column (got %d x %d).",
+        basename(path), run_label, nrow(dt), ncol(dt)
+      ),
+      call. = FALSE
+    )
+  }
+  cols <- lapply(seq_len(ncol(dt)), function(j) {
+    coerce_bids_numeric_col(dt[[j]], names(dt)[j], sprintf("%s (%s)", run_label, basename(path)))
+  })
+  mat <- do.call(cbind, cols)
+  storage.mode(mat) <- "double"
+  if (any(!is.finite(mat))) {
+    stop(
+      sprintf("AROMA mixing matrix '%s' (%s) contains missing or non-finite values.", basename(path), run_label),
+      call. = FALSE
+    )
+  }
+  if (!has_header || all(grepl("^V[0-9]+$", names(dt)))) {
+    colnames(mat) <- sprintf("IC_%02d", seq_len(ncol(mat)))
+  } else {
+    colnames(mat) <- names(dt)
+  }
+  mat
+}
+
+normalize_mixing_matrix_one <- function(item, run_label = "mixing", na_strings = default_bids_na_strings()) {
+  if (is.character(item) && length(item) == 1L) {
+    return(list(matrix = read_melodic_mixing_one(item, run_label = run_label, na_strings = na_strings), file = item))
+  }
+  if (is.data.frame(item)) {
+    cols <- lapply(seq_len(ncol(item)), function(j) coerce_bids_numeric_col(item[[j]], names(item)[j], run_label))
+    mat <- if (length(cols)) do.call(cbind, cols) else matrix(numeric(0L), nrow = nrow(item), ncol = 0L)
+    if (ncol(mat) > 0L) colnames(mat) <- names(item)
+  } else if (is.matrix(item) && is.numeric(item)) {
+    mat <- item
+    storage.mode(mat) <- "double"
+    if (is.null(colnames(mat)) && ncol(mat) > 0L) {
+      colnames(mat) <- sprintf("IC_%02d", seq_len(ncol(mat)))
+    }
+  } else {
+    stop(sprintf("Unsupported %s input of class '%s'; supply file path(s) or numeric T x K matrix/data.frame.", run_label, class(item)[1L]), call. = FALSE)
+  }
+  if (nrow(mat) < 3L || ncol(mat) < 1L) {
+    stop(sprintf("%s must have at least 3 timepoints and 1 component column (got %d x %d).", run_label, nrow(mat), ncol(mat)), call. = FALSE)
+  }
+  if (any(!is.finite(mat))) {
+    stop(sprintf("%s contains missing or non-finite values.", run_label), call. = FALSE)
+  }
+  list(matrix = mat, file = NA_character_)
+}
+
+validate_aroma_ic_indices <- function(idx, n_comp, run_label) {
+  if (length(idx) == 0L) return(integer(0L))
+  if (!is.numeric(idx) || any(!is.finite(idx)) || any(idx != floor(idx)) || any(idx < 1) || any(idx > n_comp)) {
+    bad <- idx[!is.finite(idx) | idx != floor(idx) | idx < 1 | idx > n_comp]
+    stop(
+      sprintf(
+        "AROMA rejected component indices in %s must be 1-based integers in 1..%d (invalid value(s): %s).",
+        run_label, n_comp, paste(utils::head(bad, 6L), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  sort(unique(as.integer(idx)))
+}
+
+parse_aroma_metrics_df <- function(tbl, n_comp, run_label) {
+  nms_low <- tolower(names(tbl))
+  cls_pos <- match("classification", nms_low)
+  if (is.na(cls_pos)) {
+    stop(sprintf("AROMA metrics table in %s must contain a 'classification' column.", run_label), call. = FALSE)
+  }
+  if (nrow(tbl) != n_comp) {
+    stop(
+      sprintf(
+        "AROMA metrics table in %s has %d rows, but mixing matrix has %d components.",
+        run_label, nrow(tbl), n_comp
+      ),
+      call. = FALSE
+    )
+  }
+  cls_raw <- tolower(trimws(as.character(tbl[[cls_pos]])))
+  valid_labels <- c("accepted", "rejected", "signal", "noise", "motion")
+  if (anyNA(cls_raw) || any(!(cls_raw %in% valid_labels))) {
+    bad_lbl <- unique(tbl[[cls_pos]][is.na(cls_raw) | !(cls_raw %in% valid_labels)])
+    stop(
+      sprintf(
+        "Unrecognized AROMA classification value(s) in %s: %s (expected 'accepted' or 'rejected').",
+        run_label, paste(utils::head(as.character(bad_lbl), 5L), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  is_rej <- cls_raw %in% c("rejected", "noise", "motion")
+  ic_pos <- match("ic", nms_low)
+  if (!is.na(ic_pos) && is.numeric(tbl[[ic_pos]]) && !anyNA(tbl[[ic_pos]])) {
+    ic_vals <- as.numeric(tbl[[ic_pos]])
+    if (all(ic_vals == floor(ic_vals)) && setequal(as.integer(ic_vals), seq_len(n_comp))) {
+      rej_idx <- sort(as.integer(ic_vals[is_rej]))
+    } else {
+      rej_idx <- which(is_rej)
+    }
+  } else {
+    rej_idx <- which(is_rej)
+  }
+  out_df <- as.data.frame(tbl, stringsAsFactors = FALSE)
+  if (!("IC" %in% names(out_df)) && is.na(ic_pos)) {
+    out_df <- cbind(data.frame(IC = seq_len(n_comp), stringsAsFactors = FALSE), out_df)
+  }
+  list(noise_ics = as.integer(rej_idx), metrics = out_df)
+}
+
+parse_aroma_classification_one <- function(cls_item, n_comp, run_label = "classification", na_strings = default_bids_na_strings()) {
+  if (is.character(cls_item) && length(cls_item) == 1L) {
+    checkmate::assert_file_exists(cls_item)
+    if (R.utils::isGzipped(cls_item, method = "extension")) {
+      loadNamespace("R.utils")
+    }
+    con <- if (grepl("\\.gz$", cls_item, ignore.case = TRUE)) gzfile(cls_item, "rt") else cls_item
+    lines <- local({
+      if (inherits(con, "connection")) on.exit(close(con), add = TRUE)
+      readLines(con, warn = FALSE)
+    })
+    clean_lines <- trimws(sub("#.*$", "", lines))
+    clean_lines <- clean_lines[nzchar(clean_lines)]
+
+    is_index_file <- grepl("AROMAnoiseICs|\\.(1d|txt)(\\.gz)?$", cls_item, ignore.case = TRUE) ||
+      (length(clean_lines) == 0L) ||
+      (length(clean_lines) >= 1L && !grepl("classification", clean_lines[1L], ignore.case = TRUE) &&
+         !anyNA(suppressWarnings(as.numeric(unlist(strsplit(clean_lines[1L], "[,[:space:]]+"), use.names = FALSE)))))
+
+    if (is_index_file) {
+      if (!length(clean_lines)) {
+        rej_idx <- integer(0L)
+      } else {
+        toks <- unlist(strsplit(paste(clean_lines, collapse = ","), "[,[:space:]]+"), use.names = FALSE)
+        toks <- toks[nzchar(toks)]
+        vals <- suppressWarnings(as.numeric(toks))
+        rej_idx <- validate_aroma_ic_indices(vals, n_comp, sprintf("%s ('%s')", run_label, basename(cls_item)))
+      }
+      met_df <- data.frame(
+        IC = seq_len(n_comp),
+        classification = ifelse(seq_len(n_comp) %in% rej_idx, "rejected", "accepted"),
+        stringsAsFactors = FALSE
+      )
+      return(list(noise_ics = rej_idx, metrics = met_df, file = cls_item))
+    }
+
+    tbl <- read_bids_delim(cls_item, na_strings = na_strings)
+    parsed <- parse_aroma_metrics_df(tbl, n_comp = n_comp, run_label = sprintf("%s ('%s')", run_label, basename(cls_item)))
+    return(list(noise_ics = parsed$noise_ics, metrics = parsed$metrics, file = cls_item))
+  }
+
+  if (is.data.frame(cls_item)) {
+    parsed <- parse_aroma_metrics_df(cls_item, n_comp = n_comp, run_label = run_label)
+    return(list(noise_ics = parsed$noise_ics, metrics = parsed$metrics, file = NA_character_))
+  }
+
+  if (is.logical(cls_item)) {
+    if (length(cls_item) != n_comp || anyNA(cls_item)) {
+      stop(
+        sprintf("Logical AROMA %s must have length %d (matching mixing components) with no NA values.", run_label, n_comp),
+        call. = FALSE
+      )
+    }
+    rej_idx <- which(cls_item)
+    met_df <- data.frame(
+      IC = seq_len(n_comp),
+      classification = ifelse(cls_item, "rejected", "accepted"),
+      stringsAsFactors = FALSE
+    )
+    return(list(noise_ics = as.integer(rej_idx), metrics = met_df, file = NA_character_))
+  }
+
+  if (is.numeric(cls_item) || is.integer(cls_item)) {
+    rej_idx <- validate_aroma_ic_indices(cls_item, n_comp = n_comp, run_label = run_label)
+    met_df <- data.frame(
+      IC = seq_len(n_comp),
+      classification = ifelse(seq_len(n_comp) %in% rej_idx, "rejected", "accepted"),
+      stringsAsFactors = FALSE
+    )
+    return(list(noise_ics = rej_idx, metrics = met_df, file = NA_character_))
+  }
+
+  stop(
+    sprintf(
+      "Unsupported AROMA %s of class '%s'; supply path(s) to '*_desc-aroma_metrics.tsv' / '*_AROMAnoiseICs.csv', a metrics data.frame, a logical mask, or 1-based integer indices.",
+      run_label, class(cls_item)[1L]
+    ),
+    call. = FALSE
+  )
+}
+
+aroma_regress_matrix <- function(
+  Y,
+  M,
+  noise_ics,
+  include_rows = NULL,
+  mode = c("nonaggressive", "aggressive"),
+  preserve_mean = TRUE,
+  run_label = "run"
+) {
+  mode <- match.arg(mode)
+  Y <- as.matrix(Y)
+  storage.mode(Y) <- "double"
+  M <- as.matrix(M)
+  storage.mode(M) <- "double"
+  n_t <- nrow(Y)
+  if (nrow(M) != n_t) {
+    stop(
+      sprintf("AROMA mixing matrix in %s has %d rows, but signal matrix has %d rows.", run_label, nrow(M), n_t),
+      call. = FALSE
+    )
+  }
+  if (is.null(include_rows)) {
+    include_idx <- seq_len(n_t)
+  } else {
+    if (length(include_rows) != n_t || anyNA(include_rows)) {
+      stop(sprintf("valid_rows in %s must have length %d with no NA values.", run_label, n_t), call. = FALSE)
+    }
+    include_idx <- which(as.logical(include_rows))
+  }
+  n_fit <- length(include_idx)
+  if (n_fit < 3L) {
+    stop(sprintf("AROMA regression in %s requires at least 3 usable timepoints (got %d).", run_label, n_fit), call. = FALSE)
+  }
+  if (any(!is.finite(M))) {
+    stop(sprintf("AROMA mixing matrix in %s contains non-finite values.", run_label), call. = FALSE)
+  }
+  if (ncol(Y) > 0L && any(!is.finite(Y[include_idx, , drop = FALSE]))) {
+    stop(sprintf("Signal matrix in %s contains non-finite values on fitted timepoints.", run_label), call. = FALSE)
+  }
+
+  noise_ics <- validate_aroma_ic_indices(noise_ics, ncol(M), run_label)
+  if (ncol(Y) == 0L) {
+    return(list(
+      Y = Y,
+      applied = length(noise_ics) > 0L,
+      reason = if (length(noise_ics) > 0L) NULL else "no_rejected_components",
+      n_fit = n_fit,
+      n_components = ncol(M),
+      n_accepted = ncol(M) - length(noise_ics),
+      n_rejected = length(noise_ics),
+      mean_pct_var_removed = NA_real_,
+      median_pct_var_removed = NA_real_
+    ))
+  }
+
+  M_sub_raw <- M[include_idx, , drop = FALSE]
+  col_rng <- apply(M_sub_raw, 2L, function(col) abs(max(col) - min(col)))
+  keep <- which(is.finite(col_rng) & col_rng >= 1e-8)
+
+  is_rej_kept <- keep %in% noise_ics
+  rej_pos <- which(is_rej_kept)
+  acc_pos <- which(!is_rej_kept)
+
+  if (length(rej_pos) == 0L) {
+    Y_out <- if (!isTRUE(preserve_mean)) {
+      sweep(Y, 2L, colMeans(Y[include_idx, , drop = FALSE]), "-")
+    } else {
+      Y
+    }
+    dimnames(Y_out) <- dimnames(Y)
+    return(list(
+      Y = Y_out,
+      applied = FALSE,
+      reason = "no_rejected_components",
+      n_fit = n_fit,
+      n_components = ncol(M),
+      n_accepted = ncol(M) - length(noise_ics),
+      n_rejected = 0L,
+      mean_pct_var_removed = 0,
+      median_pct_var_removed = 0
+    ))
+  }
+
+  if (identical(mode, "nonaggressive") && length(acc_pos) == 0L) {
+    warning(
+      sprintf(
+        "All %d non-constant AROMA component(s) in %s are classified as rejected; non-aggressive and aggressive regression coincide.",
+        length(keep), run_label
+      ),
+      call. = FALSE
+    )
+  }
+
+  fit_pos <- if (identical(mode, "nonaggressive")) c(acc_pos, rej_pos) else rej_pos
+  if (n_fit <= length(fit_pos) + 1L) {
+    stop(
+      sprintf(
+        "Not enough fitted volumes (%d) in %s to estimate %d AROMA component(s) plus intercept.",
+        n_fit, run_label, length(fit_pos)
+      ),
+      call. = FALSE
+    )
+  }
+
+  M_use <- M[, keep, drop = FALSE]
+  mu_M <- colMeans(M_use[include_idx, , drop = FALSE])
+  M_cent <- sweep(M_use, 2L, mu_M, "-")
+
+  mu_Y <- colMeans(Y[include_idx, , drop = FALSE])
+  Y_sub <- sweep(Y[include_idx, , drop = FALSE], 2L, mu_Y, "-")
+
+  # Place accepted signal components first so pivoted QR never drops signal in favor of collinear motion
+  X_sub <- M_cent[include_idx, fit_pos, drop = FALSE]
+  qr_X <- qr(X_sub, tol = 1e-7)
+  B_fit <- qr.coef(qr_X, Y_sub)
+  if (!is.matrix(B_fit)) {
+    B_fit <- matrix(B_fit, nrow = ncol(X_sub), ncol = ncol(Y))
+  }
+  B_fit[!is.finite(B_fit)] <- 0
+
+  rej_in_fit <- if (identical(mode, "nonaggressive")) {
+    seq.int(length(acc_pos) + 1L, length(fit_pos))
+  } else {
+    seq_along(rej_pos)
+  }
+  B_rej <- B_fit[rej_in_fit, , drop = FALSE]
+  Y_clean <- Y - M_cent[, rej_pos, drop = FALSE] %*% B_rej
+  if (!isTRUE(preserve_mean)) {
+    Y_clean <- sweep(Y_clean, 2L, mu_Y, "-")
+  }
+  dimnames(Y_clean) <- dimnames(Y)
+
+  tss_before <- colSums(Y_sub^2)
+  Y_clean_sub <- sweep(Y_clean[include_idx, , drop = FALSE], 2L, colMeans(Y_clean[include_idx, , drop = FALSE]), "-")
+  tss_after <- colSums(Y_clean_sub^2)
+  active_vox <- is.finite(tss_before) & tss_before > 1e-12
+  pct_removed <- if (any(active_vox)) {
+    100 * (tss_before[active_vox] - tss_after[active_vox]) / tss_before[active_vox]
+  } else {
+    numeric(0L)
+  }
+
+  list(
+    Y = Y_clean,
+    applied = TRUE,
+    reason = NULL,
+    n_fit = n_fit,
+    n_components = ncol(M),
+    n_accepted = ncol(M) - length(noise_ics),
+    n_rejected = length(noise_ics),
+    mean_pct_var_removed = if (length(pct_removed)) mean(pct_removed) else NA_real_,
+    median_pct_var_removed = if (length(pct_removed)) stats::median(pct_removed) else NA_real_
+  )
+}
+
+align_medusa_aroma_to_runs <- function(aroma, resolved_runs, n_time = NULL) {
+  if (!inherits(aroma, "medusa_aroma")) {
+    stop("'aroma' must be a 'medusa_aroma' object produced by read_fmriprep_aroma().", call. = FALSE)
+  }
+  a_runs <- names(aroma$mixing)
+  if (length(a_runs) != length(resolved_runs)) {
+    stop(
+      sprintf(
+        "AROMA object has %d run(s) (%s), which does not match target run count (%d: %s).",
+        length(a_runs), paste(a_runs, collapse = ", "),
+        length(resolved_runs), paste(resolved_runs, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  if (identical(a_runs, resolved_runs)) {
+    ord <- seq_along(resolved_runs)
+  } else if (setequal(a_runs, resolved_runs)) {
+    ord <- match(resolved_runs, a_runs)
+  } else {
+    ca <- canonical_run_key(a_runs)
+    ct <- canonical_run_key(resolved_runs)
+    if (!anyNA(ca) && !anyNA(ct) && !anyDuplicated(ca) && !anyDuplicated(ct) && setequal(ca, ct)) {
+      ord <- match(ct, ca)
+    } else if (length(resolved_runs) == 1L) {
+      ord <- 1L
+    } else {
+      stop(
+        sprintf(
+          "AROMA run names (%s) do not match target runs (%s).",
+          paste(a_runs, collapse = ", "), paste(resolved_runs, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+  }
+  out <- aroma
+  out$mixing <- stats::setNames(aroma$mixing[ord], resolved_runs)
+  out$noise_ics <- stats::setNames(aroma$noise_ics[ord], resolved_runs)
+  out$signal_ics <- stats::setNames(aroma$signal_ics[ord], resolved_runs)
+  out$metrics <- stats::setNames(aroma$metrics[ord], resolved_runs)
+  if (!is.null(aroma$summary) && nrow(aroma$summary) == length(resolved_runs)) {
+    out$summary <- aroma$summary[ord, , drop = FALSE]
+    out$summary$run <- resolved_runs
+    rownames(out$summary) <- NULL
+  }
+  if (!is.null(n_time)) {
+    for (rn in resolved_runs) {
+      if (nrow(out$mixing[[rn]]) != n_time[[rn]]) {
+        stop(
+          sprintf(
+            "AROMA mixing matrix for '%s' has %d rows, but target data has %d volumes.",
+            rn, nrow(out$mixing[[rn]]), n_time[[rn]]
+          ),
+          call. = FALSE
+        )
+      }
+    }
+  }
+  out
+}
+
 #' Read fMRIPrep or postprocessed confound tables into clock-preserving MEDuSA nuisance and censoring inputs
 #'
 #' Converts fMRIPrep \code{*_desc-confounds_timeseries.tsv} or \code{BrainGnomes}
@@ -1443,6 +2031,11 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
 #'       their temporal derivatives, and quadratic terms (Friston 24-parameter model).
 #'     \item \code{"12p"}: 6 motion parameters + 6 temporal derivatives.
 #'     \item \code{"6p"}: 6 rigid-body motion parameters.
+#'     \item \code{"csf_wm"}: mean \code{csf} and \code{white_matter} physiological
+#'       signals (2p model; recommended alongside non-aggressive ICA-AROMA per
+#'       Pruim et al., 2015 and Parkes et al., 2018).
+#'     \item \code{"csf_wm_8p"}: \code{csf} and \code{white_matter} with their
+#'       temporal derivatives and quadratic terms (8p physiological model).
 #'     \item \code{"24p_csf_wm"}: \code{"24p"} + \code{csf} and \code{white_matter}
 #'       with their derivatives and quadratic terms (32p physiological model without GSR).
 #'     \item \code{"27p"}: \code{"24p"} + mean \code{csf}, \code{white_matter},
@@ -1457,9 +2050,10 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
 #'   }
 #' @param columns Optional character vector of explicit confound column names,
 #'   shorthand sets (\code{"6p"}, \code{"12p"}, \code{"24p"}, \code{"27p"},
-#'   \code{"36p"}), or zero-padded index range specifications such as
-#'   \code{"a_comp_cor_<0-4>"} or \code{"cosine<0,2-3>"} (in addition to
-#'   \code{strategy}, or exact set when \code{strategy = "custom"}).
+#'   \code{"csf_wm"}, \code{"csf_wm_8p"}, \code{"36p"}), or zero-padded index
+#'   range specifications such as \code{"a_comp_cor_<0-4>"} or
+#'   \code{"cosine<0,2-3>"} (in addition to \code{strategy}, or exact set when
+#'   \code{strategy = "custom"}).
 #' @param column_pattern Optional regular expression selecting additional columns
 #'   present in each confound table (e.g., \code{"^aroma_motion_"}).
 #' @param n_compcor Optional integer count of leading CompCor components to add
@@ -1560,6 +2154,21 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
 #'   on \code{valid_rows}. Default \code{FALSE}.
 #' @param drop_constant Logical; if \code{TRUE} (default), removes columns with
 #'   near-zero variance on \code{valid_rows} (such as all-zero outlier columns).
+#' @param aroma Optional \code{"medusa_aroma"} object from
+#'   \code{\link{read_fmriprep_aroma}}. When supplied, applies the matching
+#'   ICA-AROMA projection (\code{aroma_mode}) to selected nuisance columns prior
+#'   to final centering and censoring sanitization so subsequent joint nuisance
+#'   regression in \code{\link{estimate_crossrun_hrf}} and
+#'   \code{\link{deconvolve_crossrun_hrf}} cannot re-introduce AROMA motion
+#'   variance into AROMA-denoised BOLD (Lindquist et al., 2019). Framewise
+#'   displacement and \code{valid_rows} remain strictly derived from physical
+#'   (or respiratory-filtered) head-motion parameters.
+#' @param aroma_mode AROMA regression mode when \code{aroma} is supplied:
+#'   \code{"nonaggressive"} (default; Pruim et al., 2015 partial regression) or
+#'   \code{"aggressive"}.
+#' @param aroma_fit_valid Logical; if \code{TRUE}, estimates AROMA component
+#'   weights on uncensored \code{valid_rows} only rather than full MELODIC run
+#'   timecourses (\code{FALSE}, default).
 #' @param na_strings Character vector of missing-value tokens passed to
 #'   \code{data.table::fread}. Default \code{c("n/a", "N/A", "NA", ".", "NaN", "")}.
 #'
@@ -1586,6 +2195,7 @@ enforce_min_segment_length <- function(valid, min_len = 1L) {
 #'   \code{valid = conf} to \code{\link{align_medusa_ts}}.
 #'
 #' @seealso \code{\link{read_bids_events}}, \code{\link{read_fmriprep_subject}},
+#'   \code{\link{read_fmriprep_aroma}}, \code{\link{apply_aroma}},
 #'   \code{\link{read_nifti_ts}}, \code{\link{estimate_crossrun_hrf}}
 #'
 #' @examples
@@ -1613,7 +2223,7 @@ read_fmriprep_confounds <- function(
   confounds,
   bold = NULL,
   run_names = NULL,
-  strategy = c("24p", "6p", "12p", "24p_csf_wm", "27p", "36p", "compcor", "custom", "none"),
+  strategy = c("24p", "6p", "12p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "27p", "36p", "compcor", "custom", "none"),
   columns = NULL,
   column_pattern = NULL,
   n_compcor = NULL,
@@ -1643,6 +2253,9 @@ read_fmriprep_confounds <- function(
   center = TRUE,
   scale = FALSE,
   drop_constant = TRUE,
+  aroma = NULL,
+  aroma_mode = c("nonaggressive", "aggressive"),
+  aroma_fit_valid = FALSE,
   na_strings = c("n/a", "N/A", "NA", ".", "NaN", "")
 ) {
   fd_threshold_supplied <- !missing(fd_threshold)
@@ -1652,6 +2265,8 @@ read_fmriprep_confounds <- function(
   motion_filter_pad <- match.arg(motion_filter_pad)
   motion_filter_target <- match.arg(motion_filter_target)
   impute <- match.arg(impute)
+  aroma_mode <- match.arg(aroma_mode)
+  checkmate::assert_flag(aroma_fit_valid)
   checkmate::assert_character(columns, min.chars = 1L, any.missing = FALSE, null.ok = TRUE)
   checkmate::assert_string(column_pattern, min.chars = 1L, null.ok = TRUE)
   if (is.null(n_compcor)) {
@@ -1787,10 +2402,11 @@ read_fmriprep_confounds <- function(
   }
 
   censor_items <- resolve_censor_inputs(censor, resolved_runs, ctx, na_strings = na_strings)
+  aroma_aligned <- if (!is.null(aroma)) align_medusa_aroma_to_runs(aroma, resolved_runs) else NULL
   strategy_cols <- confound_strategy_columns(strategy)
 
   n_runs <- length(resolved_runs)
-  nuis_list <- valid_list <- fd_list <- fd_raw_list <- stats::setNames(vector("list", n_runs), resolved_runs)
+  nuis_list <- raw_nuis_list <- valid_list <- fd_list <- fd_raw_list <- stats::setNames(vector("list", n_runs), resolved_runs)
   sum_rows <- vector("list", n_runs)
 
   for (r in seq_len(n_runs)) {
@@ -2075,6 +2691,8 @@ read_fmriprep_confounds <- function(
 
       if (length(req_cols) == 0L) {
         z_mat <- matrix(numeric(0L), nrow = n_vol, ncol = 0L)
+        raw_nuis_list[[r]] <- z_mat
+        aroma_cleaned_r <- !is.null(aroma_aligned) && length(aroma_aligned$noise_ics[[r]]) > 0L
       } else {
         col_vecs <- lapply(req_cols, function(cn) expand_fmriprep_column(df_nuis, cn, run_label))
         z_mat <- do.call(cbind, col_vecs)
@@ -2088,34 +2706,40 @@ read_fmriprep_confounds <- function(
           if (length(bad_row1)) z_mat[1L, bad_row1] <- 0
         }
 
-        keep_col <- rep(TRUE, ncol(z_mat))
-        for (j in seq_len(ncol(z_mat))) {
-          vj <- z_mat[, j]
-          ok_valid <- valid_r & is.finite(vj)
-          fill_val <- if (identical(impute, "mean") && any(ok_valid)) mean(vj[ok_valid]) else 0
-          bad_valid <- valid_r & !is.finite(vj)
-          if (any(bad_valid)) vj[bad_valid] <- fill_val
-          if (isTRUE(impute_censored)) {
-            if (any(!valid_r)) vj[!valid_r] <- fill_val
-          } else {
-            bad_cens <- !valid_r & !is.finite(vj)
-            if (any(bad_cens)) vj[bad_cens] <- fill_val
-          }
-          if (isTRUE(center)) {
-            mu_v <- if (any(valid_r)) mean(vj[valid_r]) else 0
-            vj <- vj - mu_v
-          }
-          sd_v <- if (sum(valid_r) >= 2L) stats::sd(vj[valid_r]) else 0
-          if (isTRUE(scale) && is.finite(sd_v) && sd_v > 1e-12) {
-            vj <- vj / sd_v
-          }
-          if (isTRUE(drop_constant) && (!is.finite(sd_v) || sd_v <= 1e-12)) {
-            keep_col[j] <- FALSE
-          }
-          z_mat[, j] <- vj
+        z_raw_r <- impute_nuisance_missing_only(z_mat, valid_r = valid_r, impute = impute)
+        raw_nuis_list[[r]] <- z_raw_r
+
+        if (!is.null(aroma_aligned)) {
+          ar_r <- aroma_regress_matrix(
+            Y = z_raw_r,
+            M = aroma_aligned$mixing[[r]],
+            noise_ics = aroma_aligned$noise_ics[[r]],
+            include_rows = if (isTRUE(aroma_fit_valid)) valid_r else NULL,
+            mode = aroma_mode,
+            preserve_mean = TRUE,
+            run_label = run_label
+          )
+          z_for_final <- ar_r$Y
+          aroma_cleaned_r <- isTRUE(ar_r$applied)
+        } else {
+          z_for_final <- z_raw_r
+          aroma_cleaned_r <- FALSE
         }
-        z_mat <- z_mat[, keep_col, drop = FALSE]
+
+        z_mat <- finalize_nuisance_matrix(
+          z_mat = z_for_final,
+          valid_r = valid_r,
+          impute = impute,
+          impute_censored = impute_censored,
+          center = center,
+          scale = scale,
+          drop_constant = drop_constant
+        )
       }
+    }
+    if (is.null(raw_nuis_list[[r]])) {
+      raw_nuis_list[[r]] <- z_mat
+      aroma_cleaned_r <- !is.null(aroma_aligned) && length(aroma_aligned$noise_ics[[r]]) > 0L
     }
     nuis_list[[r]] <- z_mat
 
@@ -2135,6 +2759,7 @@ read_fmriprep_confounds <- function(
       mean_fd = if (length(fd_step)) mean(fd_step) else NA_real_,
       max_fd = if (length(fd_fin)) max(fd_fin) else NA_real_,
       motion_filtered = mf_applied,
+      aroma_cleaned = aroma_cleaned_r,
       n_nuisance_cols = as.integer(ncol(z_mat)),
       stringsAsFactors = FALSE
     )
@@ -2156,7 +2781,17 @@ read_fmriprep_confounds <- function(
     NULL
   }
 
-  structure(
+  aroma_meta <- if (!is.null(aroma_aligned)) {
+    list(
+      applied = any(summary_df$aroma_cleaned),
+      mode = aroma_mode,
+      fit_valid_rows = aroma_fit_valid
+    )
+  } else {
+    NULL
+  }
+
+  conf_out <- structure(
     list(
       nuisance = nuis_list,
       valid_rows = valid_list,
@@ -2175,11 +2810,19 @@ read_fmriprep_confounds <- function(
         censor_prev = censor_prev,
         censor_next = censor_next,
         min_segment_length = min_segment_length,
-        motion_filter = motion_filter_meta
+        impute = impute,
+        impute_censored = impute_censored,
+        center = center,
+        scale = scale,
+        drop_constant = drop_constant,
+        motion_filter = motion_filter_meta,
+        aroma = aroma_meta
       )
     ),
     class = "medusa_confounds"
   )
+  attr(conf_out, "raw_nuisance") <- raw_nuis_list
+  conf_out
 }
 
 #' @export
@@ -2202,13 +2845,20 @@ print.medusa_confounds <- function(x, ...) {
   } else {
     ""
   }
+  ar <- x$settings$aroma
+  ar_lbl <- if (is.list(ar) && isTRUE(ar$applied)) {
+    sprintf(" | aroma: %s", ar$mode)
+  } else {
+    ""
+  }
   cat(sprintf(
-    "<medusa_confounds> %d run%s | strategy: %s | fd_threshold: %s%s\n",
+    "<medusa_confounds> %d run%s | strategy: %s | fd_threshold: %s%s%s\n",
     n_runs,
     if (n_runs == 1L) "" else "s",
     x$settings$strategy,
     fd_lbl,
-    mf_lbl
+    mf_lbl,
+    ar_lbl
   ))
   if (!is.null(x$summary) && nrow(x$summary) > 0L) {
     disp <- x$summary[, c("run", "n_volumes", "n_valid", "n_censored", "pct_censored", "mean_fd", "max_fd", "n_nuisance_cols"), drop = FALSE]
@@ -2218,6 +2868,691 @@ print.medusa_confounds <- function(x, ...) {
     print(disp, row.names = FALSE)
   }
   invisible(x)
+}
+
+#' Read ICA-AROMA mixing matrices and component classifications for MEDuSA denoising
+#'
+#' Ingests \code{fMRIPost-AROMA} (\code{*_desc-melodic_mixing.tsv} +
+#' \code{*_desc-aroma_metrics.tsv}), legacy fMRIPrep \code{<= 23.0}
+#' (\code{*_desc-MELODIC_mixing.tsv} + \code{*_AROMAnoiseICs.csv}), or in-memory
+#' MELODIC mixing matrices and component classifications into a run-aligned
+#' \code{"medusa_aroma"} bundle for \code{\link{apply_aroma}},
+#' \code{\link{read_fmriprep_confounds}}, and \code{\link{read_fmriprep_subject}}.
+#'
+#' Both headerless MELODIC mixing TSVs (standard FSL/\code{fMRIPost-AROMA}
+#' format) and headered TSV/CSV tables are detected automatically. BIDS file
+#' inputs are matched to \code{bold} runs using acquisition entities
+#' (\code{sub-}, \code{ses-}, \code{task-}, \code{acq-}, \code{dir-},
+#' \code{run-}) without requiring template \code{space-} or \code{res-} tags to
+#' match, since \code{fMRIPost-AROMA} derives run-level MELODIC timecourses in
+#' \code{MNI152NLin6Asym} (\code{res-2}) regardless of the analysis output space.
+#'
+#' @param mixing Character vector of MELODIC mixing file paths
+#'   (\code{*_desc-melodic_mixing.tsv}, \code{*_desc-MELODIC_mixing.tsv},
+#'   \code{.tsv.gz}, \code{.csv}), a single numeric \code{T x K} matrix or
+#'   \code{data.frame} (single run), or a list of per-run \code{T x K} matrices /
+#'   \code{data.frame}s.
+#' @param classification Component classification specification identifying
+#'   rejected motion components:
+#'   \itemize{
+#'     \item \code{NULL} (default when \code{mixing} is file paths): auto-discovers
+#'       sibling \code{*_desc-aroma_metrics.tsv(.gz)} or
+#'       \code{*_AROMAnoiseICs.csv} files in the same directory as each mixing
+#'       file.
+#'     \item Character vector of paths to \code{*_desc-aroma_metrics.tsv}
+#'       (\code{classification == "rejected"}) or \code{*_AROMAnoiseICs.csv}
+#'       (comma-separated 1-based component indices; empty file indicates zero
+#'       rejected components).
+#'     \item Single 1-based integer vector (e.g., \code{c(2L, 5L)}), logical
+#'       mask of length \code{K} (\code{TRUE} = rejected), or metrics
+#'       \code{data.frame} with a \code{classification} column (for single-run
+#'       inputs), or a per-run list of any of these.
+#'   }
+#' @param bold Optional \code{"medusa_nifti_ts"} object, named list of run BOLD
+#'   matrices, single BOLD matrix, or character vector of run names used to
+#'   validate acquisition entities, align run ordering, and verify volume counts.
+#' @param run_names Optional explicit character vector of unique run names when
+#'   \code{bold} is \code{NULL}.
+#' @param na_strings Character vector of missing-value tokens passed to
+#'   \code{data.table::fread}. Default \code{c("n/a", "N/A", "NA", ".", "NaN", "")}.
+#'
+#' @return An S3 list of class \code{"medusa_aroma"} containing:
+#'   \itemize{
+#'     \item \code{mixing}: Run-named list of finite \code{T x K} numeric
+#'       MELODIC mixing matrices.
+#'     \item \code{noise_ics}: Run-named list of 1-based integer vectors of
+#'       rejected motion component indices.
+#'     \item \code{signal_ics}: Run-named list of 1-based integer vectors of
+#'       accepted signal component indices.
+#'     \item \code{metrics}: Run-named list of per-component classification
+#'       \code{data.frame}s.
+#'     \item \code{summary}: Per-run \code{data.frame} summarizing volume counts
+#'       and accepted/rejected component counts.
+#'   }
+#'
+#' @seealso \code{\link{apply_aroma}}, \code{\link{read_fmriprep_subject}},
+#'   \code{\link{read_fmriprep_confounds}}
+#'
+#' @examples
+#' f_mix <- tempfile("sub-01_task-mid_run-01_", fileext = "_desc-melodic_mixing.tsv")
+#' f_met <- sub("_desc-melodic_mixing\\.tsv$", "_desc-aroma_metrics.tsv", f_mix)
+#' mix_mat <- matrix(rnorm(30 * 4), nrow = 30, ncol = 4)
+#' utils::write.table(mix_mat, f_mix, sep = "\t", row.names = FALSE, col.names = FALSE)
+#' met_df <- data.frame(
+#'   IC = 1:4,
+#'   classification = c("accepted", "rejected", "accepted", "rejected")
+#' )
+#' utils::write.table(met_df, f_met, sep = "\t", row.names = FALSE, quote = FALSE)
+#'
+#' ar <- read_fmriprep_aroma(f_mix)
+#' ar
+#' unlink(c(f_mix, f_met))
+#'
+#' @export
+read_fmriprep_aroma <- function(
+  mixing,
+  classification = NULL,
+  bold = NULL,
+  run_names = NULL,
+  na_strings = c("n/a", "N/A", "NA", ".", "NaN", "")
+) {
+  checkmate::assert_character(na_strings, any.missing = FALSE)
+  ctx <- extract_bold_run_context(bold = bold, run_names = run_names)
+
+  validate_aroma_entities <- function(in_tbl, bold_tbl, input_label) {
+    for (field in c("sub", "ses", "task")) {
+      b_vals <- unique(bold_tbl[[field]][!is.na(bold_tbl[[field]]) & nzchar(bold_tbl[[field]])])
+      i_vals <- unique(in_tbl[[field]][!is.na(in_tbl[[field]]) & nzchar(in_tbl[[field]])])
+      if (length(b_vals) > 0L && length(i_vals) > 0L && !all(i_vals %in% b_vals)) {
+        stop(
+          sprintf(
+            "BIDS '%s-' entity mismatch between BOLD runs (%s) and %s (%s).",
+            field, paste(b_vals, collapse = ", "), input_label, paste(i_vals, collapse = ", ")
+          ),
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  ctx_no_space <- ctx
+  ctx_no_space$bold_files <- NULL
+
+  if (is.character(mixing)) {
+    checkmate::assert_character(mixing, min.len = 1L, any.missing = FALSE, min.chars = 1L)
+    if (!is.null(ctx$bold_files)) {
+      validate_aroma_entities(parse_bids_entity_table(mixing), parse_bids_entity_table(ctx$bold_files), "AROMA mixing")
+      aligned_mix <- align_inputs_to_runs(
+        mixing,
+        list(run_names = ctx$run_names, n_time = ctx$n_time, bold_files = NULL),
+        input_label = "mixing",
+        is_paths = TRUE
+      )
+      # Re-check run-signature ordering against bold_files when unnamed multi-run paths are passed
+      if ((is.null(names(mixing)) || !any(nzchar(names(mixing)))) && length(mixing) > 1L) {
+        m_tbl <- parse_bids_entity_table(mixing)
+        b_tbl <- parse_bids_entity_table(ctx$bold_files)
+        sig_m <- bids_run_signature(m_tbl)
+        sig_b <- bids_run_signature(b_tbl)
+        if (!anyDuplicated(sig_m) && !anyDuplicated(sig_b) && setequal(sig_m, sig_b)) {
+          ord_m <- match(sig_b, sig_m)
+          aligned_mix$items <- stats::setNames(mixing[ord_m], ctx$run_names)
+        }
+      }
+    } else {
+      aligned_mix <- align_inputs_to_runs(mixing, ctx_no_space, input_label = "mixing", is_paths = TRUE)
+    }
+    resolved_runs <- aligned_mix$run_names
+    mix_items <- as.list(aligned_mix$items)
+  } else if (is.matrix(mixing) || is.data.frame(mixing)) {
+    if (!is.null(ctx$run_names) && length(ctx$run_names) > 1L) {
+      stop("Multi-run 'bold' requires a character vector of mixing paths or a list of per-run mixing matrices.", call. = FALSE)
+    }
+    resolved_runs <- if (!is.null(ctx$run_names)) ctx$run_names else "run1"
+    mix_items <- stats::setNames(list(mixing), resolved_runs)
+  } else if (is.list(mixing)) {
+    checkmate::assert_list(mixing, min.len = 1L)
+    aligned_mix <- align_inputs_to_runs(mixing, ctx_no_space, input_label = "mixing", is_paths = FALSE)
+    resolved_runs <- aligned_mix$run_names
+    mix_items <- aligned_mix$items
+  } else {
+    stop("'mixing' must be a character vector of file paths, a numeric matrix/data.frame, or a list of matrices.", call. = FALSE)
+  }
+
+  n_runs <- length(resolved_runs)
+  if (is.null(classification)) {
+    if (!is.character(mixing)) {
+      stop("'classification' must be supplied when 'mixing' is an in-memory matrix or list.", call. = FALSE)
+    }
+    auto_cls <- vapply(mix_items, discover_aroma_classification_for_mixing, character(1L))
+    if (anyNA(auto_cls)) {
+      miss_r <- resolved_runs[is.na(auto_cls)]
+      stop(
+        sprintf(
+          "Could not auto-discover sibling '*_desc-aroma_metrics.tsv' or '*_AROMAnoiseICs.csv' for run(s): %s; supply 'classification' explicitly.",
+          paste(miss_r, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+    cls_items <- as.list(stats::setNames(auto_cls, resolved_runs))
+  } else if (is.character(classification)) {
+    checkmate::assert_character(classification, min.len = 1L, any.missing = FALSE, min.chars = 1L)
+    if (!is.null(ctx$bold_files)) {
+      validate_aroma_entities(parse_bids_entity_table(classification), parse_bids_entity_table(ctx$bold_files), "AROMA classification")
+    }
+    ctx_cls <- list(run_names = resolved_runs, n_time = ctx$n_time, bold_files = NULL)
+    al_cls <- align_inputs_to_runs(classification, ctx_cls, input_label = "classification", is_paths = TRUE)
+    if ((is.null(names(classification)) || !any(nzchar(names(classification)))) && n_runs > 1L && !is.null(ctx$bold_files)) {
+      c_tbl <- parse_bids_entity_table(classification)
+      b_tbl <- parse_bids_entity_table(ctx$bold_files)
+      sig_c <- bids_run_signature(c_tbl)
+      sig_b <- bids_run_signature(b_tbl)
+      if (!anyDuplicated(sig_c) && !anyDuplicated(sig_b) && setequal(sig_c, sig_b)) {
+        al_cls$items <- stats::setNames(classification[match(sig_b, sig_c)], resolved_runs)
+      }
+    }
+    cls_items <- as.list(al_cls$items)
+  } else if (is.data.frame(classification) || is.logical(classification) || is.numeric(classification) || is.integer(classification)) {
+    if (n_runs != 1L) {
+      stop("Multi-run AROMA inputs require a character vector of classification file paths or a per-run list.", call. = FALSE)
+    }
+    cls_items <- stats::setNames(list(classification), resolved_runs)
+  } else if (is.list(classification)) {
+    al_cls <- align_inputs_to_runs(
+      classification,
+      list(run_names = resolved_runs, n_time = ctx$n_time, bold_files = NULL),
+      input_label = "classification",
+      is_paths = FALSE
+    )
+    cls_items <- al_cls$items
+  } else {
+    stop(
+      "'classification' must be NULL, file path(s), a metrics data.frame, a logical mask, a 1-based integer vector, or a per-run list.",
+      call. = FALSE
+    )
+  }
+
+  mix_list <- noise_list <- signal_list <- metrics_list <- stats::setNames(vector("list", n_runs), resolved_runs)
+  sum_rows <- vector("list", n_runs)
+
+  for (r in seq_len(n_runs)) {
+    rname <- resolved_runs[r]
+    m_norm <- normalize_mixing_matrix_one(mix_items[[r]], run_label = sprintf("mixing[['%s']]", rname), na_strings = na_strings)
+    m_mat <- m_norm$matrix
+    if (!is.null(ctx$n_time) && nrow(m_mat) != ctx$n_time[[rname]]) {
+      stop(
+        sprintf(
+          "AROMA mixing[['%s']] has %d rows, but BOLD run '%s' has %d volumes.",
+          rname, nrow(m_mat), rname, ctx$n_time[[rname]]
+        ),
+        call. = FALSE
+      )
+    }
+    n_comp <- ncol(m_mat)
+    c_norm <- parse_aroma_classification_one(
+      cls_items[[r]],
+      n_comp = n_comp,
+      run_label = sprintf("classification[['%s']]", rname),
+      na_strings = na_strings
+    )
+    rej <- c_norm$noise_ics
+    acc <- setdiff(seq_len(n_comp), rej)
+
+    mix_list[[r]] <- m_mat
+    noise_list[[r]] <- rej
+    signal_list[[r]] <- acc
+    metrics_list[[r]] <- c_norm$metrics
+    sum_rows[[r]] <- data.frame(
+      run = rname,
+      mixing_file = m_norm$file,
+      classification_file = c_norm$file,
+      n_volumes = as.integer(nrow(m_mat)),
+      n_components = as.integer(n_comp),
+      n_accepted = as.integer(length(acc)),
+      n_rejected = as.integer(length(rej)),
+      pct_rejected = 100 * length(rej) / n_comp,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  summary_df <- do.call(rbind, sum_rows)
+  rownames(summary_df) <- NULL
+
+  structure(
+    list(
+      mixing = mix_list,
+      noise_ics = noise_list,
+      signal_ics = signal_list,
+      metrics = metrics_list,
+      summary = summary_df
+    ),
+    class = "medusa_aroma"
+  )
+}
+
+#' @export
+print.medusa_aroma <- function(x, ...) {
+  n_runs <- length(x$mixing)
+  tot_rej <- if (!is.null(x$summary)) sum(x$summary$n_rejected) else 0L
+  tot_comp <- if (!is.null(x$summary)) sum(x$summary$n_components) else 0L
+  cat(sprintf(
+    "<medusa_aroma> %d run%s | %d/%d total component(s) classified as rejected\n",
+    n_runs,
+    if (n_runs == 1L) "" else "s",
+    tot_rej,
+    tot_comp
+  ))
+  if (!is.null(x$summary) && nrow(x$summary) > 0L) {
+    disp <- x$summary[, c("run", "n_volumes", "n_components", "n_accepted", "n_rejected", "pct_rejected"), drop = FALSE]
+    disp$pct_rejected <- round(disp$pct_rejected, 1L)
+    print(disp, row.names = FALSE)
+  }
+  invisible(x)
+}
+
+apply_aroma_to_confounds_obj <- function(
+  conf_obj,
+  aroma_obj,
+  mode = c("nonaggressive", "aggressive"),
+  fit_valid_rows = FALSE,
+  force = FALSE
+) {
+  mode <- match.arg(mode)
+  if (!isTRUE(force) && is.list(conf_obj$settings$aroma) && isTRUE(conf_obj$settings$aroma$applied)) {
+    warning("Confound nuisance matrices were already AROMA-cleaned; skipping duplicate AROMA projection (set force = TRUE to override).", call. = FALSE)
+    return(conf_obj)
+  }
+  runs <- names(conf_obj$nuisance)
+  n_t <- stats::setNames(vapply(conf_obj$valid_rows, length, integer(1L)), runs)
+  aroma_al <- align_medusa_aroma_to_runs(aroma_obj, runs, n_time = n_t)
+  raw_nuis <- attr(conf_obj, "raw_nuisance", exact = TRUE)
+
+  imp <- if (!is.null(conf_obj$settings$impute)) conf_obj$settings$impute else "mean"
+  imp_cens <- if (!is.null(conf_obj$settings$impute_censored)) conf_obj$settings$impute_censored else TRUE
+  ctr <- if (!is.null(conf_obj$settings$center)) conf_obj$settings$center else TRUE
+  scl <- if (!is.null(conf_obj$settings$scale)) conf_obj$settings$scale else FALSE
+  drp <- if (!is.null(conf_obj$settings$drop_constant)) conf_obj$settings$drop_constant else TRUE
+
+  cleaned_flags <- logical(length(runs))
+  for (i in seq_along(runs)) {
+    rn <- runs[i]
+    valid_r <- conf_obj$valid_rows[[rn]]
+    z_in <- if (is.list(raw_nuis) && !is.null(raw_nuis[[rn]])) raw_nuis[[rn]] else conf_obj$nuisance[[rn]]
+    if (ncol(z_in) == 0L) {
+      cleaned_flags[i] <- length(aroma_al$noise_ics[[rn]]) > 0L
+      next
+    }
+    ar_r <- aroma_regress_matrix(
+      Y = z_in,
+      M = aroma_al$mixing[[rn]],
+      noise_ics = aroma_al$noise_ics[[rn]],
+      include_rows = if (isTRUE(fit_valid_rows)) valid_r else NULL,
+      mode = mode,
+      preserve_mean = TRUE,
+      run_label = sprintf("confounds[['%s']]", rn)
+    )
+    z_clean <- finalize_nuisance_matrix(
+      z_mat = ar_r$Y,
+      valid_r = valid_r,
+      impute = imp,
+      impute_censored = imp_cens,
+      center = ctr,
+      scale = scl,
+      drop_constant = drp
+    )
+    conf_obj$nuisance[[rn]] <- z_clean
+    cleaned_flags[i] <- isTRUE(ar_r$applied)
+    if (!is.null(conf_obj$summary) && nrow(conf_obj$summary) >= i) {
+      conf_obj$summary$n_nuisance_cols[i] <- as.integer(ncol(z_clean))
+      conf_obj$summary$aroma_cleaned[i] <- cleaned_flags[i]
+    }
+  }
+  conf_obj$settings$aroma <- list(
+    applied = any(cleaned_flags),
+    mode = mode,
+    fit_valid_rows = fit_valid_rows
+  )
+  conf_obj
+}
+
+#' Apply non-aggressive (or aggressive) ICA-AROMA denoising to MEDuSA time-series or confound objects
+#'
+#' Removes ICA-AROMA motion/artifact components in memory using vectorized
+#' QR least-squares projection across all voxels simultaneously, without writing
+#' intermediate 4D NIfTIs to disk or breaking MEDuSA's continuous acquisition
+#' clock.
+#'
+#' Under \code{mode = "nonaggressive"} (the default; Pruim et al., 2015;
+#' matching FSL \code{fsl_regfilt} and \code{BrainGnomes}), all accepted and
+#' rejected MELODIC components are fit jointly with an intercept
+#' (\eqn{Y = \mathbf{1}\mu^\top + M_{\mathrm{acc}} B_{\mathrm{acc}} + M_{\mathrm{rej}} B_{\mathrm{rej}} + E}),
+#' and \emph{only} the partial contribution of rejected components
+#' (\eqn{\tilde{M}_{\mathrm{rej}} \hat{B}_{\mathrm{rej}}}) is subtracted. Shared
+#' variance between task-evoked neural components (\eqn{M_{\mathrm{acc}}}) and
+#' task-correlated motion components (\eqn{M_{\mathrm{rej}}}) is therefore
+#' retained rather than attenuated, and temporal degrees of freedom in Step 1
+#' (\code{\link{estimate_crossrun_hrf}}) and Step 2
+#' (\code{\link{deconvolve_crossrun_hrf}}) are not consumed by dozens of ICA
+#' columns. When \code{clean_nuisance = TRUE}, attached nuisance regressors
+#' (\code{$nuisance} / \code{$confounds}) receive the identical AROMA projection
+#' so downstream joint nuisance regression cannot re-introduce AROMA motion
+#' variance (Lindquist et al., 2019).
+#'
+#' @param x Target object to denoise: a \code{"medusa_nifti_ts"} object (updates
+#'   \code{$bold} and, when \code{clean_nuisance = TRUE}, attached
+#'   \code{$nuisance}/\code{$confounds}), a \code{"medusa_confounds"} object
+#'   (updates \code{$nuisance}), a run-named list of \code{T x V} numeric BOLD
+#'   matrices, or a single \code{T x V} numeric matrix.
+#' @param aroma Optional \code{"medusa_aroma"} object from
+#'   \code{\link{read_fmriprep_aroma}}. Required unless \code{mixing} is supplied
+#'   directly.
+#' @param mixing Optional MELODIC mixing file path(s) or \code{T x K} matrix /
+#'   list of matrices passed to \code{\link{read_fmriprep_aroma}} when
+#'   \code{aroma} is \code{NULL}.
+#' @param classification Optional component classification path(s), metrics
+#'   \code{data.frame}, logical mask, or 1-based integer vector of rejected ICs
+#'   passed to \code{\link{read_fmriprep_aroma}} when \code{aroma} is
+#'   \code{NULL}.
+#' @param mode Denoising projection mode: \code{"nonaggressive"} (default;
+#'   Pruim et al., 2015 partial regression protecting accepted signal ICs) or
+#'   \code{"aggressive"} (full orthogonal projection of rejected ICs only).
+#' @param clean_nuisance Logical; if \code{TRUE} (default) and \code{x} is a
+#'   \code{"medusa_nifti_ts"} object with \code{$confounds} or \code{$nuisance}
+#'   attached, applies the identical AROMA projection to nuisance columns so
+#'   downstream joint regression cannot re-introduce removed motion variance.
+#' @param fit_valid_rows Logical; if \code{TRUE}, fits AROMA component weights
+#'   using only uncensored \code{valid_rows} while projecting across all rows.
+#'   Default \code{FALSE} fits across full continuous MELODIC run series
+#'   (matching FSL \code{fsl_regfilt}, Pruim et al., 2015, and
+#'   \code{BrainGnomes}).
+#' @param valid_rows Optional logical vector or run-named list of logical masks
+#'   used when \code{fit_valid_rows = TRUE} (defaults to \code{x$valid_rows}
+#'   when present on \code{x}).
+#' @param preserve_mean Logical; if \code{TRUE} (default), preserves each
+#'   voxel's temporal mean across fitted timepoints. Ignored for
+#'   \code{"medusa_confounds"} inputs (which follow \code{x$settings$center}).
+#' @param force Logical; if \code{TRUE}, re-applies AROMA even when metadata or
+#'   \code{BrainGnomes} provenance indicates AROMA was already executed. Default
+#'   \code{FALSE}.
+#'
+#' @return Object of the same class and structure as \code{x} with denoised
+#'   signal matrices and AROMA diagnostic metadata attached (\code{x$aroma} on
+#'   \code{"medusa_nifti_ts"}, \code{x$settings$aroma} on
+#'   \code{"medusa_confounds"}, or \code{attr(x, "aroma")} on plain matrices /
+#'   lists).
+#'
+#' @seealso \code{\link{read_fmriprep_aroma}}, \code{\link{read_fmriprep_subject}},
+#'   \code{\link{read_fmriprep_confounds}}, \code{\link{estimate_crossrun_hrf}}
+#'
+#' @examples
+#' set.seed(1)
+#' s_task <- sin(seq(0, 6 * pi, length.out = 80))
+#' m_motion <- 0.5 * s_task + rnorm(80, sd = 0.6)
+#' mix <- cbind(IC_01 = s_task, IC_02 = m_motion, IC_03 = rnorm(80))
+#' Y <- 500 + cbind(v1 = 2.0 * s_task + 1.5 * m_motion, v2 = 1.0 * s_task - 0.8 * m_motion) +
+#'   matrix(rnorm(160, sd = 0.05), 80, 2)
+#'
+#' ar <- read_fmriprep_aroma(mix, classification = 2L)
+#' Y_clean <- apply_aroma(Y, ar, mode = "nonaggressive")
+#' attr(Y_clean, "aroma")$summary
+#'
+#' @export
+apply_aroma <- function(
+  x,
+  aroma = NULL,
+  mixing = NULL,
+  classification = NULL,
+  mode = c("nonaggressive", "aggressive"),
+  clean_nuisance = TRUE,
+  fit_valid_rows = FALSE,
+  valid_rows = NULL,
+  preserve_mean = TRUE,
+  force = FALSE
+) {
+  mode <- match.arg(mode)
+  checkmate::assert_flag(clean_nuisance)
+  checkmate::assert_flag(fit_valid_rows)
+  checkmate::assert_flag(preserve_mean)
+  checkmate::assert_flag(force)
+
+  if (is.null(aroma)) {
+    if (is.null(mixing)) {
+      stop("Supply either 'aroma' (a 'medusa_aroma' object) or 'mixing' (plus optional 'classification').", call. = FALSE)
+    }
+    bold_ref <- if (inherits(x, "medusa_confounds")) names(x$nuisance) else x
+    aroma <- read_fmriprep_aroma(mixing = mixing, classification = classification, bold = bold_ref)
+  } else if (!inherits(aroma, "medusa_aroma")) {
+    stop("'aroma' must be a 'medusa_aroma' object produced by read_fmriprep_aroma().", call. = FALSE)
+  }
+
+  # 1. Dispatch on medusa_confounds
+  if (inherits(x, "medusa_confounds")) {
+    return(apply_aroma_to_confounds_obj(
+      conf_obj = x,
+      aroma_obj = aroma,
+      mode = mode,
+      fit_valid_rows = fit_valid_rows,
+      force = force
+    ))
+  }
+
+  resolve_valid_for_runs <- function(vr, runs, n_t_map) {
+    if (!isTRUE(fit_valid_rows)) {
+      return(stats::setNames(vector("list", length(runs)), runs))
+    }
+    if (is.null(vr)) {
+      stop("fit_valid_rows = TRUE requires 'valid_rows' (or x$valid_rows on a 'medusa_nifti_ts' object).", call. = FALSE)
+    }
+    if (inherits(vr, "medusa_confounds")) vr <- vr$valid_rows
+    if (is.logical(vr) && !is.list(vr)) {
+      if (length(runs) != 1L) stop("Multi-run AROMA fitting requires a per-run list for 'valid_rows'.", call. = FALSE)
+      vr <- stats::setNames(list(vr), runs)
+    }
+    al <- align_inputs_to_runs(
+      vr,
+      list(run_names = runs, n_time = n_t_map, bold_files = NULL),
+      input_label = "valid_rows",
+      is_paths = FALSE
+    )
+    al$items
+  }
+
+  # 2. Dispatch on medusa_nifti_ts
+  if (inherits(x, "medusa_nifti_ts")) {
+    if (!isTRUE(force)) {
+      if (is.list(x$aroma) && isTRUE(x$aroma$applied)) {
+        warning("BOLD data in 'x' was already denoised with apply_aroma(); skipping duplicate AROMA regression (set force = TRUE to override).", call. = FALSE)
+        return(x)
+      }
+      prov <- if (is.list(x$bids) && is.list(x$bids$postproc_provenance)) {
+        x$bids$postproc_provenance
+      } else if (!is.null(x$run_info) && "file" %in% names(x$run_info)) {
+        lapply(x$run_info$file, inspect_braingnomes_provenance)
+      } else {
+        list()
+      }
+      if (length(prov) > 0L && any(vapply(prov, function(p) isTRUE(p$apply_aroma), logical(1L)))) {
+        warning("BrainGnomes provenance indicates 'apply_aroma' was already executed on BOLD input(s); skipping duplicate AROMA regression (set force = TRUE to override).", call. = FALSE)
+        return(x)
+      }
+    }
+
+    runs <- names(x$bold)
+    vox_by_time <- identical(x$orientation, "voxel_by_time")
+    n_t <- stats::setNames(vapply(x$bold, if (vox_by_time) ncol else nrow, integer(1L)), runs)
+    aroma_al <- align_medusa_aroma_to_runs(aroma, runs, n_time = n_t)
+    vr_use <- if (!is.null(valid_rows)) valid_rows else x$valid_rows
+    vr_list <- resolve_valid_for_runs(vr_use, runs, n_t)
+
+    sum_rows <- vector("list", length(runs))
+    any_applied <- FALSE
+    for (i in seq_along(runs)) {
+      rn <- runs[i]
+      mat_in <- if (vox_by_time) t(x$bold[[rn]]) else x$bold[[rn]]
+      res_r <- aroma_regress_matrix(
+        Y = mat_in,
+        M = aroma_al$mixing[[rn]],
+        noise_ics = aroma_al$noise_ics[[rn]],
+        include_rows = vr_list[[rn]],
+        mode = mode,
+        preserve_mean = preserve_mean,
+        run_label = sprintf("bold[['%s']]", rn)
+      )
+      x$bold[[rn]] <- if (vox_by_time) t(res_r$Y) else res_r$Y
+      if (isTRUE(res_r$applied)) any_applied <- TRUE
+      sum_rows[[i]] <- data.frame(
+        run = rn,
+        mode = mode,
+        n_volumes = as.integer(n_t[[rn]]),
+        n_fit_volumes = as.integer(res_r$n_fit),
+        n_components = as.integer(res_r$n_components),
+        n_accepted = as.integer(res_r$n_accepted),
+        n_rejected = as.integer(res_r$n_rejected),
+        applied = isTRUE(res_r$applied),
+        mean_pct_var_removed = res_r$mean_pct_var_removed,
+        median_pct_var_removed = res_r$median_pct_var_removed,
+        stringsAsFactors = FALSE
+      )
+    }
+
+    nuis_cleaned <- FALSE
+    if (isTRUE(clean_nuisance)) {
+      if (!is.null(x$confounds) && inherits(x$confounds, "medusa_confounds")) {
+        x$confounds <- apply_aroma_to_confounds_obj(
+          x$confounds,
+          aroma_al,
+          mode = mode,
+          fit_valid_rows = fit_valid_rows,
+          force = force
+        )
+        x$nuisance <- x$confounds$nuisance
+        nuis_cleaned <- isTRUE(x$confounds$settings$aroma$applied)
+      } else if (!is.null(x$nuisance) && is.list(x$nuisance)) {
+        for (i in seq_along(runs)) {
+          rn <- runs[i]
+          z_r <- x$nuisance[[rn]]
+          if (is.matrix(z_r) && ncol(z_r) > 0L) {
+            ar_z <- aroma_regress_matrix(
+              Y = z_r,
+              M = aroma_al$mixing[[rn]],
+              noise_ics = aroma_al$noise_ics[[rn]],
+              include_rows = vr_list[[rn]],
+              mode = mode,
+              preserve_mean = TRUE,
+              run_label = sprintf("nuisance[['%s']]", rn)
+            )
+            v_mask <- if (!is.null(x$valid_rows) && !is.null(x$valid_rows[[rn]])) x$valid_rows[[rn]] else rep(TRUE, nrow(z_r))
+            x$nuisance[[rn]] <- finalize_nuisance_matrix(
+              ar_z$Y,
+              valid_r = v_mask,
+              impute = "mean",
+              impute_censored = TRUE,
+              center = TRUE,
+              scale = FALSE,
+              drop_constant = TRUE
+            )
+            if (isTRUE(ar_z$applied)) nuis_cleaned <- TRUE
+          }
+        }
+      }
+    }
+
+    sum_df <- do.call(rbind, sum_rows)
+    rownames(sum_df) <- NULL
+    x$aroma <- list(
+      applied = any_applied,
+      mode = mode,
+      clean_nuisance = clean_nuisance,
+      nuisance_cleaned = nuis_cleaned,
+      fit_valid_rows = fit_valid_rows,
+      preserve_mean = preserve_mean,
+      summary = sum_df,
+      components = aroma_al
+    )
+    return(x)
+  }
+
+  # 3. Dispatch on single matrix or list of run matrices
+  if (!isTRUE(force) && is.list(attr(x, "aroma", exact = TRUE)) && isTRUE(attr(x, "aroma", exact = TRUE)$applied)) {
+    warning("Input matrix/list was already denoised with apply_aroma(); skipping duplicate AROMA regression (set force = TRUE to override).", call. = FALSE)
+    return(x)
+  }
+
+  single_mat <- is.matrix(x) && is.numeric(x)
+  if (single_mat) {
+    vox_by_time <- identical(attr(x, "orientation", exact = TRUE), "voxel_by_time")
+    runs <- "run1"
+    mat_list <- list(run1 = x)
+  } else if (is.list(x) && !is.data.frame(x) && length(x) >= 1L && all(vapply(x, function(m) is.matrix(m) && is.numeric(m), logical(1L)))) {
+    vox_by_time <- FALSE
+    runs <- names(x)
+    if (is.null(runs) || any(!nzchar(runs))) runs <- paste0("run", seq_along(x))
+    mat_list <- stats::setNames(x, runs)
+  } else {
+    stop("'x' must be a 'medusa_nifti_ts' object, a 'medusa_confounds' object, a numeric T x V matrix, or a named list of numeric matrices.", call. = FALSE)
+  }
+
+  n_t <- stats::setNames(vapply(mat_list, if (vox_by_time) ncol else nrow, integer(1L)), runs)
+  aroma_al <- align_medusa_aroma_to_runs(aroma, runs, n_time = n_t)
+  vr_list <- resolve_valid_for_runs(valid_rows, runs, n_t)
+
+  out_list <- stats::setNames(vector("list", length(runs)), runs)
+  sum_rows <- vector("list", length(runs))
+  any_applied <- FALSE
+  for (i in seq_along(runs)) {
+    rn <- runs[i]
+    m_orig <- mat_list[[rn]]
+    m_in <- if (vox_by_time) t(m_orig) else m_orig
+    res_r <- aroma_regress_matrix(
+      Y = m_in,
+      M = aroma_al$mixing[[rn]],
+      noise_ics = aroma_al$noise_ics[[rn]],
+      include_rows = vr_list[[rn]],
+      mode = mode,
+      preserve_mean = preserve_mean,
+      run_label = sprintf("bold[['%s']]", rn)
+    )
+    m_clean <- if (vox_by_time) t(res_r$Y) else res_r$Y
+    # Preserve custom matrix attributes (e.g. read_nifti_ts(..., drop = TRUE) geometry/voxel_map/tr)
+    orig_attrs <- attributes(m_orig)
+    if (!is.null(orig_attrs)) {
+      extra_nms <- setdiff(names(orig_attrs), c("dim", "dimnames"))
+      for (an in extra_nms) attr(m_clean, an) <- orig_attrs[[an]]
+    }
+    out_list[[rn]] <- m_clean
+    if (isTRUE(res_r$applied)) any_applied <- TRUE
+    sum_rows[[i]] <- data.frame(
+      run = rn,
+      mode = mode,
+      n_volumes = as.integer(n_t[[rn]]),
+      n_fit_volumes = as.integer(res_r$n_fit),
+      n_components = as.integer(res_r$n_components),
+      n_accepted = as.integer(res_r$n_accepted),
+      n_rejected = as.integer(res_r$n_rejected),
+      applied = isTRUE(res_r$applied),
+      mean_pct_var_removed = res_r$mean_pct_var_removed,
+      median_pct_var_removed = res_r$median_pct_var_removed,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  sum_df <- do.call(rbind, sum_rows)
+  rownames(sum_df) <- NULL
+  aroma_attr <- list(
+    applied = any_applied,
+    mode = mode,
+    fit_valid_rows = fit_valid_rows,
+    preserve_mean = preserve_mean,
+    summary = sum_df
+  )
+  if (single_mat) {
+    out_mat <- out_list[[1L]]
+    attr(out_mat, "aroma") <- aroma_attr
+    return(out_mat)
+  }
+  attr(out_list, "aroma") <- aroma_attr
+  out_list
 }
 
 resolve_bids_subject_dir <- function(root_dir, sub_id, label = "fmriprep_dir") {
@@ -2407,6 +3742,128 @@ combine_fmriprep_masks <- function(mask_files, mode = c("intersection", "union",
   RNifti::updateNifti(arr, template = ref_img)
 }
 
+collect_subject_func_dirs <- function(sub_dir_path) {
+  non_func_modalities <- c("anat", "dwi", "fmap", "perf", "meg", "eeg", "ieeg", "beh", "figures", "log", "logs", "work", "scratch")
+  f_dirs <- character(0L)
+  direct_f <- file.path(sub_dir_path, "func")
+  if (dir.exists(direct_f)) f_dirs <- c(f_dirs, direct_f)
+  ch_dirs <- list.dirs(sub_dir_path, full.names = TRUE, recursive = FALSE)
+  ses_d <- ch_dirs[grepl("^ses-", basename(ch_dirs))]
+  for (sd in ses_d) {
+    fd_p <- file.path(sd, "func")
+    if (dir.exists(fd_p)) f_dirs <- c(f_dirs, fd_p)
+  }
+  flat_d <- c(
+    sub_dir_path,
+    ch_dirs[!(tolower(basename(ch_dirs)) %in% non_func_modalities) & !grepl("\\.provenance$", basename(ch_dirs), ignore.case = TRUE)]
+  )
+  unique(c(f_dirs, flat_d))
+}
+
+discover_aroma_sidecars_for_subject <- function(btbl, sub_id, sub_dir, func_dirs, prov_list = list(), aroma_dir = NULL) {
+  sub_tag <- paste0("sub-", sub_id)
+  dir_groups <- list()
+
+  if (!is.null(aroma_dir)) {
+    checkmate::assert_directory_exists(aroma_dir)
+    norm_ad <- normalizePath(aroma_dir, winslash = "/", mustWork = TRUE)
+    ad_sub <- NULL
+    if (identical(basename(norm_ad), sub_tag)) {
+      ad_sub <- norm_ad
+    } else {
+      for (cand in c(
+        file.path(norm_ad, sub_tag),
+        file.path(norm_ad, "fmripost_aroma", sub_tag),
+        file.path(norm_ad, "fmripost-aroma", sub_tag),
+        file.path(norm_ad, "aroma", sub_tag)
+      )) {
+        if (dir.exists(cand)) {
+          ad_sub <- normalizePath(cand, winslash = "/", mustWork = TRUE)
+          break
+        }
+      }
+    }
+    dir_groups[[length(dir_groups) + 1L]] <- if (!is.null(ad_sub)) collect_subject_func_dirs(ad_sub) else norm_ad
+  }
+
+  dir_groups[[length(dir_groups) + 1L]] <- func_dirs
+
+  if (is.null(aroma_dir)) {
+    p1 <- dirname(sub_dir)
+    p2 <- dirname(p1)
+    sib_dirs <- character(0L)
+    for (root_p in unique(c(p2, p1))) {
+      for (dname in c("fmripost_aroma", "fmripost-aroma", "aroma", "fmriprep")) {
+        cand_s <- file.path(root_p, dname, sub_tag)
+        if (dir.exists(cand_s)) {
+          cand_norm <- normalizePath(cand_s, winslash = "/", mustWork = TRUE)
+          if (!identical(cand_norm, sub_dir)) {
+            sib_dirs <- c(sib_dirs, collect_subject_func_dirs(cand_norm))
+          }
+        }
+      }
+    }
+    if (length(sib_dirs)) {
+      dir_groups[[length(dir_groups) + 1L]] <- unique(sib_dirs)
+    }
+  }
+
+  n_runs <- nrow(btbl)
+  mix_hits <- rep(NA_character_, n_runs)
+  cls_hits <- rep(NA_character_, n_runs)
+
+  for (grp in dir_groups) {
+    if (!length(grp)) next
+    mix_cands <- unique(unlist(lapply(grp, function(d) {
+      list.files(d, pattern = "_(desc-melodic_mixing|melodic_mixing)\\.tsv(\\.gz)?$", full.names = TRUE, ignore.case = TRUE)
+    }), use.names = FALSE))
+    met_cands <- unique(unlist(lapply(grp, function(d) {
+      list.files(d, pattern = "_desc-aroma_metrics\\.tsv(\\.gz)?$", full.names = TRUE, ignore.case = TRUE)
+    }), use.names = FALSE))
+    csv_cands <- unique(unlist(lapply(grp, function(d) {
+      list.files(d, pattern = "_AROMAnoiseICs\\.(csv|txt)(\\.gz)?$", full.names = TRUE, ignore.case = TRUE)
+    }), use.names = FALSE))
+
+    mix_tbl <- if (length(mix_cands)) parse_bids_entity_table(mix_cands) else parse_bids_entity_table(character(0L))
+    met_tbl <- if (length(met_cands)) parse_bids_entity_table(met_cands) else parse_bids_entity_table(character(0L))
+    csv_tbl <- if (length(csv_cands)) parse_bids_entity_table(csv_cands) else parse_bids_entity_table(character(0L))
+
+    for (i in seq_len(n_runs)) {
+      brow <- btbl[i, , drop = FALSE]
+      if (is.na(mix_hits[i]) && nrow(mix_tbl) > 0L) {
+        mix_hits[i] <- find_matching_aroma_sidecar(brow, mix_tbl)
+      }
+      if (is.na(cls_hits[i])) {
+        if (nrow(met_tbl) > 0L) {
+          cls_hits[i] <- find_matching_aroma_sidecar(brow, met_tbl)
+        }
+        if (is.na(cls_hits[i]) && nrow(csv_tbl) > 0L) {
+          cls_hits[i] <- find_matching_aroma_sidecar(brow, csv_tbl)
+        }
+      }
+    }
+    if (all(!is.na(mix_hits)) && all(!is.na(cls_hits))) break
+  }
+
+  for (i in seq_len(n_runs)) {
+    if (length(prov_list) >= i) {
+      pm <- prov_list[[i]]$melodic_mix
+      pa <- prov_list[[i]]$aroma_metrics
+      if (is.na(mix_hits[i]) && is.character(pm) && length(pm) == 1L && !is.na(pm) && file.exists(pm)) {
+        mix_hits[i] <- pm
+      }
+      if (is.na(cls_hits[i]) && is.character(pa) && length(pa) == 1L && !is.na(pa) && file.exists(pa)) {
+        cls_hits[i] <- pa
+      }
+    }
+    if (is.na(cls_hits[i]) && !is.na(mix_hits[i])) {
+      cls_hits[i] <- discover_aroma_classification_for_mixing(mix_hits[i])
+    }
+  }
+
+  list(mixing_files = mix_hits, classification_files = cls_hits)
+}
+
 #' Discover and ingest an fMRIPrep or postprocessed participant into a unified MEDuSA time-series bundle
 #'
 #' Locates a participant's preprocessed or \code{BrainGnomes}-postprocessed BOLD
@@ -2414,7 +3871,8 @@ combine_fmriprep_masks <- function(mask_files, mode = c("intersection", "union",
 #' brain or template masks (\code{*_desc-brain_mask.nii.gz},
 #' \code{*_templatemask.nii.gz}), confound tables
 #' (\code{*_desc-confounds_timeseries.tsv}, \code{*_desc-<desc>_confounds.tsv}),
-#' optional \code{*_censor.1D} masks, and optional BIDS event tables
+#' optional \code{fMRIPost-AROMA} / legacy ICA-AROMA mixing and classification
+#' sidecars, optional \code{*_censor.1D} masks, and optional BIDS event tables
 #' (\code{*_events.tsv}), returning a \code{"medusa_nifti_ts"} object populated
 #' with C++-extracted \code{T x V} \code{$bold} matrices, \code{$voxel_map},
 #' \code{$parcel_ids}, \code{$tr}, \code{$nuisance}, \code{$valid_rows},
@@ -2467,11 +3925,45 @@ combine_fmriprep_masks <- function(mask_files, mode = c("intersection", "union",
 #'   or \code{NULL} to skip event ingestion (e.g., resting-state).
 #' @param condition_col,condition_map,default_condition,exclude_conditions,na_duration
 #'   Event normalization options forwarded to \code{\link{read_bids_events}}.
+#' @param aroma ICA-AROMA denoising policy applied in memory during ingestion:
+#'   \itemize{
+#'     \item \code{"none"} (default): no AROMA projection applied.
+#'     \item \code{"nonaggressive"}: discovers \code{fMRIPost-AROMA}
+#'       (\code{*_desc-melodic_mixing.tsv} + \code{*_desc-aroma_metrics.tsv}) or
+#'       legacy fMRIPrep \code{<= 23.0} (\code{*_desc-MELODIC_mixing.tsv} +
+#'       \code{*_AROMAnoiseICs.csv}) sidecars and applies Pruim et al. (2015)
+#'       non-aggressive partial regression to \code{$bold} (and selected
+#'       \code{$nuisance} columns when \code{aroma_clean_nuisance = TRUE}).
+#'     \item \code{"auto"}: applies \code{"nonaggressive"} AROMA when matching
+#'       AROMA sidecars exist for all runs and skips silently otherwise.
+#'     \item \code{"aggressive"}: applies full orthogonal removal of rejected
+#'       AROMA components without protecting accepted signal components.
+#'     \item A pre-constructed \code{"medusa_aroma"} object from
+#'       \code{\link{read_fmriprep_aroma}} (applied non-aggressively).
+#'   }
+#'   When \code{BrainGnomes} provenance indicates \code{apply_aroma} was already
+#'   executed upstream on the BOLD derivative, duplicate AROMA regression on
+#'   \code{$bold} is skipped automatically.
+#' @param aroma_dir Optional path to an \code{fMRIPost-AROMA} derivatives root
+#'   (or subject directory). When \code{NULL}, \code{read_fmriprep_subject()}
+#'   searches \code{fmriprep_dir}, \code{BrainGnomes} provenance
+#'   \code{SourceFiles}, and sibling \code{fmripost_aroma} /
+#'   \code{fmripost-aroma} / \code{aroma} derivative directories automatically.
+#' @param aroma_clean_nuisance Logical; if \code{TRUE} (default), applies the
+#'   identical AROMA projection operator to selected \code{$nuisance} columns so
+#'   downstream joint regression in \code{\link{estimate_crossrun_hrf}} and
+#'   \code{\link{deconvolve_crossrun_hrf}} cannot re-introduce removed AROMA
+#'   motion variance (Lindquist et al., 2019).
+#' @param aroma_fit_valid Logical; if \code{TRUE}, estimates AROMA component
+#'   weights using uncensored \code{valid_rows} only rather than full MELODIC
+#'   timecourses (\code{FALSE}, default).
 #' @param strategy,columns,column_pattern,n_compcor,compcor_type,include_cosines
-#'   Nuisance selection options forwarded to \code{\link{read_fmriprep_confounds}}.
-#'   When \code{BrainGnomes} provenance indicates \code{confound_regression} was
-#'   already applied to the BOLD derivative and \code{strategy} is not explicitly
-#'   specified, \code{strategy} defaults automatically to \code{"none"} to avoid
+#'   Nuisance selection options forwarded to \code{\link{read_fmriprep_confounds}}
+#'   (including \code{"csf_wm"} and \code{"csf_wm_8p"} for pairing physiological
+#'   regressors with \code{aroma = "nonaggressive"}). When \code{BrainGnomes}
+#'   provenance indicates \code{confound_regression} was already applied to the
+#'   BOLD derivative and \code{strategy} is not explicitly specified,
+#'   \code{strategy} defaults automatically to \code{"none"} to avoid
 #'   double-regressing unfiltered confounds.
 #' @param censor Either \code{"auto"} (default; automatically uses matching
 #'   \code{*_censor.1D} sidecars when present for postprocessed outputs), explicit
@@ -2486,10 +3978,12 @@ combine_fmriprep_masks <- function(mask_files, mode = c("intersection", "union",
 #'
 #' @return An S3 object of class \code{"medusa_nifti_ts"} enriched with
 #'   \code{$nuisance}, \code{$valid_rows}, \code{$confounds}
-#'   (\code{"medusa_confounds"}), \code{$events} (when discovered/supplied), and
-#'   \code{$bids} provenance metadata.
+#'   (\code{"medusa_confounds"}), \code{$aroma} (when AROMA is applied),
+#'   \code{$events} (when discovered/supplied), and \code{$bids} provenance
+#'   metadata.
 #'
 #' @seealso \code{\link{read_nifti_ts}}, \code{\link{read_fmriprep_confounds}},
+#'   \code{\link{read_fmriprep_aroma}}, \code{\link{apply_aroma}},
 #'   \code{\link{read_bids_events}}, \code{\link{estimate_crossrun_hrf}},
 #'   \code{\link{deconvolve_crossrun_hrf}}
 #'
@@ -2569,7 +4063,11 @@ read_fmriprep_subject <- function(
   default_condition = NULL,
   exclude_conditions = NULL,
   na_duration = 0,
-  strategy = c("24p", "6p", "12p", "24p_csf_wm", "27p", "36p", "compcor", "custom", "none"),
+  aroma = "none",
+  aroma_dir = NULL,
+  aroma_clean_nuisance = TRUE,
+  aroma_fit_valid = FALSE,
+  strategy = c("24p", "6p", "12p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "27p", "36p", "compcor", "custom", "none"),
   columns = NULL,
   column_pattern = NULL,
   n_compcor = NULL,
@@ -2605,6 +4103,18 @@ read_fmriprep_subject <- function(
   motion_filter_pad <- match.arg(motion_filter_pad)
   motion_filter_target <- match.arg(motion_filter_target)
   id_style <- match.arg(id_style)
+  checkmate::assert_flag(aroma_clean_nuisance)
+  checkmate::assert_flag(aroma_fit_valid)
+  if (!is.null(aroma_dir)) checkmate::assert_directory_exists(aroma_dir)
+  if (inherits(aroma, "medusa_aroma")) {
+    aroma_req <- "object"
+    aroma_mode_eff <- "nonaggressive"
+  } else if (is.character(aroma) && length(aroma) == 1L && !is.na(aroma)) {
+    aroma_req <- match.arg(aroma, c("none", "nonaggressive", "auto", "aggressive"))
+    aroma_mode_eff <- if (identical(aroma_req, "aggressive")) "aggressive" else "nonaggressive"
+  } else {
+    stop("'aroma' must be one of 'none', 'nonaggressive', 'auto', 'aggressive', or a 'medusa_aroma' object.", call. = FALSE)
+  }
   checkmate::assert_string(sub, min.chars = 1L)
   sub_id <- sub("^sub-", "", trimws(sub))
   sub_dir <- resolve_bids_subject_dir(fmriprep_dir, sub_id, label = "fmriprep_dir")
@@ -2939,6 +4449,94 @@ read_fmriprep_subject <- function(
     conf_input <- conf_files
   }
 
+  # Optional ICA-AROMA sidecar discovery and BrainGnomes provenance coordination
+  bg_aroma_applied <- length(prov_list) > 0L && any(vapply(prov_list, function(p) isTRUE(p$apply_aroma), logical(1L)))
+  wants_nuis_cols <- !identical(strategy, "none") || !is.null(columns) || !is.null(column_pattern) || (!is.null(n_compcor) && n_compcor > 0L)
+  is_raw_fprep_conf <- length(conf_files) > 0L &&
+    any(grepl("_desc-confounds_(timeseries|regressors)\\.tsv", basename(conf_files), ignore.case = TRUE))
+
+  aroma_obj <- NULL
+  aroma_mix_used <- character(0L)
+  aroma_cls_used <- character(0L)
+  apply_aroma_to_bold <- FALSE
+  apply_aroma_to_conf <- FALSE
+
+  if (bg_aroma_applied) {
+    if (aroma_req %in% c("nonaggressive", "aggressive", "object")) {
+      warning(
+        "BrainGnomes provenance indicates 'apply_aroma' was already executed on BOLD input(s); skipping duplicate AROMA regression on BOLD.",
+        call. = FALSE
+      )
+    }
+    if (is_raw_fprep_conf && wants_nuis_cols) {
+      if (identical(aroma_req, "none")) {
+        warning(
+          "BrainGnomes provenance indicates 'apply_aroma' was executed on BOLD, while confounds resolved to un-denoised fMRIPrep 'desc-confounds_timeseries.tsv'; pass aroma = 'auto' (or use postprocessed confounds / strategy = 'none') so nuisance regression does not re-introduce AROMA motion variance.",
+          call. = FALSE
+        )
+      } else if (isTRUE(aroma_clean_nuisance)) {
+        if (identical(aroma_req, "object")) {
+          aroma_obj <- align_medusa_aroma_to_runs(
+            aroma, run_names,
+            n_time = stats::setNames(vapply(ts$bold, nrow, integer(1L)), run_names)
+          )
+          apply_aroma_to_conf <- TRUE
+        } else {
+          disc_ar <- discover_aroma_sidecars_for_subject(btbl, sub_id, sub_dir, func_dirs, prov_list = prov_list, aroma_dir = aroma_dir)
+          if (all(!is.na(disc_ar$mixing_files)) && all(!is.na(disc_ar$classification_files))) {
+            aroma_mix_used <- stats::setNames(disc_ar$mixing_files, run_names)
+            aroma_cls_used <- stats::setNames(disc_ar$classification_files, run_names)
+            aroma_obj <- read_fmriprep_aroma(mixing = aroma_mix_used, classification = aroma_cls_used, bold = ts)
+            apply_aroma_to_conf <- TRUE
+          }
+        }
+      }
+    }
+  } else if (!identical(aroma_req, "none")) {
+    if (identical(aroma_req, "object")) {
+      aroma_obj <- align_medusa_aroma_to_runs(
+        aroma, run_names,
+        n_time = stats::setNames(vapply(ts$bold, nrow, integer(1L)), run_names)
+      )
+      apply_aroma_to_bold <- TRUE
+      apply_aroma_to_conf <- isTRUE(aroma_clean_nuisance)
+    } else {
+      disc_ar <- discover_aroma_sidecars_for_subject(btbl, sub_id, sub_dir, func_dirs, prov_list = prov_list, aroma_dir = aroma_dir)
+      if (all(!is.na(disc_ar$mixing_files)) && all(!is.na(disc_ar$classification_files))) {
+        aroma_mix_used <- stats::setNames(disc_ar$mixing_files, run_names)
+        aroma_cls_used <- stats::setNames(disc_ar$classification_files, run_names)
+        aroma_obj <- read_fmriprep_aroma(mixing = aroma_mix_used, classification = aroma_cls_used, bold = ts)
+        apply_aroma_to_bold <- TRUE
+        apply_aroma_to_conf <- isTRUE(aroma_clean_nuisance)
+      } else if (!identical(aroma_req, "auto")) {
+        miss_mix <- run_names[is.na(disc_ar$mixing_files)]
+        miss_cls <- run_names[is.na(disc_ar$classification_files)]
+        has_legacy_aroma_cols <- length(conf_files) > 0L && any(vapply(conf_files, function(cf) {
+          hdr <- tryCatch(names(data.table::fread(cf, nrows = 0L, data.table = FALSE)), error = function(e) character(0L))
+          any(grepl("^aroma_motion_", hdr))
+        }, logical(1L)))
+        extra_hint <- if (has_legacy_aroma_cols) {
+          " Note: 'aroma_motion_*' columns in confounds TSV contain only rejected components; non-aggressive AROMA requires the full MELODIC mixing matrix ('*_desc-MELODIC_mixing.tsv' + '*_AROMAnoiseICs.csv' or fMRIPost-AROMA '*_desc-melodic_mixing.tsv' + '*_desc-aroma_metrics.tsv')."
+        } else {
+          ""
+        }
+        stop(
+          sprintf(
+            "Could not locate AROMA sidecars for sub-%s (%s)%s; supply 'aroma_dir' pointing to fMRIPost-AROMA derivatives or set aroma = 'none'.%s",
+            sub_id,
+            paste(c(
+              if (length(miss_mix)) sprintf("missing '*_desc-melodic_mixing.tsv' for %s", paste(miss_mix, collapse = ", ")) else NULL,
+              if (length(miss_cls)) sprintf("missing '*_desc-aroma_metrics.tsv' / '*_AROMAnoiseICs.csv' for %s", paste(miss_cls, collapse = ", ")) else NULL
+            ), collapse = "; "),
+            if (!is.null(aroma_dir)) sprintf(" in aroma_dir ('%s')", aroma_dir) else "",
+            extra_hint
+          ),
+          call. = FALSE
+        )
+      }
+    }
+  }
+
   conf_obj <- read_fmriprep_confounds(
     confounds = conf_input,
     bold = ts,
@@ -2966,8 +4564,24 @@ read_fmriprep_subject <- function(
     drop_initial_volumes = drop_initial_volumes,
     censor_prev = censor_prev,
     censor_next = censor_next,
-    min_segment_length = min_segment_length
+    min_segment_length = min_segment_length,
+    aroma = if (apply_aroma_to_conf) aroma_obj else NULL,
+    aroma_mode = aroma_mode_eff,
+    aroma_fit_valid = aroma_fit_valid
   )
+
+  if (apply_aroma_to_bold && !is.null(aroma_obj)) {
+    ts <- apply_aroma(
+      x = ts,
+      aroma = aroma_obj,
+      mode = aroma_mode_eff,
+      clean_nuisance = FALSE,
+      fit_valid_rows = aroma_fit_valid,
+      valid_rows = conf_obj$valid_rows
+    )
+    ts$aroma$clean_nuisance <- aroma_clean_nuisance
+    ts$aroma$nuisance_cleaned <- isTRUE(conf_obj$settings$aroma$applied)
+  }
 
   # Optional BIDS events discovery / ingestion
   ev_out <- NULL
@@ -3039,6 +4653,8 @@ read_fmriprep_subject <- function(
     censor_files = censor_files_used,
     mask_files = mask_files_used,
     event_files = ev_files_used,
+    aroma_mixing_files = aroma_mix_used,
+    aroma_classification_files = aroma_cls_used,
     postproc_provenance = prov_list
   )
   ts

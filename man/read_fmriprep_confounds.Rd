@@ -8,8 +8,8 @@ read_fmriprep_confounds(
   confounds,
   bold = NULL,
   run_names = NULL,
-  strategy = c("24p", "6p", "12p", "24p_csf_wm", "27p", "36p", "compcor", "custom",
-    "none"),
+  strategy = c("24p", "6p", "12p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "27p", "36p",
+    "compcor", "custom", "none"),
   columns = NULL,
   column_pattern = NULL,
   n_compcor = NULL,
@@ -39,6 +39,9 @@ read_fmriprep_confounds(
   center = TRUE,
   scale = FALSE,
   drop_constant = TRUE,
+  aroma = NULL,
+  aroma_mode = c("nonaggressive", "aggressive"),
+  aroma_fit_valid = FALSE,
   na_strings = c("n/a", "N/A", "NA", ".", "NaN", "")
 )
 }
@@ -64,6 +67,11 @@ verify exact volume counts (\code{nrow(confounds) == nrow(bold)}).}
     their temporal derivatives, and quadratic terms (Friston 24-parameter model).
   \item \code{"12p"}: 6 motion parameters + 6 temporal derivatives.
   \item \code{"6p"}: 6 rigid-body motion parameters.
+  \item \code{"csf_wm"}: mean \code{csf} and \code{white_matter} physiological
+    signals (2p model; recommended alongside non-aggressive ICA-AROMA per
+    Pruim et al., 2015 and Parkes et al., 2018).
+  \item \code{"csf_wm_8p"}: \code{csf} and \code{white_matter} with their
+    temporal derivatives and quadratic terms (8p physiological model).
   \item \code{"24p_csf_wm"}: \code{"24p"} + \code{csf} and \code{white_matter}
     with their derivatives and quadratic terms (32p physiological model without GSR).
   \item \code{"27p"}: \code{"24p"} + mean \code{csf}, \code{white_matter},
@@ -79,9 +87,10 @@ verify exact volume counts (\code{nrow(confounds) == nrow(bold)}).}
 
 \item{columns}{Optional character vector of explicit confound column names,
 shorthand sets (\code{"6p"}, \code{"12p"}, \code{"24p"}, \code{"27p"},
-\code{"36p"}), or zero-padded index range specifications such as
-\code{"a_comp_cor_<0-4>"} or \code{"cosine<0,2-3>"} (in addition to
-\code{strategy}, or exact set when \code{strategy = "custom"}).}
+\code{"csf_wm"}, \code{"csf_wm_8p"}, \code{"36p"}), or zero-padded index
+range specifications such as \code{"a_comp_cor_<0-4>"} or
+\code{"cosine<0,2-3>"} (in addition to \code{strategy}, or exact set when
+\code{strategy = "custom"}).}
 
 \item{column_pattern}{Optional regular expression selecting additional columns
 present in each confound table (e.g., \code{"^aroma_motion_"}).}
@@ -211,6 +220,24 @@ on \code{valid_rows}. Default \code{FALSE}.}
 \item{drop_constant}{Logical; if \code{TRUE} (default), removes columns with
 near-zero variance on \code{valid_rows} (such as all-zero outlier columns).}
 
+\item{aroma}{Optional \code{"medusa_aroma"} object from
+\code{\link{read_fmriprep_aroma}}. When supplied, applies the matching
+ICA-AROMA projection (\code{aroma_mode}) to selected nuisance columns prior
+to final centering and censoring sanitization so subsequent joint nuisance
+regression in \code{\link{estimate_crossrun_hrf}} and
+\code{\link{deconvolve_crossrun_hrf}} cannot re-introduce AROMA motion
+variance into AROMA-denoised BOLD (Lindquist et al., 2019). Framewise
+displacement and \code{valid_rows} remain strictly derived from physical
+(or respiratory-filtered) head-motion parameters.}
+
+\item{aroma_mode}{AROMA regression mode when \code{aroma} is supplied:
+\code{"nonaggressive"} (default; Pruim et al., 2015 partial regression) or
+\code{"aggressive"}.}
+
+\item{aroma_fit_valid}{Logical; if \code{TRUE}, estimates AROMA component
+weights on uncensored \code{valid_rows} only rather than full MELODIC run
+timecourses (\code{FALSE}, default).}
+
 \item{na_strings}{Character vector of missing-value tokens passed to
 \code{data.table::fread}. Default \code{c("n/a", "N/A", "NA", ".", "NaN", "")}.}
 }
@@ -272,5 +299,6 @@ unlink(f_conf)
 }
 \seealso{
 \code{\link{read_bids_events}}, \code{\link{read_fmriprep_subject}},
+  \code{\link{read_fmriprep_aroma}}, \code{\link{apply_aroma}},
   \code{\link{read_nifti_ts}}, \code{\link{estimate_crossrun_hrf}}
 }

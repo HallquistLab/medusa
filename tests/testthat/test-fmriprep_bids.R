@@ -1124,3 +1124,471 @@ test_that("Respiratory motion filter handles TR inference, Nyquist edge cases, v
     }
   }
 })
+
+test_that("read_fmriprep_aroma and apply_aroma support fMRIPost-AROMA, legacy AROMA, and BrainGnomes parity", {
+  fix <- make_synthetic_bids_fmriprep_tree(tempfile("aroma_core_"), n_time = 40L, tr = 1.0)
+  on.exit(unlink(dirname(fix$bids_dir), recursive = TRUE), add = TRUE)
+
+  ts <- read_nifti_ts(
+    niftis = c(run1 = fix$bold_files[1L], run2 = fix$bold_files[2L]),
+    mask = fix$mask_files[1L],
+    tr = fix$tr
+  )
+
+  # 1. fMRIPost-AROMA sidecars: headerless res-2 space-MNI152NLin6Asym mixing + space-less aroma_metrics
+  #    matched cleanly against space-MNI152NLin2009cAsym BOLD even when passed in reversed run order!
+  aroma_dir <- file.path(dirname(fix$bids_dir), "aroma_files")
+  dir.create(aroma_dir)
+
+  set.seed(20261116L)
+  mix_files <- met_files <- character(2L)
+  for (r in 1:2) {
+    t_seq <- seq_len(40L)
+    s_acc <- sin(2 * pi * t_seq / 10) + rnorm(40L, sd = 0.15)
+    m_rej1 <- 0.55 * s_acc + rnorm(40L, sd = 0.5) + 1.5 # nonzero mean + task-correlated motion!
+    m_acc2 <- cos(2 * pi * t_seq / 14) + rnorm(40L, sd = 0.2)
+    m_rej2 <- rnorm(40L, sd = 0.7) - 0.8
+    mix_r <- cbind(s_acc, m_rej1, m_acc2, m_rej2)
+
+    mix_files[r] <- file.path(
+      aroma_dir,
+      sprintf("sub-01_ses-01_task-mid_run-0%d_space-MNI152NLin6Asym_res-2_desc-melodic_mixing.tsv", r)
+    )
+    met_files[r] <- file.path(
+      aroma_dir,
+      sprintf("sub-01_ses-01_task-mid_run-0%d_desc-aroma_metrics.tsv", r)
+    )
+    utils::write.table(mix_r, mix_files[r], sep = "\t", row.names = FALSE, col.names = FALSE)
+    met_df <- data.frame(
+      IC = 1:4,
+      classification = if (r == 1L) c("accepted", "rejected", "accepted", "rejected") else c("accepted", "rejected", "accepted", "accepted"),
+      max_rp_corr = c(0.12, 0.84, 0.09, 0.71),
+      stringsAsFactors = FALSE
+    )
+    utils::write.table(met_df, met_files[r], sep = "\t", row.names = FALSE, quote = FALSE)
+  }
+
+  # Auto-discovers sibling *_desc-aroma_metrics.tsv when classification = NULL, and reorders reversed run-02, run-01!
+  ar_auto <- read_fmriprep_aroma(mixing = rev(mix_files), bold = ts)
+  expect_s3_class(ar_auto, "medusa_aroma")
+  expect_identical(names(ar_auto$mixing), c("run1", "run2"))
+  expect_identical(ar_auto$noise_ics$run1, c(2L, 4L))
+  expect_identical(ar_auto$signal_ics$run1, c(1L, 3L))
+  expect_identical(ar_auto$noise_ics$run2, 2L)
+  expect_identical(colnames(ar_auto$mixing$run1), c("IC_01", "IC_02", "IC_03", "IC_04"))
+  expect_match(paste(capture.output(print(ar_auto)), collapse = "\n"), "3/8 total component")
+
+  # Headered mixing TSV + legacy *_AROMAnoiseICs.csv (including empty 0-rejected CSV!)
+  leg_dir <- file.path(dirname(fix$bids_dir), "legacy_aroma")
+  dir.create(leg_dir)
+  leg_mix1 <- file.path(leg_dir, "sub-01_ses-01_task-mid_run-01_desc-MELODIC_mixing.tsv")
+  leg_csv1 <- file.path(leg_dir, "sub-01_ses-01_task-mid_run-01_AROMAnoiseICs.csv")
+  leg_mix2 <- file.path(leg_dir, "sub-01_ses-01_task-mid_run-02_desc-MELODIC_mixing.tsv")
+  leg_csv2 <- file.path(leg_dir, "sub-01_ses-01_task-mid_run-02_AROMAnoiseICs.csv")
+
+  hdr_df1 <- as.data.frame(ar_auto$mixing$run1)
+  names(hdr_df1) <- paste0("melodic_", 1:4)
+  utils::write.table(hdr_df1, leg_mix1, sep = "\t", row.names = FALSE, quote = FALSE)
+  writeLines("2, 4", leg_csv1)
+  utils::write.table(ar_auto$mixing$run2, leg_mix2, sep = "\t", row.names = FALSE, col.names = FALSE)
+  writeLines("", leg_csv2) # 0 rejected ICs in run 2!
+
+  ar_leg <- read_fmriprep_aroma(c(leg_mix1, leg_mix2), bold = ts)
+  expect_identical(colnames(ar_leg$mixing$run1), paste0("melodic_", 1:4))
+  expect_identical(ar_leg$noise_ics$run1, c(2L, 4L))
+  expect_identical(ar_leg$noise_ics$run2, integer(0L))
+
+  # Applying AROMA when run2 has 0 rejected ICs leaves run2 bit-for-bit unchanged
+  ts_leg <- apply_aroma(ts, ar_leg)
+  expect_true(ts_leg$aroma$summary$applied[1L])
+  expect_false(ts_leg$aroma$summary$applied[2L])
+  expect_equal(ts_leg$bold$run2, ts$bold$run2, tolerance = 0)
+  expect_match(paste(capture.output(print(ts_leg)), collapse = "\n"), "AROMA denoising: nonaggressive")
+
+  # Duplicate apply_aroma guard warns and skips unless force = TRUE
+  expect_warning(ts_dup <- apply_aroma(ts_leg, ar_leg), "already denoised")
+  expect_equal(ts_dup$bold$run1, ts_leg$bold$run1, tolerance = 0)
+
+  # Validation guards: out-of-range 0-based index, wrong volume count, and insufficient df
+  expect_error(read_fmriprep_aroma(ar_auto$mixing$run1, classification = c(0L, 2L)), "1-based integers")
+  expect_error(read_fmriprep_aroma(ar_auto$mixing$run1, classification = 9L), "1-based integers")
+  expect_error(read_fmriprep_aroma(ar_auto$mixing$run1[1:10, ], classification = 2L, bold = ts$bold$run1), "has 10 rows")
+  expect_error(
+    apply_aroma(matrix(rnorm(12L), nrow = 6L, ncol = 2L), mixing = matrix(rnorm(30L), nrow = 6L, ncol = 5L), classification = 1L),
+    "Not enough fitted volumes"
+  )
+
+  # 2. Exact numerical parity against lm.fit partial regression and BrainGnomes:::lmfit_residuals_mat
+  Y_test <- ts$bold$run1
+  M_test <- cbind(ar_auto$mixing$run1, const_ic = 5.0) # include constant IC column!
+  valid_sub <- rep(TRUE, 40L)
+  valid_sub[c(1L, 12L, 28L)] <- FALSE
+  rej_test <- c(2L, 4L, 5L)
+
+  lm_ref_aroma <- function(Y, M, rej_idx, inc, nonagg = TRUE) {
+    idx <- which(inc)
+    rng <- apply(M[idx, , drop = FALSE], 2L, function(v) abs(max(v) - min(v)))
+    keep <- which(rng >= 1e-8)
+    M_k <- M[, keep, drop = FALSE]
+    rej_k <- which(keep %in% rej_idx)
+    X_all <- cbind(1, M_k)
+    fit_cols <- if (nonagg) seq_len(ncol(X_all)) else c(1L, 1L + rej_k)
+    reg_cols <- c(1L, 1L + rej_k)
+    pred_pos <- match(reg_cols, fit_cols)
+    out <- Y
+    for (v in seq_len(ncol(Y))) {
+      y <- Y[, v]
+      cf <- stats::lm.fit(X_all[idx, fit_cols, drop = FALSE], y[idx])$coefficients
+      cf[is.na(cf)] <- 0
+      res <- y - as.vector(X_all[, reg_cols, drop = FALSE] %*% cf[pred_pos])
+      out[, v] <- res - mean(res[idx]) + mean(y[idx])
+    }
+    out
+  }
+
+  y_na_all <- apply_aroma(Y_test, mixing = M_test, classification = rej_test, mode = "nonaggressive")
+  expect_equal(as.matrix(y_na_all), lm_ref_aroma(Y_test, M_test, rej_test, rep(TRUE, 40L), TRUE),
+               tolerance = 1e-12, ignore_attr = TRUE)
+
+  y_na_val <- apply_aroma(Y_test, mixing = M_test, classification = rej_test, mode = "nonaggressive",
+                          fit_valid_rows = TRUE, valid_rows = valid_sub)
+  expect_equal(as.matrix(y_na_val), lm_ref_aroma(Y_test, M_test, rej_test, valid_sub, TRUE),
+               tolerance = 1e-12, ignore_attr = TRUE)
+
+  y_ag_all <- apply_aroma(Y_test, mixing = M_test, classification = rej_test, mode = "aggressive")
+  expect_equal(as.matrix(y_ag_all), lm_ref_aroma(Y_test, M_test, rej_test, rep(TRUE, 40L), FALSE),
+               tolerance = 1e-12, ignore_attr = TRUE)
+
+  # Voxel-by-time medusa_nifti_ts orientation + drop = TRUE single-matrix attributes
+  ts_vt <- read_nifti_ts(c(run1 = fix$bold_files[1L]), mask = fix$mask_files[1L], tr = fix$tr, orientation = "voxel_by_time")
+  ts_vt_clean <- apply_aroma(ts_vt, mixing = M_test, classification = rej_test)
+  expect_equal(t(ts_vt_clean$bold$run1), as.matrix(y_na_all), tolerance = 1e-12, ignore_attr = TRUE)
+
+  mat_drop <- read_nifti_ts(fix$bold_files[1L], mask = fix$mask_files[1L], tr = fix$tr, drop = TRUE)
+  mat_drop_clean <- apply_aroma(mat_drop, mixing = M_test, classification = rej_test)
+  expect_identical(attr(mat_drop_clean, "voxel_map"), attr(mat_drop, "voxel_map"))
+  expect_identical(attr(mat_drop_clean, "tr"), attr(mat_drop, "tr"))
+
+  if (requireNamespace("BrainGnomes", quietly = TRUE)) {
+    bg_ns <- asNamespace("BrainGnomes")
+    if (exists("lmfit_residuals_mat", envir = bg_ns, inherits = FALSE)) {
+      bg_lm <- get("lmfit_residuals_mat", envir = bg_ns)
+      # Center MELODIC columns on valid_sub so older installed BrainGnomes builds (pre-offset-recenter fix) also match
+      M_bg <- sweep(M_test, 2L, colMeans(M_test[valid_sub, , drop = FALSE]), "-")
+      M_bg[, 5L] <- 5.0
+      y_bg <- suppressWarnings(bg_lm(
+        Y = Y_test, X = M_bg, include_rows = valid_sub,
+        add_intercept = TRUE, preserve_mean = TRUE,
+        regress_cols = rej_test, exclusive = FALSE
+      ))
+      expect_equal(as.matrix(y_na_val), y_bg, tolerance = 1e-12, ignore_attr = TRUE)
+    }
+  }
+  expect_equal(colMeans(y_na_val[valid_sub, , drop = FALSE]), colMeans(Y_test[valid_sub, , drop = FALSE]), tolerance = 1e-12)
+})
+
+test_that("read_fmriprep_confounds and read_fmriprep_subject coordinate AROMA with nuisance regressors and BrainGnomes provenance", {
+  fix <- make_synthetic_bids_fmriprep_tree(tempfile("aroma_subj_"), n_time = 36L, tr = 1.0)
+  on.exit(unlink(dirname(fix$bids_dir), recursive = TRUE), add = TRUE)
+
+  # Populate sibling derivatives/fmripost-aroma/sub-01/ses-01/func/ to test automatic sibling discovery!
+  deriv_root <- dirname(fix$fmriprep_dir)
+  aroma_func <- file.path(deriv_root, "fmripost-aroma", "sub-01", "ses-01", "func")
+  dir.create(aroma_func, recursive = TRUE)
+
+  set.seed(77L)
+  for (r in 1:2) {
+    c_df <- utils::read.delim(fix$conf_files[r], stringsAsFactors = FALSE)
+    s_sig <- sin(2 * pi * seq_len(36L) / 9)
+    m_mot <- 0.5 * s_sig + rnorm(36L, sd = 0.6)
+    mix_r <- cbind(s_sig, m_mot, rnorm(36L))
+
+    # Inject m_mot into csf and make trans_x purely proportional to m_mot (should drop after AROMA cleaning!)
+    c_df$csf <- 800 + 2.5 * m_mot + rnorm(36L, sd = 0.2)
+    c_df$white_matter <- 650 - 1.2 * m_mot + rnorm(36L, sd = 0.2)
+    c_df$trans_x <- 0.35 * m_mot
+    utils::write.table(c_df, fix$conf_files[r], sep = "\t", row.names = FALSE, quote = FALSE)
+
+    stem_r <- sprintf("sub-01_ses-01_task-mid_run-0%d", r)
+    utils::write.table(
+      mix_r,
+      file.path(aroma_func, paste0(stem_r, "_res-2_desc-melodic_mixing.tsv")),
+      sep = "\t", row.names = FALSE, col.names = FALSE
+    )
+    utils::write.table(
+      data.frame(IC = 1:3, classification = c("accepted", "rejected", "accepted")),
+      file.path(aroma_func, paste0(stem_r, "_desc-aroma_metrics.tsv")),
+      sep = "\t", row.names = FALSE, quote = FALSE
+    )
+  }
+
+  # 1. Verify csf_wm / csf_wm_8p strategies and exact commutativity of confound AROMA cleaning under censoring
+  ts_raw <- read_nifti_ts(c(run1 = fix$bold_files[1L], run2 = fix$bold_files[2L]), mask = fix$mask_files[1L], tr = fix$tr)
+  ar_obj <- read_fmriprep_aroma(
+    list.files(aroma_func, pattern = "_desc-melodic_mixing\\.tsv$", full.names = TRUE),
+    bold = ts_raw
+  )
+
+  conf_pre <- read_fmriprep_confounds(fix$conf_files, bold = ts_raw, strategy = "csf_wm", fd_threshold = 0.5)
+  expect_identical(colnames(conf_pre$nuisance$run1), c("csf", "white_matter"))
+  conf_8p <- read_fmriprep_confounds(fix$conf_files, bold = ts_raw, strategy = "csf_wm_8p", fd_threshold = 0.5)
+  expect_equal(ncol(conf_8p$nuisance$run1), 8L)
+
+  conf_direct <- read_fmriprep_confounds(fix$conf_files, bold = ts_raw, strategy = "csf_wm", fd_threshold = 0.5, aroma = ar_obj)
+  conf_post <- apply_aroma(conf_pre, ar_obj)
+  expect_equal(conf_direct$nuisance, conf_post$nuisance, tolerance = 1e-13)
+  expect_identical(conf_direct$valid_rows, conf_pre$valid_rows)
+  expect_equal(conf_direct$framewise_displacement, conf_pre$framewise_displacement, tolerance = 0)
+  expect_match(paste(capture.output(print(conf_direct)), collapse = "\n"), "aroma: nonaggressive")
+
+  # trans_x was purely collinear with rejected IC 2 -> automatically dropped as zero-variance after AROMA cleaning!
+  conf_6p_ar <- read_fmriprep_confounds(fix$conf_files, bold = ts_raw, strategy = "6p", fd_threshold = NULL,
+                                        include_non_steady_state = FALSE, aroma = ar_obj)
+  expect_false("trans_x" %in% colnames(conf_6p_ar$nuisance$run1))
+
+  # 2. Turnkey read_fmriprep_subject auto-discovers sibling derivatives/fmripost-aroma without aroma_dir!
+  sub_ar <- read_fmriprep_subject(
+    fmriprep_dir = fix$fmriprep_dir,
+    bids_dir = fix$bids_dir,
+    sub = "01",
+    task = "mid",
+    aroma = "nonaggressive",
+    strategy = "csf_wm"
+  )
+  expect_true(sub_ar$aroma$applied)
+  expect_true(sub_ar$aroma$nuisance_cleaned)
+  expect_equal(length(sub_ar$bids$aroma_mixing_files), 2L)
+  expect_equal(sub_ar$nuisance, conf_direct$nuisance, tolerance = 1e-13)
+
+  # Remove sibling fmripost-aroma: aroma = "auto" succeeds as graceful no-op, while aroma = "nonaggressive" errors clearly
+  unlink(file.path(deriv_root, "fmripost-aroma"), recursive = TRUE)
+  sub_auto_noop <- read_fmriprep_subject(fix$fmriprep_dir, bids_dir = fix$bids_dir, sub = "01", task = "mid", aroma = "auto", strategy = "csf_wm")
+  expect_null(sub_auto_noop$aroma)
+
+  # Add legacy aroma_motion_01 column to confounds TSV -> error includes helpful hint about full MELODIC mixing matrix
+  c1 <- utils::read.delim(fix$conf_files[1L], stringsAsFactors = FALSE)
+  c1$aroma_motion_01 <- rnorm(36L)
+  utils::write.table(c1, fix$conf_files[1L], sep = "\t", row.names = FALSE, quote = FALSE)
+  expect_error(
+    read_fmriprep_subject(fix$fmriprep_dir, bids_dir = fix$bids_dir, sub = "01", task = "mid", aroma = "nonaggressive"),
+    "aroma_motion_"
+  )
+
+  # 3. BrainGnomes provenance guard when 'apply_aroma' was already executed upstream
+  pp_dir <- file.path(deriv_root, "postproc", "sub-01")
+  dir.create(pp_dir, recursive = TRUE)
+  aroma_ext <- file.path(deriv_root, "custom_aroma")
+  dir.create(aroma_ext, recursive = TRUE)
+
+  for (r in 1:2) {
+    stem_pp <- sprintf("sub-01_ses-01_task-mid_run-0%d_space-MNI152NLin2009cAsym", r)
+    pp_bold <- file.path(pp_dir, paste0(stem_pp, "_desc-postproc_bold.nii.gz"))
+    file.copy(fix$bold_files[r], pp_bold)
+    file.copy(fix$mask_files[r], file.path(pp_dir, paste0(stem_pp, "_desc-brain_mask.nii.gz")))
+
+    mix_p <- file.path(aroma_ext, sprintf("sub-01_ses-01_task-mid_run-0%d_desc-melodic_mixing.tsv", r))
+    met_p <- file.path(aroma_ext, sprintf("sub-01_ses-01_task-mid_run-0%d_desc-aroma_metrics.tsv", r))
+    utils::write.table(ar_obj$mixing[[r]], mix_p, sep = "\t", row.names = FALSE, col.names = FALSE)
+    utils::write.table(ar_obj$metrics[[r]], met_p, sep = "\t", row.names = FALSE, quote = FALSE)
+
+    writeLines(c(
+      "{",
+      '  "BrainGnomes": {',
+      '    "Operations": [ { "Name": "apply_aroma", "Status": "executed" } ],',
+      '    "SourceFiles": [',
+      sprintf('      { "role": "confounds", "path": "%s" },', fix$conf_files[r]),
+      sprintf('      { "role": "melodic_mix", "path": "%s" },', mix_p),
+      sprintf('      { "role": "aroma_metrics", "path": "%s" }', met_p),
+      "    ]",
+      "  }",
+      "}"
+    ), sub("\\.nii\\.gz$", ".json", pp_bold))
+  }
+
+  # Calling aroma = "none" with raw upstream confounds + strategy = "csf_wm" warns about potential artifact re-introduction
+  expect_warning(
+    read_fmriprep_subject(file.path(deriv_root, "postproc"), sub = "01", desc = "postproc",
+                          aroma = "none", strategy = "csf_wm", events = NULL),
+    "re-introduce AROMA motion variance"
+  )
+
+  # Calling aroma = "auto" skips duplicate BOLD AROMA while cleaning the raw upstream confounds via provenance SourceFiles!
+  sub_bg_auto <- read_fmriprep_subject(
+    file.path(deriv_root, "postproc"), sub = "01", desc = "postproc",
+    aroma = "auto", strategy = "csf_wm", events = NULL
+  )
+  expect_null(sub_bg_auto$aroma) # BOLD was NOT double-regressed
+  expect_equal(sub_bg_auto$bold, ts_raw$bold, tolerance = 0)
+  expect_true(isTRUE(sub_bg_auto$confounds$settings$aroma$applied)) # raw confounds WERE cleaned!
+
+  # Calling aroma = "nonaggressive" explicitly warns that BOLD already had apply_aroma executed
+  expect_warning(
+    read_fmriprep_subject(file.path(deriv_root, "postproc"), sub = "01", desc = "postproc",
+                          aroma = "nonaggressive", strategy = "csf_wm", events = NULL),
+    "skipping duplicate AROMA regression on BOLD"
+  )
+})
+
+test_that("End-to-end MEDuSA Steps 1-3 with non-aggressive AROMA preserves task-correlated neural signal and blocks artifact re-introduction", {
+  set.seed(20261117L)
+  root <- tempfile("medusa_aroma_e2e_")
+  fprep_func <- file.path(root, "derivatives", "fmriprep", "sub-01", "func")
+  aroma_func <- file.path(root, "derivatives", "fmripost-aroma", "sub-01", "func")
+  bids_func <- file.path(root, "bids", "sub-01", "func")
+  dir.create(fprep_func, recursive = TRUE)
+  dir.create(aroma_func, recursive = TRUE)
+  dir.create(bids_func, recursive = TRUE)
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+
+  tr <- 1.0
+  n_time <- 96L
+  dim3 <- c(3L, 2L, 2L) # 12 spatial voxels, 6 in-mask parcel voxels
+  mask_arr <- array(0L, dim = dim3)
+  mask_arr[, , 1L] <- 1L
+  atlas_arr <- mask_arr
+
+  affine_e2e <- diag(c(2, 2, 2, 1))
+  attr(affine_e2e, "code") <- 4L
+  write_nii_local <- function(arr, path, img_tr = tr) {
+    nii <- RNifti::asNifti(arr)
+    RNifti::pixdim(nii) <- if (length(dim(arr)) == 4L) c(2, 2, 2, img_tr) else c(2, 2, 2)
+    RNifti::sform(nii) <- affine_e2e
+    RNifti::writeNifti(nii, path)
+    path
+  }
+  atlas_path <- write_nii_local(atlas_arr, file.path(root, "atlas.nii.gz"))
+  mask_template <- write_nii_local(mask_arr, file.path(root, "mask.nii.gz"))
+
+  k_lib <- hrf_library(tr, peak_delays = c(5.0, 6.5), dispersions = 1.0, undershoot_ratios = 6)
+  h_true <- as.numeric(k_lib[, 1L])
+  true_beta <- 0.60
+
+  for (r in 1:3) {
+    onsets <- seq(6, 83, by = 7) # 12 feedback events per run
+    rpe <- round(as.numeric(scale(sin(seq_along(onsets) * 1.3 + r))), 3L)
+    ev_df <- data.frame(
+      onset = onsets,
+      duration = rep(0, length(onsets)),
+      trial_type = rep("feedback", length(onsets)),
+      rpe = rpe
+    )
+
+    # True neural stick train: mean feedback response (1.0) + RPE modulation (0.60 * rpe)
+    neural <- numeric(n_time)
+    idx_on <- as.integer(round(onsets / tr)) + 1L
+    neural[idx_on] <- 1.0 + true_beta * rpe
+    conv_full <- stats::convolve(neural, rev(h_true), type = "open")
+    s_task <- conv_full[seq_len(n_time)]
+
+    # Task-correlated motion component (r ~ 0.65 with task BOLD!) + independent motion component
+    m_rej1 <- 0.85 * as.numeric(scale(s_task)) + rnorm(n_time, sd = 0.65)
+    m_rej2 <- sin(2 * pi * seq_len(n_time) / 5.5) + rnorm(n_time, sd = 0.5)
+    s_bg <- cos(2 * pi * seq_len(n_time) / 18)
+
+    # True physiological CSF/WM noise (shared with BOLD) + contamination from motion ICs
+    u_csf <- rnorm(n_time, sd = 0.35)
+    u_wm <- rnorm(n_time, sd = 0.35)
+    csf_raw <- 500 + 0.8 * m_rej1 + u_csf
+    wm_raw <- 400 + 0.8 * m_rej2 + u_wm
+
+    # Voxel BOLD = baseline + true task signal + background neural IC + heavy motion ICs + physiological + low white noise
+    vox_ts <- matrix(0, nrow = n_time, ncol = 6L)
+    mot_w1 <- c(0.9, 1.1, 0.8, 1.2, 1.0, 0.85)
+    mot_w2 <- c(-0.6, 0.7, -0.5, 0.6, -0.7, 0.55)
+    for (v in 1:6) {
+      vox_ts[, v] <- 100 + s_task + 0.03 * s_bg + mot_w1[v] * m_rej1 + mot_w2[v] * m_rej2 +
+        0.8 * u_csf + 0.8 * u_wm + rnorm(n_time, sd = 0.03)
+    }
+
+    arr4d <- array(0, dim = c(dim3, n_time))
+    for (t_i in seq_len(n_time)) arr4d[, , 1L, t_i] <- matrix(vox_ts[t_i, ], nrow = 3L, ncol = 2L)
+
+    stem <- sprintf("sub-01_task-mid_run-0%d", r)
+    write_nii_local(arr4d, file.path(fprep_func, paste0(stem, "_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")))
+    file.copy(mask_template, file.path(fprep_func, paste0(stem, "_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz")))
+    utils::write.table(ev_df, file.path(bids_func, paste0(stem, "_events.tsv")), sep = "\t", row.names = FALSE, quote = FALSE)
+
+    conf_df <- data.frame(
+      trans_x = rnorm(n_time, sd = 0.01), trans_y = rnorm(n_time, sd = 0.01), trans_z = rnorm(n_time, sd = 0.01),
+      rot_x = rnorm(n_time, sd = 0.001), rot_y = rnorm(n_time, sd = 0.001), rot_z = rnorm(n_time, sd = 0.001),
+      csf = csf_raw, white_matter = wm_raw,
+      framewise_displacement = c("n/a", rep("0.08", n_time - 1L)),
+      stringsAsFactors = FALSE
+    )
+    utils::write.table(conf_df, file.path(fprep_func, paste0(stem, "_desc-confounds_timeseries.tsv")),
+                       sep = "\t", row.names = FALSE, quote = FALSE)
+
+    # MELODIC mixing matrix: IC 1 = task neural, IC 2 = background neural, IC 3 & 4 = rejected motion ICs
+    mix_mat <- cbind(s_task, s_bg, m_rej1, m_rej2)
+    utils::write.table(mix_mat, file.path(aroma_func, paste0(stem, "_res-2_desc-melodic_mixing.tsv")),
+                       sep = "\t", row.names = FALSE, col.names = FALSE)
+    utils::write.table(
+      data.frame(IC = 1:4, classification = c("accepted", "accepted", "rejected", "rejected")),
+      file.path(aroma_func, paste0(stem, "_desc-aroma_metrics.tsv")),
+      sep = "\t", row.names = FALSE, quote = FALSE
+    )
+  }
+
+  run_pipeline <- function(aroma_opt, clean_nuis = TRUE, strat = "csf_wm") {
+    sub_ts <- read_fmriprep_subject(
+      fmriprep_dir = file.path(root, "derivatives", "fmriprep"),
+      bids_dir = file.path(root, "bids"),
+      sub = "01",
+      task = "mid",
+      atlas = atlas_path,
+      aroma = aroma_opt,
+      aroma_clean_nuisance = clean_nuis,
+      strategy = strat,
+      fd_threshold = 0.5
+    )
+    h_fit <- estimate_crossrun_hrf(
+      sub_ts,
+      kernel_grid = k_lib,
+      pooling = "parcel",
+      amplitude_model = "trial",
+      noise_model = "ar1",
+      evidence = "calibrated"
+    )
+    dec <- deconvolve_crossrun_hrf(
+      sub_ts,
+      h_fit,
+      lambda = 0.05,
+      scaling = "noise_sd",
+      nuisance_mode = if (identical(strat, "none")) "ignore" else "joint"
+    )
+    ep <- decon_epoch_regression(
+      dec,
+      covariates = "rpe",
+      target_condition = "feedback",
+      lags = 0,
+      aggregate_by_parcel = TRUE,
+      restore_scale = TRUE
+    )
+    cf0 <- subset(ep$coefficients, term == "rpe" & abs(lag) < 1e-9)
+    list(
+      noise_sd = median(unlist(lapply(dec$scaling, function(s) s$noise_sd))),
+      beta = cf0$beta_corrected[1L],
+      se = cf0$se_weighted[1L]
+    )
+  }
+
+  res_raw <- run_pipeline("none", strat = "none")
+  res_agg <- run_pipeline("aggressive", clean_nuis = TRUE, strat = "csf_wm")
+  res_unclean_nuis <- run_pipeline("nonaggressive", clean_nuis = FALSE, strat = "csf_wm")
+  res_nonagg <- run_pipeline("nonaggressive", clean_nuis = TRUE, strat = "csf_wm")
+
+  # 1. Non-aggressive AROMA + cleaned CSF/WM dramatically lowers Step-2 observation noise SD vs un-denoised BOLD
+  expect_lt(res_nonagg$noise_sd, 0.15)
+  expect_gt(res_raw$noise_sd, 3.0 * res_nonagg$noise_sd)
+
+  # 2. Aggressive AROMA strips task-correlated motion shared with IC 1, severely attenuating the lag-0 RPE slope!
+  expect_lt(res_agg$beta, 0.65 * true_beta)
+
+  # 3. Non-aggressive AROMA preserves the true lag-0 RPE slope accurately with much smaller SE than un-denoised BOLD
+  expect_lt(abs(res_nonagg$beta - true_beta), 0.10)
+  expect_gt(res_nonagg$beta, 1.4 * res_agg$beta)
+  expect_lt(res_nonagg$se, 0.5 * res_raw$se)
+
+  # 4. Lindquist et al. (2019) check: failing to AROMA-clean CSF/WM re-introduces m_rej1 during joint regression!
+  expect_gt(res_unclean_nuis$noise_sd, 2.0 * res_nonagg$noise_sd)
+})

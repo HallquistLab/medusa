@@ -28,8 +28,12 @@ read_fmriprep_subject(
   default_condition = NULL,
   exclude_conditions = NULL,
   na_duration = 0,
-  strategy = c("24p", "6p", "12p", "24p_csf_wm", "27p", "36p", "compcor", "custom",
-    "none"),
+  aroma = "none",
+  aroma_dir = NULL,
+  aroma_clean_nuisance = TRUE,
+  aroma_fit_valid = FALSE,
+  strategy = c("24p", "6p", "12p", "csf_wm", "csf_wm_8p", "24p_csf_wm", "27p", "36p",
+    "compcor", "custom", "none"),
   columns = NULL,
   column_pattern = NULL,
   n_compcor = NULL,
@@ -121,10 +125,48 @@ or \code{NULL} to skip event ingestion (e.g., resting-state).}
 
 \item{condition_col, condition_map, default_condition, exclude_conditions, na_duration}{Event normalization options forwarded to \code{\link{read_bids_events}}.}
 
-\item{strategy, columns, column_pattern, n_compcor, compcor_type, include_cosines}{Nuisance selection options forwarded to \code{\link{read_fmriprep_confounds}}.
-When \code{BrainGnomes} provenance indicates \code{confound_regression} was
-already applied to the BOLD derivative and \code{strategy} is not explicitly
-specified, \code{strategy} defaults automatically to \code{"none"} to avoid
+\item{aroma}{ICA-AROMA denoising policy applied in memory during ingestion:
+\itemize{
+  \item \code{"none"} (default): no AROMA projection applied.
+  \item \code{"nonaggressive"}: discovers \code{fMRIPost-AROMA}
+    (\code{*_desc-melodic_mixing.tsv} + \code{*_desc-aroma_metrics.tsv}) or
+    legacy fMRIPrep \code{<= 23.0} (\code{*_desc-MELODIC_mixing.tsv} +
+    \code{*_AROMAnoiseICs.csv}) sidecars and applies Pruim et al. (2015)
+    non-aggressive partial regression to \code{$bold} (and selected
+    \code{$nuisance} columns when \code{aroma_clean_nuisance = TRUE}).
+  \item \code{"auto"}: applies \code{"nonaggressive"} AROMA when matching
+    AROMA sidecars exist for all runs and skips silently otherwise.
+  \item \code{"aggressive"}: applies full orthogonal removal of rejected
+    AROMA components without protecting accepted signal components.
+  \item A pre-constructed \code{"medusa_aroma"} object from
+    \code{\link{read_fmriprep_aroma}} (applied non-aggressively).
+}
+When \code{BrainGnomes} provenance indicates \code{apply_aroma} was already
+executed upstream on the BOLD derivative, duplicate AROMA regression on
+\code{$bold} is skipped automatically.}
+
+\item{aroma_dir}{Optional path to an \code{fMRIPost-AROMA} derivatives root
+(or subject directory). When \code{NULL}, \code{read_fmriprep_subject()}
+searches \code{fmriprep_dir}, \code{BrainGnomes} provenance
+\code{SourceFiles}, and sibling \code{fmripost_aroma} /
+\code{fmripost-aroma} / \code{aroma} derivative directories automatically.}
+
+\item{aroma_clean_nuisance}{Logical; if \code{TRUE} (default), applies the
+identical AROMA projection operator to selected \code{$nuisance} columns so
+downstream joint regression in \code{\link{estimate_crossrun_hrf}} and
+\code{\link{deconvolve_crossrun_hrf}} cannot re-introduce removed AROMA
+motion variance (Lindquist et al., 2019).}
+
+\item{aroma_fit_valid}{Logical; if \code{TRUE}, estimates AROMA component
+weights using uncensored \code{valid_rows} only rather than full MELODIC
+timecourses (\code{FALSE}, default).}
+
+\item{strategy, columns, column_pattern, n_compcor, compcor_type, include_cosines}{Nuisance selection options forwarded to \code{\link{read_fmriprep_confounds}}
+(including \code{"csf_wm"} and \code{"csf_wm_8p"} for pairing physiological
+regressors with \code{aroma = "nonaggressive"}). When \code{BrainGnomes}
+provenance indicates \code{confound_regression} was already applied to the
+BOLD derivative and \code{strategy} is not explicitly specified,
+\code{strategy} defaults automatically to \code{"none"} to avoid
 double-regressing unfiltered confounds.}
 
 \item{censor}{Either \code{"auto"} (default; automatically uses matching
@@ -143,8 +185,9 @@ options forwarded to \code{\link{read_fmriprep_confounds}}.}
 \value{
 An S3 object of class \code{"medusa_nifti_ts"} enriched with
   \code{$nuisance}, \code{$valid_rows}, \code{$confounds}
-  (\code{"medusa_confounds"}), \code{$events} (when discovered/supplied), and
-  \code{$bids} provenance metadata.
+  (\code{"medusa_confounds"}), \code{$aroma} (when AROMA is applied),
+  \code{$events} (when discovered/supplied), and \code{$bids} provenance
+  metadata.
 }
 \description{
 Locates a participant's preprocessed or \code{BrainGnomes}-postprocessed BOLD
@@ -152,7 +195,8 @@ runs (\code{*_desc-preproc_bold.nii.gz} or \code{*_desc-<desc>_bold.nii.gz}),
 brain or template masks (\code{*_desc-brain_mask.nii.gz},
 \code{*_templatemask.nii.gz}), confound tables
 (\code{*_desc-confounds_timeseries.tsv}, \code{*_desc-<desc>_confounds.tsv}),
-optional \code{*_censor.1D} masks, and optional BIDS event tables
+optional \code{fMRIPost-AROMA} / legacy ICA-AROMA mixing and classification
+sidecars, optional \code{*_censor.1D} masks, and optional BIDS event tables
 (\code{*_events.tsv}), returning a \code{"medusa_nifti_ts"} object populated
 with C++-extracted \code{T x V} \code{$bold} matrices, \code{$voxel_map},
 \code{$parcel_ids}, \code{$tr}, \code{$nuisance}, \code{$valid_rows},
@@ -214,6 +258,7 @@ unlink(root, recursive = TRUE)
 }
 \seealso{
 \code{\link{read_nifti_ts}}, \code{\link{read_fmriprep_confounds}},
+  \code{\link{read_fmriprep_aroma}}, \code{\link{apply_aroma}},
   \code{\link{read_bids_events}}, \code{\link{estimate_crossrun_hrf}},
   \code{\link{deconvolve_crossrun_hrf}}
 }

@@ -56,14 +56,23 @@
   2012 FD fallback, external `*_censor.1D` / `*_scrub.tsv` sidecars,
   `non_steady_state_outlier*`, spike dilation, `min_segment_length`) and
   strictly finite `nuisance` matrices
-  (`"24p"`, `"12p"`, `"6p"`, `"24p_csf_wm"`, `"27p"`, `"36p"`, `"compcor"`,
-  `"custom"` with `<0-k>` range/shorthand expansion, `"none"`) without deleting
-  censored TRs; and `read_fmriprep_subject()` discovers raw fMRIPrep (`desc = "preproc"`)
-  or `BrainGnomes` postprocessed (`desc = "postproc"`, `*_templatemask.nii.gz`,
-  `*_censor.1D`, provenance checks blocking physically scrubbed BOLD and
-  double confound regression) BOLD runs, masks, confounds, and BIDS events into
-  an enriched `"medusa_nifti_ts"` bundle accepted directly by
-  `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`, and `align_medusa_ts()`.
+  (`"24p"`, `"12p"`, `"6p"`, `"csf_wm"`, `"csf_wm_8p"`, `"24p_csf_wm"`,
+  `"27p"`, `"36p"`, `"compcor"`, `"custom"` with `<0-k>` range/shorthand
+  expansion, `"none"`) without deleting censored TRs; `read_fmriprep_aroma()`
+  and `apply_aroma()` ingest `fMRIPost-AROMA` (`*_desc-melodic_mixing.tsv` +
+  `*_desc-aroma_metrics.tsv`) and legacy fMRIPrep (`*_desc-MELODIC_mixing.tsv`
+  + `*_AROMAnoiseICs.csv`) components to perform in-memory non-aggressive
+  Pruim et al. (2015) partial regression on BOLD and matched nuisance
+  regressors (preventing Lindquist et al., 2019 artifact re-introduction while
+  preserving task-correlated neural amplitudes and temporal degrees of freedom);
+  and `read_fmriprep_subject()` discovers raw fMRIPrep (`desc = "preproc"`,
+  optional `aroma = "nonaggressive"` / `"auto"` and `aroma_dir`) or
+  `BrainGnomes` postprocessed (`desc = "postproc"`, `*_templatemask.nii.gz`,
+  `*_censor.1D`, provenance checks blocking physically scrubbed BOLD,
+  duplicate AROMA regression, and double confound regression) BOLD runs, masks,
+  confounds, and BIDS events into an enriched `"medusa_nifti_ts"` bundle
+  accepted directly by `estimate_crossrun_hrf()`, `deconvolve_crossrun_hrf()`,
+  and `align_medusa_ts()`.
 * Added sparse bilateral HRF and noise graph pooling (`build_spatial_graph()`
   and `estimate_crossrun_hrf(..., pooling = "graph")`, while preserving
   `pooling = "voxel"` as the default for atlas-free NIfTI inputs): constructs
