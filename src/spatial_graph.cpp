@@ -1051,12 +1051,32 @@ Rcpp::List csr_hrf_graph_pool_cpp(
       }
     }
 
+    // SNR-adaptive Empirical-Bayes canonical prior & Boltzmann temperature:
+    // Preserves full canonical_strength protection on weak/null neighborhoods (z_ev <= 2.5)
+    // while decaying as O(1 / z_ev^2) when pooled task evidence is decisive.
+    double z_ev_u = 0.0;
+    if (has_gate) {
+      double min_pt_raw = 1.0;
+      for (int k = 0; k < K; ++k) {
+        const double pt_k = p_task_pool[static_cast<size_t>(k)] / std::max(1.0, eff_task);
+        if (std::isfinite(pt_k) && pt_k < min_pt_raw) min_pt_raw = pt_k;
+      }
+      min_pt_raw = std::min(0.999999, std::max(1e-15, min_pt_raw));
+      z_ev_u = R::qnorm5(1.0 - min_pt_raw, 0.0, 1.0, 1, 0);
+    }
+    const double c_eff_u = (has_gate && z_ev_u > 2.5)
+      ? (canonical_strength / (1.0 + 0.35 * (z_ev_u - 2.5) * (z_ev_u - 2.5)))
+      : canonical_strength;
+    const double temp_eff_u = (has_gate && z_ev_u > 3.5)
+      ? std::max(0.14, 0.20 / (1.0 + 0.06 * (z_ev_u - 3.5)))
+      : 0.20;
+
     // Hard candidate selection
     int best_hard = fb;
     double best_hard_obj = -std::numeric_limits<double>::infinity();
     for (int k = 0; k < K; ++k) {
       if (!admissible[static_cast<size_t>(k)]) continue;
-      const double obj_k = pooled_bilat(k) - canonical_strength * dist_fb[k];
+      const double obj_k = pooled_bilat(k) - c_eff_u * dist_fb[k];
       if (obj_k > best_hard_obj) {
         best_hard_obj = obj_k;
         best_hard = k;
@@ -1095,7 +1115,7 @@ Rcpp::List csr_hrf_graph_pool_cpp(
       double best_c_obj = -std::numeric_limits<double>::infinity();
       for (int k = 0; k < K; ++k) {
         if (k == fb || !comp_ok[static_cast<size_t>(k)]) continue;
-        const double obj_k = pooled_bilat(k) - canonical_strength * dist_fb[k];
+        const double obj_k = pooled_bilat(k) - c_eff_u * dist_fb[k];
         if (obj_k > best_c_obj) {
           best_c_obj = obj_k;
           best_c = k;
@@ -1130,7 +1150,7 @@ Rcpp::List csr_hrf_graph_pool_cpp(
               }
             }
             const bool sym_blocked = (opp_c >= 0 && min_cos_tau < -0.5 &&
-              (pooled_bilat(best_c) - pooled_bilat(opp_c)) <= 2.0 * canonical_strength * dist_fb[best_c]);
+              (pooled_bilat(best_c) - pooled_bilat(opp_c)) <= 2.0 * c_eff_u * dist_fb[best_c]);
             if (!sym_blocked) {
               double mu_d = 0.0, w_d_sum = 0.0;
               for (int a = 0; a < ku; ++a) {
@@ -1139,7 +1159,7 @@ Rcpp::List csr_hrf_graph_pool_cpp(
                 const double sc_f = scores(fb, v);
                 if (std::isfinite(sc_b) && std::isfinite(sc_f)) {
                   const double wbl = w_bilat[static_cast<size_t>(a)];
-                  const double d_a = (sc_b - canonical_strength * dist_fb[best_c]) - sc_f;
+                  const double d_a = (sc_b - c_eff_u * dist_fb[best_c]) - sc_f;
                   mu_d += wbl * d_a;
                   w_d_sum += wbl;
                 }
@@ -1153,7 +1173,7 @@ Rcpp::List csr_hrf_graph_pool_cpp(
                   const double sc_f = scores(fb, v);
                   if (std::isfinite(sc_b) && std::isfinite(sc_f)) {
                     const double wbl = w_bilat[static_cast<size_t>(a)] / w_d_sum;
-                    const double d_a = (sc_b - canonical_strength * dist_fb[best_c]) - sc_f;
+                    const double d_a = (sc_b - c_eff_u * dist_fb[best_c]) - sc_f;
                     const double dev = d_a - mu_d;
                     s2_d += wbl * dev * dev;
                   }
@@ -1176,7 +1196,7 @@ Rcpp::List csr_hrf_graph_pool_cpp(
           const double z_eff = std::max(z_s, z_tdiff);
           omega_u = std::min(1.0, std::max(0.0, (z_eff - z_eb_0) / z_eb_span));
           if (admissible[static_cast<size_t>(best_c)]) {
-            omega_u = std::max(0.85, omega_u);
+            omega_u = (z_eff > 3.2) ? 1.0 : std::max(0.85, omega_u);
           }
         }
       }
@@ -1201,7 +1221,7 @@ Rcpp::List csr_hrf_graph_pool_cpp(
       if (!comp_ok[static_cast<size_t>(k)] || !std::isfinite(pooled_bilat(k))) continue;
       ++n_comp_ok;
       sc_ok_vals.push_back(pooled_bilat(k));
-      const double obj_k = pooled_bilat(k) - canonical_strength * dist_fb[k];
+      const double obj_k = pooled_bilat(k) - c_eff_u * dist_fb[k];
       if (obj_k > top_obj) {
         top_obj = obj_k;
         k_top = k;
@@ -1211,37 +1231,46 @@ Rcpp::List csr_hrf_graph_pool_cpp(
     if (n_comp_ok == 0 || !std::isfinite(top_obj)) continue;
 
     std::vector<std::pair<double, int>> cone_cands;
-    cone_cands.reserve(static_cast<size_t>(n_comp_ok));
+    cone_cands.reserve(static_cast<size_t>(K));
+    const double sc_top_u = pooled_bilat(k_top);
+    int n_local_cone = 0;
+    std::vector<double> sc_fin_vals;
+    sc_fin_vals.reserve(static_cast<size_t>(K));
     for (int k = 0; k < K; ++k) {
-      if (!comp_ok[static_cast<size_t>(k)] || !std::isfinite(pooled_bilat(k))) continue;
+      if (!std::isfinite(pooled_bilat(k))) continue;
+      sc_fin_vals.push_back(pooled_bilat(k));
+      const bool in_local = comp_ok[static_cast<size_t>(k)] ||
+        ((kernel_cos(k_top, k) >= 0.90) && (pooled_bilat(k) >= std::max(min_r2, 0.90 * sc_top_u)));
+      if (!in_local) continue;
+      ++n_local_cone;
       if (kernel_cos(k_top, k) >= 0.85) {
-        cone_cands.emplace_back(pooled_bilat(k) - canonical_strength * dist_fb[k], k);
+        cone_cands.emplace_back(pooled_bilat(k) - c_eff_u * dist_fb[k], k);
       }
     }
-    if (cone_cands.empty()) continue;
+    if (cone_cands.empty() || sc_fin_vals.empty()) continue;
 
     std::sort(cone_cands.begin(), cone_cands.end(),
               [](const std::pair<double, int>& a, const std::pair<double, int>& b) {
                 if (a.first != b.first) return a.first > b.first;
                 return a.second < b.second;
               });
-    const int top_k_cap = std::max(4, std::min(10, static_cast<int>(std::ceil(0.25 * n_comp_ok))));
+    const int top_k_cap = std::max(4, std::min(8, static_cast<int>(std::ceil(0.30 * n_local_cone))));
     if (static_cast<int>(cone_cands.size()) > top_k_cap) {
       cone_cands.resize(static_cast<size_t>(top_k_cap));
     }
 
-    std::sort(sc_ok_vals.begin(), sc_ok_vals.end());
-    const size_t n_sc = sc_ok_vals.size();
+    std::sort(sc_fin_vals.begin(), sc_fin_vals.end());
+    const size_t n_sc = sc_fin_vals.size();
     const double med_sc = (n_sc % 2 == 1)
-      ? sc_ok_vals[n_sc / 2]
-      : 0.5 * (sc_ok_vals[n_sc / 2 - 1] + sc_ok_vals[n_sc / 2]);
-    const double spread = std::max(1e-4, sc_ok_vals.back() - med_sc);
+      ? sc_fin_vals[n_sc / 2]
+      : 0.5 * (sc_fin_vals[n_sc / 2 - 1] + sc_fin_vals[n_sc / 2]);
+    const double spread = std::max(1e-4, sc_fin_vals.back() - med_sc);
     const double max_cone_obj = cone_cands[0].first;
 
     arma::vec w_data(K, arma::fill::zeros);
     double w_sub_sum = 0.0;
     for (const auto& pr : cone_cands) {
-      const double delta = std::max(-20.0, (pr.first - max_cone_obj) / (0.20 * spread));
+      const double delta = std::max(-20.0, (pr.first - max_cone_obj) / (temp_eff_u * spread));
       const double ws = std::exp(delta);
       w_data(pr.second) = ws;
       w_sub_sum += ws;

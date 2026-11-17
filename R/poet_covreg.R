@@ -883,13 +883,19 @@ medusa_fit_shared_error_covreg <- function(
     w_src <- if (is.null(readout_width)) 1.5 * tr else readout_width[1L]
 
     fw_r <- r_op$fw_r
-    nuis_r <- if (!is.null(fit$specification$nuisance) &&
+    nuis_raw_r <- if (!is.null(fit$specification$nuisance) &&
                   length(fit$specification$nuisance) >= r &&
                   !is.null(fit$specification$nuisance[[r]])) {
       fit$specification$nuisance[[r]]
     } else {
-      matrix(numeric(), n, 0L)
+      NULL
     }
+    pcs_cov_r <- if (!is.null(deconvolution$noise_pcs) && length(deconvolution$noise_pcs) >= r) {
+      deconvolution$noise_pcs[[r]]
+    } else {
+      NULL
+    }
+    nuis_r <- hrf_combine_run_nuisance(nuis_raw_r, pcs_cov_r, n)
     z_r_base <- cbind(intercept = 1, trend = seq(-1, 1, length.out = n), nuis_r)
     mask_bool <- seq_len(n) %in% rows
 

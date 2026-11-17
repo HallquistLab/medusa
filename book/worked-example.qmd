@@ -31,25 +31,26 @@ library(medusa)
 
 # Step 1: Cross-fit HRFs on non-target runs and estimate own-run AR(p) noise
 hrf_fit <- estimate_crossrun_hrf(
-  bold, events, tr, candidates, amplitude_model = "trial",
-  noise_model = "ar1", evidence = "calibrated"
+  bold, events, tr, candidates, amplitude_model = "auto",
+  selection_mode = "soft_average", noise_model = "ar1",
+  evidence = "calibrated", noise_pcs = "auto"
 )
 
 # Step 2: Reconstruct continuous latent activity on an observation-noise scale
 dec <- deconvolve_crossrun_hrf(
   bold, hrf_fit, lambda = .1, scaling = "noise_sd", penalty = "sobolev",
-  nuisance_mode = "ignore", observation_mask = "fit"
+  nuisance_mode = "preproject", noise_pcs = "auto", observation_mask = "fit"
 )
 
 # Steps 3 & 4: Aggregate into parcels, de-mix overlapping events, and propagate SEs
 epochs <- decon_epoch_regression(
   dec, covariates, target_condition = "feedback", lags = -2:4,
-  parcel_groups = parcel_ids, restore_scale = TRUE,
+  parcel_groups = parcel_ids, other_event_model = "auto", restore_scale = TRUE,
   demix_within_trial = FALSE, tau2_mode = "marginal", return_panel = TRUE
 )
 ```
 
-*(Here `lambda = 0.1` is fixed to match the teaching vignette; in empirical studies, leaving `lambda = NULL` tunes smoothness automatically across runs.)*
+*(Here `lambda = 0.1` is fixed to match the saved teaching checkpoint; in empirical studies, leaving `lambda = NULL` tunes SNR-stratified smoothness automatically across runs, while `amplitude_model = "auto"`, `nuisance_mode = "preproject"`, and `noise_pcs = "auto"` handle zero-mean modulated parcels, `< 1/128 Hz` DCT drift, and cross-validated background physiological PCs.)*
 
 ### Following a single trial across Steps 1–4 {#sec-worked-checkpoints}
 

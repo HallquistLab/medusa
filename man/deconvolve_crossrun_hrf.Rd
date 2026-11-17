@@ -22,7 +22,10 @@ deconvolve_crossrun_hrf(
   lambda_mode = c("auto", "global", "stratified"),
   max_lambda_strata = 4L,
   rwls = "auto",
-  highpass = NULL
+  highpass = NULL,
+  noise_pcs = "auto",
+  max_noise_pcs = 10L,
+  noise_pool = NULL
 )
 }
 \arguments{
@@ -98,6 +101,19 @@ Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 \item{highpass}{Optional DCT highpass cutoff period in seconds inherited from
 \code{hrf_fit$settings$highpass} when \code{NULL} (\code{128} s in modern
 mode; \code{Inf} / disabled when \code{Inf} or \code{<= 0}).}
+
+\item{noise_pcs}{Cross-validated GLMdenoise-style background noise-pool temporal PCs:
+\code{"auto"} (default; inherits \code{hrf_fit$specification$noise_pcs} when
+already estimated in Step 1, or extracts \eqn{0 \dots \code{max_noise_pcs}} PCs
+on modern fits), \code{0L}/\code{FALSE}/\code{"none"} (disabled), or a fixed
+positive integer count.}
+
+\item{max_noise_pcs}{Maximum candidate noise-pool PCs evaluated when
+\code{noise_pcs = "auto"} (default \code{10L}).}
+
+\item{noise_pool}{Optional explicit background noise-pool specification (logical
+mask, integer column indices, or character voxel IDs). Overrides Step-1
+noise pool when supplied.}
 }
 \value{
 An S3 list of class \code{"crossrun_decon"} with \code{activity}
