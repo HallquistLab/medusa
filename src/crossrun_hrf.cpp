@@ -1,6 +1,48 @@
 #include "medusa.h"
 
 namespace {
+bool hrf_safe_svd_full(arma::mat& U, arma::vec& s, arma::mat& V, const arma::mat& X) {
+  if (arma::svd(U, s, V, X, "dc")) return true;
+  return arma::svd(U, s, V, X, "std");
+}
+
+bool hrf_safe_svd_econ(arma::mat& U, arma::vec& s, arma::mat& V, const arma::mat& X,
+                       const char* mode = "both") {
+  if (arma::svd_econ(U, s, V, X, mode, "dc")) return true;
+  if (arma::svd_econ(U, s, V, X, mode, "std")) return true;
+  // Symmetric eigendecomposition fallback if both dgesdd and dgesvd fail
+  const arma::uword nr = X.n_rows, nc = X.n_cols;
+  if (nr >= nc) {
+    arma::vec eigval;
+    arma::mat eigvec;
+    if (!arma::eig_sym(eigval, eigvec, X.t() * X)) return false;
+    eigvec = arma::fliplr(eigvec);
+    s = arma::sqrt(arma::clamp(arma::flipud(eigval), 0.0, arma::datum::inf));
+    V = eigvec;
+    U.set_size(nr, nc);
+    U.zeros();
+    const double smax = s.n_elem > 0 ? std::max(s(0), 1e-16) : 1.0;
+    for (arma::uword j = 0; j < nc; ++j) {
+      if (s(j) > 1e-12 * smax) U.col(j) = (X * V.col(j)) / s(j);
+    }
+    return true;
+  } else {
+    arma::vec eigval;
+    arma::mat eigvec;
+    if (!arma::eig_sym(eigval, eigvec, X * X.t())) return false;
+    eigvec = arma::fliplr(eigvec);
+    s = arma::sqrt(arma::clamp(arma::flipud(eigval), 0.0, arma::datum::inf));
+    U = eigvec;
+    V.set_size(nc, nr);
+    V.zeros();
+    const double smax = s.n_elem > 0 ? std::max(s(0), 1e-16) : 1.0;
+    for (arma::uword j = 0; j < nr; ++j) {
+      if (s(j) > 1e-12 * smax) V.col(j) = (X.t() * U.col(j)) / s(j);
+    }
+    return true;
+  }
+}
+
 arma::mat hrf_basis(const arma::mat& x, double tol) {
   if (x.n_cols == 0) return arma::mat(x.n_rows, 0);
   arma::mat scaled = x;
@@ -11,7 +53,7 @@ arma::mat hrf_basis(const arma::mat& x, double tol) {
   if (scaled.n_rows > 2 * scaled.n_cols && scaled.n_cols >= 4) {
     arma::mat q_qr, r_qr, u_r, v_r;
     arma::vec s;
-    if (arma::qr_econ(q_qr, r_qr, scaled) && arma::svd(u_r, s, v_r, r_qr)) {
+    if (arma::qr_econ(q_qr, r_qr, scaled) && hrf_safe_svd_full(u_r, s, v_r, r_qr)) {
       if (s.n_elem == 0 || s(0) == 0) return arma::mat(x.n_rows, 0);
       arma::uword rank = arma::accu(s > tol * s(0));
       return rank ? (q_qr * u_r.cols(0, rank - 1)) : arma::mat(x.n_rows, 0);
@@ -19,7 +61,7 @@ arma::mat hrf_basis(const arma::mat& x, double tol) {
   }
   arma::mat u, v;
   arma::vec s;
-  if (!arma::svd_econ(u, s, v, scaled)) Rcpp::stop("HRF design SVD failed");
+  if (!hrf_safe_svd_econ(u, s, v, scaled, "left")) Rcpp::stop("HRF design SVD failed");
   if (s.n_elem == 0 || s(0) == 0) return arma::mat(x.n_rows, 0);
   arma::uword rank = arma::accu(s > tol * s(0));
   return rank ? u.cols(0, rank - 1) : arma::mat(x.n_rows, 0);
@@ -499,7 +541,7 @@ Rcpp::List hrf_score_run_cpp(const arma::mat& bold, const Rcpp::List& designs,
       const arma::mat& Qj = qt[j];
       arma::mat U_c, V_c;
       arma::vec s_c;
-      if (!arma::svd(U_c, s_c, V_c, Qi.t() * Qj)) continue;
+      if (!hrf_safe_svd_full(U_c, s_c, V_c, Qi.t() * Qj)) continue;
       arma::vec cos_t = arma::clamp(s_c, 0.0, 1.0);
       arma::vec sin_t = arma::sqrt(arma::clamp(1.0 - arma::square(cos_t), 0.0, 1.0));
       double max_sin = sin_t.max();
@@ -688,7 +730,7 @@ arma::mat hrf_noise_profile_cpp(const arma::mat& bold, const arma::mat& mean_des
     arma::mat wx = basis, v;
     hrf_whiten_inplace(wx, f.d_ar, f.s_ar, rho);
     arma::vec s;
-    if (!arma::svd_econ(f.q, s, v, wx)) Rcpp::stop("Noise design SVD failed");
+    if (!hrf_safe_svd_econ(f.q, s, v, wx, "left")) Rcpp::stop("Noise design SVD failed");
     double logdet_design = 2 * arma::sum(arma::log(s));
     double logdet_w = .5 * std::log1p(-rho * rho);
     for (arma::uword i = 1; i < keep.n_elem; ++i) {
@@ -821,7 +863,7 @@ arma::mat hrf_inverse_operator_cpp(int n_time, const arma::vec& kernel,
         whitener.apply(a_mat);
         arma::vec d_a;
         arma::mat v_a;
-        bool ok_svd = arma::svd_econ(u_a, d_a, v_a, a_mat, "left");
+        bool ok_svd = hrf_safe_svd_econ(u_a, d_a, v_a, a_mat, "left");
         if (!ok_svd) Rcpp::stop("SVD failed in Woodbury rWLS whitener");
         sh_a = 1.0 - 1.0 / arma::sqrt(1.0 + arma::square(d_a));
       }

@@ -839,6 +839,10 @@ hrf_compute_spatial_weights <- function(spatial_coords, spatial_groups, spatial_
 #'   (default \code{48L}). Continuous weights are preserved in \code{kernel_weights}.
 #' @param max_noise_strata Maximum bilateral REML noise strata per run when
 #'   \code{pooling = "graph"} (default \code{10L}).
+#' @param highpass Optional discrete cosine transform (DCT) highpass cutoff
+#'   period in seconds for run-level scanner drift removal. Defaults to
+#'   \code{128} in modern AR/calibrated mode (\code{Inf} / disabled in legacy
+#'   OLS/legacy mode).
 #' @return An object of class crossrun_hrf with normalized kernels, per-target-run
 #'   selections and training manifests, parcel anchors, run status/design summaries,
 #'   optional candidate scores, voxel/run IDs, and frozen settings (including
@@ -901,7 +905,8 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     noise_groups = NULL, run_col = "run",
     spatial_graph = NULL, parcel_boundary = c("soft", "hard", "ignore"),
     parcel_cross_weight = 0.35, max_neighbors = 32L,
-    max_hrf_strata = 48L, max_noise_strata = 10L) {
+    max_hrf_strata = 48L, max_noise_strata = 10L,
+    highpass = NULL) {
   nuisance_missing <- missing(nuisance)
   valid_rows_missing <- missing(valid_rows)
   bold_unpacked <- hrf_unpack_bold_input(bold)
@@ -933,6 +938,15 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
   noise_model <- match.arg(noise_model)
   evidence <- match.arg(evidence)
   selection_mode <- match.arg(selection_mode)
+  modern_hrf <- identical(noise_model, "ar1") && identical(evidence, "calibrated")
+  highpass_sec <- if (is.null(highpass)) {
+    if (modern_hrf) 128.0 else Inf
+  } else if (isFALSE(highpass)) {
+    Inf
+  } else {
+    checkmate::assert_number(highpass, lower = 0, na.ok = FALSE)
+    if (!is.finite(highpass) || highpass <= 0) Inf else as.numeric(highpass)
+  }
   checkmate::assert_number(evidence_alpha, lower = .Machine$double.eps, upper = 0.5, finite = TRUE)
   checkmate::assert_number(canonical_strength, lower = 0, finite = TRUE)
   checkmate::assert_number(parcel_cross_weight, lower = 0, upper = 1, finite = TRUE)
@@ -1125,6 +1139,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     mask <- !is.na(mask) & mask
     z <- cbind(intercept = 1, trend = seq(-1, 1, length.out = nrow(y)), nuisance[[r]])
     if (any(!is.finite(z[mask, , drop = FALSE]))) stop("Nuisance values must be finite on usable rows")
+    z_score <- z
     noise[[r]] <- hrf_estimate_noise(y, ev, tr, offsets[r], kernels, fallback_kernel,
       z, mask, eff_noise_groups, noise_grid, batch_size,
       if (noise_model == "ols") 0 else if (!is.null(noise_rho)) noise_rho[r] else NULL,
@@ -1138,7 +1153,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         signal_status = rep("no_events", ncol(y)))
       if (evidence == "calibrated") for (field in c("task_p", "fallback_p", "incompatible_p"))
         result[[field]] <- matrix(NA_real_, ncol(kernels), ncol(y))
-      z_obs <- z[mask, , drop = FALSE]
+      z_obs <- z_score[mask, , drop = FALSE]
       sv_z <- if (nrow(z_obs) > 0L && ncol(z_obs) > 0L) hrf_safe_svd(z_obs, nu = 0, nv = 0)$d else numeric(0L)
       rk_z <- if (length(sv_z) && sv_z[1L] > 0) sum(sv_z > 1e-8 * sv_z[1L]) else 0L
       run_results[[r]] <- result
@@ -1150,7 +1165,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         status = result$signal_status)
       next
     }
-    design <- hrf_build_run_design(y, ev, tr, offsets[r], kernels, z, mask,
+    design <- hrf_build_run_design(y, ev, tr, offsets[r], kernels, z_score, mask,
       amplitude_model, rho_ref, batch_size, fallback_kernel, spatial_groups = spatial_groups)
     result <- list(scores = matrix(NA_real_, ncol(kernels), ncol(y)),
       signal_status = rep("insufficient_observations", ncol(y)))
@@ -1178,7 +1193,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
       rho <- ar_vec[1L]
       des_use <- cand_des_r[[des_id_r[idx1]]]
       part <- if (sum(mask) >= 3L) {
-        hrf_score_run_ar(y[, indices, drop = FALSE], des_use, z, which(mask),
+        hrf_score_run_ar(y[, indices, drop = FALSE], des_use, z_score, which(mask),
           as.integer(batch_size), ar_vec = ar_vec, evidence = evidence == "calibrated",
           fallback_index = as.integer(fallback_kernel))
       } else list(scores = matrix(NA_real_, ncol(kernels), length(indices)),
@@ -1210,6 +1225,8 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
   if (is_single_run) {
     mask_1 <- !is.na(valid_rows[[1L]]) & valid_rows[[1L]]
     z_1 <- cbind(intercept = 1, trend = seq(-1, 1, length.out = nrow(bold[[1L]])), nuisance[[1L]])
+    dct_1 <- hrf_build_dct_drift_cols(nrow(bold[[1L]]), tr, sum(mask_1), highpass_sec = highpass_sec)
+    if (ncol(dct_1) > 0L) z_1 <- cbind(z_1, dct_1)
     subblock_fit <- hrf_single_run_subblocks(names(bold)[1L], bold[[1L]], events[[1L]],
       tr, offsets[1L], kernels, candidate_ids, z_1, mask_1, noise[[1L]],
       amplitude_model, batch_size, fallback_kernel, evidence, noise_model,
@@ -1758,6 +1775,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         if (pooling == "graph" && parcel_boundary != "hard") "sparse_bilateral_graph" else
         if (is.null(spatial_groups)) "run" else "supplied_parcel",
       nuisance = "run_specific_intercept_linear_trend_and_supplied", noise_model = noise_model,
+      highpass = highpass_sec,
       selection = if (is_single_run) "within_run_subblock_pooled" else "leave_target_run_out",
       parcel_fallback = !is.null(spatial_groups) && pooling != "graph",
       spatial_regularization = if (pooling == "graph") "sparse_bilateral_graph" else
@@ -1820,11 +1838,16 @@ print.crossrun_hrf <- function(x, ...) {
 #' @param operator_cache_mb Maximum inverse-operator cache size in MiB, default
 #'   128. Zero disables reuse across runs. A single operator may exceed the cache
 #'   budget while it is being applied, but is not retained in the cache.
-#' @param nuisance_mode Jointly fit unpenalized intercept, trend, and supplied
-#'   nuisance terms, or ignore them (default, preserving prepared input signals).
-#'   Joint projection is applied to both data and design, but can amplify weakly
-#'   identified low-frequency activity in a flexible continuous inverse. Validate
-#'   it for the intended design rather than assuming it improves recovery.
+#' @param nuisance_mode Nuisance handling for intercept, linear trend, DCT
+#'   highpass drift (\code{highpass}), and supplied \code{nuisance} columns:
+#'   \code{"preproject"} (default on modern AR/calibrated fits with \code{cpp} or
+#'   \code{r} backends; observation-weighted orthogonal residualization before
+#'   applying the continuous inverse operator), \code{"joint"} (simultaneous
+#'   unpenalized nuisance normal equations), or \code{"ignore"} (default on
+#'   legacy OLS or \code{wiener} fits).
+#' @param highpass Optional DCT highpass cutoff period in seconds inherited from
+#'   \code{hrf_fit$settings$highpass} when \code{NULL} (\code{128} s in modern
+#'   mode; \code{Inf} / disabled when \code{Inf} or \code{<= 0}).
 #' @param observation_mask Use fit's valid_rows in the inverse (fit), or all
 #'   observations (all). Defaults to fit for AR/calibrated, all for OLS/legacy.
 #' @param lambda_grid Candidate regularization values evaluated when
@@ -1889,7 +1912,7 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     nuisance_mode = NULL, observation_mask = NULL,
     lambda_grid = 10^seq(-2, 1.0, length.out = 16), gcv_rule = c("min", "1se"),
     lambda_mode = c("auto", "global", "stratified"), max_lambda_strata = 4L,
-    rwls = "auto") {
+    rwls = "auto", highpass = NULL) {
   bold_unpacked <- hrf_unpack_bold_input(bold)
   bold <- bold_unpacked$bold
   hrf_validate_bold(bold)
@@ -1923,10 +1946,35 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
   checkmate::assert_integerish(tail_padding, lower = 0, len = 1L)
   checkmate::assert_number(ridge_floor, lower = 0, finite = TRUE)
   checkmate::assert_number(operator_cache_mb, lower = 0, finite = TRUE)
-  if (is.null(nuisance_mode)) nuisance_mode <- "ignore"
+  nuisance_mode_auto <- is.null(nuisance_mode)
+  highpass_auto <- is.null(highpass)
+  has_user_nuisance <- !is.null(hrf_fit$specification$nuisance) &&
+    any(vapply(hrf_fit$specification$nuisance, function(m) is.matrix(m) && ncol(m) > 0L, logical(1L)))
+  if (nuisance_mode_auto) {
+    use_preproj <- modern && backend != "wiener" &&
+      (!(scaling %in% c("demean", "none")) || has_user_nuisance)
+    nuisance_mode <- if (use_preproj) "preproject" else "ignore"
+  }
   if (is.null(observation_mask)) observation_mask <- if (modern) "fit" else "all"
-  nuisance_mode <- match.arg(nuisance_mode, c("joint", "ignore"))
+  nuisance_mode <- match.arg(nuisance_mode, c("preproject", "joint", "ignore"))
   observation_mask <- match.arg(observation_mask, c("fit", "all"))
+  highpass_sec <- if (highpass_auto) {
+    if (!is.null(hrf_fit$settings$highpass)) as.numeric(hrf_fit$settings$highpass) else if (modern) 128.0 else Inf
+  } else if (isFALSE(highpass)) {
+    Inf
+  } else {
+    checkmate::assert_number(highpass, lower = 0, na.ok = FALSE)
+    if (!is.finite(highpass) || highpass <= 0) Inf else as.numeric(highpass)
+  }
+  drift_preproject_active <- if (identical(nuisance_mode, "preproject")) {
+    if (!nuisance_mode_auto || !highpass_auto || has_user_nuisance) {
+      TRUE
+    } else {
+      hrf_detect_lowfreq_drift(bold, hrf_fit, observation_mask = observation_mask, highpass_sec = highpass_sec)
+    }
+  } else {
+    TRUE
+  }
   if (is.logical(rwls)) {
     checkmate::assert_flag(rwls)
     rwls_mode <- if (isTRUE(rwls)) "woodbury" else "none"
@@ -1979,15 +2027,21 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
       if (length(ok_cols) <= 4096L) {
         rwls_cols <- ok_cols
       } else {
-        r2_r <- if (!is.null(hrf_fit$selections[[r]]$r2)) {
-          as.numeric(hrf_fit$selections[[r]]$r2[ok_cols])
+        sel_r <- hrf_fit$selections[[r]]
+        r2_r <- if (!is.null(sel_r$selected_adjusted_partial_r2)) {
+          as.numeric(sel_r$selected_adjusted_partial_r2[ok_cols])
+        } else if (!is.null(sel_r$best_adjusted_partial_r2)) {
+          as.numeric(sel_r$best_adjusted_partial_r2[ok_cols])
         } else {
-          rep(1.0, length(ok_cols))
+          rep(NA_real_, length(ok_cols))
         }
-        r2_r[!is.finite(r2_r)] <- -Inf
-        thr_r2 <- sort(r2_r, decreasing = TRUE)[4096L]
-        rwls_cols <- ok_cols[which(r2_r >= thr_r2)]
-        if (length(rwls_cols) > 4096L) rwls_cols <- rwls_cols[seq_len(4096L)]
+        if (any(is.finite(r2_r)) && stats::sd(r2_r[is.finite(r2_r)]) > 1e-12) {
+          r2_r[!is.finite(r2_r)] <- -Inf
+          ord_r2 <- order(r2_r, decreasing = TRUE)
+          rwls_cols <- sort(ok_cols[ord_r2[seq_len(4096L)]])
+        } else {
+          rwls_cols <- ok_cols[unique(round(seq(1, length(ok_cols), length.out = 4096L)))]
+        }
       }
       rwls_map[rwls_cols] <- seq_along(rwls_cols)
       z_raw_r <- matrix(NA_real_, length(rows), length(rwls_cols))
@@ -2347,7 +2401,8 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
       lambda_mode = lambda_mode,
       max_lambda_strata = max_lambda_strata,
       voxel_map = voxel_map,
-      geometry = geometry
+      geometry = geometry,
+      drift_active = drift_preproject_active
     )
     lambda_scalar <- as.numeric(tuned$lambda)[1L]
     lambda_tuning <- tuned$tuning
@@ -2381,7 +2436,8 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     scaling = scaling, penalty = penalty,
     backend = backend, tail_padding = as.integer(tail_padding), ridge_floor = ridge_floor,
     batch_size = as.integer(batch_size), operator_cache_mb = operator_cache_mb,
-    hrf_selection = "frozen_crossrun", nuisance_mode = nuisance_mode,
+    hrf_selection = "frozen_crossrun", nuisance_mode = nuisance_mode, highpass = highpass_sec,
+    drift_preproject_active = drift_preproject_active,
     observation_mask = observation_mask, noise_model = hrf_fit$settings$noise_model,
     rwls = rwls_mode, rwls_space = rwls_space)
   activity <- scaling_tables <- noise_innovations <- bold_obs <- whitened_sketch <- vector("list", length(bold))
@@ -2403,8 +2459,12 @@ deconvolve_crossrun_hrf <- function(bold, hrf_fit, lambda = NULL, scaling = "zsc
     w_active <- length(w_r) == length(rows) && any(abs(w_r - 1.0) > 1e-8)
     w_op <- if (w_active) w_r else NULL
 
-    z <- if (nuisance_mode == "joint") cbind(1, seq(-1, 1, length.out = n),
-      hrf_fit$specification$nuisance[[r]]) else matrix(numeric(), n, 0L)
+    z <- hrf_build_decon_nuisance_matrix(
+      n_obs = n, tr = hrf_fit$settings$tr, rows = rows,
+      nuisance_r = hrf_fit$specification$nuisance[[r]],
+      nuisance_mode = nuisance_mode, highpass_sec = highpass_sec,
+      drift_active = drift_preproject_active
+    )
     design <- list(n = n, rows = rows, nuisance = z, obs_weights = w_op)
     if (!identical(design, cached_design)) {
       rm(list = ls(operators), envir = operators)

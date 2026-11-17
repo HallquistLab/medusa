@@ -21,7 +21,8 @@ deconvolve_crossrun_hrf(
   gcv_rule = c("min", "1se"),
   lambda_mode = c("auto", "global", "stratified"),
   max_lambda_strata = 4L,
-  rwls = "auto"
+  rwls = "auto",
+  highpass = NULL
 )
 }
 \arguments{
@@ -56,11 +57,13 @@ Use nrow(hrf_fit$kernels) to reproduce the current voxelwise wrapper assumption.
 128. Zero disables reuse across runs. A single operator may exceed the cache
 budget while it is being applied, but is not retained in the cache.}
 
-\item{nuisance_mode}{Jointly fit unpenalized intercept, trend, and supplied
-nuisance terms, or ignore them (default, preserving prepared input signals).
-Joint projection is applied to both data and design, but can amplify weakly
-identified low-frequency activity in a flexible continuous inverse. Validate
-it for the intended design rather than assuming it improves recovery.}
+\item{nuisance_mode}{Nuisance handling for intercept, linear trend, DCT
+highpass drift (\code{highpass}), and supplied \code{nuisance} columns:
+\code{"preproject"} (default on modern AR/calibrated fits with \code{cpp} or
+\code{r} backends; observation-weighted orthogonal residualization before
+applying the continuous inverse operator), \code{"joint"} (simultaneous
+unpenalized nuisance normal equations), or \code{"ignore"} (default on
+legacy OLS or \code{wiener} fits).}
 
 \item{observation_mask}{Use fit's valid_rows in the inverse (fit), or all
 observations (all). Defaults to fit for AR/calibrated, all for OLS/legacy.}
@@ -91,6 +94,10 @@ falls back to \code{"none"} on legacy OLS or \code{backend = "wiener"}),
 \code{"woodbury"} (or \code{TRUE}; additive-transient Sparse Bayesian Learning
 Woodbury covariance \eqn{\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)}), or
 \code{"innovation"} (Diedrichsen-style innovation-space downweighting).}
+
+\item{highpass}{Optional DCT highpass cutoff period in seconds inherited from
+\code{hrf_fit$settings$highpass} when \code{NULL} (\code{128} s in modern
+mode; \code{Inf} / disabled when \code{Inf} or \code{<= 0}).}
 }
 \value{
 An S3 list of class \code{"crossrun_decon"} with \code{activity}

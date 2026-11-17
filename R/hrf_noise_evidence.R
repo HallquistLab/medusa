@@ -102,7 +102,111 @@ hrf_ar_cascade_info <- function(ar_vec, max_lag = 16L) {
 
 # Build the nuisance + free-trial + condition-derivative + DF-adaptive DCT (< 1/128 Hz)
 # mean design matrix for Step 1 noise estimation and GLS residual scale estimation.
-hrf_build_noise_mean_design <- function(n_obs, events, tr, offset, kernel_col, z, mask) {
+hrf_build_dct_drift_cols <- function(n_obs, tr, n_mask, highpass_sec = 128.0) {
+  if (!is.finite(highpass_sec) || highpass_sec <= 0 ||
+      n_obs * tr < 0.75 * highpass_sec || n_mask < 40L) {
+    return(matrix(numeric(), n_obs, 0L))
+  }
+  cap_cos <- max(6L, min(24L, as.integer(floor(0.15 * n_mask))))
+  n_cos <- max(2L, min(cap_cos, as.integer(floor(2.0 * n_obs * tr / highpass_sec))))
+  t_idx <- seq(0L, n_obs - 1L)
+  vapply(seq_len(n_cos), function(k) {
+    cos(pi * (2.0 * t_idx + 1.0) * k / (2.0 * n_obs))
+  }, numeric(n_obs))
+}
+
+hrf_build_decon_nuisance_matrix <- function(n_obs, tr, rows, nuisance_r = NULL,
+                                            nuisance_mode = "ignore", highpass_sec = 128.0,
+                                            drift_active = TRUE) {
+  if (identical(nuisance_mode, "ignore")) {
+    return(matrix(numeric(), n_obs, 0L))
+  }
+  nuis_use <- if (is.null(nuisance_r)) matrix(numeric(), n_obs, 0L) else nuisance_r
+  if (identical(nuisance_mode, "preproject") && isFALSE(drift_active) && ncol(nuis_use) == 0L) {
+    return(matrix(numeric(), n_obs, 0L))
+  }
+  z_base <- cbind(intercept = 1.0, trend = seq(-1.0, 1.0, length.out = n_obs), nuis_use)
+  if (identical(nuisance_mode, "preproject") && !isFALSE(drift_active)) {
+    dct_cols <- hrf_build_dct_drift_cols(n_obs, tr, length(rows), highpass_sec = highpass_sec)
+    if (ncol(dct_cols) > 0L) z_base <- cbind(z_base, dct_cols)
+  }
+  z_base
+}
+
+hrf_detect_lowfreq_drift <- function(bold, hrf_fit, observation_mask = "fit", highpass_sec = 128.0) {
+  n_runs <- length(bold)
+  tr <- as.numeric(hrf_fit$settings$tr)
+  fb_idx <- if (!is.null(hrf_fit$settings$fallback_kernel)) as.integer(hrf_fit$settings$fallback_kernel) else 1L
+  k_fb <- hrf_fit$kernels[, min(max(1L, fb_idx), ncol(hrf_fit$kernels)), drop = FALSE]
+  for (r in seq_len(n_runs)) {
+    y <- bold[[r]]
+    n <- nrow(y)
+    mask <- if (identical(observation_mask, "fit")) hrf_fit$specification$valid_rows[[r]] else rep(TRUE, n)
+    rows <- which(!is.na(mask) & mask)
+    m <- length(rows)
+    if (m < 28L) next
+    dct_r <- hrf_build_dct_drift_cols(n, tr, m, highpass_sec = highpass_sec)
+    z_dr <- cbind(trend = seq(-1.0, 1.0, length.out = n), dct_r)[rows, , drop = FALSE]
+    z_dr <- sweep(z_dr, 2L, colMeans(z_dr), "-")
+    if (ncol(z_dr) == 0L || m < ncol(z_dr) + 20L) next
+
+    ev_r <- if (!is.null(hrf_fit$specification$events) && length(hrf_fit$specification$events) >= r) {
+      hrf_fit$specification$events[[r]]
+    } else NULL
+    off_r <- if (length(hrf_fit$settings$time_offset) >= r) hrf_fit$settings$time_offset[r] else 0.0
+    x0 <- matrix(1.0, nrow = m, ncol = 1L)
+    if (!is.null(ev_r) && nrow(ev_r) > 0L) {
+      dur_r <- if (is.null(ev_r$duration)) rep(0.0, nrow(ev_r)) else as.numeric(ev_r$duration)
+      cond_r <- if (is.null(ev_r$condition)) rep(1L, nrow(ev_r)) else as.integer(factor(ev_r$condition))
+      n_c <- max(1L, max(cond_r, na.rm = TRUE))
+      g_c <- hrf_event_design_cpp(n, tr, off_r, ev_r$onset, dur_r, cond_r, n_c, k_fb)[[1L]][rows, , drop = FALSE]
+      x0 <- cbind(x0, g_c)
+    }
+
+    y_obs <- y[rows, , drop = FALSE]
+    ok_v <- which(colSums(!is.finite(y_obs)) == 0L &
+      apply(y_obs, 2L, function(col) stats::sd(col) > .Machine$double.eps))
+    if (!length(ok_v)) next
+    if (length(ok_v) > 64L) {
+      ok_v <- ok_v[unique(round(seq(1, length(ok_v), length.out = 64L)))]
+    }
+    y_sub <- y_obs[, ok_v, drop = FALSE]
+    rho_r <- if (!is.null(hrf_fit$noise) && length(hrf_fit$noise) >= r && !is.null(hrf_fit$noise[[r]])) {
+      stats::median(hrf_fit$noise[[r]]$rho[ok_v], na.rm = TRUE)
+    } else 0.0
+    if (!is.finite(rho_r)) rho_r <- 0.0
+    rho_det <- min(max(rho_r, 0.0), 0.25)
+
+    wb <- hrf_apply_whitening(list(wx = x0, wz = z_dr, wy = y_sub), rows = rows, ar_vec = rho_det, unit_marginal = TRUE)
+    nx <- sqrt(colSums(wb$wx^2)); nx[nx == 0] <- 1.0
+    sv0 <- hrf_safe_svd(sweep(wb$wx, 2L, nx, "/"), nv = 0L)
+    rk0 <- if (length(sv0$d) && sv0$d[1L] > 0) sum(sv0$d > 1e-8 * sv0$d[1L]) else 0L
+    df_tot <- m - rk0
+    if (df_tot < ncol(z_dr) + 12L) next
+    wz_res <- if (rk0 > 0L) wb$wz - sv0$u[, seq_len(rk0), drop = FALSE] %*% crossprod(sv0$u[, seq_len(rk0), drop = FALSE], wb$wz) else wb$wz
+    wy_res <- if (rk0 > 0L) wb$wy - sv0$u[, seq_len(rk0), drop = FALSE] %*% crossprod(sv0$u[, seq_len(rk0), drop = FALSE], wb$wy) else wb$wy
+
+    nz <- sqrt(colSums(wz_res^2)); keep_z <- nz > 1e-8
+    if (!any(keep_z)) next
+    sv_dr <- hrf_safe_svd(sweep(wz_res[, keep_z, drop = FALSE], 2L, nz[keep_z], "/"), nv = 0L)
+    rk_dr <- if (length(sv_dr$d) && sv_dr$d[1L] > 0) sum(sv_dr$d > 1e-6 * sv_dr$d[1L]) else 0L
+    df2 <- df_tot - rk_dr
+    if (rk_dr < 1L || df2 < 12L) next
+    Q_dr <- sv_dr$u[, seq_len(rk_dr), drop = FALSE]
+    ss_dr <- colSums(crossprod(Q_dr, wy_res)^2)
+    ss_err <- pmax(colSums(wy_res^2) - ss_dr, 1e-12)
+    f_v <- (ss_dr / rk_dr) / (ss_err / df2)
+    p_v <- stats::pf(f_v, df1 = rk_dr, df2 = df2, lower.tail = FALSE)
+    p_run <- hrf_cauchy_p(p_v)
+    if (is.finite(p_run) && p_run < 0.005) {
+      return(TRUE)
+    }
+  }
+  FALSE
+}
+
+hrf_build_noise_mean_design <- function(n_obs, events, tr, offset, kernel_col, z, mask,
+                                        highpass_sec = 128.0) {
   n_mask <- sum(mask)
   rank_fn <- function(a) {
     if (ncol(a) == 0L || n_mask == 0L) return(0L)
@@ -135,16 +239,8 @@ hrf_build_noise_mean_design <- function(n_obs, events, tr, offset, kernel_col, z
     if (ncol(a) == 0L || nrow(a) < 2L) return(a)
     rbind(a[2:nrow(a), , drop = FALSE], 0) - rbind(0, a[1:(nrow(a) - 1L), , drop = FALSE])
   }
-  z_dct <- z
-  if (n_obs * tr >= 96 && n_mask >= 40L) {
-    cap_cos <- max(6L, min(24L, as.integer(floor(0.15 * n_mask))))
-    n_cos <- max(2L, min(cap_cos, as.integer(floor(2 * n_obs * tr / 128.0))))
-    t_idx <- seq(0, n_obs - 1L)
-    dct_cols <- vapply(seq_len(n_cos), function(k) {
-      cos(pi * (2 * t_idx + 1) * k / (2 * n_obs))
-    }, numeric(n_obs))
-    z_dct <- cbind(z, dct_cols)
-  }
+  dct_cols <- hrf_build_dct_drift_cols(n_obs, tr, n_mask, highpass_sec = highpass_sec)
+  z_dct <- if (ncol(dct_cols) > 0L) cbind(z, dct_cols) else z
   aug_trial_cond <- cbind(z_dct, x, derivative(x_cond), derivative(derivative(x_cond)))
   aug_trial <- cbind(z_dct, x)
   aug_cond <- cbind(z_dct, x_cond, derivative(x_cond), derivative(derivative(x_cond)))
@@ -1580,7 +1676,7 @@ hrf_estimate_rwls_weights <- function(z_raw, r_obs = NULL, rows, ar_vec = 0.0,
     if (is.null(M_mat)) return(NULL)
     M_sub <- M_mat[, sub_cols, drop = FALSE]
     Mw <- pmin(pmax(M_sub, -cw), cw) / sqrt(bw)
-    sv <- tryCatch(svd(Mw, nu = 0, nv = 0)$d, error = function(e) numeric(0))
+    sv <- tryCatch(hrf_safe_svd(Mw, nu = 0, nv = 0)$d, error = function(e) numeric(0))
     ev <- (sv^2) / (m * ncol(Mw))
     ev <- ev[is.finite(ev) & ev > 1e-12]
     if (!length(ev)) return(NULL)
@@ -1709,6 +1805,35 @@ hrf_inverse_operator <- function(n, kernel, rows, rho, nuisance, settings, obs_w
   has_obs_w <- !is.null(obs_weights) && length(obs_weights) == measured &&
     any(abs(obs_weights - 1.0) > 1e-8)
   w_arg <- if (has_obs_w) pmin(pmax(as.numeric(obs_weights), 1e-8), 1.0) else NULL
+
+  # Pre-projection mode: orthogonalize observed BOLD against nuisance/drift on `rows`
+  # without stripping smooth low-frequency neural modes from the continuous forward matrix H.
+  if (identical(settings$nuisance_mode, "preproject") && ncol(nuisance) > 0L) {
+    settings_base <- settings
+    settings_base$nuisance_mode <- "ignore"
+    op_base <- hrf_inverse_operator(
+      n = n, kernel = kernel, rows = rows, rho = rho,
+      nuisance = matrix(numeric(), n, 0L), settings = settings_base,
+      obs_weights = obs_weights, lambda = lambda
+    )
+    z_obs <- nuisance[rows, , drop = FALSE]
+    sw <- if (has_obs_w) sqrt(pmax(w_arg, 1e-4)) else NULL
+    z_w <- if (has_obs_w) sweep(z_obs, 1L, sw, "*") else z_obs
+    nrm_z <- sqrt(colSums(z_w^2)); nrm_z[nrm_z == 0] <- 1.0
+    sv_z <- hrf_safe_svd(sweep(z_w, 2L, nrm_z, "/"), nv = 0L)
+    rk_z <- if (length(sv_z$d) && sv_z$d[1L] > 0) sum(sv_z$d > 1e-8 * sv_z$d[1L]) else 0L
+    if (rk_z > 0L && measured - rk_z >= 8L) {
+      qz <- sv_z$u[, seq_len(rk_z), drop = FALSE]
+      if (has_obs_w) {
+        op_qz <- op_base %*% sweep(qz, 1L, sw, "/")
+        op_base <- op_base - op_qz %*% sweep(t(qz), 2L, sw, "*")
+      } else {
+        op_base <- op_base - (op_base %*% qz) %*% t(qz)
+      }
+    }
+    return(op_base)
+  }
+
   has_psi <- length(rho) >= 2L && any(is.finite(rho[-1L]) & abs(rho[-1L]) > 1e-10)
   if (settings$backend == "cpp") {
     if (!has_psi) {
@@ -1836,7 +1961,7 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
     backend = "cpp", gcv_rule = c("min", "1se"), nuisance_mode = "ignore", tail_padding = 0L,
     frame_weights = NULL, precomputed_nsd = NULL,
     lambda_mode = c("auto", "global", "stratified"), max_lambda_strata = 4L,
-    voxel_map = NULL, geometry = NULL) {
+    voxel_map = NULL, geometry = NULL, drift_active = TRUE) {
   gcv_rule <- match.arg(gcv_rule)
   lambda_mode <- match.arg(lambda_mode)
   max_lambda_strata <- as.integer(max_lambda_strata)
@@ -2069,21 +2194,28 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
         rows = rows_t,
         obs_weights = w_rt
       )$y
-      if (identical(nuisance_mode, "joint")) {
+      if (nuisance_mode %in% c("joint", "preproject")) {
+        hp_tune <- if (!is.null(hrf_fit$settings$highpass)) hrf_fit$settings$highpass else 128.0
         nuis_j <- if (!is.null(hrf_fit$specification$nuisance)) hrf_fit$specification$nuisance[[r_tune]] else matrix(numeric(), n_t, 0L)
-        z_j <- cbind(1, seq(-1, 1, length.out = n_t), nuis_j)[rows_t, , drop = FALSE]
-        z_jw <- if (has_w_rt) sweep(z_j, 1L, sqrt(pmax(w_rt, 1e-4)), "*") else z_j
-        nrm_j <- sqrt(colSums(z_jw^2)); nrm_j[nrm_j == 0] <- 1
-        sv_j <- hrf_safe_svd(sweep(z_jw, 2L, nrm_j, "/"), nv = 0)
-        rk_j <- if (length(sv_j$d) && sv_j$d[1L] > 0) sum(sv_j$d > 1e-8 * sv_j$d[1L]) else 0L
-        if (rk_j > 0L && length(rows_t) - rk_j >= 8L) {
-          qj <- sv_j$u[, seq_len(rk_j), drop = FALSE]
-          if (has_w_rt) {
-            sw_rt <- sqrt(pmax(w_rt, 1e-4))
-            coef_j <- crossprod(qj, sweep(sc_vox, 1L, sw_rt, "*"))
-            sc_vox <- sc_vox - sweep(qj %*% coef_j, 1L, sw_rt, "/")
-          } else {
-            sc_vox <- sc_vox - qj %*% crossprod(qj, sc_vox)
+        z_j <- hrf_build_decon_nuisance_matrix(
+          n_obs = n_t, tr = hrf_fit$settings$tr, rows = rows_t,
+          nuisance_r = nuis_j, nuisance_mode = nuisance_mode, highpass_sec = hp_tune,
+          drift_active = drift_active
+        )[rows_t, , drop = FALSE]
+        if (ncol(z_j) > 0L) {
+          z_jw <- if (has_w_rt) sweep(z_j, 1L, sqrt(pmax(w_rt, 1e-4)), "*") else z_j
+          nrm_j <- sqrt(colSums(z_jw^2)); nrm_j[nrm_j == 0] <- 1
+          sv_j <- hrf_safe_svd(sweep(z_jw, 2L, nrm_j, "/"), nv = 0)
+          rk_j <- if (length(sv_j$d) && sv_j$d[1L] > 0) sum(sv_j$d > 1e-8 * sv_j$d[1L]) else 0L
+          if (rk_j > 0L && length(rows_t) - rk_j >= 8L) {
+            qj <- sv_j$u[, seq_len(rk_j), drop = FALSE]
+            if (has_w_rt) {
+              sw_rt <- sqrt(pmax(w_rt, 1e-4))
+              coef_j <- crossprod(qj, sweep(sc_vox, 1L, sw_rt, "*"))
+              sc_vox <- sc_vox - sweep(qj %*% coef_j, 1L, sw_rt, "/")
+            } else {
+              sc_vox <- sc_vox - qj %*% crossprod(qj, sc_vox)
+            }
           }
         }
       }
@@ -2105,7 +2237,7 @@ hrf_tune_decon_lambda <- function(bold, hrf_fit, lambda_grid, scaling = "zscore"
             # Align voxel signs deterministically via leading SVD direction so mixed-polarity
             # task voxels inside a parcel do not cancel out during GCV pooling.
             sgn_g <- tryCatch({
-              vg <- svd(sub_g, nu = 0, nv = 1)$v[, 1L]
+              vg <- hrf_safe_svd(sub_g, nu = 0, nv = 1)$v[, 1L]
               if (vg[which.max(wg)] < 0) vg <- -vg
               ifelse(vg >= 0, 1.0, -1.0)
             }, error = function(e) rep(1.0, length(idx_g)))
