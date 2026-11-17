@@ -23,7 +23,10 @@ deconvolve_crossrun_hrf(
   lambda_mode = c("auto", "global", "stratified"),
   max_lambda_strata = 4L,
   rwls = "auto",
-  highpass = NULL
+  highpass = NULL,
+  noise_pcs = "auto",
+  max_noise_pcs = 10L,
+  noise_pool = NULL
 )
 ```
 
@@ -136,6 +139,25 @@ deconvolve_crossrun_hrf(
   Optional DCT highpass cutoff period in seconds inherited from
   `hrf_fit$settings$highpass` when `NULL` (`128` s in modern mode; `Inf`
   / disabled when `Inf` or `<= 0`).
+
+- noise_pcs:
+
+  Cross-validated GLMdenoise-style background noise-pool temporal PCs:
+  `"auto"` (default; inherits `hrf_fit$specification$noise_pcs` when
+  already estimated in Step 1, or extracts \\0 \dots
+  \code{max_noise_pcs}\\ PCs on modern fits), `0L`/`FALSE`/`"none"`
+  (disabled), or a fixed positive integer count.
+
+- max_noise_pcs:
+
+  Maximum candidate noise-pool PCs evaluated when `noise_pcs = "auto"`
+  (default `10L`).
+
+- noise_pool:
+
+  Optional explicit background noise-pool specification (logical mask,
+  integer column indices, or character voxel IDs). Overrides Step-1
+  noise pool when supplied.
 
 ## Value
 

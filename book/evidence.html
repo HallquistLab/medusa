@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -409,17 +409,17 @@ Table&nbsp;16.1: Synthesis of validation benchmarks across Part IV and the 14-st
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">Step 1–3</a></strong> &amp; Validation Studies 5–9, 13–14</td>
-<td style="text-align: left;">3D physiological HRF library (<code>preset = "medusa"</code>, <code>normalize = "positive_lobe"</code>), monotone SNR-stratified <code>lambda_mode = "auto"</code>, <code>rwls = "auto"</code> glitch protection, and <code>(T, O)</code> epoch demixing</td>
+<td style="text-align: left;">3D physiological HRF library (<code>preset = "medusa"</code>, <code>normalize = "positive_lobe"</code>), modulator-aware &amp; fractional-ridge HRF scoring (<code>amplitude_model = "auto"</code>), <code>GLMdenoise</code>-style cross-validated <code>noise_pcs = "auto"</code> &amp; <code>&lt; 1/128 Hz</code> DCT drift pre-projection (<code>nuisance_mode = "preproject"</code>), monotone SNR-stratified <code>lambda_mode = "auto"</code>, <code>rwls = "auto"</code> glitch protection, and <code>other_event_model = "auto"</code> <code>(T, O)</code> epoch demixing</td>
 <td style="text-align: left;">Sub-second fixed ISIs without inter-phase jitter remain fundamentally collinear under hemodynamic low-pass filtering (audit via <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0</a> and <code>diagnose_crossrun_recovery()</code>).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><a href="./medusa_multilag_calibration/medusa_multilag_calibration.html">Simultaneous Bands Across Lags</a></strong> &amp; Validation Study 11</td>
-<td style="text-align: left;">Studentized Wishart draws + available-case lag pooling hold <code>Max-|T|</code>, <code>1D TFCE</code>, <code>omnibus_p</code>, and <code>"unsmoothed"</code> window contrasts near nominal 5% / 95% targets under serial dependence and missing participant edge lags</td>
+<td style="text-align: left;">Studentized Wishart draws + conditioned spectral deblurring + available-case lag pooling hold <code>Max-|T|</code>, <code>1D TFCE</code>, <code>omnibus_p</code>, and <code>"unsmoothed"</code> window contrasts near nominal 5% / 95% targets under serial dependence and missing participant edge lags</td>
 <td style="text-align: left;"><code>p_maxT</code> and <code>p_tfce</code> control FWER across lags of <em>one</em> <code>(parcel, term)</code> curve; apply <code>"holm"</code> or <code>"BY"</code> across <code>omnibus_p</code> when testing multiple parcels.</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong><a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">Latent Connectivity</a></strong>, <strong><a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a></strong>, &amp; Validation Study 10</td>
-<td style="text-align: left;">Per-trial M-MOMS + Adaptive-POET &amp; dynamic covariance regression (<code>shared_error_method = "poet_covreg"</code>, <code>shared_error = "auto"</code>, <code>variance_confounds</code>) + <code>crosstrial_se = TRUE</code> (<span class="math inline">\(N=1\)</span> Satterthwaite SEs &amp; cohort HKSJ <span class="math inline">\(t\)</span>-intervals) remove predictor attenuation plus stationary and multi-parcel/confound-driven dynamic shared noise</td>
+<td style="text-align: left;">Per-trial M-MOMS + multi-lag partialed directed EIV (<code>multilag_control = TRUE</code>) + Adaptive-POET &amp; dynamic covariance regression (<code>shared_error_method = "poet_covreg"</code>, <code>shared_error = "auto"</code>, <code>variance_confounds</code>) + <code>crosstrial_se = TRUE</code> (<span class="math inline">\(N=1\)</span> Satterthwaite SEs &amp; cohort HKSJ <span class="math inline">\(t\)</span>-intervals) remove predictor attenuation, cross-lag blur, and stationary/dynamic shared noise</td>
 <td style="text-align: left;">Pairwise-only condition-flipped noise lacking both a multi-parcel factor signature and a measured <code>variance_confounds</code> envelope—or severe seed–target smoothing mismatch (<span class="math inline">\(K_S \neq K_T\)</span>)—still requires a <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html#fig-sensitivity">shared-error sensitivity curve</a> and matched Step 2–3 demixing.</td>
 </tr>
 </tbody>
@@ -483,11 +483,14 @@ Table&nbsp;16.1: Synthesis of validation benchmarks across Part IV and the 14-st
 <span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  hf <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(bold_sim, evs, <span class="at">tr =</span> tr, <span class="at">kernel_grid =</span> cand,</span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>                              <span class="at">valid_rows =</span> vrows, <span class="at">spatial_groups =</span> parcels, <span class="at">pooling =</span> <span class="st">"parcel"</span>)</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  dc <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(bold_sim, hf, <span class="at">scaling =</span> <span class="st">"noise_sd"</span>, <span class="at">penalty =</span> <span class="st">"sobolev"</span>)</span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">decon_epoch_regression</span>(dc, cov_sim, evs, <span class="at">target_condition =</span> <span class="st">"feedback"</span>,</span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>                         <span class="at">lags =</span> <span class="dv">0</span>, <span class="at">parcel_groups =</span> parcels, <span class="at">restore_scale =</span> <span class="cn">TRUE</span>, <span class="at">return_panel =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>                              <span class="at">amplitude_model =</span> <span class="st">"auto"</span>, <span class="at">noise_pcs =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>                              <span class="at">valid_rows =</span> vrows, <span class="at">spatial_groups =</span> parcels, <span class="at">pooling =</span> <span class="st">"parcel"</span>)</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  dc <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(bold_sim, hf, <span class="at">scaling =</span> <span class="st">"noise_sd"</span>, <span class="at">penalty =</span> <span class="st">"sobolev"</span>,</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>                                <span class="at">nuisance_mode =</span> <span class="st">"preproject"</span>, <span class="at">noise_pcs =</span> <span class="st">"auto"</span>)</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">decon_epoch_regression</span>(dc, cov_sim, evs, <span class="at">target_condition =</span> <span class="st">"feedback"</span>,</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>                         <span class="at">lags =</span> <span class="dv">0</span>, <span class="at">parcel_groups =</span> parcels, <span class="at">other_event_model =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>                         <span class="at">restore_scale =</span> <span class="cn">TRUE</span>, <span class="at">return_panel =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Looping <code>sim_one_subject()</code> across your cohort’s <code>sub01..subN</code> schedules and feeding the resulting panels into <code>mixed_by()</code> (or <code>decon_connectivity_repair()</code>) gives an exact, pre-data answer to whether your task jitter, run count, and motion censoring support unbiased slope recovery and nominal 5% false-positive control in <code>Null_ROI</code>.</p>
 <details>

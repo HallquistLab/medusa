@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -333,6 +333,7 @@ window.Quarto = {
   <li><a href="#score-candidate-hrfs-out-of-sample-across-runs" id="toc-score-candidate-hrfs-out-of-sample-across-runs" class="nav-link" data-scroll-target="#score-candidate-hrfs-out-of-sample-across-runs">1.2 Score candidate HRFs out of sample across runs</a></li>
   <li><a href="#pool-spatial-evidence-and-form-a-composite-hrf" id="toc-pool-spatial-evidence-and-form-a-composite-hrf" class="nav-link" data-scroll-target="#pool-spatial-evidence-and-form-a-composite-hrf">1.3 Pool spatial evidence and form a composite HRF</a></li>
   <li><a href="#refit-run-specific-textarp-noise-covariance-on-task-adjusted-residuals" id="toc-refit-run-specific-textarp-noise-covariance-on-task-adjusted-residuals" class="nav-link" data-scroll-target="#refit-run-specific-textarp-noise-covariance-on-task-adjusted-residuals">1.4 Refit run-specific <span class="math inline">\(\text{AR}(p)\)</span> noise covariance on task-adjusted residuals</a></li>
+  <li><a href="#sec-noise-pool-pcs" id="toc-sec-noise-pool-pcs" class="nav-link" data-scroll-target="#sec-noise-pool-pcs">1.5 Suppress narrowband physiological and global vascular noise via cross-validated background PCs (<code>noise_pcs = "auto"</code>)</a></li>
   </ul></li>
   <li><a href="#recommended-settings" id="toc-recommended-settings" class="nav-link" data-scroll-target="#recommended-settings">Recommended Settings</a></li>
   <li><a href="#practical-considerations-special-regimes-and-diagnostics" id="toc-practical-considerations-special-regimes-and-diagnostics" class="nav-link" data-scroll-target="#practical-considerations-special-regimes-and-diagnostics">Practical Considerations, Special Regimes, and Diagnostics</a>
@@ -376,14 +377,16 @@ window.Quarto = {
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>candidates <span class="ot">&lt;-</span> <span class="fu">hrf_library</span>(<span class="at">tr =</span> tr, <span class="at">preset =</span> <span class="st">"medusa"</span>)</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold           =</span> bold,</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">events         =</span> events,</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr             =</span> tr,</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">kernel_grid    =</span> candidates,</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">spatial_groups =</span> parcel_ids,</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling        =</span> <span class="st">"parcel"</span>,</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode =</span> <span class="st">"soft_average"</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold            =</span> bold,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">events          =</span> events,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr              =</span> tr,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">kernel_grid     =</span> candidates,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">spatial_groups  =</span> parcel_ids,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_pcs       =</span> <span class="st">"auto"</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -398,7 +401,7 @@ window.Quarto = {
 <p><a href="../medusa_step0_design_bids/medusa_step0_design_bids.html"><strong>Step 0 (<code>read_fmriprep_subject</code> / Task &amp; Clock Setup)</strong></a> <span class="math inline">\(\longrightarrow\)</span> <strong>Step 1 (<code>estimate_crossrun_hrf</code>)</strong> <span class="math inline">\(\longrightarrow\)</span> <code>hrf_fit</code> S3 object <span class="math inline">\(\longrightarrow\)</span> <a href="../medusa_step2_deconvolution/medusa_step2_deconvolution.html"><strong>Step 2 (<code>deconvolve_crossrun_hrf</code>)</strong></a></p>
 </div>
 </div>
-<p>The walkthrough below develops Step 1 across four substeps—from defining a single HRF basis curve (<code>1.1</code>), to cross-run candidate scoring (<code>1.2</code>), spatial evidence pooling (<code>1.3</code>), and post-selection <span class="math inline">\(\text{AR}(p)\)</span> noise estimation (<code>1.4</code>)—highlighting the modeling choice at each stage.</p>
+<p>The walkthrough below develops Step 1 across five substeps—from defining a physiological HRF basis manifold (<code>1.1</code>), to cross-run candidate scoring across condition, modulator, and Empirical-Bayes fractional-ridge trial models (<code>1.2</code>), SNR-adaptive spatial evidence pooling (<code>1.3</code>), post-selection <span class="math inline">\(\text{AR}(p)\)</span> noise estimation (<code>1.4</code>), and cross-validated background noise-pool PC extraction (<code>1.5</code>)—highlighting the modeling choice at each stage.</p>
 <hr>
 </section>
 <section id="goals-inputs-and-outputs" class="level2">
@@ -444,9 +447,19 @@ window.Quarto = {
 <td>Pre-discretizes normalized candidate HRF waveforms onto the acquisition <code>tr</code> grid for batched evaluation and provides column 1 as a well-defined canonical baseline (<code>fallback_kernel = 1L</code>).</td>
 </tr>
 <tr class="odd">
-<td><code>valid_rows</code> &amp; <code>nuisance</code></td>
-<td>Optional per-run logical masks (<code>length == nrow(bold[[r]])</code>) and numeric nuisance matrices (or a <code>"medusa_confounds"</code> object from <code>read_fmriprep_confounds()</code>)</td>
-<td>Marking censored frames with <code>valid_rows = FALSE</code> keeps every retained volume at its true physical timestamp while excluding high-motion frames from regression and likelihood scoring; <code>nuisance</code> removes motion and physiological drift alongside run intercepts and linear trends.</td>
+<td><code>valid_rows</code>, <code>nuisance</code>, &amp; <code>highpass</code></td>
+<td>Optional per-run logical masks (<code>length == nrow(bold[[r]])</code>), numeric nuisance matrices (or <code>"medusa_confounds"</code>), and slow drift cutoff (<code>128</code> s default)</td>
+<td>Marking censored frames with <code>valid_rows = FALSE</code> keeps every retained volume at its true physical timestamp while excluding high-motion frames from regression and likelihood scoring; <code>nuisance</code> and clock-aligned <code>&lt; 1/128 Hz</code> DCT cosine bases remove motion and scanner drift consistently across Steps 1–2.</td>
+</tr>
+<tr class="even">
+<td><code>amplitude_model</code>, <code>hrf_modulators</code>, &amp; <code>fracridge</code></td>
+<td><code>amplitude_model = c("condition", "trial", "trial_ridge", "auto")</code>; optional event-level modulator names/matrices; fractional-ridge target (<code>0.25</code>)</td>
+<td>Governs how training-run event amplitudes are parameterized during HRF scoring—combining crisp condition-mean scoring with optional explicit centered modulators (<code>hrf_modulators</code>) or automatic Empirical-Bayes fractional-ridge trial rescue (<code>"auto"</code>) when regions encode zero-mean fluctuations (<span class="math inline">\(\beta_0 \approx 0\)</span>).</td>
+</tr>
+<tr class="odd">
+<td><code>noise_pcs</code>, <code>max_noise_pcs</code>, &amp; <code>noise_pool</code></td>
+<td><code>"auto"</code> (or integer <code>0..K</code>), integer cap (<code>10L</code>), and optional background voxel mask/indices/IDs</td>
+<td>Extracts <code>GLMdenoise</code>-style cross-validated temporal PCs from task-unrelated background cortex (<code>noise_pcs = "auto"</code>) to suppress narrowband aliased physiological and global vascular waves prior to HRF selection and Step 2 deconvolution.</td>
 </tr>
 <tr class="even">
 <td><code>pooling</code>, <code>spatial_groups</code>, &amp; <code>spatial_graph</code></td>
@@ -566,10 +579,12 @@ Figure&nbsp;4.5: Out-of-sample adjusted partial <span class="math inline">\(R^2\
 </figcaption>
 </figure>
 </div>
-<p>To build that training regression design without touching external behavioral covariates, MEDuSA needs an assumption about how event amplitudes behave across trials:</p>
+<p>To build that training regression design, MEDuSA supports four amplitude parameterizations (<code>amplitude_model</code>) alongside optional explicit event modulators (<code>hrf_modulators</code>):</p>
 <ul>
-<li>Under <code>amplitude_model = "condition"</code>, all events of a given condition share one mean amplitude per run. When events evoke a consistent positive (or negative) deflection, this 1-column-per-condition design has maximal degrees of freedom and fast runtime.</li>
-<li>Under <code>amplitude_model = "trial"</code>, each event receives its own free amplitude (evaluating one condition freed at a time in multi-condition designs to avoid collinearity). This allows regions whose responses fluctuate symmetrically around zero—such as signed prediction-error signals whose mean response is zero—to express strong unsigned trial variance and identify their true HRF (<a href="#fig-step1-signed" class="quarto-xref">Figure&nbsp;<span>4.6</span></a>).</li>
+<li><strong><code>amplitude_model = "condition"</code> (with optional <code>hrf_modulators</code>):</strong> Collapses each condition to one mean column per run (plus centered parametric modulator columns when <code>hrf_modulators</code> names event-table columns or per-run matrices, e.g., <code>hrf_modulators = "rpe"</code>). When events evoke a consistent nonzero deflection (<span class="math inline">\(\beta_0 \neq 0\)</span>) or when key modulators are supplied explicitly, this low-rank design provides maximal degrees of freedom and fastest runtime—while remaining blind to <em>unmodeled</em> zero-mean fluctuations (<span class="math inline">\(\beta_0 = 0\)</span>) if <code>hrf_modulators</code> is omitted.</li>
+<li><strong><code>amplitude_model = "trial"</code> (unregularized OLS):</strong> Assigns a free amplitude to each event (one condition freed at a time). On well-spaced schedules (<span class="math inline">\(\text{ITI} \gtrsim 4\text{ s}\)</span>) it captures unsigned zero-mean trial variance (<a href="#fig-step1-signed" class="quarto-xref">Figure&nbsp;<span>4.6</span></a>), but under rapid event-related jitter (<span class="math inline">\(\text{ITI} \lesssim 2.5\text{ s}\)</span>) adjacent trial columns become collinear and span temporal derivatives that can overfit noise.</li>
+<li><strong><code>amplitude_model = "trial_ridge"</code> (Empirical-Bayes REML fractional ridge, <code>fracridge = 0.25</code>):</strong> Retains the unpenalized condition-mean (and any <code>hrf_modulators</code>) subspace while modeling orthogonal trial-to-trial deviations via an <strong>Empirical-Bayes Gaussian marginal (REML) fractional-ridge profile score</strong> (<code>hrf_score_run_fracridge()</code>). Because slower HRFs act as stronger low-pass filters whose top singular subspaces are contained inside faster HRFs, <code>hrf_score_run_fracridge()</code> pairs per-voxel method-of-moments variance-ratio estimation (<span class="math inline">\(\hat{\gamma}_v\)</span>) with a shared-spectrum Satterthwaite task <span class="math inline">\(F\)</span>-test and an <strong>exact scale-free two-chisquare pairwise likelihood-ratio <span class="math inline">\(F\)</span>-test</strong> projected onto the low-rank Gram subspace <span class="math inline">\(\operatorname{span}(U_{k_0}, U_j)\)</span> (<span class="math inline">\(O(r^3)\)</span> rather than <span class="math inline">\(O(T^3)\)</span>)—recovering fast (<code>4.2 s</code>) and slow (<code>7.4 s</code>) HRFs symmetrically under rapid ITIs without collinearity blowup.</li>
+<li><strong><code>amplitude_model = "auto"</code> (recommended general-purpose setting):</strong> Scores training runs under <code>"condition"</code> first and automatically adopts <code>"trial_ridge"</code> exclusively on parcels or voxels that lack condition-mean task support on the training runs yet pass candidate-corrected <code>trial_ridge</code> task evidence. Regions with <span class="math inline">\(\beta_0 \neq 0\)</span> retain crisp condition-mean scoring, while pure zero-mean signed modulator regions (<span class="math inline">\(\beta_0 = 0\)</span>) are rescued automatically—preventing spurious multi-second vascular latency artifacts downstream <em>and</em> keeping modulated regions out of the background noise pool (<code>Substep 1.5</code>).</li>
 </ul>
 <div id="fig-step1-signed" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Comparison of generating HRF, condition-amplitude estimate, and free-trial-amplitude estimate.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -577,11 +592,11 @@ Figure&nbsp;4.5: Out-of-sample adjusted partial <span class="math inline">\(R^2\
 <img src="figures/05-signed.png" class="img-fluid figure-img" style="width:95.0%" alt="Comparison of generating HRF, condition-amplitude estimate, and free-trial-amplitude estimate.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step1-signed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;4.6: Zero-mean alternating trial amplitudes (<code>amplitude_model = "condition"</code> vs.&nbsp;<code>"trial"</code>): freeing trial amplitudes recovers the true <span class="math inline">\(7.5\text{ s}\)</span> HRF where a condition-mean regressor averages out to zero.
+Figure&nbsp;4.6: Zero-mean alternating trial amplitudes (<code>amplitude_model = "condition"</code> vs.&nbsp;<code>"trial"</code> / <code>"auto"</code>): freeing or ridge-scoring trial amplitudes recovers the true <span class="math inline">\(7.5\text{ s}\)</span> HRF where an unmodulated condition-mean regressor averages out to zero.
 </figcaption>
 </figure>
 </div>
-<p><strong>Choice point — Training amplitude model (<code>amplitude_model</code>):</strong> Choose <code>"condition"</code> when task events evoke a reliable main-effect activation (e.g., visual cues, motor presses, block transitions). Choose <code>"trial"</code> whenever key regions may encode zero-mean signed fluctuations around baseline without a strong condition-mean offset.</p>
+<p><strong>Choice point — Training amplitude model (<code>amplitude_model</code> &amp; <code>hrf_modulators</code>):</strong> Use <strong><code>amplitude_model = "auto"</code></strong> as the standard general-purpose choice across event-related tasks. When known centered trial modulators are already present in <code>events</code> (and Step-1 modulator conditioning aligns with your analysis plan), passing <code>hrf_modulators = c("rpe", ...)</code> with <code>"condition"</code> or <code>"auto"</code> achieves near-oracle 2-column degrees of freedom; use pure <code>"condition"</code> only when all regions of interest carry nonzero condition-mean responses.</p>
 <hr>
 </section>
 <section id="pool-spatial-evidence-and-form-a-composite-hrf" class="level3">
@@ -597,10 +612,11 @@ Figure&nbsp;4.7: Voxelwise hard selection vs.&nbsp;parcel-pooled selection acros
 </figcaption>
 </figure>
 </div>
-<p>Once pooled candidate scores are combined across training runs, Step 1 converts them into a target-run HRF waveform using two calibrated safeguards:</p>
+<p>Once pooled candidate scores are combined across training runs, Step 1 converts them into a target-run HRF waveform using three calibrated safeguards:</p>
 <ol type="1">
-<li><strong>Task-evidence gating and Empirical-Bayes shrinkage:</strong> Regions without calibrated task support across training runs (<code>Null</code> in <a href="#fig-step1-evidence" class="quarto-xref">Figure&nbsp;<span>4.5</span></a> and <code>v17</code> in <a href="#tbl-step1-selections" class="quarto-xref">Table&nbsp;<span>4.1</span></a>) remain at the canonical reference (<code>fallback_prespecified</code>), while regions with moderate task support blend smoothly away from column 1 in proportion to departure confidence.</li>
-<li><strong>Soft composite averaging (<code>selection_mode = "soft_average"</code>):</strong> Instead of snapping discontinuously to a single grid column (<code>"hard"</code>), compatible candidates near the maximum receive smooth exponential weights scaled by cross-run score uncertainty (Boltzmann-style softmax weights)—interpolating vascular delays smoothly between discrete grid points (<a href="#fig-step1-composites" class="quarto-xref">Figure&nbsp;<span>4.8</span></a>).</li>
+<li><strong>Training-only spatial noise correlation &amp; finite-parcel Student-<span class="math inline">\(t\)</span> calibration:</strong> Within each parcel, spatial correlation among voxels (<code>group_spatial_cor</code>) is estimated strictly from training-run task-free whitened innovations—taking the minimum of raw innovation correlation and second-difference (<span class="math inline">\(\Delta^2 z_t\)</span>) correlation so unmodeled smooth trial modulations are attenuated <span class="math inline">\(&gt;30\times\)</span> rather than mistaken for shared noise—while finite-parcel score-difference ratios (<code>df = V - 1</code>) are mapped to exact Gaussian <span class="math inline">\(Z\)</span>-equivalents via <code>qnorm(pt(t_diff, df = V - 1))</code> so compact 3-voxel parcels never suffer heavy-tail <span class="math inline">\(t_2\)</span> inflation.</li>
+<li><strong>SNR- and breadth-adaptive Empirical-Bayes de-shrinking:</strong> Regions without calibrated task support across training runs (<code>Null</code> in <a href="#fig-step1-evidence" class="quarto-xref">Figure&nbsp;<span>4.5</span></a> and <code>v17</code> in <a href="#tbl-step1-selections" class="quarto-xref">Table&nbsp;<span>4.1</span></a>) remain at the canonical reference (<code>fallback_prespecified</code>). Conversely, when both parcel spatial breadth and pooled shape-departure <span class="math inline">\(Z\)</span>-statistics are strong (<code>hrf_adaptive_canonical_strength()</code>), the canonical distance prior decays smoothly as <span class="math inline">\(O(1 / z_{\text{deshrink}}^2)\)</span> and departure weight <span class="math inline">\(\omega \to 1\)</span>, preventing canonical over-shrinkage on fast (<code>4.3 s</code>) or slow (<code>7.0–7.5 s</code>) territories in multi-region latency cascades.</li>
+<li><strong>Soft composite averaging over local sub-grid cones (<code>selection_mode = "soft_average"</code>):</strong> Instead of snapping discontinuously to a single grid column (<code>"hard"</code>), compatible candidates and immediate sub-grid bracket neighbors (<code>kernel_cos &gt;= 0.90</code>, <span class="math inline">\(R^2 \ge 0.90\,R^2_{\max}\)</span>) receive smooth Boltzmann softmax weights—interpolating sub-grid vascular delays cleanly even when pairwise encompassing tests reject individual grid endpoints alone (<a href="#fig-step1-composites" class="quarto-xref">Figure&nbsp;<span>4.8</span></a>).</li>
 </ol>
 <div id="fig-step1-composites" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Comparison of generating HRF, hard node, and soft composite curves.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -778,6 +794,18 @@ Figure&nbsp;4.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 <p><strong>Choice point — Serial noise model (<code>noise_model</code>):</strong> Keep <code>noise_model = "ar1"</code> with <code>evidence = "calibrated"</code>; at fast TRs it automatically accommodates higher-order oscillatory physiological autocorrelation through <span class="math inline">\(\psi_1\)</span>–<span class="math inline">\(\psi_4\)</span> while collapsing cleanly to first-order <span class="math inline">\(\text{AR}(1)\)</span> at slower TRs.</p>
 <hr>
 </section>
+<section id="sec-noise-pool-pcs" class="level3">
+<h3 class="anchored" data-anchor-id="sec-noise-pool-pcs">1.5 Suppress narrowband physiological and global vascular noise via cross-validated background PCs (<code>noise_pcs = "auto"</code>)</h3>
+<p>In multiband and whole-cortex acquisitions without external pulse-oximeter or respiratory-belt recordings (<code>RETROICOR</code>), aliased cardiac (<code>~0.25–0.35 Hz</code>) and respiratory (<code>~0.15–0.25 Hz</code>) oscillations plus slow systemic vascular waves span dozens of parcels simultaneously. Because Step 2 deconvolution applies an inverse hemodynamic gain <span class="math inline">\(|H(\omega)|^{-1}\)</span> that rises <span class="math inline">\(6\text{--}9\times\)</span> across <code>0.15–0.30 Hz</code>, removing spatially pervasive physiological fluctuations <em>in BOLD time-series space before deconvolution</em> is far more powerful than relying solely on post-deconvolution parcel covariance modeling.</p>
+<p>Adapting the <code>GLMdenoise</code> principle (Kay et al., 2013) to MEDuSA’s cross-run operator framework, <code>noise_pcs = "auto"</code> (<code>hrf_identify_noise_pool()</code> + <code>hrf_extract_cv_noise_pcs()</code>) constructs run-specific nuisance principal components under four strict anti-leakage and anti-overfitting guards:</p>
+<ol type="1">
+<li><strong>Active-parcel and edge-PSF exclusion (<code>hrf_identify_noise_pool()</code>):</strong> When <code>noise_pool = NULL</code>, the noise pool is restricted to task-uninformative cortex (<code>status == "fallback_prespecified"</code>), excluding any parcel containing a supported voxel (including parcels rescued by <code>amplitude_model = "auto"</code>), excluding immediate spatial-graph neighbors of active voxels to block point-spread-function bleed, and requiring at least <code>24</code> background voxels across <code>8</code> parcels in <code>"auto"</code> mode so compact ROI cohorts never incur small-pool Global Signal Regression (GSR) negative correlations (Murphy et al., 2009). Users may also pass an explicit <code>noise_pool</code> (logical mask, integer indices, or voxel IDs, e.g., eroded WM/CSF or non-task cortex).</li>
+<li><strong>Broadband <code>AR(1)</code> prewhitening without resonant notch suppression:</strong> Background series are prewhitened by scalar <code>AR(1)</code> (<code>rho</code> clamped to <code>[-0.80, 0.80]</code>) rather than higher-order <code>AR(4)</code> filters, ensuring narrowband cardiac and respiratory harmonics remain prominent in the singular spectrum rather than being notched out prior to SVD.</li>
+<li><strong>Four-stage selection of <span class="math inline">\(K^* \in \{0, \dots, \text{max\_noise\_pcs}\}\)</span>:</strong> Candidate temporal PCs must pass (i) the <strong>Gavish–Donoho (2014)</strong> aspect-ratio optimal singular-value threshold, (ii) <strong>Owen–Perry (2009) 2-fold spatial bi-cross-validation</strong> reducing out-of-sample residual MSE on held-out background parcels, (iii) an exact <strong>Beta-distribution task-orthogonality guard</strong> (<span class="math inline">\(R^2_{\text{task}} \le q_{\text{Beta}}(0.99)\)</span> against convolved task designs), and (iv) <strong>orthogonal division-of-labor gates</strong> requiring temporal delocalization (<code>top3_share &lt;= 0.22</code>, leaving transient framewise motion spikes to Step 2’s <code>rwls = "auto"</code>) and spectral/temporal coherence (<code>max_acf &gt;= 0.28</code> or periodogram crest factor <code>&gt;= 11.0</code>, leaving temporally white spatial covariance to Step 4/6’s <code>poet_covreg</code>). On pure spatially independent <code>AR(1)</code> noise, <span class="math inline">\(K^* = 0\)</span> is selected cleanly with zero degrees-of-freedom loss.</li>
+<li><strong>Within-run spatial cross-fitting &amp; target-run isolation:</strong> During Step 1 HRF scoring, single-run noise PCs are extracted strictly within each run <span class="math inline">\(r\)</span> (<code>bold[r]</code> only, preserving exact bitwise target-run exclusion) and scored via 2-fold spatial cross-fitting across disjoint halves of <code>pool_voxels</code> so no background voxel is ever evaluated against an in-sample PC containing its own noise; in Step 2 (<code>deconvolve_crossrun_hrf()</code>), cross-run <code>hrf_fit$selections</code> refines the noise pool before pre-projecting the selected PCs alongside <code>&lt; 1/128 Hz</code> DCT drift.</li>
+</ol>
+<hr>
+</section>
 </section>
 <section id="recommended-settings" class="level2">
 <h2 class="anchored" data-anchor-id="recommended-settings">Recommended Settings</h2>
@@ -807,7 +835,7 @@ Figure&nbsp;4.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 <span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Build the 3D physiological HRF manifold (~44 candidates, positive-lobe normalized)</span></span>
 <span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>candidates <span class="ot">&lt;-</span> <span class="fu">hrf_library</span>(<span class="at">tr =</span> ts<span class="sc">$</span>tr, <span class="at">preset =</span> <span class="st">"medusa"</span>)</span>
 <span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Cross-fit HRF shapes across runs and refit own-run AR(p) noise</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Cross-fit HRF shapes across runs, extract CV noise-pool PCs, and refit own-run AR(p) noise</span></span>
 <span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>hrf_fit <span class="ot">&lt;-</span> <span class="fu">estimate_crossrun_hrf</span>(</span>
 <span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold            =</span> ts,</span>
 <span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">events          =</span> events,</span>
@@ -815,12 +843,14 @@ Figure&nbsp;4.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 <span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance        =</span> conf,</span>
 <span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"graph"</span>,          <span class="co"># or "parcel" for uniform ROI pooling</span></span>
 <span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_boundary =</span> <span class="st">"soft"</span>,</span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model     =</span> <span class="st">"ar1"</span>,</span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">evidence        =</span> <span class="st">"calibrated"</span>,</span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_scores   =</span> <span class="cn">TRUE</span></span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"auto"</span>,           <span class="co"># condition scoring + automatic REML fracridge rescue</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">fracridge       =</span> <span class="fl">0.25</span>,</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_model     =</span> <span class="st">"ar1"</span>,</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_pcs       =</span> <span class="st">"auto"</span>,           <span class="co"># cross-validated background noise-pool PCs (0..10)</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">evidence        =</span> <span class="st">"calibrated"</span>,</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">return_scores   =</span> <span class="cn">TRUE</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -839,30 +869,36 @@ Figure&nbsp;4.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 <td>Spans fast subcortical through slow cortical shapes with positive-lobe normalization (<code>Substep 1.1</code>). Use <code>"canonical_27"</code> when restricting to fixed-undershoot cortical delays.</td>
 </tr>
 <tr class="even">
-<td><code>amplitude_model</code></td>
-<td><code>"trial"</code> (modulated tasks) or <code>"condition"</code></td>
-<td><code>"condition"</code></td>
-<td><code>"trial"</code> captures zero-mean signed modulation during HRF scoring (<code>Substep 1.2</code>); <code>"condition"</code> is faster when events share a consistent sign.</td>
+<td><code>amplitude_model</code> &amp; <code>hrf_modulators</code></td>
+<td><code>"auto"</code> (plus <code>hrf_modulators</code> when known)</td>
+<td><code>"condition"</code>, <code>NULL</code></td>
+<td><code>"auto"</code> combines high-DF <code>"condition"</code> scoring with automatic Empirical-Bayes REML <code>"trial_ridge"</code> rescue on zero-mean modulated regions (<code>Substep 1.2</code>); pass <code>hrf_modulators</code> when known centered trial predictors drive Step 1 variance.</td>
 </tr>
 <tr class="odd">
+<td><code>noise_pcs</code> &amp; <code>noise_pool</code></td>
+<td><code>"auto"</code>, <code>NULL</code></td>
+<td><code>"auto"</code>, <code>NULL</code></td>
+<td>Extracts <span class="math inline">\(K^* \in \{0, \dots, 10\}\)</span> cross-validated temporal PCs from task-silent background cortex (<code>&gt;= 24</code> voxels across <code>&gt;= 8</code> parcels) or an explicit <code>noise_pool</code> mask (<code>Substep 1.5</code>); set <code>0L</code> to disable.</td>
+</tr>
+<tr class="even">
 <td><code>pooling</code> &amp; <code>spatial_groups</code></td>
 <td><code>"graph"</code> (<code>parcel_boundary = "soft"</code>) for NIfTIs; <code>"parcel"</code> for homogeneous ROIs</td>
 <td><code>"voxel"</code>, <code>NULL</code></td>
 <td><code>"graph"</code> pools HRF and REML noise bilaterally along the in-mask cortical ribbon while respecting sulci and functional borders (<code>Substep 1.3</code>); <code>"parcel"</code> pools uniformly within nominal parcels.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>selection_mode</code></td>
 <td><code>"soft_average"</code></td>
 <td><code>"hard"</code></td>
-<td>Blends compatible candidates smoothly and shrinks weak-SNR regions toward column 1 (<code>Substep 1.3</code>).</td>
-</tr>
-<tr class="odd">
-<td><code>noise_model</code> &amp; <code>evidence</code></td>
-<td><code>"ar1"</code> &amp; <code>"calibrated"</code></td>
-<td><code>"ar1"</code> &amp; <code>"calibrated"</code></td>
-<td>Fits the two-pass post-selection <span class="math inline">\(\text{AR}(1) \times \text{AR}(q)\)</span> cascade (<code>Substep 1.4</code>) with calibrated <span class="math inline">\(F\)</span>-test gating.</td>
+<td>Blends compatible candidates and local sub-grid bracket neighbors (<code>kernel_cos &gt;= 0.90</code>) with SNR- and breadth-adaptive canonical de-shrinking (<code>Substep 1.3</code>).</td>
 </tr>
 <tr class="even">
+<td><code>noise_model</code>, <code>evidence</code>, &amp; <code>highpass</code></td>
+<td><code>"ar1"</code>, <code>"calibrated"</code>, &amp; <code>128</code></td>
+<td><code>"ar1"</code>, <code>"calibrated"</code>, &amp; <code>128</code></td>
+<td>Fits the two-pass post-selection <span class="math inline">\(\text{AR}(1) \times \text{AR}(q)\)</span> cascade (<code>Substep 1.4</code>) with clock-aligned <code>&lt; 1/128 Hz</code> DCT drift removal and calibrated <span class="math inline">\(F\)</span>-test gating.</td>
+</tr>
+<tr class="odd">
 <td><code>motion_bandstop_bpm</code> (in <code>read_fmriprep_confounds</code>)</td>
 <td><code>c(12, 20)</code> (<code>"fd_only"</code>) when <span class="math inline">\(\text{TR} \lesssim 1.0\text{ s}\)</span></td>
 <td><code>NULL</code></td>
@@ -1017,8 +1053,8 @@ Table&nbsp;4.3: End-to-end Steps 1–3 metrics across fast-TR (<code>TR = 0.65 s
 Mathematical Details &amp; Reproduction
 </summary>
 <ul>
-<li><strong>Cross-fitted evidence pooling:</strong> For candidate <span class="math inline">\(m\)</span> on training run <span class="math inline">\(s \neq r\)</span>, whitened nuisance-orthogonalized BOLD <span class="math inline">\(y_{s,\perp}\)</span> is regressed onto whitened candidate design <span class="math inline">\(X_{s,m,\perp}\)</span> (rank <span class="math inline">\(d_{s,m}\)</span> over <span class="math inline">\(m_s\)</span> valid frames), yielding adjusted partial <span class="math inline">\(R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{m_s - p_Z}{m_s - p_Z - d_{s,m}}\)</span>. Across training runs, scores are weighted by effective degrees of freedom and checked for sign/peak compatibility (<code>stability</code>).</li>
-<li><strong>Soft-average shrinkage:</strong> Compatible candidates within <code>score_margin</code> receive Boltzmann weights <span class="math inline">\(w_m \propto \exp(\Delta R^2_m / \tau_{\text{SE}})\)</span> blended with column 1 (<code>(1 - \eta) e_1 + \eta w</code>), where Empirical-Bayes shrinkage <span class="math inline">\(\eta \in [0, 1]\)</span> approaches 0 as calibrated task <span class="math inline">\(F\)</span>-statistics weaken toward the <code>evidence_alpha</code> threshold.</li>
+<li><strong>Cross-fitted evidence pooling &amp; Empirical-Bayes REML fractional-ridge scoring:</strong> For candidate <span class="math inline">\(m\)</span> on training run <span class="math inline">\(s \neq r\)</span>, whitened nuisance-orthogonalized BOLD <span class="math inline">\(y_{s,\perp}\)</span> is regressed onto whitened candidate design <span class="math inline">\(X_{s,m,\perp}\)</span> (rank <span class="math inline">\(d_{s,m}\)</span> over <span class="math inline">\(m_s\)</span> valid frames), yielding adjusted partial <span class="math inline">\(R^2_{s,m} = 1 - (1 - R^2_{s,m})\frac{m_s - p_Z}{m_s - p_Z - d_{s,m}}\)</span>. Under <code>amplitude_model = "trial_ridge"</code> (and <code>"auto"</code> rescue), orthogonal trial deviations <span class="math inline">\(\tilde{X}_{d,m} = U_{d,m}\operatorname{diag}(s_{d,m})V_{d,m}^\top\)</span> with column-standardized eigenvalues <span class="math inline">\(\tilde{s}_{m,j}^2\)</span> are scored via the Gaussian marginal REML log-likelihood gain <span class="math inline">\(\ell_{\text{gain},m}(v) = -\frac{1}{2}\bigl[\nu\log(q_{m,v}/\|y_{\perp,v}\|_2^2) + r_c + \sum_j \log(1 + \hat{\gamma}_v \tilde{s}_{m,j}^2)\bigr]\)</span> (<span class="math inline">\(R^2_{\text{REML},m} = 1 - \exp(-2\ell_{\text{gain},m}/\nu)\)</span>), while pairwise candidate tests (<code>fallback_p</code>, <code>incompatible_p</code>) evaluate exact scale-free Satterthwaite two-chisquare <span class="math inline">\(F\)</span>-ratios on the low-rank Gram subspace <span class="math inline">\(\operatorname{span}(U_{k_0}, U_j)\)</span> under <span class="math inline">\(H_{k_0}: Y \sim \mathcal{N}(0, \sigma^2 \Sigma_{k_0}(\gamma_{\text{pair}}))\)</span>.</li>
+<li><strong>SNR-adaptive soft-average de-shrinking:</strong> Compatible candidates and sub-grid bracket neighbors (<code>kernel_cos &gt;= 0.90</code>) receive Boltzmann weights <span class="math inline">\(w_m \propto \exp\bigl((R^2_m - c_{\text{eff}} d_{m,1}) / (T_{\text{eff}}\Delta R^2)\bigr)\)</span> blended with column 1 (<code>(1 - \omega) e_1 + \omega w</code>), where <span class="math inline">\(c_{\text{eff}} = c_0 / \bigl(1 + 0.35\max(0, z_{\text{deshrink}} - 2.5)^2\bigr)\)</span> decays canonical pull smoothly as parcel breadth and shape-departure evidence <span class="math inline">\(z_{\text{deshrink}}\)</span> grow.</li>
 <li><strong>Exact gapped covariance:</strong> When <code>valid_rows[[r]]</code> masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2’s whitener <span class="math inline">\(W_r\)</span> inverts the exact stationary Toeplitz submatrix <span class="math inline">\(\Sigma_{\text{AR}}[I_r, I_r]\)</span> on retained timestamps <span class="math inline">\(I_r\)</span> so multi-TR scrub gaps decay correlation by <span class="math inline">\(\gamma(|t_a - t_b|)\)</span>.</li>
 <li><strong>Zero-phase respiratory IIR filtering:</strong> For sampling rate <span class="math inline">\(f_s = 1/\text{TR}\)</span> and stopband <span class="math inline">\([f_1, f_2] = \text{BPM}/60\)</span> (<span class="math inline">\(f_0 = (f_1 + f_2)/2\)</span>, <span class="math inline">\(\Delta f = f_2 - f_1\)</span>, <span class="math inline">\(Q = f_0/\Delta f\)</span>, <span class="math inline">\(\omega_0 = 2\pi f_0/f_s\)</span>, <span class="math inline">\(\alpha = \sin\omega_0/(2Q)\)</span>), <code>read_fmriprep_confounds()</code> designs the RBJ biquad notch transfer function <span class="math inline">\(H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}\)</span> (or bilinear-warped Butterworth poles for <code>motion_lowpass_hz</code>) and applies forward-backward Direct Form II Transposed filtering (<code>filtfilt</code>) with steady-state initial conditions and reflection padding to all 6 realignment parameters before computing Power (2012) FD.</li>
 </ul>

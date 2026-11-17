@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -433,15 +433,20 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>seed_region</code>, <code>target_region</code>, <code>seed_lag</code>, <code>target_lag</code></strong></td>
-<td style="text-align: left;">Parcel names and peri-event lags (e.g., <code>seed_lag = 0, target_lag = 0</code> or lagged <code>seed_lag = 0, target_lag = 1</code>)</td>
+<td style="text-align: left;">Parcel names and peri-event lags (e.g., <code>seed_lag = 0, target_lag = 0</code> or lagged <code>seed_lag = 0, target_lag = 4</code>)</td>
 <td style="text-align: left;">Select the paired seed readout <span class="math inline">\(\widehat{z}_{S,i}\)</span> and target readout <span class="math inline">\(\widehat{z}_{T,i}\)</span> along with their trial-specific measurement SEs.</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><strong><code>control_target_seed_lag</code>, <code>control_seed_lags</code>, &amp; <code>multilag_control</code></strong></td>
+<td style="text-align: left;">Logical Granger target control (<code>FALSE</code>), optional seed lag vector, and multi-lag partialing flag (<code>FALSE</code>)</td>
+<td style="text-align: left;">When testing directed cross-lag grids (e.g., <code>lags = c(0, 2, 4)</code>), setting <code>multilag_control = TRUE</code> (or <code>control_seed_lags = c(0, 2, 4)</code>) enters companion seed lags and pre-target target lags jointly with full cross-lag measurement-error covariance subtraction so deconvolution smoothness across adjacent lags never creates off-diagonal false positives.</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><strong><code>covariates</code> &amp; <code>test_ppi</code></strong></td>
 <td style="text-align: left;">Character vector of centered task covariates; logical <code>test_ppi</code></td>
 <td style="text-align: left;">When <code>test_ppi = TRUE</code>, the first element of <code>covariates</code> defines the error-free psychological modulator <span class="math inline">\(x_i\)</span> forming <code>seed:x</code>, while any additional covariates enter as additive controls.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><strong><code>shared_error</code>, <code>crosstrial_se</code>, &amp; <code>method</code></strong></td>
 <td style="text-align: left;"><code>shared_error = c("auto", "supplied", "zero")</code>; <code>crosstrial_se = TRUE</code>; <code>method = c("mmoms", "mmom", "naive_unweighted")</code></td>
 <td style="text-align: left;">Govern stationary + dynamic cross-parcel error subtraction, cross-trial sandwich SE calibration, and moment-matrix conditioning.</td>
@@ -489,10 +494,10 @@ window.Quarto = {
 \theta_{T,i} = \beta_S \theta_{S,i} + \beta_x x_i + \beta_P (\theta_{S,i} x_i) + \varepsilon_i.
 \]</span></p>
 <p>Each coefficient answers a distinct biological question: <span class="math inline">\(\beta_S\)</span> is baseline trial-to-trial seed–target coupling at the mean of <span class="math inline">\(x_i\)</span> (<span class="math inline">\(x_i = 0\)</span>), <span class="math inline">\(\beta_x\)</span> absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and <span class="math inline">\(\beta_P\)</span> is the <strong>PPI slope</strong>—how much seed–target coupling changes per unit change in <span class="math inline">\(x_i\)</span> (for <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, <span class="math inline">\(2\beta_P\)</span> is the slope difference between task conditions).</p>
-<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>) and lagged control (<code>control_target_seed_lag</code>):</strong></p>
+<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>) and multi-lag directed partialing (<code>control_target_seed_lag</code> &amp; <code>multilag_control</code>):</strong></p>
 <ul>
 <li><strong>Direct vs.&nbsp;residualized seed (<code>orthogonalize_seed_x</code>):</strong> Setting <code>orthogonalize_seed_x = FALSE</code> (recommended when testing the direct structural equation above) enters centered <span class="math inline">\(\theta_{S,i}\)</span> and <span class="math inline">\(x_i\)</span> symmetrically without altering quadratic task structure. Setting <code>orthogonalize_seed_x = TRUE</code> first residualizes the seed against <code>covariates</code> (projecting <code>diag(se_demixed^2)</code> through <span class="math inline">\(P D_u P^\top\)</span>) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to <span class="math inline">\(x_i\)</span>, residualizing shifts the product column by a term proportional to <span class="math inline">\(x_i^2\)</span>.</li>
-<li><strong>Concurrent vs.&nbsp;lagged Granger-style coupling (<code>control_target_seed_lag</code>):</strong> When <code>target_lag &gt; seed_lag</code>, setting <code>control_target_seed_lag = TRUE</code> includes target activity at <code>seed_lag</code> as an additional error-corrected neural predictor so <span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_P\)</span> test whether seed activity predicts <em>subsequent change</em> in the target parcel.</li>
+<li><strong>Concurrent vs.&nbsp;multi-lag partialed directed coupling (<code>control_target_seed_lag</code> &amp; <code>multilag_control</code>):</strong> When testing a single lagged pair (<code>target_lag &gt; seed_lag</code>), setting <code>control_target_seed_lag = TRUE</code> includes target activity at <code>seed_lag</code> as an error-corrected control so <span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_P\)</span> test subsequent target change. When sweeping a <span class="math inline">\(K \times K\)</span> grid of <code>(seed_lag, target_lag)</code> pairs (for example, <code>lags = c(0, 2, 4)</code>), running 9 separate marginal single-lag regressions allows regularized deconvolution autocorrelation to project a true <code>Seed(0 s) -&gt; Target(4 s)</code> effect onto <code>(0 -&gt; 2)</code>, <code>(2 -&gt; 4)</code>, and <code>(4 -&gt; 4)</code>. Setting <strong><code>multilag_control = TRUE</code></strong> (or passing <code>control_seed_lags</code>) fits a joint multi-lag EIV equation that partials out companion seed lags and preceding target lags simultaneously while subtracting their full cross-lag measurement-error covariance (<code>lag_noise_vec</code> / <code>lag_error_cor</code>)—isolating the true directed lag cell cleanly.</li>
 </ul>
 <hr>
 </section>
@@ -504,7 +509,7 @@ window.Quarto = {
 \Psi_i = \operatorname{Cov}(e_{X,i} \mid x_i) = s_{S,i}^2 \begin{pmatrix} 1 &amp; 0 &amp; x_i \\ 0 &amp; 0 &amp; 0 \\ x_i &amp; 0 &amp; x_i^2 \end{pmatrix}.
 \]</span></p>
 <p>Two properties follow immediately from <span class="math inline">\(\Psi_i\)</span>: interaction error variance scales heteroskedastically with <span class="math inline">\(x_i^2 s_{S,i}^2\)</span>, and whenever <span class="math inline">\(x_i \neq 0\)</span>, the predictor and interaction errors covary with signed entry <span class="math inline">\(x_i s_{S,i}^2\)</span>.</p>
-<p>At the same time, scanner drift, physiological pulsatility, head micro-movements, and vascular proximity can induce correlated observation error <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i, w_i) = c_i\)</span> between seed and target parcels—including <strong>trial-varying</strong> error covariance when physiological arousal or respiration fluctuates with task demands—shifting the observed cross-moment <span class="math inline">\(X_i Y_i\)</span> by <span class="math inline">\([c_i,\, 0,\, x_i c_i]^\top\)</span>. Under <code>shared_error = "auto"</code>, Step 6 evaluates per-trial <span class="math inline">\((s_{S,i}^2, s_{T,i}^2, c_i)\)</span> directly from Step 4’s <strong>Adaptive-POET + LTZ-gated dynamic covariance-regression model</strong> (<code>shared_error_model</code> in operator mode, or inner products of the per-trial Block-PAF vectors <code>shared_noise_vec</code> and <code>lag_noise_vec</code> on stacked/CSV panels, projected onto the positive semi-definite cone).</p>
+<p>At the same time, scanner drift, physiological pulsatility, head micro-movements, and vascular proximity can induce correlated observation error <span class="math inline">\(\operatorname{Cov}(u_i, v_i \mid x_i, w_i) = c_i\)</span> between seed and target parcels—including <strong>trial-varying</strong> error covariance when physiological arousal, sub-scrubbing motion jolts, or respiration fluctuates with task demands—shifting the observed cross-moment <span class="math inline">\(X_i Y_i\)</span> by <span class="math inline">\([c_i,\, 0,\, x_i c_i]^\top\)</span>. Under <code>shared_error = "auto"</code>, Step 6 evaluates per-trial <span class="math inline">\((s_{S,i}^2, s_{T,i}^2, c_i)\)</span> directly from Step 4’s <strong>Adaptive-POET + LTZ-gated dynamic covariance-regression model</strong> (<code>shared_error_model</code> in operator mode—including on-the-fly dynamic covariance evaluation against the PPI <code>modulator</code> even when Step 3 was run covariate-agnostically with <code>covariates = NULL</code>, plus exact Step-2 <code>rwls</code> <code>frame_weights</code> jolt propagation—or inner products of the per-trial Block-PAF vectors <code>shared_noise_vec</code> and <code>lag_noise_vec</code> on stacked/CSV panels, projected onto the positive semi-definite cone).</p>
 <p><strong>Choice point — Cross-parcel shared error (<code>shared_error</code>):</strong> Use <code>shared_error = "auto"</code> (paired with <code>shared_error_method = "poet_covreg"</code> and <code>variance_confounds</code> in Step 4) as the standard setting, and compare against <code>shared_error = "zero"</code> to see how much stationary and dynamic background noise correlation contributed to the raw coupling estimate.</p>
 <hr>
 </section>
@@ -670,10 +675,10 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <td style="text-align: left;">Selects direct symmetric <code>Seed + x + Seed:x</code> vs.&nbsp;task-residualized seed modulation (<code>Substep 6.1</code>).</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><strong><code>control_target_seed_lag</code></strong></td>
-<td style="text-align: left;"><code>FALSE</code></td>
-<td style="text-align: left;"><code>TRUE</code> when <code>target_lag &gt; seed_lag</code></td>
-<td style="text-align: left;">Controls for baseline target activity at <code>seed_lag</code> in lagged connectivity models (<code>Substep 6.1</code>).</td>
+<td style="text-align: left;"><strong><code>control_target_seed_lag</code> &amp; <code>multilag_control</code></strong></td>
+<td style="text-align: left;"><code>FALSE</code>, <code>FALSE</code></td>
+<td style="text-align: left;"><code>multilag_control = TRUE</code> on multi-lag grids (<code>control_target_seed_lag = TRUE</code> for single-pair Granger tests)</td>
+<td style="text-align: left;">Partials out companion seed lags and pre-target lags with full cross-lag error covariance subtraction (<code>Substep 6.1</code>).</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong><code>shared_error</code></strong></td>

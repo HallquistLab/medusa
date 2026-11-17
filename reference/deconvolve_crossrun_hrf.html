@@ -63,7 +63,10 @@
 <span>  lambda_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"global"</span>, <span class="st">"stratified"</span><span class="op">)</span>,</span>
 <span>  max_lambda_strata <span class="op">=</span> <span class="fl">4L</span>,</span>
 <span>  rwls <span class="op">=</span> <span class="st">"auto"</span>,</span>
-<span>  highpass <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  highpass <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  noise_pcs <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  max_noise_pcs <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  noise_pool <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -178,6 +181,25 @@ Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
 <dd><p>Optional DCT highpass cutoff period in seconds inherited from
 <code>hrf_fit$settings$highpass</code> when <code>NULL</code> (<code>128</code> s in modern
 mode; <code>Inf</code> / disabled when <code>Inf</code> or <code>&lt;= 0</code>).</p></dd>
+
+
+<dt id="arg-noise-pcs">noise_pcs<a class="anchor" aria-label="anchor" href="#arg-noise-pcs"></a></dt>
+<dd><p>Cross-validated GLMdenoise-style background noise-pool temporal PCs:
+<code>"auto"</code> (default; inherits <code>hrf_fit$specification$noise_pcs</code> when
+already estimated in Step 1, or extracts \(0 \dots \code{max_noise_pcs}\) PCs
+on modern fits), <code>0L</code>/<code>FALSE</code>/<code>"none"</code> (disabled), or a fixed
+positive integer count.</p></dd>
+
+
+<dt id="arg-max-noise-pcs">max_noise_pcs<a class="anchor" aria-label="anchor" href="#arg-max-noise-pcs"></a></dt>
+<dd><p>Maximum candidate noise-pool PCs evaluated when
+<code>noise_pcs = "auto"</code> (default <code>10L</code>).</p></dd>
+
+
+<dt id="arg-noise-pool">noise_pool<a class="anchor" aria-label="anchor" href="#arg-noise-pool"></a></dt>
+<dd><p>Optional explicit background noise-pool specification (logical
+mask, integer column indices, or character voxel IDs). Overrides Step-1
+noise pool when supplied.</p></dd>
 
 </dl></div>
     <div class="section level2">

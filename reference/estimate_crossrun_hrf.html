@@ -62,7 +62,7 @@
 <span>  min_parcel_voxels <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  batch_size <span class="op">=</span> <span class="fl">2048L</span>,</span>
 <span>  return_scores <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  amplitude_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"condition"</span>, <span class="st">"trial"</span><span class="op">)</span>,</span>
+<span>  amplitude_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"condition"</span>, <span class="st">"trial"</span>, <span class="st">"trial_ridge"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
 <span>  noise_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ar1"</span>, <span class="st">"ols"</span><span class="op">)</span>,</span>
 <span>  noise_rho <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  noise_grid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.8</span>, <span class="fl">0.9</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
@@ -80,7 +80,12 @@
 <span>  max_neighbors <span class="op">=</span> <span class="fl">32L</span>,</span>
 <span>  max_hrf_strata <span class="op">=</span> <span class="fl">48L</span>,</span>
 <span>  max_noise_strata <span class="op">=</span> <span class="fl">10L</span>,</span>
-<span>  highpass <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  highpass <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  hrf_modulators <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  fracridge <span class="op">=</span> <span class="fl">0.25</span>,</span>
+<span>  noise_pcs <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  max_noise_pcs <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  noise_pool <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -194,10 +199,14 @@ default 0.01. This is a configurable heuristic, not a significance threshold.</p
 
 
 <dt id="arg-amplitude-model">amplitude_model<a class="anchor" aria-label="anchor" href="#arg-amplitude-model"></a></dt>
-<dd><p>Training amplitudes shared within condition (fast
-default), or free for each event record (trial). Trial amplitudes can support
-HRF estimation when signed trial responses average to zero, but cost more and
-require a design with sufficient residual degrees of freedom.</p></dd>
+<dd><p>Training amplitude parameterization: <code>"condition"</code>
+(fast default; shared amplitude per condition, plus any <code>hrf_modulators</code>),
+<code>"trial"</code> (unregularized free amplitude per event), <code>"trial_ridge"</code>
+(SVD fractional-ridge trial deviations with matched effective degrees of freedom
+<code>fracridge</code> across candidates, robust to rapid ITIs and zero-mean modulation),
+or <code>"auto"</code> (scores with <code>"condition"</code> first and automatically rescues
+unmodeled zero-mean trial-modulated parcels/voxels via <code>"trial_ridge"</code> when
+calibrated training-run task evidence supports it).</p></dd>
 
 
 <dt id="arg-noise-model">noise_model<a class="anchor" aria-label="anchor" href="#arg-noise-model"></a></dt>
@@ -313,6 +322,39 @@ so Step-2 inverse operator caching remains compact at whole-brain scale
 period in seconds for run-level scanner drift removal. Defaults to
 <code>128</code> in modern AR/calibrated mode (<code>Inf</code> / disabled in legacy
 OLS/legacy mode).</p></dd>
+
+
+<dt id="arg-hrf-modulators">hrf_modulators<a class="anchor" aria-label="anchor" href="#arg-hrf-modulators"></a></dt>
+<dd><p>Optional trial-level parametric modulator(s) included in
+Step-1 HRF scoring: either a character vector of column names in <code>events</code>
+(e.g., <code>"rpe"</code>), or a per-run list of numeric vectors/matrices/data.frames
+aligned with <code>events</code>. Default <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-fracridge">fracridge<a class="anchor" aria-label="anchor" href="#arg-fracridge"></a></dt>
+<dd><p>Target fractional effective degrees of freedom (in <code>[0.05, 0.85]</code>)
+for within-condition trial deviations when <code>amplitude_model</code> is
+<code>"trial_ridge"</code> or <code>"auto"</code> (default <code>0.25</code>).</p></dd>
+
+
+<dt id="arg-noise-pcs">noise_pcs<a class="anchor" aria-label="anchor" href="#arg-noise-pcs"></a></dt>
+<dd><p>Cross-validated GLMdenoise-style background noise-pool temporal PCs:
+<code>"auto"</code> (default; selects \(0 \dots \code{max_noise_pcs}\) PCs on modern
+AR/calibrated fits via AR-prewhitened Gavish-Donoho gating and disjoint spatial
+bi-cross-validation), <code>0L</code>/<code>FALSE</code>/<code>"none"</code> (disabled), or a
+fixed positive integer count.</p></dd>
+
+
+<dt id="arg-max-noise-pcs">max_noise_pcs<a class="anchor" aria-label="anchor" href="#arg-max-noise-pcs"></a></dt>
+<dd><p>Maximum candidate noise-pool PCs evaluated when
+<code>noise_pcs = "auto"</code> (default <code>10L</code>).</p></dd>
+
+
+<dt id="arg-noise-pool">noise_pool<a class="anchor" aria-label="anchor" href="#arg-noise-pool"></a></dt>
+<dd><p>Optional explicit background noise-pool specification (logical
+mask of length <code>ncol(bold[[1]])</code>, integer column indices, or character
+voxel IDs, e.g., WM/CSF/background sensors). When <code>NULL</code>, identified
+automatically from task-unrelated background cortex.</p></dd>
 
 </dl></div>
     <div class="section level2">

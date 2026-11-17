@@ -23,7 +23,7 @@ estimate_crossrun_hrf(
   min_parcel_voxels = 5L,
   batch_size = 2048L,
   return_scores = FALSE,
-  amplitude_model = c("condition", "trial"),
+  amplitude_model = c("condition", "trial", "trial_ridge", "auto"),
   noise_model = c("ar1", "ols"),
   noise_rho = NULL,
   noise_grid = seq(-0.8, 0.9, by = 0.1),
@@ -41,7 +41,12 @@ estimate_crossrun_hrf(
   max_neighbors = 32L,
   max_hrf_strata = 48L,
   max_noise_strata = 10L,
-  highpass = NULL
+  highpass = NULL,
+  hrf_modulators = NULL,
+  fracridge = 0.25,
+  noise_pcs = "auto",
+  max_noise_pcs = 10L,
+  noise_pool = NULL
 )
 ```
 
@@ -157,10 +162,15 @@ estimate_crossrun_hrf(
 
 - amplitude_model:
 
-  Training amplitudes shared within condition (fast default), or free
-  for each event record (trial). Trial amplitudes can support HRF
-  estimation when signed trial responses average to zero, but cost more
-  and require a design with sufficient residual degrees of freedom.
+  Training amplitude parameterization: `"condition"` (fast default;
+  shared amplitude per condition, plus any `hrf_modulators`), `"trial"`
+  (unregularized free amplitude per event), `"trial_ridge"` (SVD
+  fractional-ridge trial deviations with matched effective degrees of
+  freedom `fracridge` across candidates, robust to rapid ITIs and
+  zero-mean modulation), or `"auto"` (scores with `"condition"` first
+  and automatically rescues unmodeled zero-mean trial-modulated
+  parcels/voxels via `"trial_ridge"` when calibrated training-run task
+  evidence supports it).
 
 - noise_model:
 
@@ -277,6 +287,39 @@ estimate_crossrun_hrf(
   seconds for run-level scanner drift removal. Defaults to `128` in
   modern AR/calibrated mode (`Inf` / disabled in legacy OLS/legacy
   mode).
+
+- hrf_modulators:
+
+  Optional trial-level parametric modulator(s) included in Step-1 HRF
+  scoring: either a character vector of column names in `events` (e.g.,
+  `"rpe"`), or a per-run list of numeric vectors/matrices/data.frames
+  aligned with `events`. Default `NULL`.
+
+- fracridge:
+
+  Target fractional effective degrees of freedom (in `[0.05, 0.85]`) for
+  within-condition trial deviations when `amplitude_model` is
+  `"trial_ridge"` or `"auto"` (default `0.25`).
+
+- noise_pcs:
+
+  Cross-validated GLMdenoise-style background noise-pool temporal PCs:
+  `"auto"` (default; selects \\0 \dots \code{max_noise_pcs}\\ PCs on
+  modern AR/calibrated fits via AR-prewhitened Gavish-Donoho gating and
+  disjoint spatial bi-cross-validation), `0L`/`FALSE`/`"none"`
+  (disabled), or a fixed positive integer count.
+
+- max_noise_pcs:
+
+  Maximum candidate noise-pool PCs evaluated when `noise_pcs = "auto"`
+  (default `10L`).
+
+- noise_pool:
+
+  Optional explicit background noise-pool specification (logical mask of
+  length `ncol(bold[[1]])`, integer column indices, or character voxel
+  IDs, e.g., WM/CSF/background sensors). When `NULL`, identified
+  automatically from task-unrelated background cortex.
 
 ## Value
 

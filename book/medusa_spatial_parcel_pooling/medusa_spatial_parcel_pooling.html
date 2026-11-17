@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -484,57 +484,60 @@ window.Quarto = {
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooling         =</span> <span class="st">"graph"</span>,</span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">spatial_graph   =</span> g_geo,</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">parcel_boundary =</span> <span class="st">"soft"</span>,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"trial"</span>,</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Event-informed continuous deconvolution with SNR-stratified smoothing</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>decon <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold        =</span> ts,</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">hrf_fit     =</span> hrf_fit,</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling     =</span> <span class="st">"noise_sd"</span>,</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda_mode =</span> <span class="st">"auto"</span>         <span class="co"># task-SNR tiers with monotone non-increasing smoothing</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: export the realized per-voxel log10(lambda) SNR-tier map in 1 line</span></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="fu">write_nifti_ts</span>(</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log10</span>(decon<span class="sc">$</span>settings<span class="sc">$</span>lambda_by_voxel),</span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="st">"sub-01_log10_lambda.nii.gz"</span>,</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">reference =</span> decon,</span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">fill      =</span> <span class="cn">NA_real_</span></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 (Voxelwise): Epoch de-mixing + edge-preserving neighborhood variance pooling</span></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>ep_vox <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">deconvolution    =</span> decon,</span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates       =</span> covariates,       <span class="co"># e.g., list(run1 = data.frame(rpe = ...), ...)</span></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">events           =</span> events,</span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_condition =</span> <span class="st">"feedback"</span>,</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">lags             =</span> <span class="sc">-</span><span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>,</span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">restore_scale    =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_shrinkage   =</span> <span class="st">"graph_eb"</span>        <span class="co"># pre-truncation neighborhood shrinkage + hotspot guard</span></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co"># Export lag = 0 s voxelwise GLS t-map directly using decon's carried NIfTI geometry</span></span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>lag0_vox <span class="ot">&lt;-</span> <span class="fu">subset</span>(ep_vox<span class="sc">$</span>coefficients, lag <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> term <span class="sc">==</span> <span class="st">"rpe"</span>)</span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>t_vec    <span class="ot">&lt;-</span> stats<span class="sc">::</span><span class="fu">setNames</span>(lag0_vox<span class="sc">$</span>t_gls, lag0_vox<span class="sc">$</span>voxel)</span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="fu">write_nifti_ts</span>(t_vec, <span class="st">"sub-01_feedback_rpe_t_lag0.nii.gz"</span>, <span class="at">reference =</span> decon, <span class="at">fill =</span> <span class="cn">NA_real_</span>)</span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="co"># Render axial brain map with Schaefer parcel outlines in ggbrain</span></span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>t1_nii    <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">"extdata"</span>, <span class="st">"mni_template_2009c_2mm.nii.gz"</span>, <span class="at">package =</span> <span class="st">"ggbrain"</span>)</span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>atlas_nii <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">"extdata"</span>, <span class="st">"Schaefer_200_7networks_2009c_2mm.nii.gz"</span>, <span class="at">package =</span> <span class="st">"ggbrain"</span>)</span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>gg_vox <span class="ot">&lt;-</span> <span class="fu">ggbrain</span>(<span class="at">bg_color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">images</span>(<span class="fu">c</span>(<span class="at">underlay =</span> t1_nii, <span class="at">atlas =</span> atlas_nii, <span class="at">tmap =</span> <span class="st">"sub-01_feedback_rpe_t_lag0.nii.gz"</span>)) <span class="sc">+</span></span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slices</span>(<span class="fu">c</span>(<span class="st">"z = 6"</span>, <span class="st">"z = 8"</span>, <span class="st">"z = 10"</span>)) <span class="sc">+</span></span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_brain</span>(<span class="st">"underlay[underlay &gt; 8]"</span>,</span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>             <span class="at">fill_scale =</span> ggplot2<span class="sc">::</span><span class="fu">scale_fill_gradient</span>(<span class="at">low =</span> <span class="st">"#30363D"</span>, <span class="at">high =</span> <span class="st">"#E6ECF0"</span>),</span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>             <span class="at">show_legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_brain</span>(<span class="st">"tmap[abs(tmap) &gt; 2.0]"</span>,</span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>             <span class="at">fill_scale =</span> <span class="fu">scale_fill_bisided</span>(<span class="at">name =</span> <span class="st">"GLS t"</span>, <span class="at">symmetric =</span> <span class="cn">TRUE</span>)) <span class="sc">+</span></span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_outline</span>(<span class="st">"atlas[atlas &gt; 0]"</span>, <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">group =</span> value),</span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>               <span class="at">outline =</span> <span class="st">"#1F2933"</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">alpha =</span> <span class="fl">0.35</span>, <span class="at">show_legend =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(gg_vox)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">amplitude_model =</span> <span class="st">"auto"</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection_mode  =</span> <span class="st">"soft_average"</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_pcs       =</span> <span class="st">"auto"</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Event-informed continuous deconvolution with SNR-stratified smoothing</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>decon <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold          =</span> ts,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">hrf_fit       =</span> hrf_fit,</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling       =</span> <span class="st">"noise_sd"</span>,</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda_mode   =</span> <span class="st">"auto"</span>,        <span class="co"># task-SNR tiers with monotone non-increasing smoothing</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode =</span> <span class="st">"preproject"</span>,  <span class="co"># pre-projects &lt; 1/128 Hz DCT drift, confounds, &amp; noise_pcs</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_pcs     =</span> <span class="st">"auto"</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: export the realized per-voxel log10(lambda) SNR-tier map in 1 line</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="fu">write_nifti_ts</span>(</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log10</span>(decon<span class="sc">$</span>settings<span class="sc">$</span>lambda_by_voxel),</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="st">"sub-01_log10_lambda.nii.gz"</span>,</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">reference =</span> decon,</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">fill      =</span> <span class="cn">NA_real_</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 (Voxelwise): Epoch de-mixing + edge-preserving neighborhood variance pooling</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>ep_vox <span class="ot">&lt;-</span> <span class="fu">decon_epoch_regression</span>(</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">deconvolution    =</span> decon,</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates       =</span> covariates,       <span class="co"># e.g., list(run1 = data.frame(rpe = ...), ...)</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">events           =</span> events,</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_condition =</span> <span class="st">"feedback"</span>,</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">lags             =</span> <span class="sc">-</span><span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>,</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">restore_scale    =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">tau2_shrinkage   =</span> <span class="st">"graph_eb"</span>        <span class="co"># pre-truncation neighborhood shrinkage + hotspot guard</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Export lag = 0 s voxelwise GLS t-map directly using decon's carried NIfTI geometry</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>lag0_vox <span class="ot">&lt;-</span> <span class="fu">subset</span>(ep_vox<span class="sc">$</span>coefficients, lag <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> term <span class="sc">==</span> <span class="st">"rpe"</span>)</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>t_vec    <span class="ot">&lt;-</span> stats<span class="sc">::</span><span class="fu">setNames</span>(lag0_vox<span class="sc">$</span>t_gls, lag0_vox<span class="sc">$</span>voxel)</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="fu">write_nifti_ts</span>(t_vec, <span class="st">"sub-01_feedback_rpe_t_lag0.nii.gz"</span>, <span class="at">reference =</span> decon, <span class="at">fill =</span> <span class="cn">NA_real_</span>)</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co"># Render axial brain map with Schaefer parcel outlines in ggbrain</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>t1_nii    <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">"extdata"</span>, <span class="st">"mni_template_2009c_2mm.nii.gz"</span>, <span class="at">package =</span> <span class="st">"ggbrain"</span>)</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>atlas_nii <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">"extdata"</span>, <span class="st">"Schaefer_200_7networks_2009c_2mm.nii.gz"</span>, <span class="at">package =</span> <span class="st">"ggbrain"</span>)</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>gg_vox <span class="ot">&lt;-</span> <span class="fu">ggbrain</span>(<span class="at">bg_color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">images</span>(<span class="fu">c</span>(<span class="at">underlay =</span> t1_nii, <span class="at">atlas =</span> atlas_nii, <span class="at">tmap =</span> <span class="st">"sub-01_feedback_rpe_t_lag0.nii.gz"</span>)) <span class="sc">+</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slices</span>(<span class="fu">c</span>(<span class="st">"z = 6"</span>, <span class="st">"z = 8"</span>, <span class="st">"z = 10"</span>)) <span class="sc">+</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_brain</span>(<span class="st">"underlay[underlay &gt; 8]"</span>,</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>             <span class="at">fill_scale =</span> ggplot2<span class="sc">::</span><span class="fu">scale_fill_gradient</span>(<span class="at">low =</span> <span class="st">"#30363D"</span>, <span class="at">high =</span> <span class="st">"#E6ECF0"</span>),</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>             <span class="at">show_legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_brain</span>(<span class="st">"tmap[abs(tmap) &gt; 2.0]"</span>,</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>             <span class="at">fill_scale =</span> <span class="fu">scale_fill_bisided</span>(<span class="at">name =</span> <span class="st">"GLS t"</span>, <span class="at">symmetric =</span> <span class="cn">TRUE</span>)) <span class="sc">+</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_outline</span>(<span class="st">"atlas[atlas &gt; 0]"</span>, <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">group =</span> value),</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>               <span class="at">outline =</span> <span class="st">"#1F2933"</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">alpha =</span> <span class="fl">0.35</span>, <span class="at">show_legend =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(gg_vox)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="pathway-b-parcel-wise-multi-stratum-panel-cohort-mixed_by-ggbrain-map" class="level3">

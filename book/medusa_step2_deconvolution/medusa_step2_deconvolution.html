@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -371,13 +371,15 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(medusa)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>decon <span class="ot">&lt;-</span> <span class="fu">deconvolve_crossrun_hrf</span>(</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold        =</span> bold,</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">hrf_fit     =</span> hrf_fit,</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling     =</span> <span class="st">"noise_sd"</span>,</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">penalty     =</span> <span class="st">"sobolev"</span>,</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda_mode =</span> <span class="st">"auto"</span>,</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">rwls        =</span> <span class="st">"auto"</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">bold          =</span> bold,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">hrf_fit       =</span> hrf_fit,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling       =</span> <span class="st">"noise_sd"</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">penalty       =</span> <span class="st">"sobolev"</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda_mode   =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">rwls          =</span> <span class="st">"auto"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode =</span> <span class="st">"preproject"</span>,</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_pcs     =</span> <span class="st">"auto"</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
@@ -444,9 +446,9 @@ window.Quarto = {
 <td>Controls smoothing strength, tuned automatically across runs over <code>lambda_grid = 10^seq(-2, 1, length.out = 16)</code> either globally or across monotone task-SNR tiers.</td>
 </tr>
 <tr class="even">
-<td><code>rwls</code>, <code>nuisance_mode</code>, &amp; <code>observation_mask</code></td>
-<td><code>rwls = "auto"</code>; <code>nuisance_mode = "ignore"</code> or <code>"joint"</code>; <code>observation_mask = "fit"</code></td>
-<td>Govern transient glitch weighting, whether Step 1 <code>nuisance</code> columns are projected inside the inverse solve, and exclusion of <code>valid_rows == FALSE</code> frames from the data-fit term.</td>
+<td><code>rwls</code>, <code>nuisance_mode</code>, <code>highpass</code>, &amp; <code>noise_pcs</code></td>
+<td><code>rwls = "auto"</code>; <code>nuisance_mode = c("preproject", "ignore", "joint")</code>; <code>highpass = 128</code>; <code>noise_pcs = "auto"</code></td>
+<td>Govern transient glitch weighting (<code>rwls</code>), clock-aligned pre-orthogonalization of <code>&lt; 1/128 Hz</code> DCT drift, <code>nuisance</code> confounds, and cross-validated background noise-pool PCs (<code>noise_pcs = "auto"</code>) prior to <span class="math inline">\(|H(\omega)|^{-1}\)</span> inversion, and exclusion of <code>valid_rows == FALSE</code> frames (<code>observation_mask = "fit"</code>).</td>
 </tr>
 </tbody>
 </table>
@@ -601,7 +603,7 @@ Table&nbsp;5.1: Continuous waveform recovery on Run 1 Voxel 1 across the five pe
 <p><strong>Choice point — Roughness penalty (<code>penalty</code>) and nuisance projection (<code>nuisance_mode</code>):</strong></p>
 <ul>
 <li><strong>Penalty geometry:</strong> <code>penalty = "sobolev"</code> combines a gentle first-difference slope penalty with a strong second-difference curvature penalty (<span class="math inline">\(0.10 D_1^\top D_1 + 0.90 D_2^\top D_2\)</span>, a discrete Sobolev norm) and is recommended as the standard choice. Pure second-difference curvature smoothing (<code>"diff2"</code>) leaves global linear ramps unpenalized, whereas pure <code>"ridge"</code> shrinks each time point toward zero without sharing smoothness across neighboring TRs; <code>"sobolev"</code> (and <code>"matern1"</code>) gently anchors baseline drift while keeping phasic transitions crisp (<a href="#fig-step2-penalties" class="quarto-xref">Figure&nbsp;<span>5.3</span></a>, <a href="#tbl-step2-penalties" class="quarto-xref">Table&nbsp;<span>5.1</span></a>).</li>
-<li><strong>Nuisance handling:</strong> Use <code>nuisance_mode = "ignore"</code> when input BOLD has already been detrended or confound-regressed upstream, or switch to <code>nuisance_mode = "joint"</code> when drift and motion regressors passed via <code>hrf_fit</code> remain present in <code>bold</code> and should be projected out inside the whitened inverse (<a href="#fig-step2-mask-nuisance" class="quarto-xref">Figure&nbsp;<span>5.4</span></a>, top).</li>
+<li><strong>Clock-aligned drift, confound, and noise-pool pre-projection (<code>nuisance_mode = "preproject"</code> &amp; <code>noise_pcs = "auto"</code>):</strong> Because the Sobolev penalty vanishes on constant/ultra-slow modes while <span class="math inline">\(H(0) = 1\)</span>, leaving <code>&lt; 1/128 Hz</code> scanner drift or motion confounds unprojected (<code>nuisance_mode = "ignore"</code> on raw BOLD) lets slow drift pass directly into <span class="math inline">\(\widehat{a}_r(t)\)</span> even though Step 1’s <code>noise_sd</code> excluded drift variance—inflating trial variance without matching <code>se_demixed</code>. Conversely, projecting nuisance columns <em>jointly</em> inside <span class="math inline">\((A_r^\top A_r + P_\lambda)^{-1}\)</span> (<code>nuisance_mode = "joint"</code>) can amplify collinear slow neural modes. <strong><code>nuisance_mode = "preproject"</code></strong> (automatic default whenever <code>nuisance</code>, <code>highpass = 128</code>, or <code>noise_pcs</code> are active) orthogonalizes <code>[1, linear_trend, DCT(&lt; 1/128 Hz), nuisance, noise_pcs]</code> on <code>valid_rows</code> <em>before</em> continuous deconvolution and carries that exact projection into Step 3 (<code>decon_epoch_regression()</code>), <code>diagnose_crossrun_recovery()</code>, and Stage-3 <code>poet_covreg</code>. Simultaneously, <code>noise_pcs = "auto"</code> projects out cross-validated background physiological PCs (<a href="../medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-noise-pool-pcs">Step 1 §1.5</a>) <em>before</em> <span class="math inline">\(|H(\omega)|^{-1}\)</span> amplifies <code>0.15–0.30 Hz</code> respiratory and aliased cardiac harmonics. Use <code>"ignore"</code> only when BOLD and events were already matched-projected upstream.</li>
 </ul>
 <div id="fig-step2-mask-nuisance" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Two-panel plot showing drift removal under nuisance_mode = joint and artifact containment under observation_mask = fit.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -726,7 +728,7 @@ Table&nbsp;5.2: Reference scale divisors across high-gain, moderate-gain, and nu
 <section id="guard-against-transient-scanner-glitches-without-clipping-neural-bursts" class="level3">
 <h3 class="anchored" data-anchor-id="guard-against-transient-scanner-glitches-without-clipping-neural-bursts">2.3 Guard against transient scanner glitches without clipping neural bursts</h3>
 <p>Even after binary motion censoring (<code>valid_rows</code>), fMRI runs occasionally contain sub-threshold micro-movements or RF spikes (<span class="math inline">\(\text{FD} \approx 0.2\text{--}0.3\text{ mm}\)</span>) that would cause oscillatory ringing in an unweighted linear inverse. At the same time, naive outlier downweighting risks mistaking an unusually large, genuine neural response (such as a surprise prediction-error burst) for an artifact.</p>
-<p>Under <code>rwls = "auto"</code>, Step 2 measures cross-voxel residual energy <strong>orthogonal to the modeled <code>[trial HRF, dHRF/dt]</code> task subspace</strong> and widens frame tolerance in proportion to the convolved task envelope:</p>
+<p>Under <code>rwls = "auto"</code>, Step 2 screens the most task-informative voxels across whole-brain maps (ranking <code>selected_adjusted_partial_r2</code> up to <code>4,096</code> voxels with numerical QR/SVD fallbacks via <code>hrf_safe_svd()</code>), measures cross-voxel residual energy <strong>orthogonal to the modeled <code>[trial HRF, dHRF/dt]</code> task subspace</strong>, and widens frame tolerance in proportion to the convolved task envelope:</p>
 <ul>
 <li>On clean Gaussian runs, a whole-brain tail-energy test calibrated for spatially correlated voxels (via the Liu–Tang–Zhang, 2009 moment approximation) keeps all weights at <span class="math inline">\(w_t = 1\)</span> so standard unweighted GLS is preserved exactly.</li>
 <li>When genuine non-task glitches occur, isolated 1–2 TR spikes are absorbed by adding <strong>transient observation-noise variance at only those flagged volumes</strong> (<span class="math inline">\(\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)\)</span>, solved via low-rank Woodbury Sparse Bayesian Learning updates so high-<span class="math inline">\(\rho\)</span> AR filters do not smear a single-volume spike into neighboring frames), while multi-TR physiological bursts receive smooth innovation-space downweighting—all while keeping <span class="math inline">\(w_t = 1\)</span> across heavy task-evoked neural bursts.</li>
@@ -883,16 +885,17 @@ Table&nbsp;5.3: Continuous waveform recovery on physical input units (<code>blin
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">scaling          =</span> <span class="st">"noise_sd"</span>,</span>
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">penalty          =</span> <span class="st">"sobolev"</span>,</span>
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">rwls             =</span> <span class="st">"auto"</span>,</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode    =</span> <span class="st">"ignore"</span>,   <span class="co"># set "joint" when drift/motion was NOT removed from bold upstream</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">observation_mask =</span> <span class="st">"fit"</span>,</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">tail_padding     =</span> <span class="dv">0</span>L</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect conditional gain and event cross-talk under your study's schedule:</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">lags =</span> <span class="dv">0</span>)</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: stream 4D deconvolved activity or 3D log10(lambda) maps to NIfTI</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co"># write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz"), reference = ts)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">nuisance_mode    =</span> <span class="st">"preproject"</span>, <span class="co"># pre-projects &lt; 1/128 Hz DCT drift, nuisance, &amp; noise_pcs</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">noise_pcs        =</span> <span class="st">"auto"</span>,       <span class="co"># cross-validated background physiological PCs (0..10)</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">observation_mask =</span> <span class="st">"fit"</span>,</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">tail_padding     =</span> <span class="dv">0</span>L</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Inspect conditional gain and event cross-talk under your study's schedule:</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>recovery <span class="ot">&lt;-</span> <span class="fu">diagnose_crossrun_recovery</span>(decon, <span class="at">lags =</span> <span class="dv">0</span>)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: stream 4D deconvolved activity or 3D log10(lambda) maps to NIfTI</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="co"># write_nifti_ts(decon$activity, c("run1_decon.nii.gz", "run2_decon.nii.gz"), reference = ts)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -920,21 +923,27 @@ Table&nbsp;5.3: Continuous waveform recovery on physical input units (<code>blin
 <td><code>lambda</code> &amp; <code>lambda_mode</code></td>
 <td><code>NULL</code>, <code>"auto"</code></td>
 <td><code>NULL</code>, <code>"auto"</code></td>
-<td>Tunes cross-run smoothness via prewhitened GCV and orders smoothing monotonically from quiet cortex down to high-SNR foci (PAVA; <code>Substep 2.4</code>). Use <code>"global"</code> when enforcing one scalar penalty across all voxels.</td>
+<td>Tunes cross-run smoothness via prewhitened GCV (incorporating <code>noise_pcs</code>) and orders smoothing monotonically from quiet cortex down to high-SNR foci (PAVA; <code>Substep 2.4</code>). Use <code>"global"</code> when enforcing one scalar penalty across all voxels.</td>
 </tr>
 <tr class="even">
 <td><code>rwls</code></td>
 <td><code>"auto"</code></td>
 <td><code>"auto"</code></td>
-<td>Stays inactive (<span class="math inline">\(w_t = 1\)</span>) on clean runs and downweights non-task glitches while protecting task-aligned bursts (<code>Substep 2.3</code>).</td>
+<td>Stays inactive (<span class="math inline">\(w_t = 1\)</span>) on clean runs and downweights non-task glitches across top <code>selected_adjusted_partial_r2</code> voxels while protecting task-aligned bursts (<code>Substep 2.3</code>).</td>
 </tr>
 <tr class="odd">
-<td><code>nuisance_mode</code></td>
-<td><code>"ignore"</code> (cleaned BOLD) or <code>"joint"</code> (raw BOLD)</td>
-<td><code>"ignore"</code></td>
-<td>Set <code>"joint"</code> whenever drift or confound columns supplied to Step 1 have not already been regressed out of <code>bold</code> (<code>Substep 2.1</code>).</td>
+<td><code>nuisance_mode</code> &amp; <code>highpass</code></td>
+<td><code>"preproject"</code> &amp; <code>128</code></td>
+<td><code>"preproject"</code> (when <code>nuisance</code> / <code>highpass</code> active)</td>
+<td>Pre-orthogonalizes <code>[1, trend, DCT(&lt; 1/128 Hz), nuisance, noise_pcs]</code> on <code>valid_rows</code> prior to continuous GLS (<code>Substep 2.1</code>); use <code>"ignore"</code> only on already matched-detrended inputs.</td>
 </tr>
 <tr class="even">
+<td><code>noise_pcs</code></td>
+<td><code>"auto"</code></td>
+<td><code>"auto"</code></td>
+<td>Suppresses narrowband aliased cardiac/respiratory and global vascular PCs from task-silent background cortex prior to <span class="math inline">\(|H(\omega)|^{-1}\)</span> amplification (<code>Substep 2.1</code>).</td>
+</tr>
+<tr class="odd">
 <td><code>observation_mask</code> &amp; <code>tail_padding</code></td>
 <td><code>"fit"</code> &amp; <code>0L</code></td>
 <td><code>"fit"</code> &amp; <code>0L</code></td>
