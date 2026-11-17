@@ -319,3 +319,39 @@ test_that("Tier 2.2b: SNR-adaptive de-shrinking and training-only spatial noise 
   null_depart_rate <- mean(abs(pks_null - 6.0) > 0.15)
   expect_lte(null_depart_rate, 0.10)
 })
+
+test_that("decon_epoch_regression and aggregate_decon_panel preserve data.table selfref without shallow-copy warnings", {
+  set.seed(8106)
+  tr <- 1.0
+  n_time <- 90L
+  lib <- hrf_library(tr = tr, preset = "standard")
+  groups <- rep(c("P1", "P2"), each = 3L)
+  vox_ids <- paste0("v", 1:6)
+  names(groups) <- vox_ids
+
+  bold <- events <- vector("list", 2L)
+  names(bold) <- names(events) <- c("run1", "run2")
+  for (r in 1:2) {
+    events[[r]] <- data.frame(onset = seq(8, 68, by = 10), duration = 0.0, condition = "task")
+    ym <- sim_ar1_mat_t2(n_time, 6L, rho = 0.35, sd = 0.30)
+    colnames(ym) <- vox_ids
+    bold[[r]] <- ym
+  }
+
+  hf <- estimate_crossrun_hrf(bold, events, tr = tr, kernel_grid = lib, spatial_groups = groups, pooling = "parcel", noise_pcs = 0L)
+  dc <- deconvolve_crossrun_hrf(bold, hf)
+  reg <- decon_epoch_regression(dc, covariates = NULL, events = events, target_condition = "task", lags = 0, aggregate_by_parcel = FALSE, return_panel = TRUE)
+
+  warns_p <- character(0L)
+  withCallingHandlers({
+    p1 <- reg$panel
+    p1[, test_col_a := 1.0]
+    agg <- aggregate_decon_panel(reg, parcel_groups = groups, parcel_col = "region")
+    p2 <- agg$panel
+    p2[, test_col_b := 2.0]
+  }, warning = function(w) {
+    warns_p <<- c(warns_p, conditionMessage(w))
+    invokeRestart("muffleWarning")
+  })
+  expect_false(any(grepl("shallow copy", warns_p, ignore.case = TRUE)))
+})

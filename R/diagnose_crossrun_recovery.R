@@ -4149,16 +4149,16 @@ decon_epoch_regression <- function(
       }
       panel_list[[li]] <- base_meta
     }
-    panel_dt <- data.table::rbindlist(panel_list)
-    attr(panel_dt, "lag_error_cov") <- lag_error_cov
-    attr(panel_dt, "lag_error_cor") <- lag_error_cor
-    attr(panel_dt, "lag_resolution") <- lag_resolution
-    attr(panel_dt, "unit_error_cor") <- unit_error_cor
-    attr(panel_dt, "shared_error_model") <- shared_error_model
-    attr(panel_dt, "run_trial_operators") <- run_trial_operators
-    attr(panel_dt, "tr") <- fit$settings$tr
-    attr(panel_dt, "raw_gain_by_lag_unit") <- gain_by_lag_voxel
-    attr(panel_dt, "demix_target_trials") <- isTRUE(demix_target_trials)
+    panel_dt <- data.table::setalloccol(data.table::rbindlist(panel_list))
+    data.table::setattr(panel_dt, "lag_error_cov", lag_error_cov)
+    data.table::setattr(panel_dt, "lag_error_cor", lag_error_cor)
+    data.table::setattr(panel_dt, "lag_resolution", lag_resolution)
+    data.table::setattr(panel_dt, "unit_error_cor", unit_error_cor)
+    data.table::setattr(panel_dt, "shared_error_model", shared_error_model)
+    data.table::setattr(panel_dt, "run_trial_operators", run_trial_operators)
+    data.table::setattr(panel_dt, "tr", fit$settings$tr)
+    data.table::setattr(panel_dt, "raw_gain_by_lag_unit", gain_by_lag_voxel)
+    data.table::setattr(panel_dt, "demix_target_trials", isTRUE(demix_target_trials))
   }
 
   list(
