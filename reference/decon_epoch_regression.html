@@ -173,10 +173,13 @@ temporal waveforms \(\beta(\tau)\) across a multi-lag grid. Default:
 
 
 <dt id="arg-demix-ridge">demix_ridge<a class="anchor" aria-label="anchor" href="#arg-demix-ridge"></a></dt>
-<dd><p>Positive ridge stabilization parameter for target and
-non-target cross-talk inversion. Values <code>&gt;= 0.03</code> (default <code>0.05</code>)
-use condition-mean non-target de-mixing; values <code>&lt; 0.03</code> activate
-joint trial-varying non-target de-mixing. Default: <code>0.05</code>.</p></dd>
+<dd><p>Ridge stabilization parameter for target and non-target
+cross-talk inversion: <code>0.05</code> (default) or <code>"auto"</code> (selects
+per-stratum/run target-trial ridge in \([0.006, 0.10]\) via
+Empirical-Bayes / SURE MSE minimization using propagated Stage-2 readout
+error covariance without peeking at covariates; numeric values <code>&lt; 0.03</code>
+also activate joint trial-varying non-target de-mixing when
+<code>other_event_model</code> is omitted). Default: <code>0.05</code>.</p></dd>
 
 
 <dt id="arg-within-trial-ridge">within_trial_ridge<a class="anchor" aria-label="anchor" href="#arg-within-trial-ridge"></a></dt>

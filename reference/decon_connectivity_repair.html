@@ -95,7 +95,8 @@ error variances for Granger-style auto-lag controls (<code>targ_t0</code>).</p>
 <span>  return_augmented_panel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  crosstrial_se <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  control_seed_lags <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  multilag_control <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  multilag_control <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  match_resolution <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -258,6 +259,16 @@ other seed lags present in a multi-lag panel (subject to a latent-variance
 identifiability guard so silent lags do not induce M-MOMS attenuation) and
 enables causal target auto-lag control (<code>control_target_seed_lag = TRUE</code>)
 strictly when <code>target_lag &gt; seed_lag</code>. Default: <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-match-resolution">match_resolution<a class="anchor" aria-label="anchor" href="#arg-match-resolution"></a></dt>
+<dd><p>Logical; if <code>TRUE</code> (default), uses Stage-3
+post-demixing trial resolution operators (<code>run_trial_operators</code> or
+embedded <code>trial_res_vec</code> bands on stacked/CSV panels) to match
+differential seed–target trial smoothing (\(M_S \neq M_T\)) and
+post-demixing PPI product transfer (\((M_S \eta_S) \odot x\) vs.
+\(M_T (\eta_S \odot x)\)) across EIV estimators (<code>"mmoms"</code>,
+<code>"mmom"</code>, <code>"eb_predictor"</code>).</p></dd>
 
 </dl></div>
     <div class="section level2">

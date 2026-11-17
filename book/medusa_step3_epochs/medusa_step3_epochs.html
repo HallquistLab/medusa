@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -751,7 +751,7 @@ Figure&nbsp;6.6: Effect of <code>demix_within_trial = TRUE</code> on estimated l
 </figcaption>
 </figure>
 </div>
-<p><strong>Choice point — Target and cross-lag de-mixing:</strong> Keep <code>demix_target_trials = TRUE</code> in all operator analyses. Leave <code>demix_within_trial = FALSE</code> when passing outputs to <code>medusa_multilag_infer()</code> in Step 5 (which sharpens cross-lag blurring at the group level via spectral deblurring, where SNR is <span class="math inline">\(\sqrt{N}\)</span> higher), and enable <code>demix_within_trial = TRUE</code> when inspecting descriptive single-subject curves or fitting single-lag models where sharper lag localization is desired.</p>
+<p><strong>Choice point — Target and cross-lag de-mixing (<code>demix_target_trials</code>, <code>demix_ridge</code>, &amp; <code>demix_within_trial</code>):</strong> Keep <code>demix_target_trials = TRUE</code> in all operator analyses. For single-trial readout fidelity or rapid-ITI designs with strong biological trial fluctuations (e.g., estimating individual working-memory capacity plateaus <span class="math inline">\(K_s\)</span>), set <strong><code>demix_ridge = "auto"</code></strong> (<code>tune_demix_ridge_sure()</code>), which selects <span class="math inline">\(\lambda_{\text{demix}} \in [0.006, 0.10]\)</span> per run and stratum by minimizing analytical post-gain-restoration trial MSE using propagated Stage-2 readout noise covariance (without peeking at <code>covariates</code>), opening to lighter ridge (<code>~0.006–0.016</code>) at high trial SNR while retaining conservative stabilization (<code>0.05–0.10</code>) on noisy units. Leave <code>demix_within_trial = FALSE</code> when passing outputs to <code>medusa_multilag_infer()</code> in Step 5 (which sharpens cross-lag blurring at the group level via spectral deblurring, where SNR is <span class="math inline">\(\sqrt{N}\)</span> higher), and enable <code>demix_within_trial = TRUE</code> when inspecting descriptive single-subject curves or fitting single-lag models where sharper lag localization is desired.</p>
 <hr>
 </section>
 <section id="propagate-observation-noise-covariance-and-construct-trial-precision-weights" class="level3">
@@ -843,9 +843,9 @@ Figure&nbsp;6.9: Within-run total trial correlation matrix <span class="math inl
 </tr>
 <tr class="even">
 <td><code>demix_other_events</code>, <code>other_event_model</code>, &amp; <code>demix_ridge</code></td>
+<td><code>TRUE</code>, <code>"auto"</code>, <code>"auto"</code> (or <code>0.05</code>)</td>
 <td><code>TRUE</code>, <code>"auto"</code>, <code>0.05</code></td>
-<td><code>TRUE</code>, <code>"auto"</code>, <code>0.05</code></td>
-<td>Removes both condition-mean and overlapping trial-varying non-target spillover via GCV-stabilized joint <code>(T, O)</code> subtraction (<code>Substep 3.2</code>); set <code>other_event_model = "condition"</code> only when non-target amplitudes are known to be constant.</td>
+<td>Removes condition-mean and overlapping trial-varying non-target spillover (<code>Substep 3.2</code>), while <code>demix_ridge = "auto"</code> tunes per-stratum target trial ridge via analytical Stage-2 error-covariance SURE/MMSE (<code>Substep 3.3</code>).</td>
 </tr>
 <tr class="odd">
 <td><code>demix_target_trials</code> &amp; <code>demix_within_trial</code></td>

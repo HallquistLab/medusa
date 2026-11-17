@@ -1261,6 +1261,10 @@ penalty matches the single-participant walkthrough above.</p>
 <span><span class="co">#&gt; Welcome to emmeans.</span></span>
 <span><span class="co">#&gt; Caution: You lose important information if you filter this package's results.</span></span>
 <span><span class="co">#&gt; See '? untidy'</span></span>
+<span><span class="co">#&gt; Warning: the 'findbars' function has moved to the reformulas package. Please</span></span>
+<span><span class="co">#&gt; update your imports, or ask an upstream package maintainer to do so.</span></span>
+<span><span class="co">#&gt; Warning: the 'nobars' function has moved to the reformulas package. Please</span></span>
+<span><span class="co">#&gt; update your imports, or ask an upstream package maintainer to do so.</span></span>
 <span><span class="va">group_fit</span> <span class="op">&lt;-</span> <span class="va">group_result</span><span class="op">$</span><span class="va">models</span><span class="op">$</span><span class="va">model</span><span class="op">[[</span><span class="fl">1L</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">reml</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">group_result</span><span class="op">$</span><span class="va">coef_df_reml</span>, <span class="va">term</span> <span class="op">==</span> <span class="st">"rpe_within"</span><span class="op">)</span><span class="op">[</span></span>
 <span>  , <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"estimate"</span>, <span class="st">"std.error"</span>, <span class="st">"df"</span>, <span class="st">"p.value"</span><span class="op">)</span>, with <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
@@ -1272,9 +1276,9 @@ penalty matches the single-participant walkthrough above.</p>
 <th align="right">p.value</th>
 </tr></thead>
 <tbody><tr class="odd">
-<td align="right">0.532</td>
-<td align="right">0.021</td>
-<td align="right">10.259</td>
+<td align="right">0.535</td>
+<td align="right">0.022</td>
+<td align="right">10.963</td>
 <td align="right">0</td>
 </tr></tbody>
 </table>

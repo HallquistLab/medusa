@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -568,7 +568,7 @@ Figure&nbsp;4.4: Invariance verification: adding strong synthetic oscillations t
 </figcaption>
 </figure>
 </div>
-<p>On each training run <span class="math inline">\(s \neq r\)</span>, MEDuSA whitens usable observations under a first-pass noise filter, projects out nuisance drift, and convolves the event schedule with candidate <span class="math inline">\(h_m\)</span> to compute <strong>degree-of-freedom-adjusted partial <span class="math inline">\(R^2\)</span></strong> and an effective-DF <span class="math inline">\(F\)</span>-test (<code>selected_task_p</code>; <a href="#fig-step1-evidence" class="quarto-xref">Figure&nbsp;<span>4.5</span></a>).</p>
+<p>On each training run <span class="math inline">\(s \neq r\)</span>, MEDuSA whitens usable observations under a first-pass noise filter, projects out nuisance drift, and convolves the event schedule with candidate <span class="math inline">\(h_m\)</span> to compute <strong>degree-of-freedom-adjusted partial <span class="math inline">\(R^2\)</span></strong> and an effective-DF <span class="math inline">\(F\)</span>-test (<code>selected_task_p</code>; <a href="#fig-step1-evidence" class="quarto-xref">Figure&nbsp;<span>4.5</span></a>). When a dataset contains only a single scan (<span class="math inline">\(R = 1\)</span>), <code>hrf_single_run_subblocks()</code> replaces cross-run folds with <strong>guard-buffered leave-one-subblock-out cross-validation</strong>, separating interior sub-blocks by a <span class="math inline">\(\ge 16\text{ s}\)</span> hemodynamic and <span class="math inline">\(\text{AR}(p)\)</span> guard zone (isolating any pre-block guard-zone event tails into nuisance carryover columns) and evaluating each held-out sub-block strictly from condition amplitudes and encompassing departures estimated on the remaining sub-blocks.</p>
 <div id="fig-step1-evidence" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Heatmaps of out-of-sample adjusted partial R-squared across Fast, Slow, and Null parcels.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step1-evidence-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -912,7 +912,7 @@ Figure&nbsp;4.9: Mean autocorrelation of known simulation errors in Run 1 (<code
 <h2 class="anchored" data-anchor-id="practical-considerations-special-regimes-and-diagnostics">Practical Considerations, Special Regimes, and Diagnostics</h2>
 <section id="single-run-sessions-and-restingbaseline-runs" class="level3">
 <h3 class="anchored" data-anchor-id="single-run-sessions-and-restingbaseline-runs">Single-run sessions and resting/baseline runs</h3>
-<p>When a participant has only a <strong>single task run</strong> (<code>length(bold) == 1L</code>), <code>estimate_crossrun_hrf()</code> automatically partitions usable observations into contiguous temporal sub-blocks (3 blocks when <span class="math inline">\(n_{\text{valid}} \ge 120\)</span>, 2 halves when <span class="math inline">\(40 \le n_{\text{valid}} &lt; 120\)</span>), scores candidates on each sub-block against the full causal event design, checks cross-block compatibility, and returns a single continuous HRF for the intact run. Runs with zero task events (such as resting-state scans) are also accepted and receive the canonical reference HRF alongside pure-nuisance <span class="math inline">\(\text{AR}(p)\)</span> noise estimates.</p>
+<p>When a participant has only a <strong>single task run</strong> (<code>length(bold) == 1L</code>), <code>estimate_crossrun_hrf()</code> automatically partitions usable observations into temporal sub-blocks separated by a <span class="math inline">\(\ge 16\text{ s}\)</span> hemodynamic/AR guard buffer (<code>hrf_single_run_subblocks()</code>, 3 blocks when <span class="math inline">\(n_{\text{valid}} \ge 150\)</span>, 2 halves otherwise, isolating pre-block guard-zone event tails into carryover nuisance columns), scores candidate shapes strictly out-of-sample via Leave-One-Subblock-Out (LOBO) cross-validation with Bartlett-calibrated sub-block compatibility checks, and returns a single continuous HRF for the intact run. Runs with zero task events (such as resting-state scans) are also accepted and receive the canonical reference HRF alongside pure-nuisance <span class="math inline">\(\text{AR}(p)\)</span> noise estimates.</p>
 </section>
 <section id="sec-respiratory-fd-filter" class="level3">
 <h3 class="anchored" data-anchor-id="sec-respiratory-fd-filter">Respiratory motion filtering for fast-TR censoring</h3>

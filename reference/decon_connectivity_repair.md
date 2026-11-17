@@ -41,7 +41,8 @@ decon_connectivity_repair(
   return_augmented_panel = FALSE,
   crosstrial_se = TRUE,
   control_seed_lags = NULL,
-  multilag_control = FALSE
+  multilag_control = FALSE,
+  match_resolution = TRUE
 )
 ```
 
@@ -201,6 +202,15 @@ decon_connectivity_repair(
   guard so silent lags do not induce M-MOMS attenuation) and enables
   causal target auto-lag control (`control_target_seed_lag = TRUE`)
   strictly when `target_lag > seed_lag`. Default: `FALSE`.
+
+- match_resolution:
+
+  Logical; if `TRUE` (default), uses Stage-3 post-demixing trial
+  resolution operators (`run_trial_operators` or embedded
+  `trial_res_vec` bands on stacked/CSV panels) to match differential
+  seed–target trial smoothing (\\M_S \neq M_T\\) and post-demixing PPI
+  product transfer (\\(M_S \eta_S) \odot x\\ vs. \\M_T (\eta_S \odot
+  x)\\) across EIV estimators (`"mmoms"`, `"mmom"`, `"eb_predictor"`).
 
 ## Value
 

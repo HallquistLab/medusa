@@ -129,10 +129,13 @@ decon_epoch_regression(
 
 - demix_ridge:
 
-  Positive ridge stabilization parameter for target and non-target
-  cross-talk inversion. Values `>= 0.03` (default `0.05`) use
-  condition-mean non-target de-mixing; values `< 0.03` activate joint
-  trial-varying non-target de-mixing. Default: `0.05`.
+  Ridge stabilization parameter for target and non-target cross-talk
+  inversion: `0.05` (default) or `"auto"` (selects per-stratum/run
+  target-trial ridge in \\\[0.006, 0.10\]\\ via Empirical-Bayes / SURE
+  MSE minimization using propagated Stage-2 readout error covariance
+  without peeking at covariates; numeric values `< 0.03` also activate
+  joint trial-varying non-target de-mixing when `other_event_model` is
+  omitted). Default: `0.05`.
 
 - within_trial_ridge:
 

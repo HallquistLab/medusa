@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -614,7 +614,7 @@ Figure&nbsp;8.2: Two tests of the same zero population slope across 3,000 replic
 </figcaption>
 </figure>
 </div>
-<p>Simultaneously, conditional residual variance varies across trials and scans because <span class="math inline">\(\operatorname{Var}(\varepsilon_{sri}) = \tau_{\text{latent}}^2 + s_{sri}^2\)</span>. Passing <code>weights = "precision_weight_cohort"</code> supplies <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{sri}^2)^{-1}\)</span> normalized across the full cohort split, allowing noisier runs and participants to carry appropriately wider conditional residual spread (<code>0.191</code> and <code>0.396</code> vs.&nbsp;true <code>0.194</code> and <code>0.403</code> in <a href="#fig-weights" class="quarto-xref">Figure&nbsp;<span>8.3</span></a>, compared with <code>0.313</code> unweighted).</p>
+<p>Simultaneously, conditional residual variance varies across trials and scans because <span class="math inline">\(\operatorname{Var}(\varepsilon_{sri}) = \tau_{\text{latent}}^2 + s_{sri}^2\)</span>. Passing <code>weights = "precision_weight_cohort"</code> supplies <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{sri}^2)^{-1}\)</span> normalized across the full cohort split, allowing noisier runs and participants to carry appropriately wider conditional residual spread (<code>0.191</code> and <code>0.396</code> vs.&nbsp;true <code>0.194</code> and <code>0.403</code> in <a href="#fig-weights" class="quarto-xref">Figure&nbsp;<span>8.3</span></a>, compared with <code>0.313</code> unweighted). Moreover, when upstream Step 3 panels were exported covariate-agnostically (<code>covariates = NULL</code>), panel <code>tau2_bio</code> reflects <em>marginal</em> trial variance (<span class="math inline">\(\beta_s^2 \operatorname{Var}(x) + \tau_{\text{resid},s}^2\)</span>), which would otherwise downweight participants with the largest true neural slopes <span class="math inline">\(|\beta_s|\)</span>; under <code>reweight_conditional_tau2 = "auto"</code> (default), <code>mixed_by()</code> automatically re-estimates each participant’s conditional residual biological variance <span class="math inline">\(\hat{\tau}_{\text{resid},s}^2\)</span> (shrunk across participants via Empirical Bayes) after projecting out the within-participant fixed-effect predictors in <code>model_formula</code> before forming cohort weights.</p>
 <div id="fig-weights" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Weighted model residual SDs closely match known SDs of 0.19 and 0.40. The unweighted model estimates 0.31 for both runs.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">

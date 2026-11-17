@@ -35,7 +35,8 @@ mixed_by(
   emtrends_pairs = FALSE,
   emtrends_pairs_args = list(),
   weights = NULL,
-  split_filter = NULL
+  split_filter = NULL,
+  reweight_conditional_tau2 = "auto"
 )
 ```
 
@@ -207,12 +208,10 @@ mixed_by(
 
 - weights:
 
-  Optional character scalar naming a numeric column in `data` (or
-  `external_df`) containing positive observation/trial precision weights
-  (e.g., `"precision_weight"` from
-  [`decon_epoch_regression()`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md))
-  to be normalized within each split and passed to the mixed-model
-  engine.
+  Optional string naming a column in `data` containing positive
+  observation/trial precision weights (e.g., `"precision_weight_cohort"`
+  or `"precision_weight"` from
+  [`decon_epoch_regression`](https://hallquistlab.github.io/medusa/reference/decon_epoch_regression.md)).
 
 - split_filter:
 
@@ -222,6 +221,19 @@ mixed_by(
   files or partitioned Parquet directories, predicates on columns
   present in the dataset are pushed down to Arrow prior to
   materialization in R.
+
+- reweight_conditional_tau2:
+
+  Policy for conditional biological-variance
+  (\\\tau\_{\mathrm{resid},s}^2\\) reweighting when fitting MEDuSA trial
+  panels weighted by `"precision_weight_cohort"` or
+  `"precision_weight"`: `"auto"` (default) or `TRUE` re-estimates each
+  participant's conditional biological trial variance after projecting
+  out within-participant fixed-effect covariates in `model_formula`
+  (shrunk across participants via Empirical Bayes), preventing marginal
+  `tau2_bio` (when Step 3 ran with `covariates = NULL`) from
+  downweighting participants with the strongest true neural slopes;
+  `FALSE` uses the column in `data` unmodified.
 
 ## Value
 

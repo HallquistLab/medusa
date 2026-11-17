@@ -83,7 +83,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-0d3163d0c975970375c8d23ee6a07c0b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-3d81d6e0579aba1b7f909d75c5bd7871.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -494,9 +494,10 @@ window.Quarto = {
 \theta_{T,i} = \beta_S \theta_{S,i} + \beta_x x_i + \beta_P (\theta_{S,i} x_i) + \varepsilon_i.
 \]</span></p>
 <p>Each coefficient answers a distinct biological question: <span class="math inline">\(\beta_S\)</span> is baseline trial-to-trial seed–target coupling at the mean of <span class="math inline">\(x_i\)</span> (<span class="math inline">\(x_i = 0\)</span>), <span class="math inline">\(\beta_x\)</span> absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and <span class="math inline">\(\beta_P\)</span> is the <strong>PPI slope</strong>—how much seed–target coupling changes per unit change in <span class="math inline">\(x_i\)</span> (for <span class="math inline">\(x_i \in \{-1, +1\}\)</span>, <span class="math inline">\(2\beta_P\)</span> is the slope difference between task conditions).</p>
-<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>) and multi-lag directed partialing (<code>control_target_seed_lag</code> &amp; <code>multilag_control</code>):</strong></p>
+<p><strong>Choice point — Seed parameterization (<code>orthogonalize_seed_x</code>), operator resolution matching (<code>match_resolution</code>), and multi-lag directed partialing (<code>control_target_seed_lag</code> &amp; <code>multilag_control</code>):</strong></p>
 <ul>
-<li><strong>Direct vs.&nbsp;residualized seed (<code>orthogonalize_seed_x</code>):</strong> Setting <code>orthogonalize_seed_x = FALSE</code> (recommended when testing the direct structural equation above) enters centered <span class="math inline">\(\theta_{S,i}\)</span> and <span class="math inline">\(x_i\)</span> symmetrically without altering quadratic task structure. Setting <code>orthogonalize_seed_x = TRUE</code> first residualizes the seed against <code>covariates</code> (projecting <code>diag(se_demixed^2)</code> through <span class="math inline">\(P D_u P^\top\)</span>) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to <span class="math inline">\(x_i\)</span>, residualizing shifts the product column by a term proportional to <span class="math inline">\(x_i^2\)</span>.</li>
+<li><strong>Task-orthogonalized vs.&nbsp;unresidualized seed (<code>orthogonalize_seed_x</code>):</strong> By default (<code>orthogonalize_seed_x = TRUE</code>), Step 6 residualizes each run’s seed readout against the resolution-matched task covariates (projecting seed error moments symmetrically through <span class="math inline">\(P_s = I - M_s M_s^\top\)</span>) prior to forming PPI products—preventing direct linear task drive on the seed (<span class="math inline">\(\beta_{S,x} x_i\)</span>) from injecting quadratic <span class="math inline">\(x_i^2\)</span> variance into <code>seed_c:x_c</code> and attenuating intrinsic task-modulated coupling. Set <code>orthogonalize_seed_x = FALSE</code> when testing a structural equation defined directly on total (task-driven + intrinsic) seed amplitude.</li>
+<li><strong>Seed–target resolution &amp; PPI product matching (<code>match_resolution = TRUE</code>):</strong> Across regions with distinct GCV smoothing parameters or HRF shapes (<span class="math inline">\(M_S \neq M_T\)</span>), and even under equal smoothing where post-demixing elementwise multiplication satisfies <span class="math inline">\((M_S \eta_S) \odot x \neq M_T (\eta_S \odot x)\)</span>, uncorrected latent moments shift EIV slopes by <span class="math inline">\(H_{SS}^{-1} H_{ST}\)</span>. With <code>match_resolution = TRUE</code> (default), <code>decon_connectivity_repair()</code> reads exact run-level trial resolution matrices (<code>run_trial_operators</code>, or embedded 8-lag <code>trial_res_vec</code> bands on <code>rbindlist()</code>-stacked and CSV panels) to align predictor and error moments to Target’s transfer operator automatically.</li>
 <li><strong>Concurrent vs.&nbsp;multi-lag partialed directed coupling (<code>control_target_seed_lag</code> &amp; <code>multilag_control</code>):</strong> When testing a single lagged pair (<code>target_lag &gt; seed_lag</code>), setting <code>control_target_seed_lag = TRUE</code> includes target activity at <code>seed_lag</code> as an error-corrected control so <span class="math inline">\(\beta_S\)</span> and <span class="math inline">\(\beta_P\)</span> test subsequent target change. When sweeping a <span class="math inline">\(K \times K\)</span> grid of <code>(seed_lag, target_lag)</code> pairs (for example, <code>lags = c(0, 2, 4)</code>), running 9 separate marginal single-lag regressions allows regularized deconvolution autocorrelation to project a true <code>Seed(0 s) -&gt; Target(4 s)</code> effect onto <code>(0 -&gt; 2)</code>, <code>(2 -&gt; 4)</code>, and <code>(4 -&gt; 4)</code>. Setting <strong><code>multilag_control = TRUE</code></strong> (or passing <code>control_seed_lags</code>) fits a joint multi-lag EIV equation that partials out companion seed lags and preceding target lags simultaneously while subtracting their full cross-lag measurement-error covariance (<code>lag_noise_vec</code> / <code>lag_error_cor</code>)—isolating the true directed lag cell cleanly.</li>
 </ul>
 <hr>
@@ -642,15 +643,16 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates              =</span> <span class="st">"x_within"</span>,</span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi                =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened            =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x    =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error            =</span> <span class="st">"auto"</span>,</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">crosstrial_se           =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">method                  =</span> <span class="st">"mmoms"</span>,</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col              =</span> <span class="st">"parcel"</span>,</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col                  =</span> <span class="st">"id"</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">orthogonalize_seed_x    =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">match_resolution        =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">shared_error            =</span> <span class="st">"auto"</span>,</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">crosstrial_se           =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">method                  =</span> <span class="st">"mmoms"</span>,</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col              =</span> <span class="st">"parcel"</span>,</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">id_col                  =</span> <span class="st">"id"</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>ppi<span class="sc">$</span>group</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <table class="caption-top table">
 <thead>
@@ -671,34 +673,40 @@ Figure&nbsp;9.1: Population PPI estimates across 120 simulated cohorts per scena
 <tr class="even">
 <td style="text-align: left;"><strong><code>orthogonalize_seed_x</code></strong></td>
 <td style="text-align: left;"><code>TRUE</code></td>
-<td style="text-align: left;"><code>FALSE</code> (direct model) or <code>TRUE</code> (residualized-seed model)</td>
-<td style="text-align: left;">Selects direct symmetric <code>Seed + x + Seed:x</code> vs.&nbsp;task-residualized seed modulation (<code>Substep 6.1</code>).</td>
+<td style="text-align: left;"><code>TRUE</code> (intrinsic coupling) or <code>FALSE</code> (direct total-seed model)</td>
+<td style="text-align: left;">Residualizes seed against task covariates before forming PPI products so direct seed task drive does not inject quadratic <span class="math inline">\(x^2\)</span> variance (<code>Substep 6.1</code>).</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><strong><code>match_resolution</code></strong></td>
+<td style="text-align: left;"><code>TRUE</code></td>
+<td style="text-align: left;"><code>TRUE</code></td>
+<td style="text-align: left;">Aligns seed and PPI product transfer operators (<span class="math inline">\(H_{SS}^{-1} H_{ST}\)</span>) to Target’s trial resolution across operator, stacked, and CSV panels (<code>Substep 6.1</code>).</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><strong><code>control_target_seed_lag</code> &amp; <code>multilag_control</code></strong></td>
 <td style="text-align: left;"><code>FALSE</code>, <code>FALSE</code></td>
 <td style="text-align: left;"><code>multilag_control = TRUE</code> on multi-lag grids (<code>control_target_seed_lag = TRUE</code> for single-pair Granger tests)</td>
 <td style="text-align: left;">Partials out companion seed lags and pre-target lags with full cross-lag error covariance subtraction (<code>Substep 6.1</code>).</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><strong><code>shared_error</code></strong></td>
 <td style="text-align: left;"><code>"auto"</code></td>
 <td style="text-align: left;"><code>"auto"</code> + <code>"zero"</code> comparison</td>
 <td style="text-align: left;">Subtracts stationary and dynamic cross-parcel measurement-error covariance learned by Step 4’s <code>poet_covreg</code> engine (<code>Substep 6.2</code>).</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><strong><code>crosstrial_se</code></strong></td>
 <td style="text-align: left;"><code>TRUE</code></td>
 <td style="text-align: left;"><code>TRUE</code></td>
 <td style="text-align: left;">Computes cross-trial (<span class="math inline">\(i \neq j\)</span>) hybrid operator + gated onset-kernel sandwich SEs and Satterthwaite <code>df</code> (essential for single-subject <span class="math inline">\(N = 1\)</span> precision neuroimaging).</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><strong><code>method</code></strong></td>
 <td style="text-align: left;"><code>"mmoms"</code></td>
 <td style="text-align: left;"><code>"mmoms"</code> (report alongside <code>"naive_unweighted"</code>)</td>
 <td style="text-align: left;">Stabilizes error-subtracted predictor matrices in noisy participants while disattenuating slopes (<code>Substep 6.3</code>).</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><strong><code>use_whitened</code></strong></td>
 <td style="text-align: left;"><code>FALSE</code></td>
 <td style="text-align: left;"><code>FALSE</code></td>

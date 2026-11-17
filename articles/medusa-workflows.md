@@ -792,6 +792,10 @@ group_result <- mixed_by(
 #> Welcome to emmeans.
 #> Caution: You lose important information if you filter this package's results.
 #> See '? untidy'
+#> Warning: the 'findbars' function has moved to the reformulas package. Please
+#> update your imports, or ask an upstream package maintainer to do so.
+#> Warning: the 'nobars' function has moved to the reformulas package. Please
+#> update your imports, or ask an upstream package maintainer to do so.
 group_fit <- group_result$models$model[[1L]]$reml
 knitr::kable(subset(group_result$coef_df_reml, term == "rpe_within")[
   , c("estimate", "std.error", "df", "p.value"), with = FALSE], digits = 3)
@@ -799,7 +803,7 @@ knitr::kable(subset(group_result$coef_df_reml, term == "rpe_within")[
 
 | estimate | std.error |     df | p.value |
 |---------:|----------:|-------:|--------:|
-|    0.532 |     0.021 | 10.259 |       0 |
+|    0.535 |     0.022 | 10.963 |       0 |
 
 ``` r
 
