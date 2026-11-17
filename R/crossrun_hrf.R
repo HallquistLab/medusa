@@ -1186,12 +1186,14 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
   noise_max_k <- if (pooling == "graph") as.integer(max_noise_strata) else 3L
   if (!any(vapply(events, function(e) is.data.frame(e) && nrow(e) >= 1L, logical(1L))))
     stop("At least one run must contain >= 1 event")
-  score_stratum_fracridge <- function(y_sub, des_cond_s, des_trial_s, z_s, rows_s, ar_s) {
+  score_stratum_fracridge <- function(y_sub, des_cond_s, des_trial_s, z_s, rows_s, ar_s,
+                                      pairwise_ev = TRUE) {
     n_c <- ncol(y_sub)
-    if (n_c <= batch_size) {
+    fr_batch <- max(as.integer(batch_size), 8192L)
+    if (n_c <= fr_batch) {
       return(hrf_score_run_fracridge(y_sub, des_cond_s, des_trial_s, z_s, rows_s,
         ar_vec = ar_s, fracridge = fracridge, evidence = evidence == "calibrated",
-        fallback_index = as.integer(fallback_kernel)))
+        fallback_index = as.integer(fallback_kernel), pairwise_evidence = pairwise_ev))
     }
     acc <- list(
       scores = matrix(NA_real_, ncol(kernels), n_c),
@@ -1206,10 +1208,10 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         acc[[fld]] <- matrix(NA_real_, ncol(kernels), n_c)
       }
     }
-    for (b_idx in split(seq_len(n_c), ceiling(seq_len(n_c) / batch_size))) {
+    for (b_idx in split(seq_len(n_c), ceiling(seq_len(n_c) / fr_batch))) {
       pb <- hrf_score_run_fracridge(y_sub[, b_idx, drop = FALSE], des_cond_s, des_trial_s,
         z_s, rows_s, ar_vec = ar_s, fracridge = fracridge, evidence = evidence == "calibrated",
-        fallback_index = as.integer(fallback_kernel))
+        fallback_index = as.integer(fallback_kernel), pairwise_evidence = pairwise_ev)
       acc$scores[, b_idx] <- pb$scores
       acc$signal_status[b_idx] <- pb$signal_status
       acc$task_rank <- pb$task_rank
@@ -1357,6 +1359,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     event_manifest[[r]] <- data.frame(run = names(bold)[r], voxel = voxel_ids,
       status = result$signal_status)
 
+    will_try_pcs_r <- do_step1_noise_pcs && sum(mask) >= 24L && (ncol(y) >= 24L || !is.null(noise_pool))
     if (amplitude_model == "auto" && !is.null(des_trial_r)) {
       res_tr_r <- list(scores = matrix(NA_real_, ncol(kernels), ncol(y)),
         signal_status = rep("insufficient_observations", ncol(y)))
@@ -1369,7 +1372,8 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         indices <- which(ar_part_tr$keys == ak)
         ar_vec <- as.numeric(ar_part_tr$ar_mat[indices[1L], ])
         part_tr <- score_stratum_fracridge(y[, indices, drop = FALSE], des_cond_mod_r,
-          des_trial_r, z_score, which(mask), ar_vec)
+          des_trial_r, z_score, which(mask), ar_vec,
+          pairwise_ev = (evidence == "calibrated" && !will_try_pcs_r))
         res_tr_r$scores[, indices] <- part_tr$scores
         res_tr_r$signal_status[indices] <- part_tr$signal_status
         if (evidence == "calibrated") {
@@ -1397,7 +1401,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     # Uses ONLY run `r` (`bold[r]`, `events[r]`, `nuisance[r]`, `valid_rows[r]`) so
     # zero cross-run or target-run information ever crosses run boundaries, while
     # removing pervasive physiological / global vascular waves before HRF selection.
-    if (do_step1_noise_pcs && sum(mask) >= 24L && (ncol(y) >= 24L || !is.null(noise_pool))) {
+    if (will_try_pcs_r) {
       eff_t_1r <- hrf_effective_candidates(kernels)$task
       r2_1r <- apply(result$scores, 2L, function(col_s) {
         if (any(is.finite(col_s))) max(col_s, na.rm = TRUE) else 0.0
@@ -1610,6 +1614,19 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         event_manifest[[r]] <- data.frame(run = names(bold)[r], voxel = voxel_ids,
           status = result2$signal_status)
         if (amplitude_model == "auto" && !is.null(des_trial_r)) {
+          # Determine within-run columns where condition lacks decisive support so pairwise LR
+          # eigendecompositions only run on strata with unrescued candidate trial activity
+          c_r2_2 <- apply(result2$scores, 2L, function(cs) if (any(is.finite(cs))) max(cs, na.rm = TRUE) else 0.0)
+          c_tp_2 <- if (evidence == "calibrated" && !is.null(result2$task_p)) {
+            pmin(1.0, apply(result2$task_p, 2L, function(cp) if (any(is.finite(cp))) min(cp, na.rm = TRUE) else 1.0) * eff_t_1r)
+          } else ifelse(c_r2_2 >= min_r2, 0.01, 1.0)
+          cond_decisive_2 <- (c_r2_2 >= max(0.04, 3.0 * min_r2)) & (c_tp_2 <= min(1e-3, 0.05 * evidence_alpha))
+          if (!is.null(spatial_groups)) {
+            for (gg in unique(spatial_groups)) {
+              vg <- which(spatial_groups == gg)
+              if (length(vg) >= 2L && !all(cond_decisive_2[vg])) cond_decisive_2[vg] <- FALSE
+            }
+          }
           res_tr_r2 <- list(scores = matrix(NA_real_, ncol(kernels), ncol(y)),
             signal_status = rep("insufficient_observations", ncol(y)))
           if (evidence == "calibrated") for (field in c("task_p", "fallback_p", "incompatible_p"))
@@ -1623,8 +1640,9 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
             idx1 <- indices[1L]
             ar_vec <- as.numeric(ar_part_tr2$ar_mat[indices[1L], ])
             z_use_k <- z_p2_list[[pc_fold_id[idx1]]]
+            pw_use_2 <- (evidence == "calibrated") && any(!cond_decisive_2[indices])
             part_tr <- score_stratum_fracridge(y[, indices, drop = FALSE], des_cond_mod_r,
-              des_trial_r, z_use_k, which(mask), ar_vec)
+              des_trial_r, z_use_k, which(mask), ar_vec, pairwise_ev = pw_use_2)
             res_tr_r2$scores[, indices] <- part_tr$scores
             res_tr_r2$signal_status[indices] <- part_tr$signal_status
             if (evidence == "calibrated")
@@ -1643,6 +1661,44 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
           run_results_tr[[r]] <- result2
           per_run_tr[[r]] <- result2$scores
         }
+      } else if (amplitude_model == "auto" && !is.null(des_trial_r) && evidence == "calibrated") {
+        # K* = 0 noise PCs selected: populate pairwise LR evidence ONLY on columns that have
+        # candidate trial_ridge signal and are not already decisively condition-supported in run r
+        c_r2_1 <- apply(result$scores, 2L, function(cs) if (any(is.finite(cs))) max(cs, na.rm = TRUE) else 0.0)
+        c_tp_1 <- if (!is.null(result$task_p)) {
+          pmin(1.0, apply(result$task_p, 2L, function(cp) if (any(is.finite(cp))) min(cp, na.rm = TRUE) else 1.0) * eff_t_1r)
+        } else ifelse(c_r2_1 >= min_r2, 0.01, 1.0)
+        cond_decisive_1 <- (c_r2_1 >= max(0.04, 3.0 * min_r2)) & (c_tp_1 <= min(1e-3, 0.05 * evidence_alpha))
+        need_pw <- !cond_decisive_1 & (r2_tr_1r >= 0.5 * min_r2) & (tp_tr_1r <= min(0.25, 3.0 * evidence_alpha))
+        if (!is.null(spatial_groups)) {
+          for (gg in unique(spatial_groups)) {
+            vg <- which(spatial_groups == gg)
+            if (length(vg) >= 2L) {
+              pl_tr_g <- rowMeans(res_tr_r$scores[, vg, drop = FALSE], na.rm = TRUE)
+              mx_tr_g <- if (any(is.finite(pl_tr_g))) max(pl_tr_g, na.rm = TRUE) else -Inf
+              if (!all(cond_decisive_1[vg]) && (any(need_pw[vg]) || (is.finite(mx_tr_g) && mx_tr_g >= 0.5 * min_r2))) {
+                need_pw[vg] <- TRUE
+              }
+            }
+          }
+        }
+        if (any(need_pw)) {
+          for (ak in unique(ar_part_tr$keys[need_pw])) {
+            indices <- which(ar_part_tr$keys == ak & need_pw)
+            ar_vec <- as.numeric(ar_part_tr$ar_mat[indices[1L], ])
+            part_tr <- score_stratum_fracridge(y[, indices, drop = FALSE], des_cond_mod_r,
+              des_trial_r, z_score, which(mask), ar_vec, pairwise_ev = TRUE)
+            for (field in c("fallback_p", "incompatible_p")) {
+              res_tr_r[[field]][, indices] <- part_tr[[field]]
+            }
+          }
+          if (noise_model == "ar1") {
+            unknown_noise <- grepl("^insufficient_noise", noise[[r]]$method) &
+              !res_tr_r$signal_status %in% c("nonfinite", "constant", "nuisance_only")
+            for (field in c("fallback_p", "incompatible_p")) res_tr_r[[field]][, unknown_noise] <- NA_real_
+          }
+        }
+        run_results_tr[[r]] <- res_tr_r
       }
     }
   }
@@ -1778,23 +1834,25 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
           pl_c <- if (length(el_c)) rowMeans(scores[, el_c, drop = FALSE]) else rep(-Inf, ncol(kernels))
           pl_t <- rowMeans(scores_tr[, el_t, drop = FALSE])
           if (!any(is.finite(pl_t))) next
+          mx_c_p <- if (any(is.finite(pl_c))) max(pl_c, na.rm = TRUE) else -Inf
+          mx_t_p <- max(pl_t, na.rm = TRUE)
+          r2_need_tr <- if (is.null(gate_tr)) max(min_r2, mx_c_p + 0.02) else max(min_r2, max(0.0, mx_c_p) + 0.015)
+          if (!is.finite(mx_t_p) || mx_t_p < r2_need_tr) next
           rs_g <- if (!is.null(rho_grp_tr) && gg %in% names(rho_grp_tr)) rho_grp_tr[[gg]] else NULL
           pev_c <- hrf_parcel_pooled_evidence(gate, scores, el_c, fallback_kernel,
             evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
             distance[, fallback_kernel], canonical_strength, rho_spatial = rs_g)
-          pev_t <- hrf_parcel_pooled_evidence(gate_tr, scores_tr, el_t, fallback_kernel,
-            evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
-            distance[, fallback_kernel], canonical_strength, rho_spatial = rs_g)
-          mx_c_p <- if (any(is.finite(pl_c))) max(pl_c, na.rm = TRUE) else -Inf
-          mx_t_p <- max(pl_t, na.rm = TRUE)
           cond_has_task <- if (is.null(gate)) (mx_c_p >= min_r2) else
             ((mx_c_p >= min_r2) &&
               (any(pev_c$admissible[-fallback_kernel]) ||
                 (!is.null(pev_c$p_task_pool) && min(pev_c$p_task_pool, na.rm = TRUE) <= evidence_alpha)))
-          tr_has_task <- if (is.null(gate_tr)) (mx_t_p >= max(min_r2, mx_c_p + 0.02)) else
-            (!is.null(pev_t$p_task_pool) && min(pev_t$p_task_pool, na.rm = TRUE) <= evidence_alpha &&
-              mx_t_p >= max(min_r2, max(0.0, mx_c_p) + 0.015))
-          if (!cond_has_task && tr_has_task) adopt_tr[vg] <- TRUE
+          if (cond_has_task) next
+          pev_t <- hrf_parcel_pooled_evidence(gate_tr, scores_tr, el_t, fallback_kernel,
+            evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
+            distance[, fallback_kernel], canonical_strength, rho_spatial = rs_g)
+          tr_has_task <- if (is.null(gate_tr)) TRUE else
+            (!is.null(pev_t$p_task_pool) && min(pev_t$p_task_pool, na.rm = TRUE) <= evidence_alpha)
+          if (tr_has_task) adopt_tr[vg] <- TRUE
         }
       } else {
         for (vv in which(cnt_tr >= min_training_runs)) {
@@ -1815,23 +1873,25 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
             pl_c <- if (length(el_c)) rowMeans(scores[, el_c, drop = FALSE]) else rep(-Inf, ncol(kernels))
             pl_t <- rowMeans(scores_tr[, el_t, drop = FALSE])
             if (!any(is.finite(pl_t))) next
+            mx_c_p <- if (any(is.finite(pl_c))) max(pl_c, na.rm = TRUE) else -Inf
+            mx_t_p <- max(pl_t, na.rm = TRUE)
+            r2_need_tr <- if (is.null(gate_tr)) max(min_r2, mx_c_p + 0.02) else max(min_r2, max(0.0, mx_c_p) + 0.015)
+            if (!is.finite(mx_t_p) || mx_t_p < r2_need_tr) next
             rs_g <- if (!is.null(rho_grp_tr) && gg %in% names(rho_grp_tr)) rho_grp_tr[[gg]] else NULL
             pev_c <- hrf_parcel_pooled_evidence(gate, scores, el_c, fallback_kernel,
               evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
               distance[, fallback_kernel], canonical_strength, rho_spatial = rs_g)
-            pev_t <- hrf_parcel_pooled_evidence(gate_tr, scores_tr, el_t, fallback_kernel,
-              evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
-              distance[, fallback_kernel], canonical_strength, rho_spatial = rs_g)
-            mx_c_p <- if (any(is.finite(pl_c))) max(pl_c, na.rm = TRUE) else -Inf
-            mx_t_p <- max(pl_t, na.rm = TRUE)
             cond_has_task <- if (is.null(gate)) (mx_c_p >= min_r2) else
               ((mx_c_p >= min_r2) &&
                 (any(pev_c$admissible[-fallback_kernel]) ||
                   (!is.null(pev_c$p_task_pool) && min(pev_c$p_task_pool, na.rm = TRUE) <= evidence_alpha)))
-            tr_has_task <- if (is.null(gate_tr)) (mx_t_p >= max(min_r2, mx_c_p + 0.02)) else
-              (!is.null(pev_t$p_task_pool) && min(pev_t$p_task_pool, na.rm = TRUE) <= evidence_alpha &&
-                mx_t_p >= max(min_r2, max(0.0, mx_c_p) + 0.015))
-            if (!cond_has_task && tr_has_task) adopt_tr[vg] <- TRUE
+            if (cond_has_task) next
+            pev_t <- hrf_parcel_pooled_evidence(gate_tr, scores_tr, el_t, fallback_kernel,
+              evidence_alpha, min_r2, min_parcel_voxels, h_norm, kernel_cos,
+              distance[, fallback_kernel], canonical_strength, rho_spatial = rs_g)
+            tr_has_task <- if (is.null(gate_tr)) TRUE else
+              (!is.null(pev_t$p_task_pool) && min(pev_t$p_task_pool, na.rm = TRUE) <= evidence_alpha)
+            if (tr_has_task) adopt_tr[vg] <- TRUE
           }
         }
       }

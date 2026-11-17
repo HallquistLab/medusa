@@ -2290,7 +2290,8 @@ hrf_build_modulated_design <- function(n_obs, ev, mod_mat, tr, offset, kernels, 
 #     `task_p`, and Vuong quadratic-form difference `fallback_p` & `incompatible_p`.
 hrf_score_run_fracridge <- function(y_blk, des_cond, des_trial, z_score, rows,
                                     ar_vec = 0.0, fracridge = 0.25,
-                                    evidence = TRUE, fallback_index = 1L) {
+                                    evidence = TRUE, fallback_index = 1L,
+                                    pairwise_evidence = TRUE) {
   K <- length(des_trial)
   n_vox <- ncol(y_blk)
   m <- length(rows)
@@ -2505,15 +2506,31 @@ hrf_score_run_fracridge <- function(y_blk, des_cond, des_trial, z_score, rows,
   )
 
   if (isTRUE(evidence)) {
-    # Orthonormal basis for Qz_perp (m x df_nuis) so pairwise Gaussian marginal LR tests
-    # evaluate exact scale-free two-chisquare F-ratios under H_{k0}: Y ~ N(0, sigma^2 Sigma_{k0})
-    p_perp <- diag(m) - if (rk_z > 0L) tcrossprod(qz) else 0.0
-    q_perp <- hrf_safe_svd(p_perp, nv = 0L)$u[, seq_len(df_nuis), drop = FALSE]
-    u_perp_list <- eig_s_list <- vector("list", K)
+    task_p_ok[, nuis_only] <- NA_real_
+    tp_all <- fb_all <- ic_all <- matrix(NA_real_, K, n_vox)
+    tp_all[, ok_v] <- task_p_ok
+
+    if (!isTRUE(pairwise_evidence) || K <= 1L) {
+      fb_p_ok <- incomp_p_ok <- matrix(1.0, K, n_ok)
+      fb_p_ok[, nuis_only] <- NA_real_
+      incomp_p_ok[, nuis_only] <- NA_real_
+      fb_all[, ok_v] <- fb_p_ok
+      ic_all[, ok_v] <- incomp_p_ok
+      out$task_p <- tp_all
+      out$fallback_p <- fb_all
+      out$incompatible_p <- ic_all
+      return(out)
+    }
+
+    # Exact low-rank Gram subspace reduction for pairwise Gaussian marginal LR tests:
+    # Columns of U_k = [Q_c(k), U_d(k)] are already orthonormal and strictly orthogonal
+    # to Q_z, so Sigma_{k0}^{1/2} Sigma_j^{-1} Sigma_{k0}^{1/2} acts as the identity on
+    # the (df_nuis - d_w)-dimensional orthogonal complement of span(U_{k0}, U_j) and
+    # reduces to an exact d_w x d_w (d_w <= r_0 + r_j << m) symmetric eigenproblem.
+    u_full_list <- eig_s_list <- vector("list", K)
     ld_pair_vec <- numeric(K)
     for (k in seq_len(K)) {
-      uk <- cbind(qc_list[[k]], ud_list[[k]])
-      u_perp_list[[k]] <- if (ncol(uk) > 0L) crossprod(q_perp, uk) else matrix(0.0, df_nuis, 0L)
+      u_full_list[[k]] <- cbind(qc_list[[k]], ud_list[[k]])
       eig_s_list[[k]] <- c(rep(26.0, rc), 1.0 + gamma_pair * s2_norm_list[[k]])
       ld_pair_vec[k] <- sum(log(eig_s_list[[k]]))
     }
@@ -2524,37 +2541,82 @@ hrf_score_run_fracridge <- function(y_blk, des_cond, des_trial, z_score, rows,
       if (exists(key_p, envir = eta_cache, inherits = FALSE)) {
         return(get(key_p, envir = eta_cache))
       }
-      u0 <- u_perp_list[[k0_base]]; e0 <- eig_s_list[[k0_base]]
-      uj <- u_perp_list[[j_cand]];  ej <- eig_s_list[[j_cand]]
-      s0_half <- diag(df_nuis) + if (ncol(u0) > 0L) u0 %*% ((sqrt(e0) - 1.0) * t(u0)) else 0.0
-      sj_inv  <- diag(df_nuis) - if (ncol(uj) > 0L) uj %*% (((ej - 1.0) / ej) * t(uj)) else 0.0
-      mat_m <- s0_half %*% sj_inv %*% s0_half
-      eta_v <- eigen(0.5 * (mat_m + t(mat_m)), symmetric = TRUE, only.values = TRUE)$values
-      assign(key_p, eta_v, envir = eta_cache)
-      eta_v
+      u0 <- u_full_list[[k0_base]]; e0 <- eig_s_list[[k0_base]]
+      uj <- u_full_list[[j_cand]];  ej <- eig_s_list[[j_cand]]
+      r0 <- ncol(u0); rj <- ncol(uj)
+      if (r0 == 0L && rj == 0L) {
+        res_eta <- list(eta_w = numeric(0L), n_unit = as.numeric(df_nuis))
+        assign(key_p, res_eta, envir = eta_cache)
+        return(res_eta)
+      }
+      c_mat <- if (r0 > 0L && rj > 0L) crossprod(u0, uj) else matrix(0.0, r0, rj)
+      if (rj > 0L) {
+        rem_g <- -crossprod(c_mat)
+        rem_g[cbind(seq_len(rj), seq_len(rj))] <- rem_g[cbind(seq_len(rj), seq_len(rj))] + 1.0
+        eg_r <- eigen(0.5 * (rem_g + t(rem_g)), symmetric = TRUE)
+        keep_r <- which(eg_r$values > 1e-12)
+        b_mat <- if (length(keep_r)) {
+          sqrt(eg_r$values[keep_r]) * t(eg_r$vectors[, keep_r, drop = FALSE])
+        } else {
+          matrix(0.0, 0L, rj)
+        }
+      } else {
+        b_mat <- matrix(0.0, 0L, 0L)
+      }
+      h_mat <- rbind(c_mat, b_mat)
+      d_w <- nrow(h_mat)
+      if (d_w == 0L) {
+        res_eta <- list(eta_w = numeric(0L), n_unit = as.numeric(df_nuis))
+        assign(key_p, res_eta, envir = eta_cache)
+        return(res_eta)
+      }
+      d0_vec <- c(sqrt(e0), rep(1.0, nrow(b_mat)))
+      wj_vec <- (ej - 1.0) / ej
+      sub_i <- if (rj > 0L) -(h_mat %*% (wj_vec * t(h_mat))) else matrix(0.0, d_w, d_w)
+      sub_i[cbind(seq_len(d_w), seq_len(d_w))] <- sub_i[cbind(seq_len(d_w), seq_len(d_w))] + 1.0
+      mat_w <- (d0_vec * sub_i) * rep(d0_vec, each = d_w)
+      eta_w <- eigen(0.5 * (mat_w + t(mat_w)), symmetric = TRUE, only.values = TRUE)$values
+      res_eta <- list(eta_w = eta_w, n_unit = as.numeric(max(0L, df_nuis - d_w)))
+      assign(key_p, res_eta, envir = eta_cache)
+      res_eta
     }
 
     eval_pair_p <- function(j_cand, k0_base, v_sub = seq_len(n_ok)) {
       p_out <- rep(1.0, length(v_sub))
       if (j_cand == k0_base || !length(v_sub)) return(p_out)
-      v_win <- v_sub[which(is.finite(scores_ok[j_cand, v_sub]) & is.finite(scores_ok[k0_base, v_sub]) &
-                             (scores_ok[j_cand, v_sub] > scores_ok[k0_base, v_sub]) &
-                             (ll_pair_mat[j_cand, v_sub] > ll_pair_mat[k0_base, v_sub]))]
-      if (!length(v_win)) return(p_out)
-      eta_v <- get_pair_eta(j_cand, k0_base)
+      win_rel <- which(is.finite(scores_ok[j_cand, v_sub]) & is.finite(scores_ok[k0_base, v_sub]) &
+                         (scores_ok[j_cand, v_sub] > scores_ok[k0_base, v_sub]) &
+                         (ll_pair_mat[j_cand, v_sub] > ll_pair_mat[k0_base, v_sub]))
+      if (!length(win_rel)) return(p_out)
+      v_win <- v_sub[win_rel]
+      eta_info <- get_pair_eta(j_cand, k0_base)
+      eta_w <- eta_info$eta_w
+      n_unit <- eta_info$n_unit
+      n_w <- length(eta_w)
+      n_win <- length(v_win)
       delta_jk <- (ld_pair_vec[k0_base] - ld_pair_vec[j_cand]) / as.numeric(df_nuis)
       t_vec <- ll_pair_mat[j_cand, v_win] - ll_pair_mat[k0_base, v_win]
       alpha_vec <- exp(delta_jk - 2.0 * t_vec / as.numeric(df_nuis))
-      p_win <- vapply(alpha_vec, function(al) {
-        pos <- al - eta_v[eta_v < al]
-        neg <- eta_v[eta_v > al] - al
-        if (!length(pos)) return(1.0)
-        if (!length(neg)) return(0.0)
-        mu_p <- sum(pos); v_p <- 2.0 * sum(pos * pos); df_p <- max(1.0, 2.0 * mu_p * mu_p / max(v_p, 1e-16))
-        mu_n <- sum(neg); v_n <- 2.0 * sum(neg * neg); df_n <- max(1.0, 2.0 * mu_n * mu_n / max(v_n, 1e-16))
-        stats::pf(mu_n / max(mu_p, 1e-16), df1 = df_p, df2 = df_n, lower.tail = FALSE)
-      }, numeric(1L))
-      p_out[match(v_win, v_sub)] <- p_win
+      if (n_w > 0L) {
+        diff_w <- outer(eta_w, alpha_vec, "-")
+        pos_m <- matrix(pmax(0.0, -diff_w), nrow = n_w, ncol = n_win)
+        neg_m <- matrix(pmax(0.0,  diff_w), nrow = n_w, ncol = n_win)
+        sp1 <- colSums(pos_m); sp2 <- colSums(pos_m * pos_m)
+        sn1 <- colSums(neg_m); sn2 <- colSums(neg_m * neg_m)
+      } else {
+        sp1 <- sp2 <- sn1 <- sn2 <- rep(0.0, n_win)
+      }
+      u_pos <- ifelse(alpha_vec > 1.0, alpha_vec - 1.0, 0.0)
+      u_neg <- ifelse(alpha_vec < 1.0, 1.0 - alpha_vec, 0.0)
+      mu_p <- sp1 + n_unit * u_pos
+      v_p  <- 2.0 * (sp2 + n_unit * u_pos * u_pos)
+      mu_n <- sn1 + n_unit * u_neg
+      v_n  <- 2.0 * (sn2 + n_unit * u_neg * u_neg)
+      df_p <- pmax(1.0, 2.0 * mu_p * mu_p / pmax(v_p, 1e-16))
+      df_n <- pmax(1.0, 2.0 * mu_n * mu_n / pmax(v_n, 1e-16))
+      p_win <- ifelse(mu_p <= 0.0, 1.0, ifelse(mu_n <= 0.0, 0.0,
+        stats::pf(mu_n / pmax(mu_p, 1e-16), df1 = df_p, df2 = df_n, lower.tail = FALSE)))
+      p_out[win_rel] <- p_win
       p_out
     }
 
@@ -2566,31 +2628,33 @@ hrf_score_run_fracridge <- function(y_blk, des_cond, des_trial, z_score, rows,
     incomp_p_ok <- matrix(1.0, K, n_ok)
     if (K > 1L) {
       best_v <- max.col(t(ifelse(is.finite(scores_ok), scores_ok, -Inf)), ties.method = "first")
-      for (u_best in unique(best_v)) {
-        v_hit <- which(best_v == u_best)
-        for (k in seq_len(K)) {
-          if (k != u_best) {
-            p_ub <- eval_pair_p(u_best, k, v_hit)
-            incomp_p_ok[k, v_hit] <- pmin(incomp_p_ok[k, v_hit], p_ub)
+      best_sc <- scores_ok[cbind(best_v, seq_len(n_ok))]
+      min_tp <- do.call(pmin, c(lapply(seq_len(K), function(k) task_p_ok[k, ]), list(na.rm = TRUE)))
+      active_ic <- which((is.finite(best_sc) & best_sc > 0.005) & (is.finite(min_tp) & min_tp <= 0.25))
+      if (length(active_ic)) {
+        for (u_best in unique(best_v[active_ic])) {
+          v_hit <- active_ic[best_v[active_ic] == u_best]
+          for (k in seq_len(K)) {
+            if (k != u_best) {
+              p_ub <- eval_pair_p(u_best, k, v_hit)
+              incomp_p_ok[k, v_hit] <- pmin(incomp_p_ok[k, v_hit], p_ub)
+            }
           }
         }
-      }
-      for (k in seq_len(K)) {
-        if (k != fb_idx) {
-          v_fb_better <- which(scores_ok[fb_idx, ] > scores_ok[k, ])
-          if (length(v_fb_better)) {
-            incomp_p_ok[k, v_fb_better] <- pmin(incomp_p_ok[k, v_fb_better], eval_pair_p(fb_idx, k, v_fb_better))
+        for (k in seq_len(K)) {
+          if (k != fb_idx) {
+            v_fb_better <- active_ic[which(scores_ok[fb_idx, active_ic] > scores_ok[k, active_ic])]
+            if (length(v_fb_better)) {
+              incomp_p_ok[k, v_fb_better] <- pmin(incomp_p_ok[k, v_fb_better], eval_pair_p(fb_idx, k, v_fb_better))
+            }
           }
         }
       }
     }
 
-    task_p_ok[, nuis_only] <- NA_real_
     fb_p_ok[, nuis_only] <- NA_real_
     incomp_p_ok[, nuis_only] <- NA_real_
 
-    tp_all <- fb_all <- ic_all <- matrix(NA_real_, K, n_vox)
-    tp_all[, ok_v] <- task_p_ok
     fb_all[, ok_v] <- fb_p_ok
     ic_all[, ok_v] <- incomp_p_ok
     out$task_p <- tp_all
