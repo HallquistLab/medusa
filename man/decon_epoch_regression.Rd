@@ -98,10 +98,13 @@ each target trial. Recommended (\code{TRUE}) when estimating within-trial
 temporal waveforms \eqn{\beta(\tau)} across a multi-lag grid. Default:
 \code{FALSE}.}
 
-\item{demix_ridge}{Positive ridge stabilization parameter for target and
-non-target cross-talk inversion. Values \code{>= 0.03} (default \code{0.05})
-use condition-mean non-target de-mixing; values \code{< 0.03} activate
-joint trial-varying non-target de-mixing. Default: \code{0.05}.}
+\item{demix_ridge}{Ridge stabilization parameter for target and non-target
+cross-talk inversion: \code{0.05} (default) or \code{"auto"} (selects
+per-stratum/run target-trial ridge in \eqn{[0.006, 0.10]} via
+Empirical-Bayes / SURE MSE minimization using propagated Stage-2 readout
+error covariance without peeking at covariates; numeric values \code{< 0.03}
+also activate joint trial-varying non-target de-mixing when
+\code{other_event_model} is omitted). Default: \code{0.05}.}
 
 \item{within_trial_ridge}{Positive ridge stabilization parameter for
 multi-lag within-trial point-spread inversion when

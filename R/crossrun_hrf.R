@@ -585,42 +585,100 @@ hrf_single_run_subblocks <- function(run_name, y, ev, tr, offset, kernels,
     out_d
   }
 
+  des_trial_all <- if (!is.null(des_trial_full)) {
+    des_trial_full
+  } else {
+    hrf_event_design_cpp(nrow(y), tr, offset, ev$onset, durations,
+      seq_len(nrow(ev)), nrow(ev), kernels)
+  }
+
   best_out <- empty_out
   for (n_blocks in block_candidates) {
     block_id <- ceiling(seq_along(usable_rows) * n_blocks / n_obs)
-    # Trim a short interior boundary buffer when sufficient frames exist so
-    # AR(p) innovations across adjacent sub-blocks are weakly correlated.
-    half_gap <- if (n_obs >= 72L * n_blocks / 2L) {
+    # Enforce a >= 16 s hemodynamic + AR guard buffer (half_gap >= 8 s on each side
+    # of every interior sub-block boundary) whenever sub-block length retains >= 28
+    # usable frames, preventing 0-16 s HRF tails and AR(p) innovations from leaking
+    # across adjacent sub-blocks.
+    target_half_gap <- max(1L, as.integer(ceiling(8.0 / max(tr, 0.25))))
+    raw_block_lens <- tabulate(block_id, nbins = n_blocks)
+    trim_sides <- if (n_blocks >= 3L) 2L else 1L
+    max_allow_gap <- as.integer(floor((min(raw_block_lens) - 28L) / trim_sides))
+    half_gap <- if (max_allow_gap >= 1L) {
+      min(target_half_gap, max_allow_gap)
+    } else if (n_obs >= 72L * n_blocks / 2L) {
       min(max(1L, as.integer(floor(2.0 / max(tr, 0.25)))), as.integer(floor(n_obs / (10L * n_blocks))))
-    } else 0L
+    } else {
+      0L
+    }
     sub_results <- sub_scores <- vector("list", n_blocks)
     sub_names <- paste0(run_name, "_block", seq_len(n_blocks))
     names(sub_results) <- names(sub_scores) <- sub_names
     n_comparable_blocks <- 0L
 
+    rows_by_b <- vector("list", n_blocks)
+    z_by_b <- vector("list", n_blocks)
+    cond_des_by_b <- vector("list", n_blocks)
+    cond_cols_by_b <- vector("list", n_blocks)
+
     for (b in seq_len(n_blocks)) {
       idx_b <- which(block_id == b)
-      if (half_gap > 0L && length(idx_b) > 2L * half_gap + 16L) {
-        lo_trim <- if (b > 1L) half_gap else 0L
-        hi_trim <- if (b < n_blocks) half_gap else 0L
+      lo_trim <- if (b > 1L) half_gap else 0L
+      hi_trim <- if (b < n_blocks) half_gap else 0L
+      if ((lo_trim + hi_trim) > 0L && length(idx_b) > (lo_trim + hi_trim + 16L)) {
         idx_b <- idx_b[(1L + lo_trim):(length(idx_b) - hi_trim)]
       }
       rows_b <- usable_rows[idx_b]
+      rows_by_b[[b]] <- rows_b
       mask_b <- rep(FALSE, nrow(y))
       mask_b[rows_b] <- TRUE
+
+      # Isolate events occurring before block b's start (e.g. inside the 16 s guard gap)
+      # into an unmodeled nuisance carryover regressor so guard-zone HRF tails do not
+      # couple into block b's interior task regressors.
+      t_start_b <- offset + (rows_b[1L] - 1L) * tr - 1e-6
+      pre_ev_idx <- which(ev$onset < t_start_b)
+      z_b <- z
+      if (length(pre_ev_idx) > 0L) {
+        carry_tail <- rowSums(des_trial_all[[fallback_kernel]][, pre_ev_idx, drop = FALSE])
+        if (sum(carry_tail[rows_b]^2) > 1e-8) {
+          z_b <- cbind(z_b, carry_tail = carry_tail)
+        }
+      }
+      z_by_b[[b]] <- z_b
 
       design_b <- NULL
       des_cond_b <- NULL
       if (eff_amp == "condition") {
-        col_ok <- vapply(seq_len(ncol(des_cond_full[[1L]])), function(c_idx) {
-          norms_b <- vapply(des_cond_full, function(x) sqrt(sum(x[rows_b, c_idx]^2)), numeric(1))
+        ev_in_b <- ev$onset >= t_start_b
+        des_cand_b <- if (any(pre_ev_idx) && any(ev_in_b)) {
+          ev_sub_c <- ev[ev_in_b, , drop = FALSE]
+          if (has_mod) {
+            mod_sub_c <- mod_r[ev_in_b, , drop = FALSE]
+            # Preserve global condition column ordering across sub-blocks when all conditions occur
+            if (identical(sort(unique(as.character(ev_sub_c$condition))), sort(u_cond))) {
+              hrf_build_modulated_design(nrow(y), ev_sub_c, mod_sub_c, tr, offset, kernels, mask_b)
+            } else {
+              des_cond_full
+            }
+          } else {
+            c_sub <- match(as.character(ev_sub_c$condition), u_cond)
+            hrf_event_design_cpp(nrow(y), tr, offset, ev_sub_c$onset,
+              durations[ev_in_b], c_sub, length(u_cond), kernels)
+          }
+        } else {
+          des_cond_full
+        }
+        col_ok <- vapply(seq_len(ncol(des_cand_b[[1L]])), function(c_idx) {
+          norms_b <- vapply(des_cand_b, function(x) sqrt(sum(x[rows_b, c_idx]^2)), numeric(1))
           norms_all <- vapply(des_cond_full, function(x) sqrt(sum(x[, c_idx]^2)), numeric(1))
           min(norms_b) > 1e-3 * max(norms_all, 1e-8)
         }, logical(1))
+        cond_cols_by_b[[b]] <- which(col_ok)
         if (any(col_ok)) {
-          design_b <- if (all(col_ok)) des_cond_full else
-            lapply(des_cond_full, function(x) x[, col_ok, drop = FALSE])
+          design_b <- if (all(col_ok)) des_cand_b else
+            lapply(des_cand_b, function(x) x[, col_ok, drop = FALSE])
         }
+        cond_des_by_b[[b]] <- des_cand_b
       } else if (eff_amp == "trial") {
         ev_ratios <- vapply(seq_len(nrow(ev)), function(e_idx) {
           norms_b <- vapply(des_trial_full, function(x) sqrt(sum(x[rows_b, e_idx]^2)), numeric(1))
@@ -631,7 +689,7 @@ hrf_single_run_subblocks <- function(run_name, y, ev, tr, offset, kernels,
         ev_carry <- (!ev_ok) & (ev_ratios[2L, ] > 1e-3)
         if (any(ev_ok)) {
           design_b <- hrf_build_run_design(y, ev[ev_ok, , drop = FALSE], tr, offset,
-            kernels, z, mask_b, "trial", rho_ref, batch_size, fallback_kernel,
+            kernels, z_b, mask_b, "trial", rho_ref, batch_size, fallback_kernel,
             spatial_groups = spatial_groups)
           if (any(ev_carry)) {
             design_b <- append_carryover(design_b, which(ev_carry))
@@ -688,11 +746,11 @@ hrf_single_run_subblocks <- function(run_name, y, ev, tr, offset, kernels,
           ar_vec <- as.numeric(ar_part_b$ar_mat[idx1, ])
           des_use_b <- cand_des_b[[des_id_b[idx1]]]
           part <- if (eff_amp == "trial_ridge") {
-            hrf_score_run_fracridge(y[, indices, drop = FALSE], des_cond_b, des_use_b, z, rows_b,
+            hrf_score_run_fracridge(y[, indices, drop = FALSE], des_cond_b, des_use_b, z_b, rows_b,
               ar_vec = ar_vec, fracridge = fracridge, evidence = evidence == "calibrated",
               fallback_index = as.integer(fallback_kernel))
           } else {
-            hrf_score_run_ar(y[, indices, drop = FALSE], des_use_b, z, rows_b,
+            hrf_score_run_ar(y[, indices, drop = FALSE], des_use_b, z_b, rows_b,
               as.integer(batch_size), ar_vec = ar_vec, evidence = evidence == "calibrated",
               fallback_index = as.integer(fallback_kernel))
           }
@@ -719,7 +777,247 @@ hrf_single_run_subblocks <- function(run_name, y, ev, tr, offset, kernels,
       sub_scores[[b]] <- res_b$scores
     }
 
-    best_out <- list(results = sub_results, scores = sub_scores, names = sub_names)
+    # True leave-one-subblock-out (LOBO) cross-validated scoring for condition designs:
+    # Predict each held-out sub-block b strictly from amplitudes & encompassing departures
+    # estimated on the guard-separated training sub-blocks s != b, while retaining block b's
+    # within-block incompatible_p to detect non-stationary cross-block shape disagreement.
+    lobo_guarded <- FALSE
+    if (eff_amp == "condition" && n_comparable_blocks == n_blocks && n_blocks >= 2L) {
+      n_col_c <- ncol(des_cond_full[[1L]])
+      common_c <- Reduce(intersect, cond_cols_by_b)
+      if (length(common_c) == n_col_c && n_col_c >= 1L) {
+        psi1_r <- if ("psi1" %in% names(noise_r)) noise_r$psi1 else rep(0, nrow(noise_r))
+        psi2_r <- if ("psi2" %in% names(noise_r)) noise_r$psi2 else rep(0, nrow(noise_r))
+        psi3_r <- if ("psi3" %in% names(noise_r)) noise_r$psi3 else rep(0, nrow(noise_r))
+        psi4_r <- if ("psi4" %in% names(noise_r)) noise_r$psi4 else rep(0, nrow(noise_r))
+        ar_part_lobo <- hrf_partition_ar_strata(
+          rep(1L, n_vox), noise_r$rho, psi1_r, psi2_r, psi3_r, psi4_r, n_kernels
+        )
+        k0_idx <- as.integer(fallback_kernel)
+        for (ak in unique(ar_part_lobo$keys)) {
+          indices <- which(ar_part_lobo$keys == ak)
+          ar_vec <- as.numeric(ar_part_lobo$ar_mat[indices[1L], ])
+          ok_local <- rep(TRUE, length(indices))
+          for (b in seq_len(n_blocks)) {
+            ok_local <- ok_local & (sub_results[[b]]$signal_status[indices] == "ok")
+          }
+          if (!any(ok_local)) next
+          v_use <- indices[ok_local]
+          n_v_use <- length(v_use)
+
+          wy_b <- vector("list", n_blocks)
+          tss_b <- vector("list", n_blocks)
+          df_b <- numeric(n_blocks)
+          rk0_b <- integer(n_blocks)
+          res0_b <- vector("list", n_blocks)
+          wx_bk <- vector("list", n_blocks)
+          wu_bk <- vector("list", n_blocks)
+          xtx_bk <- vector("list", n_blocks)
+          xty_bk <- vector("list", n_blocks)
+          utu_bk <- vector("list", n_blocks)
+          utr0_bk <- vector("list", n_blocks)
+          lobo_valid <- TRUE
+
+          for (b in seq_len(n_blocks)) {
+            rb <- rows_by_b[[b]]
+            mb <- length(rb)
+            zb <- z_by_b[[b]][rb, , drop = FALSE]
+            wz <- hrf_apply_whitening(zb, rb, ar_vec, unit_marginal = FALSE)
+            nrm_z <- sqrt(colSums(wz^2)); nrm_z[nrm_z == 0] <- 1.0
+            sv_z <- hrf_safe_svd(sweep(wz, 2L, nrm_z, "/"), nv = 0L)
+            rk_z <- if (length(sv_z$d) && sv_z$d[1L] > 0) sum(sv_z$d > 1e-8 * sv_z$d[1L]) else 0L
+            qz <- if (rk_z > 0L) sv_z$u[, seq_len(rk_z), drop = FALSE] else matrix(0.0, mb, 0L)
+            dfb <- mb - rk_z
+            if (dfb < n_col_c + 8L) {
+              lobo_valid <- FALSE
+              break
+            }
+            df_b[b] <- dfb
+            wy <- hrf_apply_whitening(y[rb, v_use, drop = FALSE], rb, ar_vec, unit_marginal = FALSE)
+            if (rk_z > 0L) wy <- wy - qz %*% crossprod(qz, wy)
+            wy_b[[b]] <- wy
+            tss_b[[b]] <- pmax(colSums(wy * wy), 1e-24)
+
+            wx_k <- vector("list", n_kernels)
+            xtx_k <- vector("list", n_kernels)
+            xty_k <- vector("list", n_kernels)
+            for (kk in seq_len(n_kernels)) {
+              xk <- hrf_apply_whitening(cond_des_by_b[[b]][[kk]][rb, common_c, drop = FALSE], rb, ar_vec, unit_marginal = FALSE)
+              if (rk_z > 0L) xk <- xk - qz %*% crossprod(qz, xk)
+              wx_k[[kk]] <- xk
+              xtx_k[[kk]] <- crossprod(xk)
+              xty_k[[kk]] <- crossprod(xk, wy)
+            }
+            wx_bk[[b]] <- wx_k
+            xtx_bk[[b]] <- xtx_k
+            xty_bk[[b]] <- xty_k
+
+            x0 <- wx_k[[k0_idx]]
+            qr0 <- qr(x0, tol = 1e-8)
+            rk0 <- qr0$rank
+            rk0_b[b] <- rk0
+            q0 <- if (rk0 > 0L) qr.Q(qr0)[, seq_len(rk0), drop = FALSE] else matrix(0.0, mb, 0L)
+            r0 <- if (rk0 > 0L) (wy - q0 %*% crossprod(q0, wy)) else wy
+            res0_b[[b]] <- r0
+
+            wu_k <- vector("list", n_kernels)
+            for (kk in seq_len(n_kernels)) {
+              if (kk == k0_idx) next
+              uk <- if (rk0 > 0L) (wx_k[[kk]] - q0 %*% crossprod(q0, wx_k[[kk]])) else wx_k[[kk]]
+              wu_k[[kk]] <- uk
+            }
+            wu_bk[[b]] <- wu_k
+          }
+
+          if (lobo_valid) {
+            if (half_gap >= 6L) lobo_guarded <- TRUE
+            sg_use <- if (!is.null(spatial_groups) && length(spatial_groups) == n_vox) {
+              as.character(spatial_groups[v_use])
+            } else NULL
+            u_sg_use <- if (!is.null(sg_use)) unique(sg_use) else character(0L)
+
+            for (b in seq_len(n_blocks)) {
+              tr_b <- setdiff(seq_len(n_blocks), b)
+              wy_hold <- wy_b[[b]]
+              tss_hold <- tss_b[[b]]
+              r0_hold <- res0_b[[b]]
+              rss0_hold <- pmax(colSums(r0_hold * r0_hold), 1e-24)
+              df_task <- max(2.0, df_b[b] - 1.0)
+              df_shape <- max(2.0, df_b[b] - rk0_b[b] - 1.0)
+
+              XtX_0_tr <- Reduce(`+`, lapply(tr_b, function(sb) xtx_bk[[sb]][[k0_idx]]))
+              XtY_0_tr <- Reduce(`+`, lapply(tr_b, function(sb) xty_bk[[sb]][[k0_idx]]))
+              reg_0 <- 1e-6 * max(mean(diag(XtX_0_tr)), 1e-12)
+              B0_tr <- tryCatch(
+                solve(XtX_0_tr + reg_0 * diag(n_col_c), XtY_0_tr),
+                error = function(e) matrix(0.0, n_col_c, n_v_use)
+              )
+
+              sc_mat <- matrix(NA_real_, n_kernels, n_v_use)
+              tp_mat <- if (evidence == "calibrated") matrix(1.0, n_kernels, n_v_use) else NULL
+              fp_mat <- if (evidence == "calibrated") matrix(1.0, n_kernels, n_v_use) else NULL
+              F_pred_list <- vector("list", n_kernels)
+
+              for (kk in seq_len(n_kernels)) {
+                XtX_tr <- Reduce(`+`, lapply(tr_b, function(sb) xtx_bk[[sb]][[kk]]))
+                XtY_tr <- Reduce(`+`, lapply(tr_b, function(sb) xty_bk[[sb]][[kk]]))
+                reg_x <- 1e-6 * max(mean(diag(XtX_tr)), 1e-12)
+                B_tr <- tryCatch(
+                  solve(XtX_tr + reg_x * diag(n_col_c), XtY_tr),
+                  error = function(e) matrix(0.0, n_col_c, n_v_use)
+                )
+                if (length(u_sg_use) > 0L) {
+                  for (gp in u_sg_use) {
+                    gp_loc <- which(sg_use == gp)
+                    if (length(gp_loc) >= 2L) {
+                      ref_b0 <- B0_tr[, gp_loc[1L]]
+                      dots_b0 <- colSums(B0_tr[, gp_loc, drop = FALSE] * ref_b0)
+                      sgn_v <- ifelse(dots_b0 >= 0, 1.0, -1.0)
+                      B_pool <- rowMeans(sweep(B_tr[, gp_loc, drop = FALSE], 2L, sgn_v, "*"))
+                      B_tr[, gp_loc] <- 0.45 * B_tr[, gp_loc, drop = FALSE] + 0.55 * outer(B_pool, sgn_v)
+                    }
+                  }
+                }
+                F_pred <- wx_bk[[b]][[kk]] %*% B_tr
+                F_pred_list[[kk]] <- F_pred
+                nrm_f <- sqrt(pmax(colSums(F_pred * F_pred), 1e-24))
+                r_task <- pmin(0.999999, pmax(-0.999999, colSums(F_pred * wy_hold) / (nrm_f * sqrt(tss_hold))))
+                sc_mat[kk, ] <- ifelse(r_task >= 0.0, 1.0, -1.0) * (r_task * r_task)
+
+                if (evidence == "calibrated") {
+                  t_task <- r_task * sqrt(df_task / pmax(1.0 - r_task * r_task, 1e-12))
+                  tp_mat[kk, ] <- stats::pt(t_task, df = df_task, lower.tail = FALSE)
+
+                  if (kk != k0_idx) {
+                    # Exact encompassing departure direction under candidate kk:
+                    # E[(I - P_{X0,b}) y_b | k* = kk] = U_{b,kk} B_{kk}, estimated with full
+                    # task SNR from held-in blocks tr_b and strictly independent of r0_hold.
+                    D_pred <- wu_bk[[b]][[kk]] %*% B_tr
+                    nrm_d <- sqrt(colSums(D_pred * D_pred))
+                    has_d <- is.finite(nrm_d) & (nrm_d > 1e-12)
+                    if (any(has_d)) {
+                      r_sh <- pmin(0.999999, pmax(-0.999999,
+                        colSums(D_pred[, has_d, drop = FALSE] * r0_hold[, has_d, drop = FALSE]) /
+                        (nrm_d[has_d] * sqrt(rss0_hold[has_d]))))
+                      t_sh <- r_sh * sqrt(df_shape / pmax(1.0 - r_sh * r_sh, 1e-12))
+                      fp_mat[kk, has_d] <- stats::pt(t_sh, df = df_shape, lower.tail = FALSE)
+                    }
+                  }
+                }
+              }
+
+              if (evidence == "calibrated" && n_kernels >= 2L) {
+                ip_oos <- matrix(1.0, n_kernels, n_v_use)
+                m_hold <- nrow(wy_hold)
+                max_ac_lag <- min(5L, max(0L, m_hold - 3L))
+                for (kk in seq_len(n_kernels)) {
+                  xk_hold <- wx_bk[[b]][[kk]]
+                  qrk <- qr(xk_hold, tol = 1e-8)
+                  rkk <- qrk$rank
+                  qk <- if (rkk > 0L) qr.Q(qrk)[, seq_len(rkk), drop = FALSE] else matrix(0.0, m_hold, 0L)
+                  rk_hold <- if (rkk > 0L) (wy_hold - qk %*% crossprod(qk, wy_hold)) else wy_hold
+                  rssk <- pmax(colSums(rk_hold * rk_hold), 1e-24)
+                  r_unit <- sweep(rk_hold, 2L, sqrt(rssk), "/")
+                  if (length(u_sg_use) > 0L) {
+                    for (gp in u_sg_use) {
+                      gp_loc <- which(sg_use == gp)
+                      if (length(gp_loc) >= 2L) {
+                        ref_b0 <- B0_tr[, gp_loc[1L]]
+                        dots_b0 <- colSums(B0_tr[, gp_loc, drop = FALSE] * ref_b0)
+                        sgn_v <- ifelse(dots_b0 >= 0, 1.0, -1.0)
+                        r_pool <- rowMeans(sweep(r_unit[, gp_loc, drop = FALSE], 2L, sgn_v, "*"))
+                        r_bl <- 0.50 * r_unit[, gp_loc, drop = FALSE] + 0.50 * outer(r_pool, sgn_v)
+                        nrm_rbl <- sqrt(pmax(colSums(r_bl * r_bl), 1e-24))
+                        r_unit[, gp_loc] <- sweep(r_bl, 2L, nrm_rbl, "/")
+                      }
+                    }
+                  }
+                  df_inc <- max(2.0, df_b[b] - rkk - 1.0)
+                  min_p_kk <- rep(1.0, n_v_use)
+                  for (jj in seq_len(n_kernels)) {
+                    if (jj == kk) next
+                    fj_orth <- if (rkk > 0L) (F_pred_list[[jj]] - qk %*% crossprod(qk, F_pred_list[[jj]])) else F_pred_list[[jj]]
+                    nf_j <- sqrt(colSums(fj_orth * fj_orth))
+                    ok_j <- is.finite(nf_j) & (nf_j > 1e-12)
+                    if (any(ok_j)) {
+                      u_unit <- sweep(fj_orth[, ok_j, drop = FALSE], 2L, nf_j[ok_j], "/")
+                      ru_ok <- r_unit[, ok_j, drop = FALSE]
+                      rj <- pmin(0.999999, pmax(-0.999999, colSums(u_unit * ru_ok)))
+                      tau_bart <- rep(1.0, ncol(u_unit))
+                      if (max_ac_lag >= 1L) {
+                        for (lg in seq_len(max_ac_lag)) {
+                          idx1 <- 1L:(m_hold - lg)
+                          idx2 <- (1L + lg):m_hold
+                          ac_u <- colSums(u_unit[idx1, , drop = FALSE] * u_unit[idx2, , drop = FALSE])
+                          ac_r <- colSums(ru_ok[idx1, , drop = FALSE] * ru_ok[idx2, , drop = FALSE])
+                          tau_bart <- tau_bart + 2.0 * (1.0 - lg / m_hold) * pmax(0.0, ac_u * ac_r)
+                        }
+                      }
+                      df_eff_j <- pmax(2.0, df_inc / pmax(1.0, tau_bart))
+                      tj <- rj * sqrt(df_eff_j / pmax(1.0 - rj * rj, 1e-12))
+                      pj <- stats::pt(tj, df = df_eff_j, lower.tail = FALSE)
+                      min_p_kk[ok_j] <- pmin(min_p_kk[ok_j], pj)
+                    }
+                  }
+                  ip_oos[kk, ] <- min_p_kk
+                }
+                raw_inc <- sub_results[[b]]$incompatible_p[, v_use, drop = FALSE]
+                sub_results[[b]]$incompatible_p[, v_use] <- pmax(raw_inc, ip_oos)
+              }
+
+              sub_results[[b]]$scores[, v_use] <- sc_mat
+              sub_scores[[b]][, v_use] <- sc_mat
+              if (evidence == "calibrated") {
+                sub_results[[b]]$task_p[, v_use] <- tp_mat
+                sub_results[[b]]$fallback_p[, v_use] <- fp_mat
+              }
+            }
+          }
+        }
+      }
+    }
+
+    best_out <- list(results = sub_results, scores = sub_scores, names = sub_names, guarded = lobo_guarded)
     if (n_comparable_blocks >= 2L) break
   }
   best_out
@@ -1803,7 +2101,7 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
     dimnames(scores) <- list(candidate_ids, voxel_ids)
     gate <- if (evidence == "calibrated") hrf_fold_evidence(fold_results, train, counts,
       scores, fallback_kernel, evidence_alpha, min_r2, kernels = kernels,
-      subblock_mode = is_single_run) else NULL
+      subblock_mode = (is_single_run && !isTRUE(subblock_fit$guarded))) else NULL
     # Target-excluded `amplitude_model == "auto"` rescue:
     # For parcels/voxels lacking condition-mean task support on `train` runs (e.g., pure
     # zero-mean RPE with beta_0 = 0), adopt calibrated `trial_ridge` training evidence when

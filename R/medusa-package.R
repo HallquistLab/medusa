@@ -35,7 +35,7 @@ if (getRversion() >= "2.15.1") {
     "shared_noise_loading", "shared_noise_vec",
     "si", "split", "std.error",
     "targ_c", "targ_t0_c", "targ_t0_eb_c", "targ_val", "targ_t0_val",
-    "term", "time", "trial", "trial_cor_vec", "undershoot_ratio", "unit",
+    "term", "time", "trial", "trial_cor_vec", "trial_res_vec", "undershoot_ratio", "unit",
     "value", "value_source_max_epochs", "vox_ts", "voxel",
     "x", "xm", "y", "ym", "z"
   ))

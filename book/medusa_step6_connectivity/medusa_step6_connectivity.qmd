@@ -88,9 +88,10 @@ $$
 
 Each coefficient answers a distinct biological question: $\beta_S$ is baseline trial-to-trial seed–target coupling at the mean of $x_i$ ($x_i = 0$), $\beta_x$ absorbs direct task activation in the target parcel so shared main-effect responses are not mistaken for coupling, and $\beta_P$ is the **PPI slope**—how much seed–target coupling changes per unit change in $x_i$ (for $x_i \in \{-1, +1\}$, $2\beta_P$ is the slope difference between task conditions).
 
-**Choice point — Seed parameterization (`orthogonalize_seed_x`) and multi-lag directed partialing (`control_target_seed_lag` & `multilag_control`):**
+**Choice point — Seed parameterization (`orthogonalize_seed_x`), operator resolution matching (`match_resolution`), and multi-lag directed partialing (`control_target_seed_lag` & `multilag_control`):**
 
-- **Direct vs. residualized seed (`orthogonalize_seed_x`):** Setting `orthogonalize_seed_x = FALSE` (recommended when testing the direct structural equation above) enters centered $\theta_{S,i}$ and $x_i$ symmetrically without altering quadratic task structure. Setting `orthogonalize_seed_x = TRUE` first residualizes the seed against `covariates` (projecting `diag(se_demixed^2)` through $P D_u P^\top$) to isolate pure task-orthogonal seed fluctuations; note that when the seed responds linearly to $x_i$, residualizing shifts the product column by a term proportional to $x_i^2$.
+- **Task-orthogonalized vs. unresidualized seed (`orthogonalize_seed_x`):** By default (`orthogonalize_seed_x = TRUE`), Step 6 residualizes each run's seed readout against the resolution-matched task covariates (projecting seed error moments symmetrically through $P_s = I - M_s M_s^\top$) prior to forming PPI products—preventing direct linear task drive on the seed ($\beta_{S,x} x_i$) from injecting quadratic $x_i^2$ variance into `seed_c:x_c` and attenuating intrinsic task-modulated coupling. Set `orthogonalize_seed_x = FALSE` when testing a structural equation defined directly on total (task-driven + intrinsic) seed amplitude.
+- **Seed–target resolution & PPI product matching (`match_resolution = TRUE`):** Across regions with distinct GCV smoothing parameters or HRF shapes ($M_S \neq M_T$), and even under equal smoothing where post-demixing elementwise multiplication satisfies $(M_S \eta_S) \odot x \neq M_T (\eta_S \odot x)$, uncorrected latent moments shift EIV slopes by $H_{SS}^{-1} H_{ST}$. With `match_resolution = TRUE` (default), `decon_connectivity_repair()` reads exact run-level trial resolution matrices (`run_trial_operators`, or embedded 8-lag `trial_res_vec` bands on `rbindlist()`-stacked and CSV panels) to align predictor and error moments to Target's transfer operator automatically.
 - **Concurrent vs. multi-lag partialed directed coupling (`control_target_seed_lag` & `multilag_control`):** When testing a single lagged pair (`target_lag > seed_lag`), setting `control_target_seed_lag = TRUE` includes target activity at `seed_lag` as an error-corrected control so $\beta_S$ and $\beta_P$ test subsequent target change. When sweeping a $K \times K$ grid of `(seed_lag, target_lag)` pairs (for example, `lags = c(0, 2, 4)`), running 9 separate marginal single-lag regressions allows regularized deconvolution autocorrelation to project a true `Seed(0 s) -> Target(4 s)` effect onto `(0 -> 2)`, `(2 -> 4)`, and `(4 -> 4)`. Setting **`multilag_control = TRUE`** (or passing `control_seed_lags`) fits a joint multi-lag EIV equation that partials out companion seed lags and preceding target lags simultaneously while subtracting their full cross-lag measurement-error covariance (`lag_noise_vec` / `lag_error_cor`)—isolating the true directed lag cell cleanly.
 
 ---
@@ -173,7 +174,8 @@ ppi <- decon_connectivity_repair(
   covariates              = "x_within",
   test_ppi                = TRUE,
   use_whitened            = FALSE,
-  orthogonalize_seed_x    = FALSE,
+  orthogonalize_seed_x    = TRUE,
+  match_resolution        = TRUE,
   shared_error            = "auto",
   crosstrial_se           = TRUE,
   method                  = "mmoms",
@@ -187,7 +189,8 @@ ppi$group
 | Parameter | Package default | Recommended setting | Summary of Role & When to Adjust |
 |:---|:---|:---|:---|
 | **`panel_dt`** | Required | Named `subject_epochs` list (or `.rds` / Parquet / `medusa_write_table()` CSV `group_panel`) | Preserves Step 4 POET + covariance-regression metadata (`shared_error_model` or `shared_noise_vec` / `lag_noise_vec` / `trial_cor_vec`; see [worked handoff check](../worked-example.qmd#sec-worked-handoff)). |
-| **`orthogonalize_seed_x`** | `TRUE` | `FALSE` (direct model) or `TRUE` (residualized-seed model) | Selects direct symmetric `Seed + x + Seed:x` vs. task-residualized seed modulation (`Substep 6.1`). |
+| **`orthogonalize_seed_x`** | `TRUE` | `TRUE` (intrinsic coupling) or `FALSE` (direct total-seed model) | Residualizes seed against task covariates before forming PPI products so direct seed task drive does not inject quadratic $x^2$ variance (`Substep 6.1`). |
+| **`match_resolution`** | `TRUE` | `TRUE` | Aligns seed and PPI product transfer operators ($H_{SS}^{-1} H_{ST}$) to Target's trial resolution across operator, stacked, and CSV panels (`Substep 6.1`). |
 | **`control_target_seed_lag` & `multilag_control`** | `FALSE`, `FALSE` | `multilag_control = TRUE` on multi-lag grids (`control_target_seed_lag = TRUE` for single-pair Granger tests) | Partials out companion seed lags and pre-target lags with full cross-lag error covariance subtraction (`Substep 6.1`). |
 | **`shared_error`** | `"auto"` | `"auto"` + `"zero"` comparison | Subtracts stationary and dynamic cross-parcel measurement-error covariance learned by Step 4's `poet_covreg` engine (`Substep 6.2`). |
 | **`crosstrial_se`** | `TRUE` | `TRUE` | Computes cross-trial ($i \neq j$) hybrid operator + gated onset-kernel sandwich SEs and Satterthwaite `df` (essential for single-subject $N = 1$ precision neuroimaging). |

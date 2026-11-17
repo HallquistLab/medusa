@@ -30,7 +30,8 @@ decon_connectivity_repair(
   return_augmented_panel = FALSE,
   crosstrial_se = TRUE,
   control_seed_lags = NULL,
-  multilag_control = FALSE
+  multilag_control = FALSE,
+  match_resolution = TRUE
 )
 }
 \arguments{
@@ -138,6 +139,14 @@ other seed lags present in a multi-lag panel (subject to a latent-variance
 identifiability guard so silent lags do not induce M-MOMS attenuation) and
 enables causal target auto-lag control (\code{control_target_seed_lag = TRUE})
 strictly when \code{target_lag > seed_lag}. Default: \code{FALSE}.}
+
+\item{match_resolution}{Logical; if \code{TRUE} (default), uses Stage-3
+post-demixing trial resolution operators (\code{run_trial_operators} or
+embedded \code{trial_res_vec} bands on stacked/CSV panels) to match
+differential seed--target trial smoothing (\eqn{M_S \neq M_T}) and
+post-demixing PPI product transfer (\eqn{(M_S \eta_S) \odot x} vs.
+\eqn{M_T (\eta_S \odot x)}) across EIV estimators (\code{"mmoms"},
+\code{"mmom"}, \code{"eb_predictor"}).}
 }
 \value{
 A list of class \code{"medusa_connectivity_repair"} containing
