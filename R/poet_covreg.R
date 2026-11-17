@@ -3756,11 +3756,12 @@ aggregate_decon_panel <- function(
 
   if (!has_id) out_dt[, (id_col) := NULL]
 
+  out_dt <- data.table::setalloccol(out_dt)
   for (at_nm in c("tr", "demix_target_trials")) {
-    if (!is.null(attr(p_in, at_nm))) attr(out_dt, at_nm) <- attr(p_in, at_nm)
+    if (!is.null(attr(p_in, at_nm))) data.table::setattr(out_dt, at_nm, attr(p_in, at_nm))
   }
-  if (!is.null(R_poet_par)) attr(out_dt, "unit_error_cor") <- R_poet_par
-  if (!is.null(sem_par)) attr(out_dt, "shared_error_model") <- sem_par
+  if (!is.null(R_poet_par)) data.table::setattr(out_dt, "unit_error_cor", R_poet_par)
+  if (!is.null(sem_par)) data.table::setattr(out_dt, "shared_error_model", sem_par)
 
   if (is_fit_obj) {
     res_obj <- x

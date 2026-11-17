@@ -566,7 +566,8 @@ interpolate_fmri_epochs <- function(a_obj, evt_time="evt_time", time_before=-3, 
   if (isTRUE(time_audit) && trial_grouped) {
     output_dt[, time := ifelse(is.finite(evt_onset), evt_time + evt_onset, NA_real_)]
   }
-  attr(output_dt, "source_clock") <- attr(a_obj, "source_clock")
+  output_dt <- data.table::setalloccol(output_dt)
+  data.table::setattr(output_dt, "source_clock", attr(a_obj, "source_clock"))
   output_dt
 }
 
@@ -1192,12 +1193,12 @@ evt_align_decon_files <- function(d_files, trial_df, alignment = list(), aggrega
     }
     warning(message, call. = FALSE)
   }
-  all_e <- data.table::as.data.table(dplyr::bind_rows(lapply(elist, "[[", "ts")))
+  all_e <- data.table::setalloccol(data.table::as.data.table(dplyr::bind_rows(lapply(elist, "[[", "ts"))))
   if (nrow(all_e) && !is.null(alignment$aname)) all_e[, atlas := alignment$aname]
-  attr(all_e, "file_status") <- file_status
+  data.table::setattr(all_e, "file_status", file_status)
   source_clock <- dplyr::bind_rows(lapply(elist, "[[", "source_clock"))
   if (!ncol(source_clock)) source_clock <- data.frame(source_id = integer(), time = numeric(), alignment_file = character())
-  attr(all_e, "source_clock") <- source_clock
+  data.table::setattr(all_e, "source_clock", source_clock)
   if (!is.null(out_file)) {
     message("Writing output: ", out_file)
     medusa_write_table(all_e, out_file)
