@@ -192,6 +192,21 @@
 #'   (or \code{external_df}) containing positive observation/trial precision
 #'   weights (e.g., \code{"precision_weight"} from \code{decon_epoch_regression()})
 #'   to be normalized within each split and passed to the mixed-model engine.
+#' @param weights Optional string naming a column in \code{data} containing
+#'   positive observation/trial precision weights (e.g.,
+#'   \code{"precision_weight_cohort"} or \code{"precision_weight"} from
+#'   \code{\link{decon_epoch_regression}}).
+#' @param reweight_conditional_tau2 Policy for conditional biological-variance
+#'   (\eqn{\tau_{\mathrm{resid},s}^2}) reweighting when fitting MEDuSA trial
+#'   panels weighted by \code{"precision_weight_cohort"} or
+#'   \code{"precision_weight"}: \code{"auto"} (default) or \code{TRUE}
+#'   re-estimates each participant's conditional biological trial variance
+#'   after projecting out within-participant fixed-effect covariates in
+#'   \code{model_formula} (shrunk across participants via Empirical Bayes),
+#'   preventing marginal \code{tau2_bio} (when Step 3 ran with
+#'   \code{covariates = NULL}) from downweighting participants with the
+#'   strongest true neural slopes; \code{FALSE} uses the column in \code{data}
+#'   unmodified.
 #' @param split_filter Optional named list of atomic vectors specifying allowed
 #'   values for one or more split or grouping columns (e.g.,
 #'   \code{list(atlas_value = 1:4, evt_time = c(0, 1))}). When reading Parquet
@@ -243,7 +258,8 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
                      calculate=c("parameter_estimates_reml", "parameter_estimates_ml", "fit_statistics"),
                      return_models = FALSE, emmeans_spec = NULL, emmeans_pairs = FALSE,
                      emmeans_pairs_args = list(), emtrends_spec=NULL, emtrends_pairs = FALSE,
-                     emtrends_pairs_args = list(), weights = NULL, split_filter = NULL) {
+                     emtrends_pairs_args = list(), weights = NULL, split_filter = NULL,
+                     reweight_conditional_tau2 = "auto") {
 
   engine <- match.arg(engine)
   checkmate::assert_list(engine_args, names = "unique")
@@ -253,6 +269,11 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
     engine_args$weights <- NULL
   }
   checkmate::assert_string(weights, null.ok = TRUE)
+  if (!(identical(reweight_conditional_tau2, "auto") ||
+        isTRUE(reweight_conditional_tau2) || isFALSE(reweight_conditional_tau2))) {
+    stop("reweight_conditional_tau2 must be 'auto', TRUE, or FALSE.", call. = FALSE)
+  }
+  do_cond_tau2 <- !isFALSE(reweight_conditional_tau2)
   if (engine == "rstanarm" && !requireNamespace("rstanarm", quietly = TRUE)) {
     stop("Package \"rstanarm\" must be installed to use engine = \"rstanarm\".", call. = FALSE)
   }
@@ -416,6 +437,147 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
       }
       ok_w <- is.finite(w_vec) & (w_vec > 0)
       ok_active <- ok_w & comp_mod
+      if (do_cond_tau2 && any(ok_active) &&
+          (weights %in% c("precision_weight_cohort", "precision_weight"))) {
+        lhs_var <- all.vars(model_formula)[1L]
+        is_w_out <- !is.na(lhs_var) && grepl("_whitened$", lhs_var)
+        se_col_mb <- if (is_w_out && ("se_whitened" %in% names(data))) {
+          "se_whitened"
+        } else if ("se_demixed" %in% names(data)) {
+          "se_demixed"
+        } else {
+          NULL
+        }
+        bars_list <- tryCatch(lme4::findbars(model_formula), error = function(e) NULL)
+        bar_vars <- intersect(unique(unlist(lapply(bars_list, function(b) all.vars(b[[3L]])))), names(data))
+        grp_col <- if ("id" %in% bar_vars) {
+          "id"
+        } else if ("subject" %in% bar_vars) {
+          "subject"
+        } else if (length(bar_vars) > 0L) {
+          bar_vars[1L]
+        } else {
+          NULL
+        }
+        if (!is.null(se_col_mb) && !is.null(grp_col) && (lhs_var %in% names(data))) {
+          act_rows <- which(ok_active)
+          se_act <- as.numeric(data[[se_col_mb]])[act_rows]
+          if (all(is.finite(se_act) & se_act > 0)) {
+            df_act <- as.data.frame(data)[act_rows, , drop = FALSE]
+            nb_form <- lme4::nobars(model_formula)
+            X_fix <- tryCatch(stats::model.matrix(nb_form, data = df_act), error = function(e) NULL)
+            if (!is.null(X_fix) && is.matrix(X_fix) && nrow(X_fix) == length(act_rows) && ncol(X_fix) >= 2L) {
+              int_cols <- which(colnames(X_fix) == "(Intercept)")
+              X_pred_all <- if (length(int_cols) > 0L) X_fix[, -int_cols, drop = FALSE] else X_fix
+              if (ncol(X_pred_all) >= 1L) {
+                y_act <- as.numeric(df_act[[lhs_var]])
+                s2_act <- se_act * se_act
+                grp_act <- as.character(df_act[[grp_col]])
+                u_grps <- unique(grp_act)
+                n_grps <- length(u_grps)
+                has_run_col <- ("run" %in% names(df_act)) && !is_w_out
+                run_act <- if (has_run_col) as.character(df_act[["run"]]) else NULL
+
+                tau2_raw_s <- rep(NA_real_, n_grps)
+                df_vec_s <- rep(NA_real_, n_grps)
+                s2_bar_s <- rep(NA_real_, n_grps)
+                s2_med_s <- rep(NA_real_, n_grps)
+                idx_by_s <- vector("list", n_grps)
+
+                for (si in seq_len(n_grps)) {
+                  idx_s <- which(grp_act == u_grps[si])
+                  idx_by_s[[si]] <- idx_s
+                  n_s <- length(idx_s)
+                  s2_s <- s2_act[idx_s]
+                  s2_bar_s[si] <- mean(s2_s)
+                  s2_med_s[si] <- stats::median(s2_s)
+                  if (n_s < 5L) next
+
+                  y_s <- y_act[idx_s]
+                  Xp_s <- X_pred_all[idx_s, , drop = FALSE]
+                  h0_s <- rep(1.0 / n_s, n_s)
+                  df_base_s <- 1L
+                  if (has_run_col) {
+                    r_s <- run_act[idx_s]
+                    u_rs <- unique(r_s)
+                    if (length(u_rs) >= 2L && (n_s - length(u_rs) >= 4L)) {
+                      df_base_s <- length(u_rs)
+                      y_s_c <- y_s
+                      Xp_s_c <- Xp_s
+                      for (rl in u_rs) {
+                        ir <- which(r_s == rl)
+                        mr <- length(ir)
+                        h0_s[ir] <- 1.0 / mr
+                        y_s_c[ir] <- y_s[ir] - mean(y_s[ir])
+                        if (mr > 1L) {
+                          Xp_s_c[ir, ] <- sweep(Xp_s[ir, , drop = FALSE], 2L, colMeans(Xp_s[ir, , drop = FALSE]), "-")
+                        } else {
+                          Xp_s_c[ir, ] <- 0.0
+                        }
+                      }
+                    } else {
+                      y_s_c <- y_s - mean(y_s)
+                      Xp_s_c <- sweep(Xp_s, 2L, colMeans(Xp_s), "-")
+                    }
+                  } else {
+                    y_s_c <- y_s - mean(y_s)
+                    Xp_s_c <- sweep(Xp_s, 2L, colMeans(Xp_s), "-")
+                  }
+
+                  keep_xp <- which(colSums(Xp_s_c * Xp_s_c) > 1e-12)
+                  if (!length(keep_xp)) next
+                  qr_s <- qr(Xp_s_c[, keep_xp, drop = FALSE], tol = 1e-7)
+                  rk_s <- qr_s$rank
+                  df_res_s <- as.numeric(n_s - df_base_s - rk_s)
+                  if (rk_s < 1L || df_res_s < 3.0) next
+
+                  Q_s <- qr.Q(qr_s)[, seq_len(rk_s), drop = FALSE]
+                  res_s <- y_s_c - as.numeric(Q_s %*% crossprod(Q_s, y_s_c))
+                  p_diag_s <- pmax(0.0, 1.0 - h0_s - rowSums(Q_s * Q_s))
+                  tau2_raw_s[si] <- (sum(res_s * res_s) - sum(p_diag_s * s2_s)) / df_res_s
+                  df_vec_s[si] <- df_res_s
+                }
+
+                valid_s <- is.finite(tau2_raw_s) & is.finite(df_vec_s) & (df_vec_s >= 3.0)
+                if (any(valid_s)) {
+                  tau2_eb_s <- rep(0.0, n_grps)
+                  if (sum(valid_s) >= 2L) {
+                    tau2_pool <- max(0.0, stats::median(tau2_raw_s[valid_s]))
+                    v_samp <- 2.0 * ((tau2_pool + s2_bar_s[valid_s])^2) / df_vec_s[valid_s]
+                    var_obs <- stats::var(tau2_raw_s[valid_s])
+                    psi2_between <- if (is.finite(var_obs)) max(0.0, var_obs - mean(v_samp)) else 0.0
+                    b_eb <- v_samp / pmax(v_samp + psi2_between, 1e-16)
+                    tau2_eb_s[valid_s] <- pmax(0.0, (1.0 - b_eb) * tau2_raw_s[valid_s] + b_eb * tau2_pool)
+                    tau2_eb_s[!valid_s] <- tau2_pool
+                  } else {
+                    vi_1 <- which(valid_s)[1L]
+                    t2_old <- if ("tau2_bio" %in% names(df_act)) {
+                      stats::median(as.numeric(df_act[["tau2_bio"]][idx_by_s[[vi_1]]]), na.rm = TRUE)
+                    } else NA_real_
+                    t2_c1 <- max(0.0, tau2_raw_s[vi_1])
+                    tau2_eb_s[vi_1] <- if (is.finite(t2_old) && t2_old >= 0.0) min(t2_old, t2_c1) else t2_c1
+                  }
+
+                  w_act_new <- w_vec[act_rows]
+                  for (si in seq_len(n_grps)) {
+                    idx_s <- idx_by_s[[si]]
+                    if (!length(idx_s)) next
+                    tau2_eff_s <- max(tau2_eb_s[si], 0.10 * s2_med_s[si])
+                    w_s <- 1.0 / (tau2_eff_s + s2_act[idx_s])
+                    if (identical(weights, "precision_weight")) {
+                      w_s <- w_s / mean(w_s)
+                    }
+                    w_act_new[idx_s] <- w_s
+                  }
+                  if (all(is.finite(w_act_new) & w_act_new > 0)) {
+                    w_vec[act_rows] <- w_act_new
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
       if (any(ok_active)) {
         m_w <- mean(w_vec[ok_active])
         w_vec[ok_w] <- w_vec[ok_w] / m_w

@@ -107,7 +107,7 @@ Suppose a participant completes $R = 3$ task runs. If we selected the best-fitti
 
 ![Invariance verification: adding strong synthetic oscillations to target Run 1 leaves its cross-fitted HRF candidate weights completely unchanged.](figures/09-target-check.png){#fig-step1-target-check width="92%" fig-alt="Overlapping candidate weight profiles for original and perturbed Run 1."}
 
-On each training run $s \neq r$, MEDuSA whitens usable observations under a first-pass noise filter, projects out nuisance drift, and convolves the event schedule with candidate $h_m$ to compute **degree-of-freedom-adjusted partial $R^2$** and an effective-DF $F$-test (`selected_task_p`; @fig-step1-evidence).
+On each training run $s \neq r$, MEDuSA whitens usable observations under a first-pass noise filter, projects out nuisance drift, and convolves the event schedule with candidate $h_m$ to compute **degree-of-freedom-adjusted partial $R^2$** and an effective-DF $F$-test (`selected_task_p`; @fig-step1-evidence). When a dataset contains only a single scan ($R = 1$), `hrf_single_run_subblocks()` replaces cross-run folds with **guard-buffered leave-one-subblock-out cross-validation**, separating interior sub-blocks by a $\ge 16\text{ s}$ hemodynamic and $\text{AR}(p)$ guard zone (isolating any pre-block guard-zone event tails into nuisance carryover columns) and evaluating each held-out sub-block strictly from condition amplitudes and encompassing departures estimated on the remaining sub-blocks.
 
 ![Out-of-sample adjusted partial $R^2$ surfaces for target Run 1 across the 27-candidate cortical slice (`Fast` truth: $4.5\text{ s}, 0.9$; `Slow` truth: $7.5\text{ s}, 1.1$; `Null`: pure $\text{AR}(3)$ noise). Crosses mark generating parameters.](figures/04-evidence.png){#fig-step1-evidence width="100%" fig-alt="Heatmaps of out-of-sample adjusted partial R-squared across Fast, Slow, and Null parcels."}
 
@@ -263,7 +263,7 @@ hrf_fit <- estimate_crossrun_hrf(
 
 ### Single-run sessions and resting/baseline runs
 
-When a participant has only a **single task run** (`length(bold) == 1L`), `estimate_crossrun_hrf()` automatically partitions usable observations into contiguous temporal sub-blocks (3 blocks when $n_{\text{valid}} \ge 120$, 2 halves when $40 \le n_{\text{valid}} < 120$), scores candidates on each sub-block against the full causal event design, checks cross-block compatibility, and returns a single continuous HRF for the intact run. Runs with zero task events (such as resting-state scans) are also accepted and receive the canonical reference HRF alongside pure-nuisance $\text{AR}(p)$ noise estimates.
+When a participant has only a **single task run** (`length(bold) == 1L`), `estimate_crossrun_hrf()` automatically partitions usable observations into temporal sub-blocks separated by a $\ge 16\text{ s}$ hemodynamic/AR guard buffer (`hrf_single_run_subblocks()`, 3 blocks when $n_{\text{valid}} \ge 150$, 2 halves otherwise, isolating pre-block guard-zone event tails into carryover nuisance columns), scores candidate shapes strictly out-of-sample via Leave-One-Subblock-Out (LOBO) cross-validation with Bartlett-calibrated sub-block compatibility checks, and returns a single continuous HRF for the intact run. Runs with zero task events (such as resting-state scans) are also accepted and receive the canonical reference HRF alongside pure-nuisance $\text{AR}(p)$ noise estimates.
 
 ### Respiratory motion filtering for fast-TR censoring {#sec-respiratory-fd-filter}
 

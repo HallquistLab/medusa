@@ -33,7 +33,8 @@ mixed_by(
   emtrends_pairs = FALSE,
   emtrends_pairs_args = list(),
   weights = NULL,
-  split_filter = NULL
+  split_filter = NULL,
+  reweight_conditional_tau2 = "auto"
 )
 }
 \arguments{
@@ -119,16 +120,28 @@ Any arguments that are valid for emtrends can be passed through the list structu
 \item{emtrends_pairs_args}{A named list of arguments passed to \code{pairs()} (e.g.,
 \code{list(adjust = "tukey")}).}
 
-\item{weights}{Optional character scalar naming a numeric column in \code{data}
-(or \code{external_df}) containing positive observation/trial precision
-weights (e.g., \code{"precision_weight"} from \code{decon_epoch_regression()})
-to be normalized within each split and passed to the mixed-model engine.}
+\item{weights}{Optional string naming a column in \code{data} containing
+positive observation/trial precision weights (e.g.,
+\code{"precision_weight_cohort"} or \code{"precision_weight"} from
+\code{\link{decon_epoch_regression}}).}
 
 \item{split_filter}{Optional named list of atomic vectors specifying allowed
 values for one or more split or grouping columns (e.g.,
 \code{list(atlas_value = 1:4, evt_time = c(0, 1))}). When reading Parquet
 files or partitioned Parquet directories, predicates on columns present in
 the dataset are pushed down to Arrow prior to materialization in R.}
+
+\item{reweight_conditional_tau2}{Policy for conditional biological-variance
+(\eqn{\tau_{\mathrm{resid},s}^2}) reweighting when fitting MEDuSA trial
+panels weighted by \code{"precision_weight_cohort"} or
+\code{"precision_weight"}: \code{"auto"} (default) or \code{TRUE}
+re-estimates each participant's conditional biological trial variance
+after projecting out within-participant fixed-effect covariates in
+\code{model_formula} (shrunk across participants via Empirical Bayes),
+preventing marginal \code{tau2_bio} (when Step 3 ran with
+\code{covariates = NULL}) from downweighting participants with the
+strongest true neural slopes; \code{FALSE} uses the column in \code{data}
+unmodified.}
 }
 \value{
 A list containing coefficient tables, fit statistics, optional post-hoc outputs

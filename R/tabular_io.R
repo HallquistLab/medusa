@@ -204,7 +204,7 @@ parse_serialized_vec_col <- function(col) {
 
 restore_panel_vec_cols <- function(
   df,
-  cols = c("shared_noise_vec", "trial_cor_vec", "lag_noise_vec")
+  cols = c("shared_noise_vec", "trial_cor_vec", "lag_noise_vec", "trial_res_vec")
 ) {
   if (!is.data.frame(df) || nrow(df) == 0L) return(df)
   hit <- intersect(cols, names(df))

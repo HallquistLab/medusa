@@ -3506,6 +3506,7 @@ aggregate_decon_panel <- function(
   has_svec <- "shared_noise_vec" %in% names(dt)
   has_lvec <- "lag_noise_vec" %in% names(dt)
   has_tcor <- "trial_cor_vec" %in% names(dt)
+  has_tres <- "trial_res_vec" %in% names(dt)
   has_se <- "se_demixed" %in% names(dt)
   has_se_raw <- "se_raw" %in% names(dt)
   has_ac1 <- "error_ac1" %in% names(dt)
@@ -3516,7 +3517,7 @@ aggregate_decon_panel <- function(
       "se_raw", "se_demixed", "se_whitened", "reliability_trial",
       "precision_weight", "precision_weight_cohort", "precision_weight_op",
       "precision_weight_raw", "error_ac1", "tau2_bio", "shared_noise_loading",
-      "shared_noise_vec", "lag_noise_vec", "trial_cor_vec")
+      "shared_noise_vec", "lag_noise_vec", "trial_cor_vec", "trial_res_vec")
   )
 
   agg_vec_weighted <- function(vlist, w) {
@@ -3560,6 +3561,7 @@ aggregate_decon_panel <- function(
     }
     if (has_svec) res[["shared_noise_vec"]] <- list(u_bar)
     if (has_tcor) res[["trial_cor_vec"]] <- list(agg_vec_weighted(trial_cor_vec, wv))
+    if (has_tres) res[["trial_res_vec"]] <- list(agg_vec_weighted(trial_res_vec, wv))
     if (has_lvec) {
       l_bar <- agg_vec_weighted(lag_noise_vec, wv)
       if (length(l_bar) > 0L && has_se && sum(l_bar^2) > 1e-16) {
