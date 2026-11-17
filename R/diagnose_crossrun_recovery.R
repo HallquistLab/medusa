@@ -126,9 +126,10 @@ diagnose_crossrun_recovery <- function(deconvolution, events = NULL, lags = 0,
     if (length(rows) < 3L) next
     fw_r <- resolve_run_obs_weights(deconvolution, r, length(rows))
     hp_diag <- if (!is.null(settings$highpass)) settings$highpass else if (!is.null(fit$settings$highpass)) fit$settings$highpass else 128.0
+    pcs_diag_r <- if (!is.null(deconvolution$noise_pcs) && length(deconvolution$noise_pcs) >= r) deconvolution$noise_pcs[[r]] else NULL
     z <- hrf_build_decon_nuisance_matrix(
       n_obs = n, tr = tr, rows = rows,
-      nuisance_r = fit$specification$nuisance[[r]],
+      nuisance_r = hrf_combine_run_nuisance(fit$specification$nuisance[[r]], pcs_diag_r, n),
       nuisance_mode = settings$nuisance_mode, highpass_sec = hp_diag,
       drift_active = !isFALSE(settings$drift_preproject_active)
     )
@@ -1674,9 +1675,10 @@ decon_epoch_regression <- function(
     rows <- which(!is.na(mask) & mask)
     if (length(rows) < 3L) next
     hp_ep <- if (!is.null(settings$highpass)) settings$highpass else if (!is.null(fit$settings$highpass)) fit$settings$highpass else 128.0
+    pcs_ep_r <- if (!is.null(deconvolution$noise_pcs) && length(deconvolution$noise_pcs) >= r) deconvolution$noise_pcs[[r]] else NULL
     z <- hrf_build_decon_nuisance_matrix(
       n_obs = n, tr = tr, rows = rows,
-      nuisance_r = fit$specification$nuisance[[r]],
+      nuisance_r = hrf_combine_run_nuisance(fit$specification$nuisance[[r]], pcs_ep_r, n),
       nuisance_mode = settings$nuisance_mode, highpass_sec = hp_ep,
       drift_active = !isFALSE(settings$drift_preproject_active)
     )
@@ -2431,7 +2433,7 @@ decon_epoch_regression <- function(
           gain_count[li, voxels] <- gain_count[li, voxels] + 1L
         }
         if (demix_target_trials) {
-          if (identical(source_model, "impulse") && !isTRUE(demix_within_trial) &&
+          if (n_lags == 1L && identical(source_model, "impulse") && !isTRUE(demix_within_trial) &&
               abs(lags[li]) <= 1e-6 && !is.null(L_target_0)) {
             L_t0_ok <- L_target_0[ok_tau, , drop = FALSE]
             Y_clean[ok_tau, ] <- L_t0_ok %*% act_r[, voxels, drop = FALSE]
@@ -6522,8 +6524,8 @@ medusa_build_deblur_operator <- function(
   C_sym,
   lags,
   tr = 1.0,
-  alpha1 = 0.025,
-  alpha0_sq = 0.0012,
+  alpha1 = 0.05,
+  alpha0_sq = 0.020,
   sigma_lobe = 1.05
 ) {
   n_lags <- length(lags)
@@ -6556,8 +6558,8 @@ medusa_smooth_deblur_trajectory <- function(
   within_trial_ridge = 0.15,
   recalibrate_wt_lobe = FALSE,
   trajectory_mode = c("auto", "deblur_pspline", "pspline", "deblur", "none"),
-  alpha1 = 0.025,
-  alpha0_sq = 0.0012,
+  alpha1 = 0.05,
+  alpha0_sq = 0.020,
   sigma_lobe = 1.05
 ) {
   trajectory_mode <- match.arg(trajectory_mode)

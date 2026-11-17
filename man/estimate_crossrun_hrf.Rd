@@ -21,7 +21,7 @@ estimate_crossrun_hrf(
   min_parcel_voxels = 5L,
   batch_size = 2048L,
   return_scores = FALSE,
-  amplitude_model = c("condition", "trial"),
+  amplitude_model = c("condition", "trial", "trial_ridge", "auto"),
   noise_model = c("ar1", "ols"),
   noise_rho = NULL,
   noise_grid = seq(-0.8, 0.9, by = 0.1),
@@ -39,7 +39,12 @@ estimate_crossrun_hrf(
   max_neighbors = 32L,
   max_hrf_strata = 48L,
   max_noise_strata = 10L,
-  highpass = NULL
+  highpass = NULL,
+  hrf_modulators = NULL,
+  fracridge = 0.25,
+  noise_pcs = "auto",
+  max_noise_pcs = 10L,
+  noise_pool = NULL
 )
 }
 \arguments{
@@ -116,10 +121,14 @@ default 0.01. This is a configurable heuristic, not a significance threshold.}
 
 \item{return_scores}{Retain candidate-by-voxel training score matrices per fold.}
 
-\item{amplitude_model}{Training amplitudes shared within condition (fast
-default), or free for each event record (trial). Trial amplitudes can support
-HRF estimation when signed trial responses average to zero, but cost more and
-require a design with sufficient residual degrees of freedom.}
+\item{amplitude_model}{Training amplitude parameterization: \code{"condition"}
+(fast default; shared amplitude per condition, plus any \code{hrf_modulators}),
+\code{"trial"} (unregularized free amplitude per event), \code{"trial_ridge"}
+(SVD fractional-ridge trial deviations with matched effective degrees of freedom
+\code{fracridge} across candidates, robust to rapid ITIs and zero-mean modulation),
+or \code{"auto"} (scores with \code{"condition"} first and automatically rescues
+unmodeled zero-mean trial-modulated parcels/voxels via \code{"trial_ridge"} when
+calibrated training-run task evidence supports it).}
 
 \item{noise_model}{Default ar1 uses pooled, grid-REML covariance estimates;
 ols disables whitening. Pooling uses supplied spatial_groups or the run.}
@@ -199,6 +208,29 @@ so Step-2 inverse operator caching remains compact at whole-brain scale
 period in seconds for run-level scanner drift removal. Defaults to
 \code{128} in modern AR/calibrated mode (\code{Inf} / disabled in legacy
 OLS/legacy mode).}
+
+\item{hrf_modulators}{Optional trial-level parametric modulator(s) included in
+Step-1 HRF scoring: either a character vector of column names in \code{events}
+(e.g., \code{"rpe"}), or a per-run list of numeric vectors/matrices/data.frames
+aligned with \code{events}. Default \code{NULL}.}
+
+\item{fracridge}{Target fractional effective degrees of freedom (in \code{[0.05, 0.85]})
+for within-condition trial deviations when \code{amplitude_model} is
+\code{"trial_ridge"} or \code{"auto"} (default \code{0.25}).}
+
+\item{noise_pcs}{Cross-validated GLMdenoise-style background noise-pool temporal PCs:
+\code{"auto"} (default; selects \eqn{0 \dots \code{max_noise_pcs}} PCs on modern
+AR/calibrated fits via AR-prewhitened Gavish-Donoho gating and disjoint spatial
+bi-cross-validation), \code{0L}/\code{FALSE}/\code{"none"} (disabled), or a
+fixed positive integer count.}
+
+\item{max_noise_pcs}{Maximum candidate noise-pool PCs evaluated when
+\code{noise_pcs = "auto"} (default \code{10L}).}
+
+\item{noise_pool}{Optional explicit background noise-pool specification (logical
+mask of length \code{ncol(bold[[1]])}, integer column indices, or character
+voxel IDs, e.g., WM/CSF/background sensors). When \code{NULL}, identified
+automatically from task-unrelated background cortex.}
 }
 \value{
 An object of class crossrun_hrf with normalized kernels, per-target-run
