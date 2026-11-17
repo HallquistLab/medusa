@@ -5,10 +5,13 @@ Connects fitted [`lme4::lmer()`](https://rdrr.io/pkg/lme4/man/lmer.html)
 [`mixed_by`](https://hallquistlab.github.io/medusa/reference/mixed_by.md)
 model objects) from MEDuSA Stage 4 directly to
 [`repair::repair()`](https://hallquistlab.github.io/repair/reference/repair.html)
-(Vig & Hallquist, 2026) to estimate measurement-error-corrected
-between-subject regressions relating subject-specific neural random
-intercepts/slopes across brain regions or to external
-behavioral/clinical variables.
+(Vig & Hallquist, 2026) when the repair package is installed, with an
+exact built-in likelihood-only WLS +
+[`medusa_fit_mmom`](https://hallquistlab.github.io/medusa/reference/medusa_fit_mmom.md)
+fallback when repair is unavailable. Estimates
+measurement-error-corrected between-subject regressions relating
+subject-specific neural random intercepts/slopes across brain regions or
+to external behavioral/clinical variables.
 
 ## Usage
 
@@ -31,9 +34,7 @@ medusa_between_subject_repair(
 
 - formula:
 
-  Structural regression formula using
-  [`repair::re()`](https://hallquistlab.github.io/repair/reference/re.html)
-  markers (e.g.,
+  Structural regression formula using `re()` markers (e.g.,
   `re("x_whitened", model = "target") ~ re("x_whitened", model = "seed") + age`).
 
 - models:
@@ -55,7 +56,9 @@ medusa_between_subject_repair(
 - regularization:
 
   Regularization policy passed to
-  [`repair::repair()`](https://hallquistlab.github.io/repair/reference/repair.html):
+  [`repair::repair()`](https://hallquistlab.github.io/repair/reference/repair.html)
+  or
+  [`medusa_fit_mmom`](https://hallquistlab.github.io/medusa/reference/medusa_fit_mmom.md):
   `"step_up"` (default; adaptive M-MOMS), `"minimum"`, `"none"`, or
   `"custom"`.
 
@@ -81,13 +84,13 @@ medusa_between_subject_repair(
 - ...:
 
   Additional arguments passed to
-  [`repair::repair()`](https://hallquistlab.github.io/repair/reference/repair.html).
+  [`repair::repair()`](https://hallquistlab.github.io/repair/reference/repair.html)
+  (or `alpha` for
+  [`medusa_fit_mmom`](https://hallquistlab.github.io/medusa/reference/medusa_fit_mmom.md)).
 
 ## Value
 
-A list with `coefficients` (tidy `data.frame` from
-[`repair::repair_coefficients()`](https://hallquistlab.github.io/repair/reference/repair_coefficients.html)),
-`reliability` (from
-[`repair::repair_reliability()`](https://hallquistlab.github.io/repair/reference/repair_reliability.html)),
-`predictions` (likelihood-only random-effect predictions and error
-variances), and `fit` (the S7 `class_repair_mod` object).
+A list with `coefficients` (tidy `data.frame` with `term`, `estimate`,
+`std.error`, `statistic`, `p.value`, `conf.low`, `conf.high`),
+`reliability`, `predictions` (likelihood-only random-effect predictions
+and error variances), and `fit`.

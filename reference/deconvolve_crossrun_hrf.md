@@ -22,7 +22,8 @@ deconvolve_crossrun_hrf(
   gcv_rule = c("min", "1se"),
   lambda_mode = c("auto", "global", "stratified"),
   max_lambda_strata = 4L,
-  rwls = "auto"
+  rwls = "auto",
+  highpass = NULL
 )
 ```
 
@@ -82,12 +83,13 @@ deconvolve_crossrun_hrf(
 
 - nuisance_mode:
 
-  Jointly fit unpenalized intercept, trend, and supplied nuisance terms,
-  or ignore them (default, preserving prepared input signals). Joint
-  projection is applied to both data and design, but can amplify weakly
-  identified low-frequency activity in a flexible continuous inverse.
-  Validate it for the intended design rather than assuming it improves
-  recovery.
+  Nuisance handling for intercept, linear trend, DCT highpass drift
+  (`highpass`), and supplied `nuisance` columns: `"preproject"` (default
+  on modern AR/calibrated fits with `cpp` or `r` backends;
+  observation-weighted orthogonal residualization before applying the
+  continuous inverse operator), `"joint"` (simultaneous unpenalized
+  nuisance normal equations), or `"ignore"` (default on legacy OLS or
+  `wiener` fits).
 
 - observation_mask:
 
@@ -128,6 +130,12 @@ deconvolve_crossrun_hrf(
   Woodbury covariance \\\Sigma\_{\mathrm{AR}} +
   \mathrm{diag}(\delta^2)\\), or `"innovation"` (Diedrichsen-style
   innovation-space downweighting).
+
+- highpass:
+
+  Optional DCT highpass cutoff period in seconds inherited from
+  `hrf_fit$settings$highpass` when `NULL` (`128` s in modern mode; `Inf`
+  / disabled when `Inf` or `<= 0`).
 
 ## Value
 

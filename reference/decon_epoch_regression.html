@@ -84,7 +84,8 @@ per-trial operator precision weights and within-run error covariance.</p>
 <span>  run_col <span class="op">=</span> <span class="st">"run"</span>,</span>
 <span>  variance_confounds <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  shared_error_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"poet_covreg"</span>, <span class="st">"legacy"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
-<span>  bold <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  bold <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  other_event_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"trial"</span>, <span class="st">"condition"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -365,6 +366,16 @@ estimator: <code>"poet_covreg"</code> (default; v3 Subspace-Debiased Adaptive-PO
 <dd><p>Optional list of per-run BOLD matrices (not required when
 <code>deconvolution</code> comes from current <code><a href="deconvolve_crossrun_hrf.html">deconvolve_crossrun_hrf</a></code>,
 which caches observed/sketched prewhitened series automatically).</p></dd>
+
+
+<dt id="arg-other-event-model">other_event_model<a class="anchor" aria-label="anchor" href="#arg-other-event-model"></a></dt>
+<dd><p>Parameterization of non-target events during
+<code>demix_other_events = TRUE</code>: <code>"auto"</code> (default; tests for
+trial-level amplitude modulation on adjacent non-target events via a
+spatially correlated Satterthwaite \(F\)-screen and switches from
+condition-mean to per-trial projection only when supported), <code>"trial"</code>
+(one nuisance column per non-target trial), or <code>"condition"</code> (one
+nuisance column per non-target condition).</p></dd>
 
 </dl></div>
     <div class="section level2">

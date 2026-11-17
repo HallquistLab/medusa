@@ -79,7 +79,8 @@
 <span>  parcel_cross_weight <span class="op">=</span> <span class="fl">0.35</span>,</span>
 <span>  max_neighbors <span class="op">=</span> <span class="fl">32L</span>,</span>
 <span>  max_hrf_strata <span class="op">=</span> <span class="fl">48L</span>,</span>
-<span>  max_noise_strata <span class="op">=</span> <span class="fl">10L</span></span>
+<span>  max_noise_strata <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  highpass <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -305,6 +306,13 @@ so Step-2 inverse operator caching remains compact at whole-brain scale
 <dt id="arg-max-noise-strata">max_noise_strata<a class="anchor" aria-label="anchor" href="#arg-max-noise-strata"></a></dt>
 <dd><p>Maximum bilateral REML noise strata per run when
 <code>pooling = "graph"</code> (default <code>10L</code>).</p></dd>
+
+
+<dt id="arg-highpass">highpass<a class="anchor" aria-label="anchor" href="#arg-highpass"></a></dt>
+<dd><p>Optional discrete cosine transform (DCT) highpass cutoff
+period in seconds for run-level scanner drift removal. Defaults to
+<code>128</code> in modern AR/calibrated mode (<code>Inf</code> / disabled in legacy
+OLS/legacy mode).</p></dd>
 
 </dl></div>
     <div class="section level2">

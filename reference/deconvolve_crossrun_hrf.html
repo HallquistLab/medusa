@@ -62,7 +62,8 @@
 <span>  gcv_rule <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"min"</span>, <span class="st">"1se"</span><span class="op">)</span>,</span>
 <span>  lambda_mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"global"</span>, <span class="st">"stratified"</span><span class="op">)</span>,</span>
 <span>  max_lambda_strata <span class="op">=</span> <span class="fl">4L</span>,</span>
-<span>  rwls <span class="op">=</span> <span class="st">"auto"</span></span>
+<span>  rwls <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  highpass <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -122,11 +123,13 @@ budget while it is being applied, but is not retained in the cache.</p></dd>
 
 
 <dt id="arg-nuisance-mode">nuisance_mode<a class="anchor" aria-label="anchor" href="#arg-nuisance-mode"></a></dt>
-<dd><p>Jointly fit unpenalized intercept, trend, and supplied
-nuisance terms, or ignore them (default, preserving prepared input signals).
-Joint projection is applied to both data and design, but can amplify weakly
-identified low-frequency activity in a flexible continuous inverse. Validate
-it for the intended design rather than assuming it improves recovery.</p></dd>
+<dd><p>Nuisance handling for intercept, linear trend, DCT
+highpass drift (<code>highpass</code>), and supplied <code>nuisance</code> columns:
+<code>"preproject"</code> (default on modern AR/calibrated fits with <code>cpp</code> or
+<code>r</code> backends; observation-weighted orthogonal residualization before
+applying the continuous inverse operator), <code>"joint"</code> (simultaneous
+unpenalized nuisance normal equations), or <code>"ignore"</code> (default on
+legacy OLS or <code>wiener</code> fits).</p></dd>
 
 
 <dt id="arg-observation-mask">observation_mask<a class="anchor" aria-label="anchor" href="#arg-observation-mask"></a></dt>
@@ -169,6 +172,12 @@ falls back to <code>"none"</code> on legacy OLS or <code>backend = "wiener"</cod
 <code>"woodbury"</code> (or <code>TRUE</code>; additive-transient Sparse Bayesian Learning
 Woodbury covariance \(\Sigma_{\mathrm{AR}} + \mathrm{diag}(\delta^2)\)), or
 <code>"innovation"</code> (Diedrichsen-style innovation-space downweighting).</p></dd>
+
+
+<dt id="arg-highpass">highpass<a class="anchor" aria-label="anchor" href="#arg-highpass"></a></dt>
+<dd><p>Optional DCT highpass cutoff period in seconds inherited from
+<code>hrf_fit$settings$highpass</code> when <code>NULL</code> (<code>128</code> s in modern
+mode; <code>Inf</code> / disabled when <code>Inf</code> or <code>&lt;= 0</code>).</p></dd>
 
 </dl></div>
     <div class="section level2">

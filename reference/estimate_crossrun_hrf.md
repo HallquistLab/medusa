@@ -40,7 +40,8 @@ estimate_crossrun_hrf(
   parcel_cross_weight = 0.35,
   max_neighbors = 32L,
   max_hrf_strata = 48L,
-  max_noise_strata = 10L
+  max_noise_strata = 10L,
+  highpass = NULL
 )
 ```
 
@@ -269,6 +270,13 @@ estimate_crossrun_hrf(
 
   Maximum bilateral REML noise strata per run when `pooling = "graph"`
   (default `10L`).
+
+- highpass:
+
+  Optional discrete cosine transform (DCT) highpass cutoff period in
+  seconds for run-level scanner drift removal. Defaults to `128` in
+  modern AR/calibrated mode (`Inf` / disabled in legacy OLS/legacy
+  mode).
 
 ## Value
 

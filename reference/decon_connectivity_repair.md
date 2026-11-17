@@ -39,7 +39,9 @@ decon_connectivity_repair(
   eb_col = NULL,
   modulator = NULL,
   return_augmented_panel = FALSE,
-  crosstrial_se = TRUE
+  crosstrial_se = TRUE,
+  control_seed_lags = NULL,
+  multilag_control = FALSE
 )
 ```
 
@@ -185,6 +187,20 @@ decon_connectivity_repair(
   Satterthwaite effective degrees of freedom (`df`) for single-subject
   (\\N = 1\\) and subject-level inference while keeping diagonal M-MOMS
   estimation weights.
+
+- control_seed_lags:
+
+  Optional numeric vector of other within-trial seed lags (in seconds,
+  present in `panel_dt`) to partial out as measurement-error-prone
+  control predictors alongside `seed_lag`.
+
+- multilag_control:
+
+  Logical; if `TRUE`, automatically partials out other seed lags present
+  in a multi-lag panel (subject to a latent-variance identifiability
+  guard so silent lags do not induce M-MOMS attenuation) and enables
+  causal target auto-lag control (`control_target_seed_lag = TRUE`)
+  strictly when `target_lag > seed_lag`. Default: `FALSE`.
 
 ## Value
 

@@ -39,7 +39,8 @@ decon_epoch_regression(
   run_col = "run",
   variance_confounds = NULL,
   shared_error_method = c("poet_covreg", "legacy", "none"),
-  bold = NULL
+  bold = NULL,
+  other_event_model = c("auto", "trial", "condition")
 )
 ```
 
@@ -326,6 +327,16 @@ decon_epoch_regression(
   `deconvolution` comes from current
   [`deconvolve_crossrun_hrf`](https://hallquistlab.github.io/medusa/reference/deconvolve_crossrun_hrf.md),
   which caches observed/sketched prewhitened series automatically).
+
+- other_event_model:
+
+  Parameterization of non-target events during
+  `demix_other_events = TRUE`: `"auto"` (default; tests for trial-level
+  amplitude modulation on adjacent non-target events via a spatially
+  correlated Satterthwaite \\F\\-screen and switches from condition-mean
+  to per-trial projection only when supported), `"trial"` (one nuisance
+  column per non-target trial), or `"condition"` (one nuisance column
+  per non-target condition).
 
 ## Value
 

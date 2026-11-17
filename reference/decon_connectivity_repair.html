@@ -93,7 +93,9 @@ error variances for Granger-style auto-lag controls (<code>targ_t0</code>).</p>
 <span>  eb_col <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  modulator <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  return_augmented_panel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  crosstrial_se <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  crosstrial_se <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  control_seed_lags <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  multilag_control <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -242,6 +244,20 @@ subject-level <code>M-MOMS</code> slopes in weighted least squares / <code>lmer(
 and Satterthwaite effective degrees of freedom (<code>df</code>) for single-subject
 (\(N = 1\)) and subject-level inference while keeping diagonal M-MOMS
 estimation weights.</p></dd>
+
+
+<dt id="arg-control-seed-lags">control_seed_lags<a class="anchor" aria-label="anchor" href="#arg-control-seed-lags"></a></dt>
+<dd><p>Optional numeric vector of other within-trial seed
+lags (in seconds, present in <code>panel_dt</code>) to partial out as
+measurement-error-prone control predictors alongside <code>seed_lag</code>.</p></dd>
+
+
+<dt id="arg-multilag-control">multilag_control<a class="anchor" aria-label="anchor" href="#arg-multilag-control"></a></dt>
+<dd><p>Logical; if <code>TRUE</code>, automatically partials out
+other seed lags present in a multi-lag panel (subject to a latent-variance
+identifiability guard so silent lags do not induce M-MOMS attenuation) and
+enables causal target auto-lag control (<code>control_target_seed_lag = TRUE</code>)
+strictly when <code>target_lag &gt; seed_lag</code>. Default: <code>FALSE</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
