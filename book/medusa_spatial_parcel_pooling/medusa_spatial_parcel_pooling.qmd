@@ -115,16 +115,19 @@ hrf_fit <- estimate_crossrun_hrf(
   pooling         = "graph",
   spatial_graph   = g_geo,
   parcel_boundary = "soft",
-  amplitude_model = "trial",
-  selection_mode  = "soft_average"
+  amplitude_model = "auto",
+  selection_mode  = "soft_average",
+  noise_pcs       = "auto"
 )
 
 # Step 2: Event-informed continuous deconvolution with SNR-stratified smoothing
 decon <- deconvolve_crossrun_hrf(
-  bold        = ts,
-  hrf_fit     = hrf_fit,
-  scaling     = "noise_sd",
-  lambda_mode = "auto"         # task-SNR tiers with monotone non-increasing smoothing
+  bold          = ts,
+  hrf_fit       = hrf_fit,
+  scaling       = "noise_sd",
+  lambda_mode   = "auto",        # task-SNR tiers with monotone non-increasing smoothing
+  nuisance_mode = "preproject",  # pre-projects < 1/128 Hz DCT drift, confounds, & noise_pcs
+  noise_pcs     = "auto"
 )
 
 # Optional: export the realized per-voxel log10(lambda) SNR-tier map in 1 line

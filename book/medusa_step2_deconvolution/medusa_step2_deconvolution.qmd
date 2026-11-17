@@ -21,12 +21,14 @@ The defining feature of MEDuSA's Step 2 is its **event-informed continuous archi
 library(medusa)
 
 decon <- deconvolve_crossrun_hrf(
-  bold        = bold,
-  hrf_fit     = hrf_fit,
-  scaling     = "noise_sd",
-  penalty     = "sobolev",
-  lambda_mode = "auto",
-  rwls        = "auto"
+  bold          = bold,
+  hrf_fit       = hrf_fit,
+  scaling       = "noise_sd",
+  penalty       = "sobolev",
+  lambda_mode   = "auto",
+  rwls          = "auto",
+  nuisance_mode = "preproject",
+  noise_pcs     = "auto"
 )
 ```
 
@@ -58,7 +60,7 @@ The five substeps below develop this estimator from the basic continuous GLS inv
 | `scaling` | `"noise_sd"` (recommended), `"zscore"`, `"demean"`, `"psc"`, or `"none"` | Standardizes each run and voxel *before* applying the roughness penalty so a shared $\lambda$ carries a consistent bias–variance meaning across units of differing gain. |
 | `penalty` | `"sobolev"` (recommended), `"diff2"`, `"diff1"`, `"matern1"`, or `"ridge"` | Defines the symmetric positive semi-definite roughness matrix $P$ governing how rapid fluctuations and baseline drift are penalized. |
 | `lambda`, `lambda_mode`, & `lambda_grid` | `NULL` (auto-tuned), scalar, or length-$V$ vector; `lambda_mode = c("auto", "global", "stratified")` | Controls smoothing strength, tuned automatically across runs over `lambda_grid = 10^seq(-2, 1, length.out = 16)` either globally or across monotone task-SNR tiers. |
-| `rwls`, `nuisance_mode`, & `observation_mask` | `rwls = "auto"`; `nuisance_mode = "ignore"` or `"joint"`; `observation_mask = "fit"` | Govern transient glitch weighting, whether Step 1 `nuisance` columns are projected inside the inverse solve, and exclusion of `valid_rows == FALSE` frames from the data-fit term. |
+| `rwls`, `nuisance_mode`, `highpass`, & `noise_pcs` | `rwls = "auto"`; `nuisance_mode = c("preproject", "ignore", "joint")`; `highpass = 128`; `noise_pcs = "auto"` | Govern transient glitch weighting (`rwls`), clock-aligned pre-orthogonalization of `< 1/128 Hz` DCT drift, `nuisance` confounds, and cross-validated background noise-pool PCs (`noise_pcs = "auto"`) prior to $|H(\omega)|^{-1}$ inversion, and exclusion of `valid_rows == FALSE` frames (`observation_mask = "fit"`). |
 
 ### Outputs: What Step 2 Produces and Why It Is Set Up That Way
 
@@ -104,7 +106,7 @@ knitr::kable(d2$metrics, digits = 3, row.names = FALSE,
 **Choice point — Roughness penalty (`penalty`) and nuisance projection (`nuisance_mode`):**
 
 - **Penalty geometry:** `penalty = "sobolev"` combines a gentle first-difference slope penalty with a strong second-difference curvature penalty ($0.10 D_1^\top D_1 + 0.90 D_2^\top D_2$, a discrete Sobolev norm) and is recommended as the standard choice. Pure second-difference curvature smoothing (`"diff2"`) leaves global linear ramps unpenalized, whereas pure `"ridge"` shrinks each time point toward zero without sharing smoothness across neighboring TRs; `"sobolev"` (and `"matern1"`) gently anchors baseline drift while keeping phasic transitions crisp (@fig-step2-penalties, @tbl-step2-penalties).
-- **Nuisance handling:** Use `nuisance_mode = "ignore"` when input BOLD has already been detrended or confound-regressed upstream, or switch to `nuisance_mode = "joint"` when drift and motion regressors passed via `hrf_fit` remain present in `bold` and should be projected out inside the whitened inverse (@fig-step2-mask-nuisance, top).
+- **Clock-aligned drift, confound, and noise-pool pre-projection (`nuisance_mode = "preproject"` & `noise_pcs = "auto"`):** Because the Sobolev penalty vanishes on constant/ultra-slow modes while $H(0) = 1$, leaving `< 1/128 Hz` scanner drift or motion confounds unprojected (`nuisance_mode = "ignore"` on raw BOLD) lets slow drift pass directly into $\widehat{a}_r(t)$ even though Step 1's `noise_sd` excluded drift variance—inflating trial variance without matching `se_demixed`. Conversely, projecting nuisance columns *jointly* inside $(A_r^\top A_r + P_\lambda)^{-1}$ (`nuisance_mode = "joint"`) can amplify collinear slow neural modes. **`nuisance_mode = "preproject"`** (automatic default whenever `nuisance`, `highpass = 128`, or `noise_pcs` are active) orthogonalizes `[1, linear_trend, DCT(< 1/128 Hz), nuisance, noise_pcs]` on `valid_rows` *before* continuous deconvolution and carries that exact projection into Step 3 (`decon_epoch_regression()`), `diagnose_crossrun_recovery()`, and Stage-3 `poet_covreg`. Simultaneously, `noise_pcs = "auto"` projects out cross-validated background physiological PCs ([Step 1 §1.5](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-noise-pool-pcs)) *before* $|H(\omega)|^{-1}$ amplifies `0.15–0.30 Hz` respiratory and aliased cardiac harmonics. Use `"ignore"` only when BOLD and events were already matched-projected upstream.
 
 ![Joint vs. ignored nuisance handling when drift remains in `bold` (top) and bridging a masked `valid_rows = FALSE` artifact window `70–80 s` under `observation_mask = "fit"` (bottom).](figures/07-mask-nuisance.png){#fig-step2-mask-nuisance width="95%" fig-alt="Two-panel plot showing drift removal under nuisance_mode = joint and artifact containment under observation_mask = fit."}
 
@@ -136,7 +138,7 @@ knitr::kable(bve$scale_table, digits = 3, row.names = FALSE,
 
 Even after binary motion censoring (`valid_rows`), fMRI runs occasionally contain sub-threshold micro-movements or RF spikes ($\text{FD} \approx 0.2\text{--}0.3\text{ mm}$) that would cause oscillatory ringing in an unweighted linear inverse. At the same time, naive outlier downweighting risks mistaking an unusually large, genuine neural response (such as a surprise prediction-error burst) for an artifact.
 
-Under `rwls = "auto"`, Step 2 measures cross-voxel residual energy **orthogonal to the modeled `[trial HRF, dHRF/dt]` task subspace** and widens frame tolerance in proportion to the convolved task envelope:
+Under `rwls = "auto"`, Step 2 screens the most task-informative voxels across whole-brain maps (ranking `selected_adjusted_partial_r2` up to `4,096` voxels with numerical QR/SVD fallbacks via `hrf_safe_svd()`), measures cross-voxel residual energy **orthogonal to the modeled `[trial HRF, dHRF/dt]` task subspace**, and widens frame tolerance in proportion to the convolved task envelope:
 
 - On clean Gaussian runs, a whole-brain tail-energy test calibrated for spatially correlated voxels (via the Liu–Tang–Zhang, 2009 moment approximation) keeps all weights at $w_t = 1$ so standard unweighted GLS is preserved exactly.
 - When genuine non-task glitches occur, isolated 1–2 TR spikes are absorbed by adding **transient observation-noise variance at only those flagged volumes** ($\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)$, solved via low-rank Woodbury Sparse Bayesian Learning updates so high-$\rho$ AR filters do not smear a single-volume spike into neighboring frames), while multi-TR physiological bursts receive smooth innovation-space downweighting—all while keeping $w_t = 1$ across heavy task-evoked neural bursts.
@@ -197,7 +199,8 @@ decon <- deconvolve_crossrun_hrf(
   scaling          = "noise_sd",
   penalty          = "sobolev",
   rwls             = "auto",
-  nuisance_mode    = "ignore",   # set "joint" when drift/motion was NOT removed from bold upstream
+  nuisance_mode    = "preproject", # pre-projects < 1/128 Hz DCT drift, nuisance, & noise_pcs
+  noise_pcs        = "auto",       # cross-validated background physiological PCs (0..10)
   observation_mask = "fit",
   tail_padding     = 0L
 )
@@ -213,9 +216,10 @@ recovery <- diagnose_crossrun_recovery(decon, lags = 0)
 |---|---|---|---|
 | `scaling` | `"noise_sd"` | `"zscore"` | Divides by event-projected marginal observation-noise SD (`Substep 2.2`) rather than task-contaminated whole-run SD; pair with `restore_scale = TRUE` in Step 3. |
 | `penalty` | `"sobolev"` | `"diff2"` | Penalizes both curvature and slow linear ramps (`Substep 2.1`) for stable baselines and clean event transitions. |
-| `lambda` & `lambda_mode` | `NULL`, `"auto"` | `NULL`, `"auto"` | Tunes cross-run smoothness via prewhitened GCV and orders smoothing monotonically from quiet cortex down to high-SNR foci (PAVA; `Substep 2.4`). Use `"global"` when enforcing one scalar penalty across all voxels. |
-| `rwls` | `"auto"` | `"auto"` | Stays inactive ($w_t = 1$) on clean runs and downweights non-task glitches while protecting task-aligned bursts (`Substep 2.3`). |
-| `nuisance_mode` | `"ignore"` (cleaned BOLD) or `"joint"` (raw BOLD) | `"ignore"` | Set `"joint"` whenever drift or confound columns supplied to Step 1 have not already been regressed out of `bold` (`Substep 2.1`). |
+| `lambda` & `lambda_mode` | `NULL`, `"auto"` | `NULL`, `"auto"` | Tunes cross-run smoothness via prewhitened GCV (incorporating `noise_pcs`) and orders smoothing monotonically from quiet cortex down to high-SNR foci (PAVA; `Substep 2.4`). Use `"global"` when enforcing one scalar penalty across all voxels. |
+| `rwls` | `"auto"` | `"auto"` | Stays inactive ($w_t = 1$) on clean runs and downweights non-task glitches across top `selected_adjusted_partial_r2` voxels while protecting task-aligned bursts (`Substep 2.3`). |
+| `nuisance_mode` & `highpass` | `"preproject"` & `128` | `"preproject"` (when `nuisance` / `highpass` active) | Pre-orthogonalizes `[1, trend, DCT(< 1/128 Hz), nuisance, noise_pcs]` on `valid_rows` prior to continuous GLS (`Substep 2.1`); use `"ignore"` only on already matched-detrended inputs. |
+| `noise_pcs` | `"auto"` | `"auto"` | Suppresses narrowband aliased cardiac/respiratory and global vascular PCs from task-silent background cortex prior to $|H(\omega)|^{-1}$ amplification (`Substep 2.1`). |
 | `observation_mask` & `tail_padding` | `"fit"` & `0L` | `"fit"` & `0L` | Excludes masked `valid_rows == FALSE` frames from the data term without shifting the clock, and avoids appending artificial post-run zeros (`see below`). |
 
 ---
