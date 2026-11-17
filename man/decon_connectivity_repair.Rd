@@ -28,7 +28,9 @@ decon_connectivity_repair(
   eb_col = NULL,
   modulator = NULL,
   return_augmented_panel = FALSE,
-  crosstrial_se = TRUE
+  crosstrial_se = TRUE,
+  control_seed_lags = NULL,
+  multilag_control = FALSE
 )
 }
 \arguments{
@@ -126,6 +128,16 @@ subject-level \code{M-MOMS} slopes in weighted least squares / \code{lmer()}.}
 and Satterthwaite effective degrees of freedom (\code{df}) for single-subject
 (\eqn{N = 1}) and subject-level inference while keeping diagonal M-MOMS
 estimation weights.}
+
+\item{control_seed_lags}{Optional numeric vector of other within-trial seed
+lags (in seconds, present in \code{panel_dt}) to partial out as
+measurement-error-prone control predictors alongside \code{seed_lag}.}
+
+\item{multilag_control}{Logical; if \code{TRUE}, automatically partials out
+other seed lags present in a multi-lag panel (subject to a latent-variance
+identifiability guard so silent lags do not induce M-MOMS attenuation) and
+enables causal target auto-lag control (\code{control_target_seed_lag = TRUE})
+strictly when \code{target_lag > seed_lag}. Default: \code{FALSE}.}
 }
 \value{
 A list of class \code{"medusa_connectivity_repair"} containing

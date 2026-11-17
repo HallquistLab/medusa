@@ -1335,10 +1335,35 @@ medusa_fit_shared_error_covreg <- function(
   run_ids_active <- fit$run_ids[keep_runs]
   n_runs_act <- length(run_store)
 
-  # 3A: Append optional run-level variance_confounds with pooled SD and quadratic quiet-anchor for non-negative profiles
+  # 3A: Append Step-2 rWLS moderate motion-spike excess variance profile (0.03 <= fw_vec < 1)
+  # and optional run-level variance_confounds with pooled SD and quiet-anchor for non-negative profiles
   j_rwls <- integer(0L)
   vc_col_idx <- integer(0L)
   vc_pos_idx <- integer(0L)
+  n_mod_rwls <- sum(vapply(run_store, function(rs) {
+    sum(is.finite(rs$fw_vec) & rs$fw_vec >= 0.03 & rs$fw_vec < 0.95)
+  }, integer(1L)))
+  if (n_mod_rwls >= 12L) {
+    rwls_prof <- lapply(run_store, function(rs) {
+      fw_v <- rs$fw_vec
+      ifelse(is.finite(fw_v) & fw_v >= 0.03 & fw_v < 0.999,
+             log1p(pmin(50.0, pmax(0.0, 1.0 / pmax(fw_v, 0.03) - 1.0))),
+             0.0)
+    })
+    sd_rwls_pool <- stats::sd(unlist(rwls_prof, use.names = FALSE))
+    if (is.finite(sd_rwls_pool) && sd_rwls_pool > 1e-10) {
+      f_exist_rw <- do.call(rbind, lapply(run_store, function(rs) cbind(rs$e_task, rs$E_cov_env)))
+      rw_all <- unlist(rwls_prof, use.names = FALSE) / sd_rwls_pool
+      max_cor_rw <- if (ncol(f_exist_rw) > 0L) max(abs(stats::cor(rw_all, f_exist_rw)), na.rm = TRUE) else 0.0
+      if (!is.finite(max_cor_rw) || max_cor_rw < 0.992) {
+        for (r in seq_len(n_runs_act)) {
+          run_store[[r]]$E_cov_env <- cbind(run_store[[r]]$E_cov_env, rwls_prof[[r]] / sd_rwls_pool)
+        }
+        j_rwls <- 1L + ncol(run_store[[1L]]$E_cov_env)
+        vc_pos_idx <- c(vc_pos_idx, j_rwls)
+      }
+    }
+  }
   k_vc_in <- min(vapply(run_store, function(rs) ncol(rs$vc_raw_mat), integer(1L)))
   if (is.finite(k_vc_in) && k_vc_in >= 1L) {
     for (jc in seq_len(k_vc_in)) {
@@ -1631,20 +1656,31 @@ medusa_fit_shared_error_covreg <- function(
       w_bart_lf[1L] <- 1.0
     }
     sig0_mlag_diag <- numeric(P)
+    M_core_port <- min(M_dyn, 1L + q_cov + length(j_rwls))
+    A_tie_port <- A_tie_full[, seq_len(L1 + M_core_port), drop = FALSE]
+    f_port_all <- do.call(rbind, lapply(run_store, function(rs) {
+      cbind(rs$e_task, rs$E_cov_env)[, seq_len(M_core_port), drop = FALSE]
+    }))
+    f_bar_port <- if (!is.null(f_port_all) && nrow(f_port_all) > 0L && ncol(f_port_all) > 0L) {
+      colMeans(f_port_all)
+    } else {
+      numeric(0L)
+    }
     for (g in seq_len(P)) {
       XtX_gg <- XtX_diag_sig[[sig_idx[g]]]
-      XtX_tf <- crossprod(A_tie_full, XtX_gg %*% A_tie_full)
+      XtX_tf <- crossprod(A_tie_port, XtX_gg %*% A_tie_port)
       act_f <- which(diag(XtX_tf) > 1e-8)
-      b_tf <- numeric(L1 + M_dyn)
+      b_tf <- numeric(L1 + M_core_port)
       if (length(act_f)) {
-        rhs_tf <- as.numeric(crossprod(A_tie_full, Xty_diag[, g]))[act_f]
+        rhs_tf <- as.numeric(crossprod(A_tie_port, Xty_diag[, g]))[act_f]
         b_tf[act_f] <- solve(XtX_tf[act_f, act_f, drop = FALSE] + 1e-6 * diag(length(act_f)), rhs_tf)
       }
       XtX_s <- XtX_gg[1:L1, 1:L1, drop = FALSE]
       gam_u <- solve(XtX_s + 1e-6 * diag(L1), Xty_diag[1:L1, g])
       sig0_mlag_diag[g] <- sqrt(max(gam_u[1L], 0.15 * sig0_sd[g]^2))
 
-      s2_cg <- max(b_tf[1L], 0.15 * sig0_sd[g]^2)
+      b0_mean <- b_tf[1L] + if (length(f_bar_port) > 0L) sum(f_bar_port * b_tf[L1 + seq_len(M_core_port)]) else 0.0
+      s2_cg <- max(b0_mean, 0.15 * sig0_sd[g]^2)
       acf_g_raw <- pmin(0.95, pmax(-0.95, b_tf[2:L1] / s2_cg))
       V_inv_sub <- XtX_s[2:L1, 2:L1, drop = FALSE] - XtX_s[2:L1, 1L, drop = FALSE] %*% solve(XtX_s[1L, 1L, drop = FALSE], XtX_s[1L, 2:L1, drop = FALSE])
       gam_sub <- s2_cg * acf_g_raw
@@ -1829,7 +1865,7 @@ medusa_fit_shared_error_covreg <- function(
         }
       }
 
-      M_core_c <- min(M_dyn, 1L + q_cov)
+      M_core_c <- min(M_dyn, 1L + q_cov + length(j_rwls))
       n_vc_c <- length(vc_col_idx)
       B_raw_C <- array(0.0, dim = c(M_dyn, nC, nC))
       Z_C <- array(0.0, dim = c(M_dyn, nC, nC))
@@ -2026,13 +2062,25 @@ medusa_fit_shared_error_covreg <- function(
         if (length(core_extra) >= 1L) {
           for (j in core_extra) {
             Bj_sym <- 0.5 * (B_raw_C[j, , ] + t(B_raw_C[j, , ]))
-            Bj_sym[!supp_C] <- 0.0
-            zj_diag <- diag(Z_C[j, , ])
-            w_ltz_j <- .ltz_from_cor_quad(zj_diag, R_C, p_lo = 0.20, p_hi = 0.005)
-            z2_off_max <- if (n_cand_off > 0L) max(0.0, max((Z_C[j, , ]^2)[off_cand_mask])) else 0.0
-            w_j <- max(w_ltz_j, .poet_firm_gate(z2_off_max, lo = 1.8 + shift_mult, hi = 5.5 + shift_mult))
-            w_ltz_global[j] <- max(w_ltz_global[j], w_j)
-            B_gated_C[[j]] <- w_j * Bj_sym
+            if (j %in% vc_pos_idx) {
+              egj <- eigen(Bj_sym, symmetric = TRUE)
+              Bj_psd <- egj$vectors %*% (pmax(egj$values, 0.0) * t(egj$vectors))
+              Bj_psd[!supp_C] <- 0.0
+              zj_diag_pos <- pmax(0.0, diag(Z_C[j, , ]))
+              w_ltz_j <- .ltz_from_cor_quad(zj_diag_pos, R_C, p_lo = 0.12, p_hi = 0.004)
+              zj_off_pos <- if (n_cand_off > 0L) max(0.0, max((sign(R_C) * Z_C[j, , ])[off_cand_mask])) else 0.0
+              w_j <- max(w_ltz_j, .poet_firm_gate(zj_off_pos^2, lo = 2.2 + shift_mult, hi = 5.8 + shift_mult))
+              w_ltz_global[j] <- max(w_ltz_global[j], w_j)
+              B_gated_C[[j]] <- w_j * Bj_psd
+            } else {
+              Bj_sym[!supp_C] <- 0.0
+              zj_diag <- diag(Z_C[j, , ])
+              w_ltz_j <- .ltz_from_cor_quad(zj_diag, R_C, p_lo = 0.20, p_hi = 0.005)
+              z2_off_max <- if (n_cand_off > 0L) max(0.0, max((Z_C[j, , ]^2)[off_cand_mask])) else 0.0
+              w_j <- max(w_ltz_j, .poet_firm_gate(z2_off_max, lo = 1.8 + shift_mult, hi = 5.5 + shift_mult))
+              w_ltz_global[j] <- max(w_ltz_global[j], w_j)
+              B_gated_C[[j]] <- w_j * Bj_sym
+            }
           }
         }
       } else {
@@ -2610,14 +2658,16 @@ medusa_fit_shared_error_covreg <- function(
   A_tie_full <- matrix(0.0, B_tot, L1 + M_dyn)
   A_tie_full[1:L1, 1:L1] <- diag(L1)
   for (j in seq_len(M_dyn)) {
-    A_tie_full[L1 + j, L1 + j] <- 1.0 - gamma_obs
-    A_tie_full[L1 + M_dyn + j, L1 + j] <- gamma_obs
+    gm_j <- if (length(j_rwls) == 1L && j == j_rwls) 1.0 else gamma_obs
+    A_tie_full[L1 + j, L1 + j] <- 1.0 - gm_j
+    A_tie_full[L1 + M_dyn + j, L1 + j] <- gm_j
   }
   A_tie_1lag <- matrix(0.0, B_tot, 1L + M_dyn)
   A_tie_1lag[1L, 1L] <- 1.0
   for (j in seq_len(M_dyn)) {
-    A_tie_1lag[L1 + j, 1L + j] <- 1.0 - gamma_obs
-    A_tie_1lag[L1 + M_dyn + j, 1L + j] <- gamma_obs
+    gm_j <- if (length(j_rwls) == 1L && j == j_rwls) 1.0 else gamma_obs
+    A_tie_1lag[L1 + j, 1L + j] <- 1.0 - gm_j
+    A_tie_1lag[L1 + M_dyn + j, 1L + j] <- gm_j
   }
 
   w_bart_lf <- numeric(L_max)
@@ -2631,15 +2681,17 @@ medusa_fit_shared_error_covreg <- function(
   Q_port <- numeric(P); z_tail_g <- numeric(P)
   sig0_mlag_diag <- numeric(P)
   gam_u_all <- matrix(0.0, L1, P)
+  M_core_port <- min(M_dyn, 1L + q_cov + length(j_rwls))
+  A_tie_port <- A_tie_full[, seq_len(L1 + M_core_port), drop = FALSE]
   for (a in seq_len(G_sig)) {
     cols_a <- which(sig_idx == a)
     if (!length(cols_a)) next
     XtX_gg <- XtX_diag_sig[[a]]
-    XtX_tf <- crossprod(A_tie_full, XtX_gg %*% A_tie_full)
+    XtX_tf <- crossprod(A_tie_port, XtX_gg %*% A_tie_port)
     act_f <- which(diag(XtX_tf) > 1e-8)
-    b_tf <- matrix(0.0, L1 + M_dyn, length(cols_a))
+    b_tf <- matrix(0.0, L1 + M_core_port, length(cols_a))
     if (length(act_f)) {
-      rhs_tf <- crossprod(A_tie_full, Xty_diag[, cols_a, drop = FALSE])[act_f, , drop = FALSE]
+      rhs_tf <- crossprod(A_tie_port, Xty_diag[, cols_a, drop = FALSE])[act_f, , drop = FALSE]
       b_tf[act_f, ] <- solve(XtX_tf[act_f, act_f, drop = FALSE] + 1e-6 * diag(length(act_f)), rhs_tf)
     }
     XtX_s <- XtX_gg[1:L1, 1:L1, drop = FALSE]
@@ -2677,7 +2729,7 @@ medusa_fit_shared_error_covreg <- function(
   z_dyn_v <- matrix(0.0, M_dyn, P)
   r_sd1_v <- matrix(0.0, M_dyn, P)
   R_sd_sig <- vector("list", G_sig)
-  M_core_c <- min(M_dyn, 1L + q_cov)
+  M_core_c <- min(M_dyn, 1L + q_cov + length(j_rwls))
   n_vc_c <- length(vc_col_idx)
   b_core_al_v <- matrix(0.0, M_core_c, P)
   z_core_al_v <- matrix(0.0, M_core_c, P)
@@ -2748,9 +2800,15 @@ medusa_fit_shared_error_covreg <- function(
     B_dyn_diag[1L, ] <- w_1 * pmax(0.0, b_dyn_raw_v[1L, ])
     core_extra <- setdiff(seq_len(M_dyn), c(1L, vc_col_idx))
     for (j in core_extra) {
-      w_j <- .ltz_from_factor_quad(z_dyn_v[j, ], L_poet, p_lo = 0.20, p_hi = 0.005)
-      w_ltz_global[j] <- w_j
-      B_dyn_diag[j, ] <- w_j * b_dyn_raw_v[j, ]
+      if (j %in% vc_pos_idx) {
+        w_j <- .ltz_from_factor_quad(pmax(0.0, z_dyn_v[j, ]), L_poet, p_lo = 0.12, p_hi = 0.004)
+        w_ltz_global[j] <- w_j
+        B_dyn_diag[j, ] <- w_j * pmax(0.0, b_dyn_raw_v[j, ])
+      } else {
+        w_j <- .ltz_from_factor_quad(z_dyn_v[j, ], L_poet, p_lo = 0.20, p_hi = 0.005)
+        w_ltz_global[j] <- w_j
+        B_dyn_diag[j, ] <- w_j * b_dyn_raw_v[j, ]
+      }
     }
   }
 

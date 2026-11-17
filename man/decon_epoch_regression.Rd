@@ -34,7 +34,8 @@ decon_epoch_regression(
   run_col = "run",
   variance_confounds = NULL,
   shared_error_method = c("poet_covreg", "legacy", "none"),
-  bold = NULL
+  bold = NULL,
+  other_event_model = c("auto", "trial", "condition")
 )
 }
 \arguments{
@@ -252,6 +253,14 @@ estimator: \code{"poet_covreg"} (default; v3 Subspace-Debiased Adaptive-POET
 \item{bold}{Optional list of per-run BOLD matrices (not required when
 \code{deconvolution} comes from current \code{\link{deconvolve_crossrun_hrf}},
 which caches observed/sketched prewhitened series automatically).}
+
+\item{other_event_model}{Parameterization of non-target events during
+\code{demix_other_events = TRUE}: \code{"auto"} (default; tests for
+trial-level amplitude modulation on adjacent non-target events via a
+spatially correlated Satterthwaite \eqn{F}-screen and switches from
+condition-mean to per-trial projection only when supported), \code{"trial"}
+(one nuisance column per non-target trial), or \code{"condition"} (one
+nuisance column per non-target condition).}
 }
 \value{
 A list with \code{coefficients} (per voxel/parcel, lag, and predictor

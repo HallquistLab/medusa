@@ -38,7 +38,8 @@ estimate_crossrun_hrf(
   parcel_cross_weight = 0.35,
   max_neighbors = 32L,
   max_hrf_strata = 48L,
-  max_noise_strata = 10L
+  max_noise_strata = 10L,
+  highpass = NULL
 )
 }
 \arguments{
@@ -193,6 +194,11 @@ so Step-2 inverse operator caching remains compact at whole-brain scale
 
 \item{max_noise_strata}{Maximum bilateral REML noise strata per run when
 \code{pooling = "graph"} (default \code{10L}).}
+
+\item{highpass}{Optional discrete cosine transform (DCT) highpass cutoff
+period in seconds for run-level scanner drift removal. Defaults to
+\code{128} in modern AR/calibrated mode (\code{Inf} / disabled in legacy
+OLS/legacy mode).}
 }
 \value{
 An object of class crossrun_hrf with normalized kernels, per-target-run

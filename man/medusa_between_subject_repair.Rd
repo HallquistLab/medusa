@@ -18,7 +18,7 @@ medusa_between_subject_repair(
 )
 }
 \arguments{
-\item{formula}{Structural regression formula using \code{repair::re()} markers
+\item{formula}{Structural regression formula using \code{re()} markers
 (e.g., \code{re("x_whitened", model = "target") ~ re("x_whitened", model = "seed") + age}).}
 
 \item{models}{Named list of fitted \code{lme4::lmer} or \code{nlme::lme}
@@ -29,9 +29,9 @@ models (or a single fitted model).}
 \item{id}{Character scalar naming the subject ID column in \code{data}
 (default \code{"id"}).}
 
-\item{regularization}{Regularization policy passed to \code{repair::repair()}:
-\code{"step_up"} (default; adaptive M-MOMS), \code{"minimum"},
-\code{"none"}, or \code{"custom"}.}
+\item{regularization}{Regularization policy passed to \code{repair::repair()}
+or \code{\link{medusa_fit_mmom}}: \code{"step_up"} (default; adaptive
+M-MOMS), \code{"minimum"}, \code{"none"}, or \code{"custom"}.}
 
 \item{cross_model_error}{Cross-model prediction-error covariance policy when
 \code{models} has multiple entries (defaults to \code{"independent"} when
@@ -44,19 +44,22 @@ models (or a single fitted model).}
 
 \item{id_col}{Optional alias for \code{id}.}
 
-\item{...}{Additional arguments passed to \code{repair::repair()}.}
+\item{...}{Additional arguments passed to \code{repair::repair()} (or
+\code{alpha} for \code{\link{medusa_fit_mmom}}).}
 }
 \value{
-A list with \code{coefficients} (tidy \code{data.frame} from
-  \code{repair::repair_coefficients()}), \code{reliability} (from
-  \code{repair::repair_reliability()}), \code{predictions} (likelihood-only
-  random-effect predictions and error variances), and \code{fit} (the S7
-  \code{class_repair_mod} object).
+A list with \code{coefficients} (tidy \code{data.frame} with
+  \code{term}, \code{estimate}, \code{std.error}, \code{statistic},
+  \code{p.value}, \code{conf.low}, \code{conf.high}), \code{reliability},
+  \code{predictions} (likelihood-only random-effect predictions and error
+  variances), and \code{fit}.
 }
 \description{
 Connects fitted \code{lme4::lmer()} (or \code{\link{mixed_by}} model objects)
 from MEDuSA Stage 4 directly to \code{repair::repair()} (Vig & Hallquist,
-2026) to estimate measurement-error-corrected between-subject regressions
-relating subject-specific neural random intercepts/slopes across brain
-regions or to external behavioral/clinical variables.
+2026) when the \pkg{repair} package is installed, with an exact built-in
+likelihood-only WLS + \code{\link{medusa_fit_mmom}} fallback when \pkg{repair}
+is unavailable. Estimates measurement-error-corrected between-subject
+regressions relating subject-specific neural random intercepts/slopes across
+brain regions or to external behavioral/clinical variables.
 }
