@@ -141,7 +141,8 @@ hrf_identify_noise_pool <- function(bold, selections, spatial_groups = NULL,
                                     spatial_fwhm = NULL, parcel_cross_weight = 0.35,
                                     voxel_map = NULL, geometry = NULL,
                                     noise_pool = NULL, mode = c("auto", "fixed"),
-                                    min_auto_voxels = 24L, min_auto_parcels = 8L) {
+                                    min_auto_voxels = 24L, min_auto_parcels = 8L,
+                                    valid_rows = NULL) {
   mode <- match.arg(mode)
   n_runs <- length(bold)
   y1 <- bold[[1L]]
@@ -157,10 +158,15 @@ hrf_identify_noise_pool <- function(bold, selections, spatial_groups = NULL,
     explicit_pool = !is.null(noise_pool)
   )
 
-  # Ensure candidate columns have finite, non-constant observations across runs
+  # Ensure candidate columns have finite, non-constant observations across uncensored rows
   ok_all <- rep(TRUE, n_vox)
   for (r in seq_len(n_runs)) {
     yr <- bold[[r]]
+    if (!is.null(valid_rows) && length(valid_rows) >= r && !is.null(valid_rows[[r]])) {
+      vr <- valid_rows[[r]]
+      mask_r <- if (is.logical(vr)) (!is.na(vr) & vr) else seq_len(nrow(yr)) %in% as.integer(vr)
+      yr <- yr[mask_r, , drop = FALSE]
+    }
     st_r <- decon_signal_status(yr)
     ok_all <- ok_all & (st_r == "ok")
   }
@@ -408,7 +414,8 @@ hrf_extract_cv_noise_pcs <- function(bold, events, tr, offsets, kernels, fallbac
     voxel_map = voxel_map,
     geometry = geometry,
     noise_pool = noise_pool,
-    mode = if (is_auto) "auto" else "fixed"
+    mode = if (is_auto) "auto" else "fixed",
+    valid_rows = valid_rows
   )
   pool_idx <- pool_info$pool_idx
   if (length(pool_idx) < 4L) return(empty_res)
@@ -2215,11 +2222,16 @@ hrf_resolve_modulators_input <- function(hrf_modulators, events, bold) {
 # Build a K-list of candidate HRF design matrices combining unpenalized condition
 # intercepts with within-condition centered parametric modulator columns so zero-mean
 # modulators (e.g., signed RPE with beta_0 = 0) inform HRF shape selection cleanly.
-hrf_build_modulated_design <- function(n_obs, ev, mod_mat, tr, offset, kernels, mask) {
+hrf_build_modulated_design <- function(n_obs, ev, mod_mat, tr, offset, kernels, mask,
+                                       u_cond = NULL, n_mask_ref = NULL, keep_all_cols = FALSE) {
   m_ev <- nrow(ev)
   labels <- as.character(ev$condition)
   durations <- if (is.null(ev$duration)) rep(0.0, m_ev) else as.numeric(ev$duration)
-  u_cond <- unique(labels)
+  if (is.null(u_cond) || !length(u_cond)) {
+    u_cond <- unique(labels)
+  } else {
+    u_cond <- as.character(u_cond)
+  }
   n_cond <- length(u_cond)
   cond_cols <- match(labels, u_cond)
 
@@ -2230,25 +2242,31 @@ hrf_build_modulated_design <- function(n_obs, ev, mod_mat, tr, offset, kernels, 
   # Event-to-regressor weight matrix W_ev: [B_cond, M_mod_centered]
   w_cols <- list()
   for (ic in seq_len(n_cond)) {
-    v_c <- as.numeric(cond_cols == ic)
+    v_c <- as.numeric(!is.na(cond_cols) & cond_cols == ic)
     w_cols[[length(w_cols) + 1L]] <- v_c
   }
-  n_mask <- sum(mask)
+  n_mask <- if (!is.null(n_mask_ref) && is.finite(n_mask_ref) && n_mask_ref > 0L) {
+    as.integer(n_mask_ref)
+  } else {
+    sum(mask)
+  }
   per_cond_ok <- (n_cond * (1L + ncol(mod_mat))) <= max(4L, as.integer(floor(0.25 * n_mask)))
   for (jm in seq_len(ncol(mod_mat))) {
     mj <- as.numeric(mod_mat[, jm])
     mj[!is.finite(mj)] <- 0.0
     if (per_cond_ok) {
       for (ic in seq_len(n_cond)) {
-        idx_c <- which(cond_cols == ic)
+        idx_c <- which(!is.na(cond_cols) & cond_cols == ic)
+        col_m <- numeric(m_ev)
         if (length(idx_c) >= 3L) {
           mc <- mj[idx_c] - mean(mj[idx_c])
           sd_c <- stats::sd(mc)
           if (is.finite(sd_c) && sd_c > 1e-8) {
-            col_m <- numeric(m_ev)
             col_m[idx_c] <- mc / sd_c
-            w_cols[[length(w_cols) + 1L]] <- col_m
           }
+        }
+        if (any(col_m != 0.0) || isTRUE(keep_all_cols)) {
+          w_cols[[length(w_cols) + 1L]] <- col_m
         }
       }
     } else {
@@ -2256,15 +2274,20 @@ hrf_build_modulated_design <- function(n_obs, ev, mod_mat, tr, offset, kernels, 
       sd_c <- stats::sd(mc)
       if (is.finite(sd_c) && sd_c > 1e-8) {
         w_cols[[length(w_cols) + 1L]] <- mc / sd_c
+      } else if (isTRUE(keep_all_cols)) {
+        w_cols[[length(w_cols) + 1L]] <- numeric(m_ev)
       }
     }
   }
   w_ev <- do.call(cbind, w_cols)
-  if (ncol(w_ev) <= n_cond) {
+  if (!isTRUE(keep_all_cols) && ncol(w_ev) <= n_cond) {
     return(hrf_event_design_cpp(n_obs, tr, offset, ev$onset, durations, cond_cols, n_cond, kernels))
   }
 
   des_trial <- hrf_event_design_cpp(n_obs, tr, offset, ev$onset, durations, seq_len(m_ev), m_ev, kernels)
+  if (isTRUE(keep_all_cols)) {
+    return(lapply(des_trial, function(xt) xt %*% w_ev))
+  }
   # Ensure columns visible on `mask` across ALL K candidates are retained so candidate ranks stay comparable
   col_keep <- vapply(seq_len(ncol(w_ev)), function(jc) {
     wj <- w_ev[, jc, drop = FALSE]
