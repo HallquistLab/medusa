@@ -282,3 +282,27 @@ test_that("mixed_by reweight_conditional_tau2='auto' skips decon_eb, centers whi
   )))
   expect_equal(mb_file$coef_df_reml[term == "x"]$estimate, mb_cond_false$coef_df_reml[term == "x_whitened"]$estimate, tolerance = 0.04)
 })
+
+test_that("noise_pcs = 'auto' with K* = 0 and no trial-ridge excess (!any(tr_exc)) initializes tp_tr_1r cleanly", {
+  set.seed(9081L)
+  tr <- 1.0
+  n_time <- 160L
+  lib <- hrf_library(tr, peak_delays = c(4.5, 6.0), dispersions = 1.0, undershoot_ratios = 6)
+  groups <- stats::setNames(rep(paste0("P", 1:6), each = 6L), paste0("v", 1:36))
+  bold <- events <- list()
+  for (r in 1:2) {
+    rn <- paste0("run", r)
+    onsets <- seq(10, 140, by = 10)
+    # Pure independent AR(1) noise (K* = 0, and r2_tr_1r < 0.035 across all 36 voxels)
+    Y <- replicate(36L, 100 + as.numeric(stats::arima.sim(model = list(ar = 0.35), n = n_time, sd = 0.50)))
+    colnames(Y) <- names(groups)
+    bold[[rn]] <- Y
+    events[[rn]] <- data.frame(onset = onsets, duration = 0, condition = "stim")
+  }
+  fit <- expect_no_error(estimate_crossrun_hrf(
+    bold, events, tr, lib,
+    spatial_groups = groups, pooling = "parcel",
+    amplitude_model = "auto", noise_pcs = "auto", highpass = 128
+  ))
+  expect_s3_class(fit, "crossrun_hrf")
+})

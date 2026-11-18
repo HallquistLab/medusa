@@ -22,6 +22,7 @@ book:
   search: true
   chapters:
     - index.qmd
+    - quickstart.qmd
     - foundations.qmd
     - worked-example.qmd
     - part: "The MEDuSA pipeline"

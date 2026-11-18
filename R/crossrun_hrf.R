@@ -1723,6 +1723,8 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         ifelse(r2_1r >= min_r2, 0.01, 1.0)
       }
       r2_base_tr_1r <- 0.0
+      r2_tr_1r <- rep(0.0, ncol(y))
+      tp_tr_1r <- rep(1.0, ncol(y))
       if (amplitude_model == "auto" && !is.null(des_trial_r)) {
         fb_tr_1r <- res_tr_r$scores[fallback_kernel, ]
         if (any(is.finite(fb_tr_1r))) {
@@ -1731,12 +1733,16 @@ estimate_crossrun_hrf <- function(bold, events = NULL, tr = NULL, kernel_grid = 
         r2_tr_1r <- apply(res_tr_r$scores, 2L, function(col_s) {
           if (any(is.finite(col_s))) max(0.0, max(col_s, na.rm = TRUE) - r2_base_tr_1r) else 0.0
         })
-        tr_exc <- (r2_tr_1r >= max(0.035, 1.5 * min_r2))
-        r2_1r[tr_exc] <- pmax(r2_1r[tr_exc], r2_tr_1r[tr_exc])
-        if (evidence == "calibrated" && !is.null(res_tr_r$task_p) && any(tr_exc)) {
+        if (evidence == "calibrated" && !is.null(res_tr_r$task_p)) {
           tp_tr_1r <- pmin(1.0, apply(res_tr_r$task_p, 2L, function(col_p) {
             if (any(is.finite(col_p))) min(col_p, na.rm = TRUE) else 1.0
           }) * eff_t_1r)
+        } else {
+          tp_tr_1r <- ifelse(r2_tr_1r >= min_r2, 0.01, 1.0)
+        }
+        tr_exc <- (r2_tr_1r >= max(0.035, 1.5 * min_r2))
+        r2_1r[tr_exc] <- pmax(r2_1r[tr_exc], r2_tr_1r[tr_exc])
+        if (any(tr_exc)) {
           tp_1r[tr_exc] <- pmin(tp_1r[tr_exc], tp_tr_1r[tr_exc])
         }
       }
