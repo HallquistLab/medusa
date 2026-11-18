@@ -190,6 +190,11 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
@@ -508,14 +513,14 @@ window.Quarto = {
 <p><span class="math display">\[
 u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)}.
 \]</span></p>
-<p>Quieter voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span> receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (<a href="#fig-step4-weights" class="quarto-xref">Figure&nbsp;<span>7.1</span></a>).</p>
+<p>Quieter voxels with stronger cross-fitted Step 1 task <span class="math inline">\(R^2\)</span> receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (<a href="#fig-step4-weights" class="quarto-xref">Figure&nbsp;<span>8.1</span></a>).</p>
 <div id="fig-step4-weights" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/01-weights.png" class="img-fluid figure-img" style="width:92.0%" alt="Bar chart showing voxel weight contributions in Run 1 with all four voxels versus Run 2 with Voxel 1 dropped.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-weights-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.1: Nominal four-voxel parcel weights in Run 1 (<code>sd = 0.013, 0.018, 0.022, 0.032</code>) and automatic renormalization in Run 2 when Voxel 1 is marked invalid.
+Figure&nbsp;8.1: Nominal four-voxel parcel weights in Run 1 (<code>sd = 0.013, 0.018, 0.022, 0.032</code>) and automatic renormalization in Run 2 when Voxel 1 is marked invalid.
 </figcaption>
 </figure>
 </div>
@@ -524,15 +529,15 @@ Figure&nbsp;7.1: Nominal four-voxel parcel weights in Run 1 (<code>sd = 0.013, 0
 </section>
 <section id="accumulate-exact-multi-stratum-parcel-operators" class="level3">
 <h3 class="anchored" data-anchor-id="accumulate-exact-multi-stratum-parcel-operators">4.2 Accumulate exact multi-stratum parcel operators</h3>
-<p>Suppose voxels inside the same parcel belong to different <code>(HRF, AR, lambda)</code> strata—for example, when Step 1 used <code>pooling = "graph"</code> (separating pial-vein autocorrelation from interior gray matter) and Step 2 used <code>lambda_mode = "auto"</code>. Because matrix inversion is nonlinear, deconvolving under a single parcel-averaged HRF <span class="math inline">\(\bar{h} = \frac{1}{2}(h_4 + h_8)\)</span> differs systematically from averaging voxelwise deconvolved series (16.6% waveform discrepancy in <a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>7.2</span></a>: <span class="math inline">\(\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h})F(\bar{h})\)</span>).</p>
-<p>Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series <span class="math inline">\(\widehat{a}_{r,g} = \sum_{v \in g} u_v \widehat{a}_{r,v}\)</span> and simultaneously accumulating the exact stratum-weighted forward/inverse operator <span class="math inline">\(\sum_s w_s D_s F_s\)</span> used in Step 3 de-mixing (<a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>7.2</span></a>).</p>
+<p>Suppose voxels inside the same parcel belong to different <code>(HRF, AR, lambda)</code> strata—for example, when Step 1 used <code>pooling = "graph"</code> (separating pial-vein autocorrelation from interior gray matter) and Step 2 used <code>lambda_mode = "auto"</code>. Because matrix inversion is nonlinear, deconvolving under a single parcel-averaged HRF <span class="math inline">\(\bar{h} = \frac{1}{2}(h_4 + h_8)\)</span> differs systematically from averaging voxelwise deconvolved series (16.6% waveform discrepancy in <a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>8.2</span></a>: <span class="math inline">\(\frac{1}{2}(D_1 F_1 + D_2 F_2) \neq D(\bar{h})F(\bar{h})\)</span>).</p>
+<p>Step 4 preserves exact operator correspondence by first forming the weighted parcel continuous series <span class="math inline">\(\widehat{a}_{r,g} = \sum_{v \in g} u_v \widehat{a}_{r,v}\)</span> and simultaneously accumulating the exact stratum-weighted forward/inverse operator <span class="math inline">\(\sum_s w_s D_s F_s\)</span> used in Step 3 de-mixing (<a href="#fig-step4-mixed" class="quarto-xref">Figure&nbsp;<span>8.2</span></a>).</p>
 <div id="fig-step4-mixed" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-mixed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/03-mixed-hrf.png" class="img-fluid figure-img" style="width:92.0%" alt="Comparison of exact multi-stratum parcel activity versus single averaged-HRF approximation.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-mixed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.2: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-stratum parcel operator</code>) vs.&nbsp;a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.
+Figure&nbsp;8.2: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-stratum parcel operator</code>) vs.&nbsp;a single averaged-HRF approximation when a two-voxel parcel mixes 4 s and 8 s HRFs.
 </figcaption>
 </figure>
 </div>
@@ -545,14 +550,14 @@ Figure&nbsp;7.2: Exact multi-stratum parcel reconstruction (<code>MEDuSA multi-s
 \sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv}.
 \]</span></p>
 <p>In our 4-voxel example (<code>simulate_step4.R</code>), <span class="math inline">\(\sigma_{\text{parcel}}\)</span> equals <code>0.0091</code> if voxel errors are independent (<span class="math inline">\(R_{\text{spatial}} = I\)</span>), but rises nearly twofold to <code>0.0171</code> if all four voxels share common noise (<span class="math inline">\(R_{\text{spatial}} = \mathbf{1}\mathbf{1}^\top\)</span>). Estimating spatial correlation from second differences of deconvolved <code>activity</code> (<span class="math inline">\(\Delta^2 \hat{a}\)</span>) conflates shared task-evoked neural responses with shared noise—pegging estimated noise near the <code>0.0171</code> ceiling even when true noise is independent (<code>0.00</code>) or negatively correlated (<code>-0.20</code>).</p>
-<p>By instead projecting <span class="math inline">\(u \odot \sigma\)</span> onto Step 2’s <strong>task-free whitened residuals</strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA recovers the true spatial noise SD across all four correlation regimes (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>7.3</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>7.1</span></a>) and matches analytical <code>se_demixed</code> to 9.71e-17. Under <code>shared_error_method = "poet_covreg"</code> (default), Step 4 further applies <strong>subspace-debiased Adaptive-POET</strong> (Fan, Liao &amp; Mincheva, 2013) with Tukey-Hanning tapered multi-lag Toeplitz cross-spectra and <strong>LTZ-gated covariance regression</strong> (Hoff &amp; Niu, 2012) across task, covariate, Step-2 <code>rwls</code>, and external <code>variance_confounds</code> envelopes—producing <code>shared_error_model</code>, <code>unit_error_cor</code>, and per-trial Block-PAF list-columns (<code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>) for Step 6. Above 512 analysis units (e.g., whole-brain voxelwise panels), the engine switches automatically to a dual-space factor mode (<code>mode = "lowrank_voxel"</code>) that never allocates <span class="math inline">\(V \times V\)</span> matrices, and <code>aggregate_decon_panel()</code> can collapse any voxelwise fit or saved table to parcels post-hoc while propagating exact parcel <code>se_demixed</code> and inter-parcel error vectors.</p>
+<p>By instead projecting <span class="math inline">\(u \odot \sigma\)</span> onto Step 2’s <strong>task-free whitened residuals</strong> (<span class="math inline">\(\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2\)</span>), MEDuSA recovers the true spatial noise SD across all four correlation regimes (<a href="#fig-step4-noise" class="quarto-xref">Figure&nbsp;<span>8.3</span></a>, <a href="#tbl-step4-noise" class="quarto-xref">Table&nbsp;<span>8.1</span></a>) and matches analytical <code>se_demixed</code> to 9.71e-17. Under <code>shared_error_method = "poet_covreg"</code> (default), Step 4 further applies <strong>subspace-debiased Adaptive-POET</strong> (Fan, Liao &amp; Mincheva, 2013) with Tukey-Hanning tapered multi-lag Toeplitz cross-spectra and <strong>LTZ-gated covariance regression</strong> (Hoff &amp; Niu, 2012) across task, covariate, Step-2 <code>rwls</code>, and external <code>variance_confounds</code> envelopes—producing <code>shared_error_model</code>, <code>unit_error_cor</code>, and per-trial Block-PAF list-columns (<code>shared_noise_vec</code>, <code>lag_noise_vec</code>, <code>trial_cor_vec</code>) for Step 6. Above 512 analysis units (e.g., whole-brain voxelwise panels), the engine switches automatically to a dual-space factor mode (<code>mode = "lowrank_voxel"</code>) that never allocates <span class="math inline">\(V \times V\)</span> matrices, and <code>aggregate_decon_panel()</code> can collapse any voxelwise fit or saved table to parcels post-hoc while propagating exact parcel <code>se_demixed</code> and inter-parcel error vectors.</p>
 <div id="fig-step4-noise" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/02-noise.png" class="img-fluid figure-img" style="width:95.0%" alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.3: Effective parcel BOLD noise SD across four spatial correlation regimes (<code>-0.20</code>, <code>0.00</code>, <code>0.65</code>, <code>0.95</code>): true oracle spatial SD vs.&nbsp;MEDuSA’s task-free innovation estimator vs.&nbsp;a naive <span class="math inline">\(\Delta^2\)</span> activity proxy.
+Figure&nbsp;8.3: Effective parcel BOLD noise SD across four spatial correlation regimes (<code>-0.20</code>, <code>0.00</code>, <code>0.65</code>, <code>0.95</code>): true oracle spatial SD vs.&nbsp;MEDuSA’s task-free innovation estimator vs.&nbsp;a naive <span class="math inline">\(\Delta^2\)</span> activity proxy.
 </figcaption>
 </figure>
 </div>
@@ -568,7 +573,7 @@ Figure&nbsp;7.3: Effective parcel BOLD noise SD across four spatial correlation 
 <div id="tbl-step4-noise" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;7.1: Parcel spatial noise SD recovery and exact analytical SE check (<code>parcel_noise_check.csv</code>).
+Table&nbsp;8.1: Parcel spatial noise SD recovery and exact analytical SE check (<code>parcel_noise_check.csv</code>).
 </figcaption>
 <div aria-describedby="tbl-step4-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -679,9 +684,9 @@ Table&nbsp;7.1: Parcel spatial noise SD recovery and exact analytical SE check (
 <h3 class="anchored" data-anchor-id="compute-biological-trial-variance-cohort-weights-and-panel-columns">4.4 Compute biological trial variance, cohort weights, and panel columns</h3>
 <p>On the aggregated parcel series, Step 4 estimates biological trial-to-trial variance <span class="math inline">\(\hat{\tau}_{\text{bio}}^2\)</span> and builds three complementary sets of panel columns:</p>
 <ol type="1">
-<li><strong>Within-person vs.&nbsp;cohort precision weights (<a href="#fig-step4-precision" class="quarto-xref">Figure&nbsp;<span>7.4</span></a>):</strong> Both use composite inverse variance <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>. <code>precision_weight</code> normalizes to mean 1 within each participant/parcel, whereas <code>precision_weight_cohort</code> retains unnormalized inverse variance so Step 5 <code>mixed_by()</code> appropriately downweights high-noise scans and participants across the cohort.</li>
-<li><strong>Empirical-Bayes shrunk readouts (<code>decon_eb</code>, <a href="#fig-step4-shrinkage" class="quarto-xref">Figure&nbsp;<span>7.5</span></a>):</strong> Shrinks noisy individual trials toward the run mean using trial reliability <span class="math inline">\(\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)\)</span> for clean single-trial visualization.</li>
-<li><strong>Paired within-run decorrelated columns (<code>whiten_panel = TRUE</code>, <a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>7.6</span></a>):</strong> Applies a run-mean-preserving symmetric decorrelation map (regularized zero-phase component analysis, or ZCA whitening) equally to <code>decon_demixed</code> and supplied covariates on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>, removing serial trial error correlations while keeping each trial aligned to its original ordering.</li>
+<li><strong>Within-person vs.&nbsp;cohort precision weights (<a href="#fig-step4-precision" class="quarto-xref">Figure&nbsp;<span>8.4</span></a>):</strong> Both use composite inverse variance <span class="math inline">\((\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>. <code>precision_weight</code> normalizes to mean 1 within each participant/parcel, whereas <code>precision_weight_cohort</code> retains unnormalized inverse variance so Step 5 <code>mixed_by()</code> appropriately downweights high-noise scans and participants across the cohort.</li>
+<li><strong>Empirical-Bayes shrunk readouts (<code>decon_eb</code>, <a href="#fig-step4-shrinkage" class="quarto-xref">Figure&nbsp;<span>8.5</span></a>):</strong> Shrinks noisy individual trials toward the run mean using trial reliability <span class="math inline">\(\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)\)</span> for clean single-trial visualization.</li>
+<li><strong>Paired within-run decorrelated columns (<code>whiten_panel = TRUE</code>, <a href="#fig-step4-zca" class="quarto-xref">Figure&nbsp;<span>8.6</span></a>):</strong> Applies a run-mean-preserving symmetric decorrelation map (regularized zero-phase component analysis, or ZCA whitening) equally to <code>decon_demixed</code> and supplied covariates on the parcel covariance <span class="math inline">\(\Sigma_{\text{tot}}\)</span>, removing serial trial error correlations while keeping each trial aligned to its original ordering.</li>
 </ol>
 <div id="fig-step4-precision" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -689,7 +694,7 @@ Table&nbsp;7.1: Parcel spatial noise SD recovery and exact analytical SE check (
 <img src="figures/04-precision.png" class="img-fluid figure-img" style="width:90.0%" alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-precision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixed</code> under <code>"marginal"</code> and <code>"residual"</code> working trial-variance modes.
+Figure&nbsp;8.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixed</code> under <code>"marginal"</code> and <code>"residual"</code> working trial-variance modes.
 </figcaption>
 </figure>
 </div>
@@ -699,7 +704,7 @@ Figure&nbsp;7.4: Relative <code>precision_weight</code> vs.&nbsp;<code>se_demixe
 <img src="figures/05-shrinkage.png" class="img-fluid figure-img" style="width:90.0%" alt="Scatter plot showing shrinkage of noisy trials toward the run mean.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-shrinkage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) vs.&nbsp;<code>decon_demixed</code> colored by <code>reliability_trial</code> (<code>Nearly common</code> parcel, Run 1).
+Figure&nbsp;8.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) vs.&nbsp;<code>decon_demixed</code> colored by <code>reliability_trial</code> (<code>Nearly common</code> parcel, Run 1).
 </figcaption>
 </figure>
 </div>
@@ -709,7 +714,7 @@ Figure&nbsp;7.5: Empirical-Bayes shrunk trial readouts (<code>decon_eb</code>) v
 <img src="figures/06-zca.png" class="img-fluid figure-img" style="width:92.0%" alt="27x27 correlation heatmaps before and after regularized ZCA.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step4-zca-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;7.6: Within-run parcel correlation matrix <span class="math inline">\(\Sigma_{\text{tot}}\)</span> before and after paired regularized ZCA (<code>Nearly common</code> parcel, Run 1).
+Figure&nbsp;8.6: Within-run parcel correlation matrix <span class="math inline">\(\Sigma_{\text{tot}}\)</span> before and after paired regularized ZCA (<code>Nearly common</code> parcel, Run 1).
 </figcaption>
 </figure>
 </div>

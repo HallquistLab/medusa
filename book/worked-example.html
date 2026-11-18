@@ -190,6 +190,11 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
@@ -401,15 +406,15 @@ window.Quarto = {
 <img src="worked-example_files/figure-html/fig-checkpoint-traces-1.png" class="img-fluid figure-img" width="787">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-checkpoint-traces-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.1: Top: generating and cross-fitted HRF for Parcel A using realized voxel weights. Middle: centered observed parcel BOLD around Trial 8 feedback. Bottom: restored continuous parcel activity from Step 2. Vertical dotted lines mark feedback onset.
+Figure&nbsp;3.1: Top: generating and cross-fitted HRF for Parcel A using realized voxel weights. Middle: centered observed parcel BOLD around Trial 8 feedback. Bottom: restored continuous parcel activity from Step 2. Vertical dotted lines mark feedback onset.
 </figcaption>
 </figure>
 </div>
 </div>
 </div>
 <ol type="1">
-<li><strong>Step 1 (Cross-run HRF &amp; noise):</strong> Run 1’s HRF was trained exclusively on run2, run3, recovering the generating vascular peak cleanly (<a href="#fig-checkpoint-traces" class="quarto-xref">Figure&nbsp;<span>2.1</span></a>, top) before refitting Run 1’s <span class="math inline">\(\text{AR}(p)\)</span> noise parameters.</li>
-<li><strong>Step 2 (Continuous deconvolution):</strong> Inverting the sluggish BOLD wave shifts the delayed ~5–6 s hemodynamic deflection back to feedback onset (<span class="math inline">\(0\text{ s}\)</span>; <a href="#fig-checkpoint-traces" class="quarto-xref">Figure&nbsp;<span>2.1</span></a>, middle vs.&nbsp;bottom).</li>
+<li><strong>Step 1 (Cross-run HRF &amp; noise):</strong> Run 1’s HRF was trained exclusively on run2, run3, recovering the generating vascular peak cleanly (<a href="#fig-checkpoint-traces" class="quarto-xref">Figure&nbsp;<span>3.1</span></a>, top) before refitting Run 1’s <span class="math inline">\(\text{AR}(p)\)</span> noise parameters.</li>
+<li><strong>Step 2 (Continuous deconvolution):</strong> Inverting the sluggish BOLD wave shifts the delayed ~5–6 s hemodynamic deflection back to feedback onset (<span class="math inline">\(0\text{ s}\)</span>; <a href="#fig-checkpoint-traces" class="quarto-xref">Figure&nbsp;<span>3.1</span></a>, middle vs.&nbsp;bottom).</li>
 <li><strong>Steps 3 &amp; 4 (Parcel aggregation, de-mixing, and trial weights):</strong> Combining the three voxels of Parcel A with cross-run precision weights (0.330, 0.316, 0.354), subtracting cue/decision bleed, and inverting target mixing yields the per-lag readouts, propagated measurement SEs (<code>se_demixed</code>), and composite cohort precision weights below:</li>
 </ol>
 <div class="cell">
@@ -514,13 +519,13 @@ Figure&nbsp;2.1: Top: generating and cross-fitted HRF for Parcel A using realize
 <img src="worked-example_files/figure-html/fig-worked-lags-1.png" class="img-fluid figure-img" width="787">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-worked-lags-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2.2: Population RPE slope trajectory around feedback in Parcel A. Orange diamond: true instantaneous feedback effect at lag 0 (zero at non-zero lags). Teal dashed curve: noiseless signal projected through the fitted Step 2–3 operators. Blue curve and ribbon: recovered noisy cohort trajectory and 95% simultaneous Max-|T| band.
+Figure&nbsp;3.2: Population RPE slope trajectory around feedback in Parcel A. Orange diamond: true instantaneous feedback effect at lag 0 (zero at non-zero lags). Teal dashed curve: noiseless signal projected through the fitted Step 2–3 operators. Blue curve and ribbon: recovered noisy cohort trajectory and 95% simultaneous Max-|T| band.
 </figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p>Notice why the recovered raw lag curve in <a href="#fig-worked-lags" class="quarto-xref">Figure&nbsp;<span>2.2</span></a> spans neighboring lags even though the simulated effect occurs instantaneously at <span class="math inline">\(0\text{ s}\)</span>: regularized continuous deconvolution spreads a brief impulse smoothly across adjacent lags (matching the noiseless operator projection, teal dashed line).</p>
+<p>Notice why the recovered raw lag curve in <a href="#fig-worked-lags" class="quarto-xref">Figure&nbsp;<span>3.2</span></a> spans neighboring lags even though the simulated effect occurs instantaneously at <span class="math inline">\(0\text{ s}\)</span>: regularized continuous deconvolution spreads a brief impulse smoothly across adjacent lags (matching the noiseless operator projection, teal dashed line).</p>
 <section id="sec-worked-contrasts" class="level3">
 <h3 class="anchored" data-anchor-id="sec-worked-contrasts">Choice point: Comparing a planned window contrast across trajectory curves</h3>
 <p>Suppose we test a planned <code>late_minus_early</code> contrast (<code>[2, 4] s</code> minus <code>[0, 1] s</code>) under <code>trajectory_mode = "deblur_pspline"</code>, which sharpens the group curve against the known cross-lag mixing matrix (spectral deblurring) before fitting a penalized spline (P-spline). <code>contrast_source</code> lets us choose which curve defines the contrast estimand:</p>

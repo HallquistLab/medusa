@@ -190,6 +190,11 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
@@ -405,7 +410,7 @@ window.Quarto = {
 <div id="tbl-multilag-scorecard" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-multilag-scorecard-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;14.1: Empirical false-positive rates and simultaneous 95% interval coverage across 180 simulated cohorts per regime (parentheses show exact Clopper–Pearson 95% Monte Carlo intervals).
+Table&nbsp;15.1: Empirical false-positive rates and simultaneous 95% interval coverage across 180 simulated cohorts per regime (parentheses show exact Clopper–Pearson 95% Monte Carlo intervals).
 </figcaption>
 <div aria-describedby="tbl-multilag-scorecard-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -480,7 +485,7 @@ Table&nbsp;14.1: Empirical false-positive rates and simultaneous 95% interval co
 <img src="rejection.png" class="img-fluid figure-img" style="width:92.0%" alt="Dot-and-interval plot showing single-trajectory Max-T, 1D TFCE, and omnibus false-positive rates clustering around 5%, and Holm FWER controlling the 3-parcel family.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-rejection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;14.1: Empirical Type I error across single-trajectory tests (<code>Max-T</code>, <code>1D TFCE</code>, <code>Omnibus</code> on prespecified <code>Null A</code>) and across the 3-parcel study family (<code>Signal</code>, <code>Null A</code>, <code>Null B</code>, counting any false rejection among the null parcels). Horizontal bars denote exact 95% Clopper–Pearson Monte Carlo intervals.
+Figure&nbsp;15.1: Empirical Type I error across single-trajectory tests (<code>Max-T</code>, <code>1D TFCE</code>, <code>Omnibus</code> on prespecified <code>Null A</code>) and across the 3-parcel study family (<code>Signal</code>, <code>Null A</code>, <code>Null B</code>, counting any false rejection among the null parcels). Horizontal bars denote exact 95% Clopper–Pearson Monte Carlo intervals.
 </figcaption>
 </figure>
 </div>
@@ -490,11 +495,11 @@ Figure&nbsp;14.1: Empirical Type I error across single-trajectory tests (<code>M
 <img src="coverage.png" class="img-fluid figure-img" style="width:92.0%" alt="Dot-and-interval plot showing simultaneous 95% Max-T band coverage and planned window interval coverage clustering around 95% under both complete and gapped/serial designs.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;14.2: Empirical 95% simultaneous confidence-band coverage over all 6 lags (<code>-1..4 s</code>) for null and active curves, plus 95% CI coverage for the planned <code>[3, 4] - [0, 1] s</code> window contrast (<code>contrast_source = 'unsmoothed'</code>).
+Figure&nbsp;15.2: Empirical 95% simultaneous confidence-band coverage over all 6 lags (<code>-1..4 s</code>) for null and active curves, plus 95% CI coverage for the planned <code>[3, 4] - [0, 1] s</code> window contrast (<code>contrast_source = 'unsmoothed'</code>).
 </figcaption>
 </figure>
 </div>
-<p>Three practical lessons stand out across <a href="#tbl-multilag-scorecard" class="quarto-xref">Table&nbsp;<span>14.1</span></a>, <a href="#fig-rejection" class="quarto-xref">Figure&nbsp;<span>14.1</span></a>, and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html#fig-coverage" class="quarto-xref">Figure&nbsp;<span>15.2</span></a>:</p>
+<p>Three practical lessons stand out across <a href="#tbl-multilag-scorecard" class="quarto-xref">Table&nbsp;<span>15.1</span></a>, <a href="#fig-rejection" class="quarto-xref">Figure&nbsp;<span>15.1</span></a>, and <a href="../medusa_connectivity_inference/medusa_connectivity_inference.html#fig-coverage" class="quarto-xref">Figure&nbsp;<span>16.2</span></a>:</p>
 <ol type="1">
 <li><strong>Within-trajectory tests remain calibrated under serial dependence and missing participant edges:</strong> Studentized Wishart draws hold single-trajectory false positives near 5% in complete cohorts (<strong>3.9%</strong> for <code>Max-|T|</code>, <strong>5.0%</strong> for <code>1D TFCE</code>, <strong>2.8%</strong> for <code>Omnibus</code>) and remain well controlled when trials correlate serially and 15% of participants lose the final edge lag (<strong>7.2%</strong>, <strong>6.1%</strong>, and <strong>2.8%</strong>; every 95% Monte Carlo interval spans 5%).</li>
 <li><strong>Simultaneous bands and unsmoothed window contrasts hit 95% nominal coverage:</strong> Across all 6 lags jointly, <code>conf.low.sim</code>–<code>conf.high.sim</code> encloses the entire true population trajectory in <strong>96.1%</strong>–<strong>95.0%</strong> of complete cohorts and <strong>92.8%</strong>–<strong>96.7%</strong> of gapped/serial cohorts. Likewise, the unsmoothed <code>[3, 4] - [0, 1] s</code> contrast covers the true window difference in <strong>95.6%</strong> and <strong>97.8%</strong> of cohorts with near-zero bias (+0.005 and +0.002).</li>

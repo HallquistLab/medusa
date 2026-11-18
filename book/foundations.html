@@ -72,7 +72,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
 <link href="./worked-example.html" rel="next">
-<link href="./index.html" rel="prev">
+<link href="./quickstart.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
@@ -186,6 +186,11 @@ window.Quarto = {
   <div class="sidebar-item-container"> 
   <a href="./index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -392,11 +397,11 @@ window.Quarto = {
 <img src="assets/pipeline-dataflow.png" class="img-fluid figure-img" style="width:100.0%" alt="End-to-end MEDuSA schematic tracing S3 objects, linear operators, and propagated noise covariances across Steps 0 through 4 before branching into Step 5 outcome models and Step 6 predictor connectivity models.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pipeline-dataflow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1.1: End-to-end MEDuSA data-structure, linear-operator, and uncertainty architecture across Steps 0–6. Within each participant (left to center), three parallel tracks advance together from clock-aligned BIDS/<code>fMRIPrep</code> inputs (<code>"medusa_nifti_ts"</code>) through cross-run HRF and <span class="math inline">\(\text{AR}(p)\)</span> noise estimation (<code>"crossrun_hrf"</code>), continuous prewhitened deconvolution (<code>"crossrun_decon"</code>), and de-mixed parcel epoch readout (<code>epochs$panel</code>): (1) <strong>Data &amp; S3 Objects</strong> (blue), (2) <strong>Linear Operators &amp; Resolution</strong> (<span class="math inline">\(M_{r,o} \to H_r \to D_r \to B_{r,\tau}\)</span>), and (3) <strong>Noise &amp; Propagated Covariance</strong> (<span class="math inline">\(Z_r \to \Sigma_{\text{cor}}, W_r \to \sigma_{\text{obs}}, \text{innovations} \to \Omega_{r,\tau}, s_{ri}, w_{ri}, \text{unit\_error\_cor}\)</span>). At the cohort stage (right), inference branches according to the structural role of the deconvolved neural readout: <strong>Step 5</strong> (teal, neural activity as outcome) enters <code>decon_demixed</code> with precision weights and cross-lag covariances into <code>mixed_by()</code> and <code>medusa_multilag_infer()</code>, whereas <strong>Step 6</strong> (amber, neural activity as predictor) uses <code>se_demixed</code> and <code>unit_error_cor</code> inside <code>decon_connectivity_repair()</code> (M-MOMS) to subtract predictor error variance and shared regional noise.
+Figure&nbsp;2.1: End-to-end MEDuSA data-structure, linear-operator, and uncertainty architecture across Steps 0–6. Within each participant (left to center), three parallel tracks advance together from clock-aligned BIDS/<code>fMRIPrep</code> inputs (<code>"medusa_nifti_ts"</code>) through cross-run HRF and <span class="math inline">\(\text{AR}(p)\)</span> noise estimation (<code>"crossrun_hrf"</code>), continuous prewhitened deconvolution (<code>"crossrun_decon"</code>), and de-mixed parcel epoch readout (<code>epochs$panel</code>): (1) <strong>Data &amp; S3 Objects</strong> (blue), (2) <strong>Linear Operators &amp; Resolution</strong> (<span class="math inline">\(M_{r,o} \to H_r \to D_r \to B_{r,\tau}\)</span>), and (3) <strong>Noise &amp; Propagated Covariance</strong> (<span class="math inline">\(Z_r \to \Sigma_{\text{cor}}, W_r \to \sigma_{\text{obs}}, \text{innovations} \to \Omega_{r,\tau}, s_{ri}, w_{ri}, \text{unit\_error\_cor}\)</span>). At the cohort stage (right), inference branches according to the structural role of the deconvolved neural readout: <strong>Step 5</strong> (teal, neural activity as outcome) enters <code>decon_demixed</code> with precision weights and cross-lag covariances into <code>mixed_by()</code> and <code>medusa_multilag_infer()</code>, whereas <strong>Step 6</strong> (amber, neural activity as predictor) uses <code>se_demixed</code> and <code>unit_error_cor</code> inside <code>decon_connectivity_repair()</code> (M-MOMS) to subtract predictor error variance and shared regional noise.
 </figcaption>
 </figure>
 </div>
-<p><a href="#fig-pipeline-dataflow" class="quarto-xref">Figure&nbsp;<span>1.1</span></a> provides a bird’s-eye map of how data objects, linear operators, and propagated noise covariances travel through the package—and why the pipeline branches at the end according to whether deconvolved neural activity serves as a regression <em>outcome</em> (Step 5) or a noisy <em>predictor</em> (Step 6). (For visual examples of what happens when an assumption along any of these tracks is violated, see the <a href="./medusa_qc_gallery/medusa_qc_gallery.html">Visual QC and Troubleshooting Gallery</a>.)</p>
+<p><a href="#fig-pipeline-dataflow" class="quarto-xref">Figure&nbsp;<span>2.1</span></a> provides a bird’s-eye map of how data objects, linear operators, and propagated noise covariances travel through the package—and why the pipeline branches at the end according to whether deconvolved neural activity serves as a regression <em>outcome</em> (Step 5) or a noisy <em>predictor</em> (Step 6). (For visual examples of what happens when an assumption along any of these tracks is violated, see the <a href="./medusa_qc_gallery/medusa_qc_gallery.html">Visual QC and Troubleshooting Gallery</a>.)</p>
 <section id="express-bold-through-a-linear-neurovascular-forward-model" class="level2">
 <h2 class="anchored" data-anchor-id="express-bold-through-a-linear-neurovascular-forward-model">1. Express BOLD through a linear neurovascular forward model</h2>
 <p>Consider a single fMRI run and voxel (or parcel) observed at <span class="math inline">\(T\)</span> acquisition times. Let <span class="math inline">\(a \in \mathbb{R}^T\)</span> denote latent neural activity on the acquisition grid, <span class="math inline">\(H(h)\)</span> denote time-invariant causal convolution with the local hemodynamic response function <span class="math inline">\(h\)</span> (a Toeplitz matrix whose columns shift <span class="math inline">\(h\)</span> forward volume by volume), <span class="math inline">\(Z\)</span> collect low-frequency drift and nuisance terms, and <span class="math inline">\(\varepsilon\)</span> denote zero-mean serial observation noise with covariance <span class="math inline">\(\Sigma\)</span>:</p>
@@ -410,11 +415,11 @@ y = H(h)a + Z\gamma + \varepsilon,
 <img src="assets/forward-model.png" class="img-fluid figure-img" alt="Different latent decision and feedback events produce broad, overlapping predicted BOLD time courses.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-forward-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1.2: Two decision intervals of different length and two brief feedback events, with their predicted BOLD contributions. The bottom panel adds those contributions and a temporally correlated error draw.
+Figure&nbsp;2.2: Two decision intervals of different length and two brief feedback events, with their predicted BOLD contributions. The bottom panel adds those contributions and a temporally correlated error draw.
 </figcaption>
 </figure>
 </div>
-<p>As <a href="#fig-forward" class="quarto-xref">Figure&nbsp;<span>1.2</span></a> illustrates, each brief or sustained neural event influences BOLD across many subsequent volumes, so nearby events overlap substantially in the recorded signal. Step 1 (<code>estimate_crossrun_hrf()</code>) identifies <span class="math inline">\(h\)</span> out of sample from the participant’s other runs and estimates <span class="math inline">\(\Sigma\)</span> on task-adjusted residuals. Step 2 (<code>deconvolve_crossrun_hrf()</code>) then reconstructs continuous activity on the acquisition grid via smoothness-penalized generalized least squares:</p>
+<p>As <a href="#fig-forward" class="quarto-xref">Figure&nbsp;<span>2.2</span></a> illustrates, each brief or sustained neural event influences BOLD across many subsequent volumes, so nearby events overlap substantially in the recorded signal. Step 1 (<code>estimate_crossrun_hrf()</code>) identifies <span class="math inline">\(h\)</span> out of sample from the participant’s other runs and estimates <span class="math inline">\(\Sigma\)</span> on task-adjusted residuals. Step 2 (<code>deconvolve_crossrun_hrf()</code>) then reconstructs continuous activity on the acquisition grid via smoothness-penalized generalized least squares:</p>
 <p><span class="math display">\[
 \widehat{a} = \arg\min_a (y - Ha)^\top \Sigma^{-1}(y - Ha) + \lambda \|Pa\|^2.
 \]</span></p>
@@ -460,11 +465,11 @@ Figure&nbsp;1.2: Two decision intervals of different length and two brief feedba
 <li><strong>Condition-Modulated FIR:</strong> Prewhitened finite impulse response basis (<span class="math inline">\(-2\)</span> to <span class="math inline">\(+14\text{ s}\)</span>) for both the feedback main effect and <code>rpe</code> modulation, summarizing the peak-scaled canonical BOLD window (<span class="math inline">\(+4\)</span> to <span class="math inline">\(+6\text{ s}\)</span>) across participants alongside the full BOLD-time curve.</li>
 <li><strong>MEDuSA:</strong> Out-of-sample parcel HRF cross-fitting (<code>estimate_crossrun_hrf()</code>), event-informed slope-and-curvature-penalized deconvolution (<code>deconvolve_crossrun_hrf()</code>, <code>penalty = "sobolev"</code>), de-mixed parcel epoch extraction (<code>decon_epoch_regression()</code>), and cohort-weighted multilevel / trajectory inference (<code>mixed_by()</code> and <code>medusa_multilag_infer()</code>).</li>
 </ol>
-<p><a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>1.3</span></a> and <a href="#tbl-glm-fir-lss-medusa" class="quarto-xref">Table&nbsp;<span>1.1</span></a> compare all four estimators across three progressively more demanding task regimes:</p>
+<p><a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>2.3</span></a> and <a href="#tbl-glm-fir-lss-medusa" class="quarto-xref">Table&nbsp;<span>2.1</span></a> compare all four estimators across three progressively more demanding task regimes:</p>
 <ul>
 <li><strong>Regime 1 — Well-spaced single-phase events with a canonical HRF (<code>7.5–10.5 s</code> ITI):</strong> When isolated impulses evoke a canonical <span class="math inline">\(6.0\text{ s}\)</span> hemodynamic response, all four estimators converge on nearly identical, well-calibrated group slopes (0.478 to 0.474). When classical GLM assumptions hold, MEDuSA introduces no bias or efficiency loss.</li>
 <li><strong>Regime 2 — Rapid multi-phase RL trials (<code>Cue -&gt; variable-RT Decision -&gt; Feedback</code>) in a fast-HRF region (<code>3.0 s</code> peak):</strong> Here expected value at <code>cue</code> correlates negatively with signed <code>rpe</code> at <code>feedback</code>, deliberation varies in reaction time, and the local vasculature peaks 3 seconds earlier than the canonical template (as often observed in striatum, thalamus, and insula). Canonical-HRF Parametric GLM (0.191) and LSS (0.169) suffer substantial vascular-mismatch attenuation and cue bleed, while a canonical <span class="math inline">\(4\text{--}6\text{ s}\)</span> FIR peak window (0.284) partially misses the early hemodynamic peak. By learning the <span class="math inline">\(3.0\text{ s}\)</span> HRF out of sample and de-mixing <code>cue</code> and variable-duration <code>decision</code> intervals, MEDuSA recovers the generating onset slope (0.542).</li>
-<li><strong>Regime 3 — Biphasic neural trajectory (<code>+0.50</code> early phasic burst at <code>0–1.0 s</code>, <code>-0.45</code> late regulatory dip at <code>1.6–3.6 s</code>):</strong> Single-scalar GLM (-0.007) and LSS (0.014) project the entire peri-event trajectory onto one basis function, integrating across opposing early and late lobes so the two phases largely cancel. Condition-modulated FIR (<a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>1.3</span></a>, Panel C) captures the biphasic wave only in delayed, vascularly smeared BOLD time (<span class="math inline">\(+2\)</span> to <span class="math inline">\(+12\text{ s}\)</span>) without trial-level readouts. MEDuSA (<a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>1.3</span></a>, Panel B) resolves both the early positive burst and the late negative dip directly on <strong>neural event time</strong>, with simultaneous <code>Max-|T|</code> bands and a <code>late_minus_early</code> window contrast (-0.316, <span class="math inline">\(\text{SE} = 0.033\)</span>).</li>
+<li><strong>Regime 3 — Biphasic neural trajectory (<code>+0.50</code> early phasic burst at <code>0–1.0 s</code>, <code>-0.45</code> late regulatory dip at <code>1.6–3.6 s</code>):</strong> Single-scalar GLM (-0.007) and LSS (0.014) project the entire peri-event trajectory onto one basis function, integrating across opposing early and late lobes so the two phases largely cancel. Condition-modulated FIR (<a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>2.3</span></a>, Panel C) captures the biphasic wave only in delayed, vascularly smeared BOLD time (<span class="math inline">\(+2\)</span> to <span class="math inline">\(+12\text{ s}\)</span>) without trial-level readouts. MEDuSA (<a href="#fig-glm-fir-lss-medusa" class="quarto-xref">Figure&nbsp;<span>2.3</span></a>, Panel B) resolves both the early positive burst and the late negative dip directly on <strong>neural event time</strong>, with simultaneous <code>Max-|T|</code> bands and a <code>late_minus_early</code> window contrast (-0.316, <span class="math inline">\(\text{SE} = 0.033\)</span>).</li>
 </ul>
 <div id="fig-glm-fir-lss-medusa" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Top: three forest-plot facets showing all four methods agreeing in Regime 1, MEDuSA recovering 0.50 in Regime 2 while canonical GLM/LSS drop below 0.20, and MEDuSA resolving onset burst in Regime 3 while scalar GLM/LSS cancel phases. Bottom: MEDuSA neural-time biphasic trajectory vs delayed BOLD-time FIR wave.">
 <figure class="quarto-float quarto-float-fig figure">
@@ -472,7 +477,7 @@ Figure&nbsp;1.2: Two decision intervals of different length and two brief feedba
 <img src="assets/glm-fir-lss-medusa.png" class="img-fluid figure-img" style="width:100.0%" alt="Top: three forest-plot facets showing all four methods agreeing in Regime 1, MEDuSA recovering 0.50 in Regime 2 while canonical GLM/LSS drop below 0.20, and MEDuSA resolving onset burst in Regime 3 while scalar GLM/LSS cancel phases. Bottom: MEDuSA neural-time biphasic trajectory vs delayed BOLD-time FIR wave.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1.3: Head-to-head comparison of Parametric Canonical GLM, LSS Single-Trial Beta-Series (Mumford et al., 2012), Condition-Modulated FIR, and MEDuSA across 16-participant multi-run cohorts (<code>assets/compare_glm_fir_lss_medusa.R</code>). (A) Population onset RPE slope recovery (95% CI; dashed line = <code>+0.50</code> truth) across three task regimes. (B) Regime 3 biphasic trajectory recovered by <code>medusa_multilag_infer()</code> on neural event time with simultaneous 95% <code>Max-|T|</code> bands vs.&nbsp;scalar LSS cancellation. (C) The same Regime 3 signal viewed through condition-modulated FIR in delayed BOLD time.
+Figure&nbsp;2.3: Head-to-head comparison of Parametric Canonical GLM, LSS Single-Trial Beta-Series (Mumford et al., 2012), Condition-Modulated FIR, and MEDuSA across 16-participant multi-run cohorts (<code>assets/compare_glm_fir_lss_medusa.R</code>). (A) Population onset RPE slope recovery (95% CI; dashed line = <code>+0.50</code> truth) across three task regimes. (B) Regime 3 biphasic trajectory recovered by <code>medusa_multilag_infer()</code> on neural event time with simultaneous 95% <code>Max-|T|</code> bands vs.&nbsp;scalar LSS cancellation. (C) The same Regime 3 signal viewed through condition-modulated FIR in delayed BOLD time.
 </figcaption>
 </figure>
 </div>
@@ -492,7 +497,7 @@ Figure&nbsp;1.3: Head-to-head comparison of Parametric Canonical GLM, LSS Single
 <div id="tbl-glm-fir-lss-medusa" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;1.1: Population feedback RPE slope estimates across 16 simulated participants (3 runs/participant; true onset RPE slope = 0.500).
+Table&nbsp;2.1: Population feedback RPE slope estimates across 16 simulated participants (3 runs/participant; true onset RPE slope = 0.500).
 </figcaption>
 <div aria-describedby="tbl-glm-fir-lss-medusa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -1223,8 +1228,8 @@ Table&nbsp;1.1: Population feedback RPE slope estimates across 16 simulated part
   </script>
 <nav class="page-navigation" aria-label="Page">
   <div class="nav-page nav-page-previous">
-      <a href="./index.html" class="pagination-link" aria-label="Introduction">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Introduction</span>
+      <a href="./quickstart.html" class="pagination-link" aria-label="Quickstart: Empirical Setup &amp; Core Workflows">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">

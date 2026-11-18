@@ -37,7 +37,7 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./foundations.html" rel="next">
+<link href="./quickstart.html" rel="next">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
@@ -151,6 +151,11 @@ window.Quarto = {
   <div class="sidebar-item-container"> 
   <a href="./index.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">Introduction</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -401,7 +406,8 @@ window.Quarto = {
 <section id="how-to-read-this-book" class="level2">
 <h2 class="anchored" data-anchor-id="how-to-read-this-book">How to read this book</h2>
 <ol type="1">
-<li>Begin with <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \widehat{a} \to \widehat{z}\)</span>, including the <a href="./foundations.html#fig-pipeline-dataflow">end-to-end data-flow schematic</a> and <a href="./foundations.html#sec-notation">notation and S3 object map</a>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
+<li>Start with <a href="./quickstart.html">Quickstart: Empirical Setup &amp; Core Workflows</a> if you have <code>fMRIPrep</code> or postprocessed fMRI derivatives ready and want copy-pasteable recipes, optimal settings, and visual intuition for parcelwise and voxelwise analyses right away.</li>
+<li>Read <a href="./foundations.html">Conceptual foundations</a> for the unifying measurement-and-structural framework (<span class="math inline">\(y \to \widehat{a} \to \widehat{z}\)</span>, including the <a href="./foundations.html#fig-pipeline-dataflow">end-to-end data-flow schematic</a> and <a href="./foundations.html#sec-notation">notation and S3 object map</a>) and <a href="./worked-example.html">A worked analysis</a> for an executable 12-participant walkthrough from simulated BOLD matrices to group inference.</li>
 <li>Read the chapters in <strong>The MEDuSA pipeline</strong> (Steps 0–6), accompanied by the <a href="./medusa_qc_gallery/medusa_qc_gallery.html">Visual QC and Troubleshooting Gallery</a>. Each stepwise chapter opens with a thumbnail <strong>Overview</strong> and clean <strong>Goals, Inputs, and Outputs</strong> tables, walks step by step through each <strong>Substep and Choice Point</strong> from simple intuition to the full estimator, summarizes <strong>Recommended Settings</strong>, and closes with <strong>Practical Considerations, Diagnostics, and Scope</strong>.</li>
 <li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
 <li>Consult <strong>Methodological deep dives</strong> for question-driven chapters examining <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">fast-TR REML AR(<span class="math inline">\(p\)</span>) prewhitening vs.&nbsp;lag tapering</a>, <a href="./medusa_standard_errors_mmom.html">propagating BOLD noise into trial standard errors</a>, <a href="./medusa_multilag_calibration/medusa_multilag_calibration.html">simultaneous trajectory bands and familywise calibration</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity beyond per-trial disattenuation</a>, and <a href="./evidence.html">what validation proves—plus building study-specific calibration checks</a>.</li>
@@ -893,8 +899,8 @@ window.Quarto = {
   <div class="nav-page nav-page-previous">
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./foundations.html" class="pagination-link" aria-label="Conceptual Foundations">
-        <span class="nav-page-text"><span class="chapter-title">Conceptual Foundations</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./quickstart.html" class="pagination-link" aria-label="Quickstart: Empirical Setup &amp; Core Workflows">
+        <span class="nav-page-text"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

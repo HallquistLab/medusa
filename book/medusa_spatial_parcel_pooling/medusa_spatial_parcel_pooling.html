@@ -190,6 +190,11 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
@@ -620,11 +625,11 @@ window.Quarto = {
 <img src="figures/01-geodesic-vs-euclidean-topology.png" class="img-fluid figure-img" style="width:100.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-geodesic-vs-euclidean-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;11.1: Geodesic lattice topology vs.&nbsp;3D Euclidean cross-fissure shortcuts on the MNI152 cortical ribbon (z = 8 mm).
+Figure&nbsp;12.1: Geodesic lattice topology vs.&nbsp;3D Euclidean cross-fissure shortcuts on the MNI152 cortical ribbon (z = 8 mm).
 </figcaption>
 </figure>
 </div>
-<p>In our slab, an unconstrained 6 mm Euclidean graph (<code>metric = "euclidean"</code>) creates <strong>8,051 directed shortcut edges</strong> that jump across out-of-mask CSF gaps (547 in-plane pairs on <span class="math inline">\(z = 8\text{ mm}\)</span> alone; orange segments in <a href="#fig-geodesic-vs-euclidean" class="quarto-xref">Figure&nbsp;<span>11.1</span></a>, right). Along the posterior midline, those shortcuts bleed Left Calcarine’s fast HRF across the interhemispheric CSF cleft onto Right Calcarine’s medial rim (<code>Parcel 109</code> rim HRF MAE = <strong>0.828 s</strong> vs.&nbsp;<strong>0.617 s</strong> under geodesic pooling).</p>
+<p>In our slab, an unconstrained 6 mm Euclidean graph (<code>metric = "euclidean"</code>) creates <strong>8,051 directed shortcut edges</strong> that jump across out-of-mask CSF gaps (547 in-plane pairs on <span class="math inline">\(z = 8\text{ mm}\)</span> alone; orange segments in <a href="#fig-geodesic-vs-euclidean" class="quarto-xref">Figure&nbsp;<span>12.1</span></a>, right). Along the posterior midline, those shortcuts bleed Left Calcarine’s fast HRF across the interhemispheric CSF cleft onto Right Calcarine’s medial rim (<code>Parcel 109</code> rim HRF MAE = <strong>0.828 s</strong> vs.&nbsp;<strong>0.617 s</strong> under geodesic pooling).</p>
 <hr>
 </section>
 <section id="sec-bilateral-hrf" class="level3">
@@ -642,7 +647,7 @@ Figure&nbsp;11.1: Geodesic lattice topology vs.&nbsp;3D Euclidean cross-fissure 
 <img src="figures/02-step1-hrf-pooling-modes.png" class="img-fluid figure-img" style="width:100.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step1-hrf-pooling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;11.2: Step 1 HRF peak-latency recovery across single-voxel, group-parcel, and bilateral geodesic graph pooling.
+Figure&nbsp;12.2: Step 1 HRF peak-latency recovery across single-voxel, group-parcel, and bilateral geodesic graph pooling.
 </figcaption>
 </figure>
 </div>
@@ -668,7 +673,7 @@ Figure&nbsp;11.2: Step 1 HRF peak-latency recovery across single-voxel, group-pa
 <div id="tbl-spatial-step1" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-spatial-step1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;11.1: Step 1 cross-fitted HRF peak-latency MAE (s) and AR(1) noise RMSE across pooling modes on the 6,655-voxel MNI152 cortical ribbon.
+Table&nbsp;12.1: Step 1 cross-fitted HRF peak-latency MAE (s) and AR(1) noise RMSE across pooling modes on the 6,655-voxel MNI152 cortical ribbon.
 </figcaption>
 <div aria-describedby="tbl-spatial-step1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -753,20 +758,20 @@ Table&nbsp;11.1: Step 1 cross-fitted HRF peak-latency MAE (s) and AR(1) noise RM
 </figure>
 </div>
 </div>
-<p>As shown in <a href="#fig-step1-hrf-pooling" class="quarto-xref">Figure&nbsp;<span>11.2</span></a> and <a href="#tbl-spatial-step1" class="quarto-xref">Table&nbsp;<span>11.1</span></a>, single-voxel selection (<code>pooling = "voxel"</code>) is unbiased on average but noisy (<code>Active MAE =</code> <strong>1.085 s</strong>). Group-parcel pooling (<code>pooling = "parcel"</code>) denoises aligned parcels (<code>10</code> and <code>89</code>) well, but averages the fast (<code>2.8 s</code>) and slow (<code>6.8 s</code>) domains inside <code>Parcel 78</code> into a flat intermediate plateau (<code>Shifted Parcel 78 MAE =</code> <strong>2.062 s</strong>). Bilateral geodesic graph pooling with <code>parcel_boundary = "soft"</code> achieves the lowest error globally (<strong>0.334 s</strong>) <em>and</em> inside shifted <code>Parcel 78</code> (<strong>0.430 s</strong>), tracking the participant’s true <span class="math inline">\(y = -43\text{ mm}\)</span> transition cleanly.</p>
+<p>As shown in <a href="#fig-step1-hrf-pooling" class="quarto-xref">Figure&nbsp;<span>12.2</span></a> and <a href="#tbl-spatial-step1" class="quarto-xref">Table&nbsp;<span>12.1</span></a>, single-voxel selection (<code>pooling = "voxel"</code>) is unbiased on average but noisy (<code>Active MAE =</code> <strong>1.085 s</strong>). Group-parcel pooling (<code>pooling = "parcel"</code>) denoises aligned parcels (<code>10</code> and <code>89</code>) well, but averages the fast (<code>2.8 s</code>) and slow (<code>6.8 s</code>) domains inside <code>Parcel 78</code> into a flat intermediate plateau (<code>Shifted Parcel 78 MAE =</code> <strong>2.062 s</strong>). Bilateral geodesic graph pooling with <code>parcel_boundary = "soft"</code> achieves the lowest error globally (<strong>0.334 s</strong>) <em>and</em> inside shifted <code>Parcel 78</code> (<strong>0.430 s</strong>), tracking the participant’s true <span class="math inline">\(y = -43\text{ mm}\)</span> transition cleanly.</p>
 <hr>
 </section>
 <section id="sec-bilateral-noise" class="level3">
 <h3 class="anchored" data-anchor-id="sec-bilateral-noise">3. Bilateral REML Noise Smoothing at Pial-Vein Borders</h3>
-<p>In Step 1, temporal autocorrelation (<span class="math inline">\(\rho\)</span>) and marginal innovation scale (<span class="math inline">\(\log\hat{\sigma}\)</span>) vary sharply at tissue boundaries: pial surface veins and CSF-adjacent voxels exhibit strong physiological pulsation (<span class="math inline">\(\rho = 0.76\)</span>), whereas interior gray matter is much whiter (<span class="math inline">\(\rho = 0.28\)</span>). Pooling noise uniformly across whole Schaefer parcels contaminates interior gray matter with pial-rim autocorrelation (<a href="#fig-bilateral-noise" class="quarto-xref">Figure&nbsp;<span>11.3</span></a>, orange violins).</p>
-<p>Under <code>pooling = "graph"</code>, Step 1 applies an <strong>edge-preserving (bilateral) noise filter</strong> that multiplies cortical-sheet proximity weights by similarity in pilot autocorrelation and log noise scale <span class="math inline">\((\Delta\hat{\rho}, \Delta\log\hat{\sigma})\)</span> before grouping voxels into up to <code>max_noise_strata = 10L</code> noise strata. High-<span class="math inline">\(\rho\)</span> rim voxels borrow strength along the pial rim while deep gray-matter voxels pool with interior gray matter, cutting single-voxel <span class="math inline">\(\hat{\rho}\)</span> RMSE nearly in half in both compartments without blurring the tissue boundary (<a href="#tbl-spatial-step1" class="quarto-xref">Table&nbsp;<span>11.1</span></a>).</p>
+<p>In Step 1, temporal autocorrelation (<span class="math inline">\(\rho\)</span>) and marginal innovation scale (<span class="math inline">\(\log\hat{\sigma}\)</span>) vary sharply at tissue boundaries: pial surface veins and CSF-adjacent voxels exhibit strong physiological pulsation (<span class="math inline">\(\rho = 0.76\)</span>), whereas interior gray matter is much whiter (<span class="math inline">\(\rho = 0.28\)</span>). Pooling noise uniformly across whole Schaefer parcels contaminates interior gray matter with pial-rim autocorrelation (<a href="#fig-bilateral-noise" class="quarto-xref">Figure&nbsp;<span>12.3</span></a>, orange violins).</p>
+<p>Under <code>pooling = "graph"</code>, Step 1 applies an <strong>edge-preserving (bilateral) noise filter</strong> that multiplies cortical-sheet proximity weights by similarity in pilot autocorrelation and log noise scale <span class="math inline">\((\Delta\hat{\rho}, \Delta\log\hat{\sigma})\)</span> before grouping voxels into up to <code>max_noise_strata = 10L</code> noise strata. High-<span class="math inline">\(\rho\)</span> rim voxels borrow strength along the pial rim while deep gray-matter voxels pool with interior gray matter, cutting single-voxel <span class="math inline">\(\hat{\rho}\)</span> RMSE nearly in half in both compartments without blurring the tissue boundary (<a href="#tbl-spatial-step1" class="quarto-xref">Table&nbsp;<span>12.1</span></a>).</p>
 <div id="fig-bilateral-noise" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-bilateral-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/03-bilateral-pial-rim-noise.png" class="img-fluid figure-img" style="width:100.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bilateral-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;11.3: Bilateral REML noise smoothing preserves the sharp boundary between pial-vein/CSF rim autocorrelation and interior gray matter.
+Figure&nbsp;12.3: Bilateral REML noise smoothing preserves the sharp boundary between pial-vein/CSF rim autocorrelation and interior gray matter.
 </figcaption>
 </figure>
 </div>
@@ -787,7 +792,7 @@ Figure&nbsp;11.3: Bilateral REML noise smoothing preserves the sharp boundary be
 <img src="figures/04-step2-snr-stratified-lambda.png" class="img-fluid figure-img" style="width:100.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step2-stratified-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;11.4: Step 2 SNR-stratified GCV tuning assigns strong noise suppression to quiet cortex while preserving sharp phasic impulses in focal active cortex.
+Figure&nbsp;12.4: Step 2 SNR-stratified GCV tuning assigns strong noise suppression to quiet cortex while preserving sharp phasic impulses in focal active cortex.
 </figcaption>
 </figure>
 </div>
@@ -804,7 +809,7 @@ Figure&nbsp;11.4: Step 2 SNR-stratified GCV tuning assigns strong noise suppress
 <div id="tbl-spatial-step2" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-spatial-step2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;11.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise penalty.
+Table&nbsp;12.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise penalty.
 </figcaption>
 <div aria-describedby="tbl-spatial-step2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -864,7 +869,7 @@ Table&nbsp;11.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise p
 </figure>
 </div>
 </div>
-<p>Stratified tuning suppresses continuous background standard deviation in null voxels from <strong>2.786</strong> (global <span class="math inline">\(\lambda\)</span>) down to <strong>0.930</strong> while maintaining crisp neural spike recovery in the 30-voxel Right Insula hotspot (<span class="math inline">\(r =\)</span> <strong>0.247</strong> with generating continuous impulses; <a href="#fig-step2-stratified" class="quarto-xref">Figure&nbsp;<span>11.4</span></a>).</p>
+<p>Stratified tuning suppresses continuous background standard deviation in null voxels from <strong>2.786</strong> (global <span class="math inline">\(\lambda\)</span>) down to <strong>0.930</strong> while maintaining crisp neural spike recovery in the 30-voxel Right Insula hotspot (<span class="math inline">\(r =\)</span> <strong>0.247</strong> with generating continuous impulses; <a href="#fig-step2-stratified" class="quarto-xref">Figure&nbsp;<span>12.4</span></a>).</p>
 <hr>
 </section>
 <section id="sec-step3-grapheb" class="level3">
@@ -879,7 +884,7 @@ Table&nbsp;11.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise p
 <ol type="1">
 <li><strong>Pre-truncation scale-free pooling:</strong> Shrinks the <em>untruncated</em> dimensionless ratio <span class="math inline">\(\hat{\theta}_u = \hat{\tau}_{\text{raw},u}^2 / s_{\text{obs},u}^2\)</span> across concordant cortical neighbors <em>before</em> applying <span class="math inline">\(\max(0, \cdot)\)</span>—allowing positive and negative estimation errors in null cortex to cancel symmetrically around zero while reducing active zero-collapse to <strong>21.7%</strong>.</li>
 <li><strong>Discounting shared scanner noise between neighbors:</strong> Because adjacent voxels share correlated scanner innovations (<code>noise_innovations</code>), their squared trial errors also covary (<span class="math inline">\(\operatorname{Corr}(Z_u^2, Z_v^2) = \rho_{uv}^2\)</span> under Gaussian errors, by Isserlis’ identity); discounting for <span class="math inline">\(\rho_{uv}^2\)</span> prevents shared noise from being mistaken for independent spatial replication.</li>
-<li><strong>Edge-preserving border stopping &amp; focal hotspot protection:</strong> Downweights neighbors whose pilot variance ratios or trial-residual patterns disagree across a functional border, and caps how far any individual voxel can be pulled toward its neighborhood prior at <strong><span class="math inline">\(2.5\sigma_u\)</span></strong> (Efron–Morris limited-translation shrinkage) so isolated focal hotspots retain their true biological variance (<strong>0.800</strong> in the Right Insula core; <a href="#fig-step3-grapheb" class="quarto-xref">Figure&nbsp;<span>11.5</span></a>). Residual error scales (<code>[scale_unw, scale_pw, scale_gls]</code>) are similarly stabilized across concordant neighbors (Empirical-Bayes variance moderation; Smyth, 2004) to boost <span class="math inline">\(t\)</span>-statistic degrees of freedom without ever smoothing trial slopes <span class="math inline">\(\hat{\beta}_u\)</span>.</li>
+<li><strong>Edge-preserving border stopping &amp; focal hotspot protection:</strong> Downweights neighbors whose pilot variance ratios or trial-residual patterns disagree across a functional border, and caps how far any individual voxel can be pulled toward its neighborhood prior at <strong><span class="math inline">\(2.5\sigma_u\)</span></strong> (Efron–Morris limited-translation shrinkage) so isolated focal hotspots retain their true biological variance (<strong>0.800</strong> in the Right Insula core; <a href="#fig-step3-grapheb" class="quarto-xref">Figure&nbsp;<span>12.5</span></a>). Residual error scales (<code>[scale_unw, scale_pw, scale_gls]</code>) are similarly stabilized across concordant neighbors (Empirical-Bayes variance moderation; Smyth, 2004) to boost <span class="math inline">\(t\)</span>-statistic degrees of freedom without ever smoothing trial slopes <span class="math inline">\(\hat{\beta}_u\)</span>.</li>
 </ol>
 <div id="fig-step3-grapheb" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
@@ -887,7 +892,7 @@ Table&nbsp;11.2: Step 2 SNR-stratified lambda tiers vs.&nbsp;global compromise p
 <img src="figures/05-step3-voxelwise-graph-eb-tau2.png" class="img-fluid figure-img" style="width:100.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-step3-grapheb-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;11.5: Step 3 voxelwise biological trial-variance recovery across raw MoM, global EB, and bilateral geodesic Graph-EB.
+Figure&nbsp;12.5: Step 3 voxelwise biological trial-variance recovery across raw MoM, global EB, and bilateral geodesic Graph-EB.
 </figcaption>
 </figure>
 </div>
@@ -913,7 +918,7 @@ Figure&nbsp;11.5: Step 3 voxelwise biological trial-variance recovery across raw
 <div id="tbl-spatial-step3" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-spatial-step3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;11.3: Step 3 voxelwise variance-component accuracy, null false-positive calibration, and BH-FDR power across tau2_shrinkage modes.
+Table&nbsp;12.3: Step 3 voxelwise variance-component accuracy, null false-positive calibration, and BH-FDR power across tau2_shrinkage modes.
 </figcaption>
 <div aria-describedby="tbl-spatial-step3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -982,14 +987,14 @@ Table&nbsp;11.3: Step 3 voxelwise variance-component accuracy, null false-positi
 </section>
 <section id="sec-head-to-head" class="level3">
 <h3 class="anchored" data-anchor-id="sec-head-to-head">6. Voxelwise Graph-EB vs.&nbsp;Parcel-Wise Panels Across Regimes</h3>
-<p>Finally, <a href="#fig-voxel-vs-parcel" class="quarto-xref">Figure&nbsp;<span>11.6</span></a> and <a href="#tbl-spatial-tradeoff" class="quarto-xref">Table&nbsp;<span>11.4</span></a> compare <strong>Pathway A (Voxelwise Graph-EB)</strong> exported via <code>write_nifti_ts()</code> against <strong>Pathway B (Step 4 Parcel-Wise Panel &amp; Step 5 12-Subject Cohort <code>mixed_by()</code>)</strong> exported via <code>backproject_medusa()</code> across all four anatomical regimes on the exact same dataset:</p>
+<p>Finally, <a href="#fig-voxel-vs-parcel" class="quarto-xref">Figure&nbsp;<span>12.6</span></a> and <a href="#tbl-spatial-tradeoff" class="quarto-xref">Table&nbsp;<span>12.4</span></a> compare <strong>Pathway A (Voxelwise Graph-EB)</strong> exported via <code>write_nifti_ts()</code> against <strong>Pathway B (Step 4 Parcel-Wise Panel &amp; Step 5 12-Subject Cohort <code>mixed_by()</code>)</strong> exported via <code>backproject_medusa()</code> across all four anatomical regimes on the exact same dataset:</p>
 <div id="fig-voxel-vs-parcel" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-voxel-vs-parcel-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <img src="figures/06-voxelwise-vs-parcelwise-workflows.png" class="img-fluid figure-img" style="width:100.0%">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-voxel-vs-parcel-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;11.6: Head-to-head MNI152 feedback RPE maps (lag = 0 s) and quantitative regime trade-offs comparing voxelwise Graph-EB against Step 4/5 parcel-panel inference.
+Figure&nbsp;12.6: Head-to-head MNI152 feedback RPE maps (lag = 0 s) and quantitative regime trade-offs comparing voxelwise Graph-EB against Step 4/5 parcel-panel inference.
 </figcaption>
 </figure>
 </div>
@@ -1006,7 +1011,7 @@ Figure&nbsp;11.6: Head-to-head MNI152 feedback RPE maps (lag = 0 s) and quantita
 <div id="tbl-spatial-tradeoff" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-spatial-tradeoff-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;11.4: Slope RMSE, mean |t|, and BH-FDR &lt;= 0.05 detection across anatomical regimes for Voxelwise Graph-EB vs.&nbsp;Step 4 Parcel-Wise Panels.
+Table&nbsp;12.4: Slope RMSE, mean |t|, and BH-FDR &lt;= 0.05 detection across anatomical regimes for Voxelwise Graph-EB vs.&nbsp;Step 4 Parcel-Wise Panels.
 </figcaption>
 <div aria-describedby="tbl-spatial-tradeoff-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -1086,7 +1091,7 @@ Table&nbsp;11.4: Slope RMSE, mean |t|, and BH-FDR &lt;= 0.05 detection across an
 </div>
 <p>The results crystallize the practical modeling guidance:</p>
 <ul>
-<li><strong>When functional anatomy aligns with the parcellation (<code>Parcels 10 &amp; 89</code>):</strong> Step 4 parcel aggregation pools continuous deconvolved time series across 154–341 voxels using cross-run precision weights while propagating spatial innovation correlation accurately—cutting slope RMSE more than <span class="math inline">\(3\times\)</span> relative to single voxels and achieving <code>100%</code> detection power, with clean cohort-level inference in Step 5 (<code>mixed_by()</code> + BY control; bold black parcel outlines in <a href="#fig-voxel-vs-parcel" class="quarto-xref">Figure&nbsp;<span>11.6</span></a>, Panel 4).</li>
+<li><strong>When functional anatomy aligns with the parcellation (<code>Parcels 10 &amp; 89</code>):</strong> Step 4 parcel aggregation pools continuous deconvolved time series across 154–341 voxels using cross-run precision weights while propagating spatial innovation correlation accurately—cutting slope RMSE more than <span class="math inline">\(3\times\)</span> relative to single voxels and achieving <code>100%</code> detection power, with clean cohort-level inference in Step 5 (<code>mixed_by()</code> + BY control; bold black parcel outlines in <a href="#fig-voxel-vs-parcel" class="quarto-xref">Figure&nbsp;<span>12.6</span></a>, Panel 4).</li>
 <li><strong>When individual functional boundaries shift across a parcel (<code>Parcel 78</code>):</strong> Averaging the posterior negative-RPE sub-domain (<span class="math inline">\(\beta = -0.62\)</span>) and anterior positive-RPE sub-domain (<span class="math inline">\(\beta = +0.62\)</span>) inside <code>Parcel 78</code> cancels the parcel slope to nearly zero. Voxelwise Graph-EB resolves <strong>both</strong> sub-domains cleanly on the cortical ribbon without blurring across the <span class="math inline">\(y = -43\text{ mm}\)</span> border.</li>
 <li><strong>When an effect is restricted to a sub-parcel focal nucleus (<code>Right Insula Parcel 155</code> core):</strong> Averaging 30 active hotspot voxels with 195 silent surround voxels dilutes the parcel slope by nearly <span class="math inline">\(85\%\)</span>. Voxelwise Graph-EB—protected by SNR-stratified Step 2 <span class="math inline">\(\lambda\)</span> and Efron–Morris limited translation—preserves the focal hotspot amplitude and detects it reliably while keeping false positives controlled across the 55 null parcels.</li>
 </ul>

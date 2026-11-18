@@ -190,6 +190,11 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../../quickstart.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Quickstart: Empirical Setup &amp; Core Workflows</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../../foundations.html" class="sidebar-item-text sidebar-link"><span class="chapter-title">Conceptual Foundations</span></a>
   </div>
 </li>
@@ -389,7 +394,7 @@ window.Quarto = {
 <p>When translating that estimator from condition-level GLMs at <span class="math inline">\(\text{TR} = 3\text{ s}\)</span> to trial-resolved deconvolution at <span class="math inline">\(\text{TR} = 0.65\text{--}1.0\text{ s}\)</span>, two physical and algebraic properties change:</p>
 <ol type="1">
 <li><strong>Physical time span of a fixed lag window shrinks with TR:</strong> A window of <span class="math inline">\(M = 15\)</span> lags spans <span class="math inline">\(45\text{ s}\)</span> at <span class="math inline">\(\text{TR} = 3.0\text{ s}\)</span>, comfortably covering hemodynamic and Mayer-wave persistence, whereas the same 15 lags span less than <span class="math inline">\(10\text{ s}\)</span> at <span class="math inline">\(\text{TR} = 0.65\text{ s}\)</span>. Widening <span class="math inline">\(M\)</span> in volume units accumulates estimation variance across dozens of lag parameters.</li>
-<li><strong>Subspace projection bias scales with design rank:</strong> Let <span class="math inline">\(X_r\)</span> collect the run’s free trial predictors and low-frequency drift basis, and let <span class="math inline">\(M_X = I - X_r(X_r^\top X_r)^{-1}X_r^\top\)</span> denote the residual-forming projection matrix. Even under known true covariance <span class="math inline">\(\Sigma\)</span>, raw OLS residuals <span class="math inline">\(e_{\text{OLS}} = M_X y_r\)</span> have covariance <span class="math inline">\(M_X \Sigma M_X^\top\)</span> rather than <span class="math inline">\(\Sigma\)</span>. When <span class="math inline">\(X_r\)</span> occupies 25–40 degrees of freedom per run, raw sample autocorrelations dip systematically negative at intermediate lags (visible in green in <a href="#fig-woolrich-acf" class="quarto-xref">Figure&nbsp;<span>12.1</span></a>, even on a pure null parcel with zero neural signal). Multiplying <span class="math inline">\(\widehat{r}(\ell)\)</span> by a cosine taper dampens long lags without removing that negative subspace dip.</li>
+<li><strong>Subspace projection bias scales with design rank:</strong> Let <span class="math inline">\(X_r\)</span> collect the run’s free trial predictors and low-frequency drift basis, and let <span class="math inline">\(M_X = I - X_r(X_r^\top X_r)^{-1}X_r^\top\)</span> denote the residual-forming projection matrix. Even under known true covariance <span class="math inline">\(\Sigma\)</span>, raw OLS residuals <span class="math inline">\(e_{\text{OLS}} = M_X y_r\)</span> have covariance <span class="math inline">\(M_X \Sigma M_X^\top\)</span> rather than <span class="math inline">\(\Sigma\)</span>. When <span class="math inline">\(X_r\)</span> occupies 25–40 degrees of freedom per run, raw sample autocorrelations dip systematically negative at intermediate lags (visible in green in <a href="#fig-woolrich-acf" class="quarto-xref">Figure&nbsp;<span>13.1</span></a>, even on a pure null parcel with zero neural signal). Multiplying <span class="math inline">\(\widehat{r}(\ell)\)</span> by a cosine taper dampens long lags without removing that negative subspace dip.</li>
 </ol>
 <hr>
 </section>
@@ -438,12 +443,12 @@ window.Quarto = {
 <li><strong>Oracle generating HRF:</strong> Parametric REML <span class="math inline">\(\text{AR}(p)\)</span> conditioned on the exact generating HRF of each parcel.</li>
 <li><strong>Raw-residual Tukey lag tapers (<span class="math inline">\(M \in \{10, 15, 28\}\)</span>):</strong> Pooled cosine-tapered sample residual autocorrelations under either the canonical or cross-run selected HRF.</li>
 </ol>
-<p><a href="#tbl-woolrich-acf" class="quarto-xref">Table&nbsp;<span>12.1</span></a> reports the root-mean-square error (RMSE) of the implied autocorrelation function across lags 1–24 (<code>0.65–15.6 s</code>), averaged over runs:</p>
+<p><a href="#tbl-woolrich-acf" class="quarto-xref">Table&nbsp;<span>13.1</span></a> reports the root-mean-square error (RMSE) of the implied autocorrelation function across lags 1–24 (<code>0.65–15.6 s</code>), averaged over runs:</p>
 <div class="cell">
 <div id="tbl-woolrich-acf" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-woolrich-acf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;12.1: Implied noise autocorrelation RMSE across lags 1–24 (0.65–15.6 s; lower is better) comparing single-pass canonical HRF, two-pass REML refit, oracle HRF, and raw-residual Tukey lag tapers.
+Table&nbsp;13.1: Implied noise autocorrelation RMSE across lags 1–24 (0.65–15.6 s; lower is better) comparing single-pass canonical HRF, two-pass REML refit, oracle HRF, and raw-residual Tukey lag tapers.
 </figcaption>
 <div aria-describedby="tbl-woolrich-acf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -504,11 +509,11 @@ Table&nbsp;12.1: Implied noise autocorrelation RMSE across lags 1–24 (0.65–1
 <img src="noise_comparison.png" class="img-fluid figure-img" style="width:100.0%" alt="Three-panel ACF plot across Fast, Null, and Slow parcels comparing generating covariance, single-pass canonical HRF, MEDuSA two-pass REML refit, and raw-residual Tukey M=15 taper.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-woolrich-acf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;12.1: Implied Run 1 noise autocorrelation functions across the <code>Fast</code>, <code>Null</code>, and <code>Slow</code> parcels. MEDuSA’s two-pass REML refit (blue dotted) tracks the generating covariance (black solid) across all three vascular regimes, whereas locking noise estimation to a single-pass canonical HRF (amber dashed) inflates apparent persistence whenever the true HRF is faster or slower, and raw-residual Tukey tapering (green dot-dash) dips negative from trial-design projection bias even in the <code>Null</code> parcel.
+Figure&nbsp;13.1: Implied Run 1 noise autocorrelation functions across the <code>Fast</code>, <code>Null</code>, and <code>Slow</code> parcels. MEDuSA’s two-pass REML refit (blue dotted) tracks the generating covariance (black solid) across all three vascular regimes, whereas locking noise estimation to a single-pass canonical HRF (amber dashed) inflates apparent persistence whenever the true HRF is faster or slower, and raw-residual Tukey tapering (green dot-dash) dips negative from trial-design projection bias even in the <code>Null</code> parcel.
 </figcaption>
 </figure>
 </div>
-<p>Two conclusions emerge directly from <a href="#tbl-woolrich-acf" class="quarto-xref">Table&nbsp;<span>12.1</span></a> and <a href="#fig-woolrich-acf" class="quarto-xref">Figure&nbsp;<span>12.1</span></a>:</p>
+<p>Two conclusions emerge directly from <a href="#tbl-woolrich-acf" class="quarto-xref">Table&nbsp;<span>13.1</span></a> and <a href="#fig-woolrich-acf" class="quarto-xref">Figure&nbsp;<span>13.1</span></a>:</p>
 <ul>
 <li><strong>Refitting noise under the cross-fitted HRF removes vascular spillover:</strong> Under a single-pass canonical HRF, unmodeled early or late BOLD lobes inflate apparent autocorrelation (<code>RMSE = 0.260</code> in <code>Fast</code>, <code>0.314</code> in <code>Slow</code>). Refitting <span class="math inline">\(\text{AR}(p)\)</span> parameters under the out-of-sample selected HRF reduces ACF RMSE more than thirtyfold to <strong><code>0.006</code></strong> and <strong><code>0.008</code></strong>—matching the oracle-HRF benchmark (<code>0.006</code> and <code>0.008</code>) with zero target-run circularity.</li>
 <li><strong>Subspace REML avoids high-rank projection bias:</strong> Even when supplied the learned HRF (<code>Tukey M=15 (selected HRF)</code>), raw-residual lag tapering retains an order-of-magnitude higher error (<code>0.090–0.100</code>)—including <strong><code>0.100</code> vs.&nbsp;<code>0.011</code></strong> on the pure <code>Null</code> parcel—because projecting out 24 trial regressors plus drift biases raw sample autocorrelations downward across lags 2–8 (<code>1.3–5.2 s</code>).</li>
@@ -517,12 +522,12 @@ Figure&nbsp;12.1: Implied Run 1 noise autocorrelation functions across the <code
 </section>
 <section id="benchmark-2-why-diagonal-ses-can-look-right-while-full-covariance-is-wrong" class="level2">
 <h2 class="anchored" data-anchor-id="benchmark-2-why-diagonal-ses-can-look-right-while-full-covariance-is-wrong">4. Benchmark 2: Why Diagonal SEs Can Look Right While Full Covariance Is Wrong</h2>
-<p>For downstream inference in Steps 3–6, temporal autocorrelation matters through the <strong>propagated trial readout covariance</strong> <span class="math inline">\(\Omega_{r,\tau} = \sigma_{\text{obs}}^2 B_{r,\tau}\Sigma_{\text{cor}}B_{r,\tau}^\top\)</span>. Evaluating a fixed deconvolution and onset-readout operator across the simulated schedule, <a href="#tbl-woolrich-var" class="quarto-xref">Table&nbsp;<span>12.2</span></a> compares the single-pass canonical noise fit against the two-pass REML refit under both a standalone second-difference scale estimator (<code>d2</code>) and MEDuSA’s covariance-consistent Winsorized GLS marginal scale (<code>GLS</code>, <code>scaling = "noise_sd"</code>):</p>
+<p>For downstream inference in Steps 3–6, temporal autocorrelation matters through the <strong>propagated trial readout covariance</strong> <span class="math inline">\(\Omega_{r,\tau} = \sigma_{\text{obs}}^2 B_{r,\tau}\Sigma_{\text{cor}}B_{r,\tau}^\top\)</span>. Evaluating a fixed deconvolution and onset-readout operator across the simulated schedule, <a href="#tbl-woolrich-var" class="quarto-xref">Table&nbsp;<span>13.2</span></a> compares the single-pass canonical noise fit against the two-pass REML refit under both a standalone second-difference scale estimator (<code>d2</code>) and MEDuSA’s covariance-consistent Winsorized GLS marginal scale (<code>GLS</code>, <code>scaling = "noise_sd"</code>):</p>
 <div class="cell">
 <div id="tbl-woolrich-var" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-woolrich-var-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;12.2: Calibration of marginal noise SD, diagonal trial readout SEs, and full trial-by-trial covariance matrices (ideal ratios = 1.000; ideal relative Frobenius error = 0.000).
+Table&nbsp;13.2: Calibration of marginal noise SD, diagonal trial readout SEs, and full trial-by-trial covariance matrices (ideal ratios = 1.000; ideal relative Frobenius error = 0.000).
 </figcaption>
 <div aria-describedby="tbl-woolrich-var-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -600,7 +605,7 @@ Table&nbsp;12.2: Calibration of marginal noise SD, diagonal trial readout SEs, a
 </figure>
 </div>
 </div>
-<p><a href="#tbl-woolrich-var" class="quarto-xref">Table&nbsp;<span>12.2</span></a> illustrates a subtle diagnostic trap: under the single-pass canonical HRF model, two large errors partially cancel along the diagonal. Its overly persistent correlation matrix <span class="math inline">\(\Sigma_{\text{cor}}\)</span> under-predicts trial SEs by nearly half when true marginal SD is known (<code>0.484–0.564</code>), while unmodeled HRF shape residuals inflate estimated marginal <code>GLS SD</code> more than twofold (<code>2.038–2.281</code>). Their product leaves diagonal SE ratios looking deceptively benign (<code>1.10–1.14</code>), even though the <strong>full <span class="math inline">\(m \times m\)</span> trial covariance matrix</strong> suffers <code>21–28%</code> relative Frobenius distortion—corrupting off-diagonal cross-trial and cross-lag correlation estimates needed by Step 4 ZCA whitening and Step 5 <code>medusa_multilag_infer()</code>. Pairing the two-pass REML refit with <code>scaling = "noise_sd"</code> calibrates <em>both</em> pieces (<code>GLS SD / true = 1.01–1.05</code>, known-scale <code>SE / true = 0.98–1.01</code>), cutting full covariance matrix error to <strong><code>4.3–7.5%</code></strong>.</p>
+<p><a href="#tbl-woolrich-var" class="quarto-xref">Table&nbsp;<span>13.2</span></a> illustrates a subtle diagnostic trap: under the single-pass canonical HRF model, two large errors partially cancel along the diagonal. Its overly persistent correlation matrix <span class="math inline">\(\Sigma_{\text{cor}}\)</span> under-predicts trial SEs by nearly half when true marginal SD is known (<code>0.484–0.564</code>), while unmodeled HRF shape residuals inflate estimated marginal <code>GLS SD</code> more than twofold (<code>2.038–2.281</code>). Their product leaves diagonal SE ratios looking deceptively benign (<code>1.10–1.14</code>), even though the <strong>full <span class="math inline">\(m \times m\)</span> trial covariance matrix</strong> suffers <code>21–28%</code> relative Frobenius distortion—corrupting off-diagonal cross-trial and cross-lag correlation estimates needed by Step 4 ZCA whitening and Step 5 <code>medusa_multilag_infer()</code>. Pairing the two-pass REML refit with <code>scaling = "noise_sd"</code> calibrates <em>both</em> pieces (<code>GLS SD / true = 1.01–1.05</code>, known-scale <code>SE / true = 0.98–1.01</code>), cutting full covariance matrix error to <strong><code>4.3–7.5%</code></strong>.</p>
 <hr>
 </section>
 <section id="implications-for-applied-medusa-analyses" class="level2">
@@ -641,7 +646,7 @@ Table&nbsp;12.2: Calibration of marginal noise SD, diagonal trial readout SEs, a
 Implementation Pointers &amp; Reproduction
 </summary>
 <p>Inside <code>medusa</code>, the two-pass REML noise refit and covariance-consistent marginal noise scale are implemented in <code>R/crossrun_hrf.R</code> (<code>estimate_crossrun_hrf()</code>, <code>fit_crossrun_decon()</code>, <code>hrf_estimate_noise()</code>, <code>hrf_estimate_gls_noise_sd()</code>), with standalone second-difference fallback scaling in <code>R/deconvolve_reglin.R</code> (<code>estimate_decon_noise_sd()</code>).</p>
-<p>To regenerate the benchmark tables and <a href="#fig-woolrich-acf" class="quarto-xref">Figure&nbsp;<span>12.1</span></a> from <code>book/medusa_step1_hrf_noise/woolrich_review/</code> (after running <code>../simulate_step1.R</code>):</p>
+<p>To regenerate the benchmark tables and <a href="#fig-woolrich-acf" class="quarto-xref">Figure&nbsp;<span>13.1</span></a> from <code>book/medusa_step1_hrf_noise/woolrich_review/</code> (after running <code>../simulate_step1.R</code>):</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> compare_noise.R</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> variance_check.R</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> plot_comparison.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
