@@ -947,6 +947,9 @@ medusa_fit_shared_error_covreg <- function(
     S_cnt <- length(u_skeys)
     s_idx_by_unit <- r_op$s_idx_by_unit
     stratum_specs <- r_op$stratum_specs
+    base_skeys <- sub("\\|dr:.*$", "", as.character(u_skeys))
+    rep_si_by_s <- match(base_skeys, base_skeys)
+    s_base_by_unit <- ifelse(is.na(s_idx_by_unit) | s_idx_by_unit < 1L, 1L, rep_si_by_s[s_idx_by_unit])
     rho_unit <- vapply(seq_len(P), function(g) {
       si <- s_idx_by_unit[g]
       if (is.na(si) || si < 1L) return(0.0)
@@ -964,6 +967,7 @@ medusa_fit_shared_error_covreg <- function(
     M_strata <- vector("list", S_cnt)
     G_inn_strata <- vector("list", S_cnt)
     H_strata <- vector("list", S_cnt)
+    W_tilde_0_strata <- vector("list", S_cnt)
     U_strata <- vector("list", S_cnt)
     V_obs_strata <- vector("list", S_cnt)
     ok_strata <- vector("list", S_cnt)
@@ -1066,67 +1070,101 @@ medusa_fit_shared_error_covreg <- function(
         ys
       } else NULL
 
-      wb <- hrf_apply_whitening(
-        list(wx = x_gls, wy = wy_in, wt = x_tr_in, we = e_rwls_act),
-        rows = rows, ar_vec = ar_op, unit_marginal = TRUE
-      )
-      apply_rwls_whiten <- function(mat_in) mat_in
-      if (has_rwls_w) {
-        if (rwls_w_sp == "innovation") {
-          sw_rw <- sqrt(pmax(as.numeric(fw_eff), 1e-8))
-          apply_rwls_whiten <- function(mat_in) if (is.null(mat_in)) NULL else sweep(mat_in, 1L, sw_rw, "*")
-        } else if (!is.null(wb$we) && ncol(wb$we) > 0L) {
-          sv_we <- hrf_safe_svd(wb$we, nv = 0L)
-          pos_we <- if (length(sv_we$d)) sv_we$d > 1e-8 else logical(0L)
-          if (any(pos_we)) {
-            u_we <- sv_we$u[, pos_we, drop = FALSE]
-            fac_we <- 1.0 / sqrt(1.0 + sv_we$d[pos_we]^2) - 1.0
-            apply_rwls_whiten <- function(mat_in) {
-              if (is.null(mat_in)) return(NULL)
-              mat_in + u_we %*% sweep(crossprod(u_we, mat_in), 1L, fac_we, "*")
+      rep_si <- rep_si_by_s[si]
+      if (rep_si < si && !is.null(M_strata[[rep_si]])) {
+        wb <- hrf_apply_whitening(
+          list(wy = wy_in, we = e_rwls_act),
+          rows = rows, ar_vec = ar_op, unit_marginal = TRUE
+        )
+        if (has_rwls_w && !is.null(wb$wy)) {
+          if (rwls_w_sp == "innovation") {
+            sw_rw <- sqrt(pmax(as.numeric(fw_eff), 1e-8))
+            wb$wy <- sweep(wb$wy, 1L, sw_rw, "*")
+          } else if (!is.null(wb$we) && ncol(wb$we) > 0L) {
+            sv_we <- hrf_safe_svd(wb$we, nv = 0L)
+            pos_we <- if (length(sv_we$d)) sv_we$d > 1e-8 else logical(0L)
+            if (any(pos_we)) {
+              u_we <- sv_we$u[, pos_we, drop = FALSE]
+              fac_we <- 1.0 / sqrt(1.0 + sv_we$d[pos_we]^2) - 1.0
+              wb$wy <- wb$wy + u_we %*% sweep(crossprod(u_we, wb$wy), 1L, fac_we, "*")
             }
           }
         }
-        wb$wx <- apply_rwls_whiten(wb$wx)
-        if (!is.null(wb$wy)) wb$wy <- apply_rwls_whiten(wb$wy)
-        if (!is.null(wb$wt)) wb$wt <- apply_rwls_whiten(wb$wt)
-      }
-
-      nrm <- sqrt(colSums(wb$wx^2)); nrm[nrm == 0] <- 1.0
-      sv <- hrf_safe_svd(sweep(wb$wx, 2L, nrm, "/"), nv = 0L)
-      rk <- if (length(sv$d) && sv$d[1L] > 0) sum(sv$d > 1e-8 * sv$d[1L]) else 0L
-      df_res <- m - rk
-      Q_tot <- if (rk > 0L) sv$u[, seq_len(rk), drop = FALSE] else matrix(0.0, m, 0L)
-      is_sat <- !isTRUE(md_s$used_trial_design)
-      df_floor_ms <- if (is_extra_only) max(120L, as.integer(floor(0.60 * m))) else 24L
-      if (!is.null(wb$wt) && df_res > df_floor_ms) {
-        wt <- if (rk > 0L) wb$wt - Q_tot %*% crossprod(Q_tot, wb$wt) else wb$wt
-        nt <- sqrt(colSums(wt^2)); pos_t <- nt > 1e-8
-        if (any(pos_t)) {
-          sv_t <- hrf_safe_svd(sweep(wt[, pos_t, drop = FALSE], 2L, nt[pos_t], "/"), nv = 0L)
-          rk_max <- if (is_extra_only) min(m_target, max(0L, df_res - df_floor_ms)) else max(0L, df_res - 24L)
-          sv_tol_t <- if (is_extra_only) 0.12 else 0.06
-          n_want <- if (length(sv_t$d) && sv_t$d[1L] > 0) sum(sv_t$d > sv_tol_t * sv_t$d[1L]) else 0L
-          rk_t <- min(rk_max, n_want)
-          if (rk_t > 0L) Q_tot <- cbind(Q_tot, sv_t$u[, seq_len(rk_t), drop = FALSE])
-          if (!is_extra_only) is_sat <- (n_want > rk_max)
+        M_s <- M_strata[[rep_si]]
+        df_s <- df_strata[rep_si]
+        c_s <- c_strata[rep_si]
+        W_tilde_0 <- W_tilde_0_strata[[rep_si]]
+        sat_strata[si] <- sat_strata[rep_si]
+        df_strata[si] <- df_s
+        c_strata[si] <- c_s
+        M_strata[[si]] <- M_s
+        G_inn_strata[[si]] <- G_inn_strata[[rep_si]]
+        H_strata[[si]] <- H_strata[[rep_si]]
+        W_tilde_0_strata[[si]] <- W_tilde_0
+      } else {
+        wb <- hrf_apply_whitening(
+          list(wx = x_gls, wy = wy_in, wt = x_tr_in, we = e_rwls_act),
+          rows = rows, ar_vec = ar_op, unit_marginal = TRUE
+        )
+        apply_rwls_whiten <- function(mat_in) mat_in
+        if (has_rwls_w) {
+          if (rwls_w_sp == "innovation") {
+            sw_rw <- sqrt(pmax(as.numeric(fw_eff), 1e-8))
+            apply_rwls_whiten <- function(mat_in) if (is.null(mat_in)) NULL else sweep(mat_in, 1L, sw_rw, "*")
+          } else if (!is.null(wb$we) && ncol(wb$we) > 0L) {
+            sv_we <- hrf_safe_svd(wb$we, nv = 0L)
+            pos_we <- if (length(sv_we$d)) sv_we$d > 1e-8 else logical(0L)
+            if (any(pos_we)) {
+              u_we <- sv_we$u[, pos_we, drop = FALSE]
+              fac_we <- 1.0 / sqrt(1.0 + sv_we$d[pos_we]^2) - 1.0
+              apply_rwls_whiten <- function(mat_in) {
+                if (is.null(mat_in)) return(NULL)
+                mat_in + u_we %*% sweep(crossprod(u_we, mat_in), 1L, fac_we, "*")
+              }
+            }
+          }
+          wb$wx <- apply_rwls_whiten(wb$wx)
+          if (!is.null(wb$wy)) wb$wy <- apply_rwls_whiten(wb$wy)
+          if (!is.null(wb$wt)) wb$wt <- apply_rwls_whiten(wb$wt)
         }
+
+        nrm <- sqrt(colSums(wb$wx^2)); nrm[nrm == 0] <- 1.0
+        sv <- hrf_safe_svd(sweep(wb$wx, 2L, nrm, "/"), nv = 0L)
+        rk <- if (length(sv$d) && sv$d[1L] > 0) sum(sv$d > 1e-8 * sv$d[1L]) else 0L
+        df_res <- m - rk
+        Q_tot <- if (rk > 0L) sv$u[, seq_len(rk), drop = FALSE] else matrix(0.0, m, 0L)
+        is_sat <- !isTRUE(md_s$used_trial_design)
+        df_floor_ms <- if (is_extra_only) max(120L, as.integer(floor(0.60 * m))) else 24L
+        if (!is.null(wb$wt) && df_res > df_floor_ms) {
+          wt <- if (rk > 0L) wb$wt - Q_tot %*% crossprod(Q_tot, wb$wt) else wb$wt
+          nt <- sqrt(colSums(wt^2)); pos_t <- nt > 1e-8
+          if (any(pos_t)) {
+            sv_t <- hrf_safe_svd(sweep(wt[, pos_t, drop = FALSE], 2L, nt[pos_t], "/"), nv = 0L)
+            rk_max <- if (is_extra_only) min(m_target, max(0L, df_res - df_floor_ms)) else max(0L, df_res - 24L)
+            sv_tol_t <- if (is_extra_only) 0.12 else 0.06
+            n_want <- if (length(sv_t$d) && sv_t$d[1L] > 0) sum(sv_t$d > sv_tol_t * sv_t$d[1L]) else 0L
+            rk_t <- min(rk_max, n_want)
+            if (rk_t > 0L) Q_tot <- cbind(Q_tot, sv_t$u[, seq_len(rk_t), drop = FALSE])
+            if (!is_extra_only) is_sat <- (n_want > rk_max)
+          }
+        }
+        sat_strata[si] <- is_sat
+        if (is_sat) any_saturated <- TRUE
+
+        M_s <- diag(m) - tcrossprod(Q_tot)
+        df_s <- max(1.0, sum(diag(M_s)))
+        df_strata[si] <- df_s
+        M_strata[[si]] <- M_s
+        G_inn_strata[[si]] <- if (has_rwls_w) t(apply_rwls_whiten(M_s)) else M_s
+
+        W_s <- hrf_whitening_matrix(rows, ar_op, unit_marginal = TRUE)
+        c_s <- sqrt(max(mean(rowSums(W_s^2)), 1e-12))
+        W_tilde_0 <- W_s / c_s
+        W_tilde <- if (has_rwls_w) apply_rwls_whiten(W_s) / c_s else W_tilde_0
+        c_strata[si] <- c_s
+        H_strata[[si]] <- M_s %*% W_tilde
+        W_tilde_0_strata[[si]] <- W_tilde_0
       }
-      sat_strata[si] <- is_sat
-      if (is_sat) any_saturated <- TRUE
-
-      M_s <- diag(m) - tcrossprod(Q_tot)
-      df_s <- max(1.0, sum(diag(M_s)))
-      df_strata[si] <- df_s
-      M_strata[[si]] <- M_s
-      G_inn_strata[[si]] <- if (has_rwls_w) t(apply_rwls_whiten(M_s)) else M_s
-
-      W_s <- hrf_whitening_matrix(rows, ar_op, unit_marginal = TRUE)
-      c_s <- sqrt(max(mean(rowSums(W_s^2)), 1e-12))
-      W_tilde_0 <- W_s / c_s
-      W_tilde <- if (has_rwls_w) apply_rwls_whiten(W_s) / c_s else W_tilde_0
-      c_strata[si] <- c_s
-      H_strata[[si]] <- M_s %*% W_tilde
 
       if (length(cols_s) > 0L) {
         if (!is.null(wb$wy)) {
@@ -1323,7 +1361,7 @@ medusa_fit_shared_error_covreg <- function(
       E = E_unit, E_rob = E_rob_unit, E_vox_full = E_vox_full, vox_sketch = vox_sketch_r,
       s2_raw_u = s2_raw_u, s2_rob_u = s2_rob_u, s_blk_u = s_blk_u, df_unit_v = df_unit_v,
       parcel_idio_s2 = parcel_idio_s2,
-      s_idx = s_idx_by_unit, S_cnt = S_cnt,
+      s_idx = s_idx_by_unit, s_base_idx = s_base_by_unit, S_cnt = S_cnt,
       M_strata = M_strata, G_inn_strata = G_inn_strata, H_strata = H_strata,
       U_strata = U_strata, V_obs_strata = V_obs_strata, ok_strata = ok_strata,
       e_task = e_task, E_cov_env = E_cov_env,
@@ -1563,7 +1601,10 @@ medusa_fit_shared_error_covreg <- function(
     B_tot <- L1 + 2L * M_dyn
 
     s_mat <- matrix(
-      vapply(run_store, function(rs) ifelse(is.na(rs$s_idx) | rs$s_idx < 1L, 1L, rs$s_idx), integer(P)),
+      vapply(run_store, function(rs) {
+        sb <- if (!is.null(rs$s_base_idx)) rs$s_base_idx else rs$s_idx
+        ifelse(is.na(sb) | sb < 1L, 1L, sb)
+      }, integer(P)),
       nrow = P, ncol = n_runs_act
     )
     unit_sig <- apply(s_mat, 1L, paste, collapse = ":")
@@ -2257,7 +2298,8 @@ medusa_fit_shared_error_covreg <- function(
       runs = lapply(seq_len(n_runs_act), function(r) {
         rs <- run_store[[r]]
         list(
-          m = rs$m, rows = rs$rows, m_target = rs$m_target, s_idx = s_mat[, r],
+          m = rs$m, rows = rs$rows, m_target = rs$m_target,
+          s_idx = ifelse(is.na(rs$s_idx) | rs$s_idx < 1L, 1L, rs$s_idx),
           U_strata = rs$U_strata, V_obs_strata = rs$V_obs_strata, ok_strata = rs$ok_strata,
           e_task = rs$e_task, E_cov_env = rs$E_cov_env, lag_pairs = rs$lag_pairs,
           run_scale = rs$run_scale
@@ -2547,7 +2589,10 @@ medusa_fit_shared_error_covreg <- function(
   B_tot <- L1 + 2L * M_dyn
 
   s_mat <- matrix(
-    vapply(run_store, function(rs) ifelse(is.na(rs$s_idx) | rs$s_idx < 1L, 1L, rs$s_idx), integer(P)),
+    vapply(run_store, function(rs) {
+      sb <- if (!is.null(rs$s_base_idx)) rs$s_base_idx else rs$s_idx
+      ifelse(is.na(sb) | sb < 1L, 1L, sb)
+    }, integer(P)),
     nrow = P, ncol = n_runs_act
   )
   unit_sig <- apply(s_mat, 1L, paste, collapse = ":")
@@ -2932,7 +2977,8 @@ medusa_fit_shared_error_covreg <- function(
     runs = lapply(seq_len(n_runs_act), function(r) {
       rs <- run_store[[r]]
       list(
-        m = rs$m, rows = rs$rows, m_target = rs$m_target, s_idx = s_mat[, r],
+        m = rs$m, rows = rs$rows, m_target = rs$m_target,
+        s_idx = ifelse(is.na(rs$s_idx) | rs$s_idx < 1L, 1L, rs$s_idx),
         U_strata = rs$U_strata, V_obs_strata = rs$V_obs_strata, ok_strata = rs$ok_strata,
         e_task = rs$e_task, E_cov_env = rs$E_cov_env, lag_pairs = rs$lag_pairs,
         vox_sketch = rs$vox_sketch, run_scale = rs$run_scale
@@ -3508,6 +3554,7 @@ aggregate_decon_panel <- function(
   has_tcor <- "trial_cor_vec" %in% names(dt)
   has_tres <- "trial_res_vec" %in% names(dt)
   has_se <- "se_demixed" %in% names(dt)
+  has_se_w <- "se_whitened" %in% names(dt)
   has_se_raw <- "se_raw" %in% names(dt)
   has_ac1 <- "error_ac1" %in% names(dt)
 
@@ -3549,6 +3596,15 @@ aggregate_decon_panel <- function(
       idio_v <- pmax(0.0, ifelse(is.finite(s2_v), s2_v, 0.0) - u2_v)
       s2_par <- sum(u_bar^2) + sum((wv^2) * idio_v)
       res[["se_demixed"]] <- sqrt(max(s2_par, 1e-12))
+      if (has_se_w) {
+        sw2_v <- as.numeric(se_whitened)^2
+        ok_sw <- is.finite(sw2_v) & is.finite(s2_v) & (s2_v > 0)
+        ratio_w <- if (any(ok_sw)) sum(wv[ok_sw] * (sw2_v[ok_sw] / s2_v[ok_sw])) / sum(wv[ok_sw]) else 1.0
+        res[["se_whitened"]] <- sqrt(max(s2_par * max(0.05, ratio_w), 1e-12))
+      }
+    } else if (has_se_w) {
+      sw_v <- as.numeric(se_whitened)^2
+      res[["se_whitened"]] <- sqrt(max(sum((wv^2) * ifelse(is.finite(sw_v), sw_v, 0.0)), 1e-12))
     }
     if (has_se_raw) {
       sr_v <- as.numeric(se_raw)^2
@@ -3723,6 +3779,11 @@ aggregate_decon_panel <- function(
         }
       }
     }
+    if (has_se_w && "se_demixed" %in% names(out_dt)) {
+      old_se_d <- pmax(as.numeric(out_dt$se_demixed), 1e-12)
+      old_se_w <- as.numeric(out_dt$se_whitened)
+      data.table::set(out_dt, j = "se_whitened", value = old_se_w * (se_p_col / old_se_d))
+    }
     data.table::set(out_dt, j = "se_demixed", value = se_p_col)
     data.table::set(out_dt, j = "trial_cor_vec", value = tcor_p_col)
     data.table::set(out_dt, j = "shared_noise_vec", value = svec_p_col)
@@ -3735,9 +3796,9 @@ aggregate_decon_panel <- function(
     }, by = c(id_col, parcel_col)]
   }
 
-  # Refresh parcel-level tau2_bio, reliability_trial, decon_eb, and precision_weight
+  # Refresh parcel-level tau2_bio, reliability_trial, decon_eb, precision_weight, precision_weight_cohort, and precision_weight_op
   if (all(c("decon_demixed", "se_demixed") %in% names(out_dt))) {
-    out_dt[, c("tau2_bio", "reliability_trial", "decon_eb", "precision_weight") := {
+    out_dt[, c("tau2_bio", "reliability_trial", "decon_eb", "precision_weight", "precision_weight_cohort", "precision_weight_op") := {
       y_c <- decon_demixed - ave(decon_demixed, get(run_col), FUN = function(z) mean(z, na.rm = TRUE))
       s2 <- se_demixed^2
       ok <- is.finite(y_c) & is.finite(s2) & (s2 > 0)
@@ -3747,11 +3808,13 @@ aggregate_decon_panel <- function(
         rel <- t2 / pmax(t2 + s2, 1e-12)
         mu_r <- ave(decon_demixed, get(run_col), FUN = function(z) mean(z, na.rm = TRUE))
         eb_v <- mu_r + rel * y_c
-        pw <- 1.0 / pmax(t2 + fl + s2, 1e-12)
-        pw <- pw / mean(pw[ok])
-        list(rep(t2, .N), rel, eb_v, pw)
+        pw_c <- 1.0 / pmax(t2 + fl + s2, 1e-12)
+        pw <- pw_c / mean(pw_c[ok])
+        pw_op_raw <- 1.0 / pmax(fl + s2, 1e-12)
+        pw_op <- pw_op_raw / mean(pw_op_raw[ok])
+        list(rep(t2, .N), rel, eb_v, pw, pw_c, pw_op)
       } else {
-        list(rep(0.0, .N), rep(0.0, .N), decon_demixed, rep(1.0, .N))
+        list(rep(0.0, .N), rep(0.0, .N), decon_demixed, rep(1.0, .N), rep(1.0, .N), rep(1.0, .N))
       }
     }, by = c(id_col, parcel_col, lag_col)]
   }
@@ -3759,6 +3822,8 @@ aggregate_decon_panel <- function(
   if (!has_id) out_dt[, (id_col) := NULL]
 
   out_dt <- data.table::setalloccol(out_dt)
+  data.table::setattr(out_dt, "tau2_mode_used", "marginal")
+  data.table::setattr(out_dt, "tau2_covariates", character(0L))
   for (at_nm in c("tr", "demix_target_trials")) {
     if (!is.null(attr(p_in, at_nm))) data.table::setattr(out_dt, at_nm, attr(p_in, at_nm))
   }

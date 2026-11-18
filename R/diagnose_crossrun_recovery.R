@@ -422,7 +422,7 @@ tune_demix_ridge_sure <- function(
 # Encode/decode centered m x m trial resolution matrix M_conn as a compact 9-lag
 # local band [d = 0, -1..-4, +1..+4] (9 x m) after removing the -1/m centering baseline
 # so stacked panels (`rbindlist`) and CSV exports retain exact trial resolution matching.
-.encode_trial_res_band <- function(M_conn, max_lag = 4L) {
+.encode_trial_res_band <- function(M_conn, max_lag = 4L, tr_nums = NULL) {
   d_len <- 2L * max_lag + 1L
   if (!is.matrix(M_conn) || nrow(M_conn) != ncol(M_conn) || nrow(M_conn) == 0L) {
     return(matrix(0.0, nrow = d_len, ncol = 0L))
@@ -433,15 +433,37 @@ tune_demix_ridge_sure <- function(
     out[1L, 1L] <- as.numeric(M_conn[1L, 1L])
     return(out)
   }
-  c_off <- sum(diag(M_conn)) / max(1.0, as.numeric(m) * (as.numeric(m) - 1.0))
+  tn_c <- if (is.null(tr_nums) || length(tr_nums) != m) seq_len(m) else as.integer(round(tr_nums))
+  far_mask <- abs(outer(tn_c, tn_c, "-")) > max_lag
+  c_off <- if (any(far_mask) && all(is.finite(M_conn[far_mask]))) {
+    -mean(M_conn[far_mask])
+  } else {
+    sum(diag(M_conn)) / max(1.0, as.numeric(m) * (as.numeric(m) - 1.0))
+  }
   B_loc <- M_conn + c_off
   out[1L, ] <- diag(B_loc)
-  for (lg in seq_len(max_lag)) {
-    if (lg < m) {
-      idx_hi <- (1L + lg):m
-      idx_lo <- 1L:(m - lg)
-      out[1L + lg, idx_hi] <- B_loc[cbind(idx_hi, idx_lo)]
-      out[1L + max_lag + lg, idx_lo] <- B_loc[cbind(idx_lo, idx_hi)]
+  contiguous_trials <- is.null(tr_nums) || (length(tr_nums) == m && all(diff(as.integer(round(tr_nums))) == 1L))
+  if (contiguous_trials) {
+    for (lg in seq_len(max_lag)) {
+      if (lg < m) {
+        idx_hi <- (1L + lg):m
+        idx_lo <- 1L:(m - lg)
+        out[1L + lg, idx_hi] <- B_loc[cbind(idx_hi, idx_lo)]
+        out[1L + max_lag + lg, idx_lo] <- B_loc[cbind(idx_lo, idx_hi)]
+      }
+    }
+  } else {
+    tn <- as.integer(round(tr_nums))
+    for (a in seq_len(m)) {
+      for (b in seq_len(m)) {
+        if (a == b) next
+        d_tr <- tn[b] - tn[a]
+        if (d_tr < 0L && abs(d_tr) <= max_lag) {
+          out[1L + abs(d_tr), a] <- B_loc[a, b]
+        } else if (d_tr > 0L && d_tr <= max_lag) {
+          out[1L + max_lag + d_tr, a] <- B_loc[a, b]
+        }
+      }
     }
   }
   out
@@ -2110,7 +2132,7 @@ decon_epoch_regression <- function(
       demixed_epochs[[li]][row_span, valid] <- S_lags_model[[li]] %*% act_r[, valid, drop = FALSE]
     }
 
-    if (is_auto_demix_ridge && demix_target_trials && !isTRUE(aggregate_by_parcel) && sum(valid) >= 2L) {
+    if (is_auto_demix_ridge && demix_target_trials && sum(valid) >= 2L) {
       li_dr <- which.min(abs(lags))[1L]
       Y_dr <- demixed_epochs[[li_dr]][row_span, , drop = FALSE]
       for (bk_dr in unique(keys[valid])) {
@@ -4399,7 +4421,7 @@ decon_epoch_regression <- function(
             op_rt <- ops_vt[[r_t]]
             if (is.null(op_rt) || is.null(op_rt$M_conn) || !length(op_rt$ok_r_local)) next
             rs_rt <- (starts[r_t]:ends[r_t])[op_rt$ok_r_local]
-            tres_arr_li[, rs_rt, vi_t] <- .encode_trial_res_band(op_rt$M_conn, max_lag = 8L)
+            tres_arr_li[, rs_rt, vi_t] <- .encode_trial_res_band(op_rt$M_conn, max_lag = 8L, tr_nums = op_rt$ok_r_local)
             has_any_tres <- TRUE
           }
         }
@@ -4445,6 +4467,13 @@ decon_epoch_regression <- function(
     data.table::setattr(panel_dt, "tr", fit$settings$tr)
     data.table::setattr(panel_dt, "raw_gain_by_lag_unit", gain_by_lag_voxel)
     data.table::setattr(panel_dt, "demix_target_trials", isTRUE(demix_target_trials))
+    tau2_is_cond <- (n_terms > 0L) && !identical(eff_tau2_mode, "marginal")
+    data.table::setattr(panel_dt, "tau2_mode_used", if (tau2_is_cond) "residual" else "marginal")
+    data.table::setattr(
+      panel_dt, "tau2_covariates",
+      if (tau2_is_cond) unique(c(term_names, paste0(term_names, "_whitened"))) else character(0L)
+    )
+    data.table::setattr(panel_dt, "tau2_shrinkage_used", eff_tau2_shrinkage)
   }
 
   list(
@@ -6161,7 +6190,7 @@ decon_connectivity_repair <- function(
         df_out <- rep(Inf, nrow(cf))
 
         # 5A: Cross-Trial (i != j) Hybrid Operator + Onset-Kernel Sandwich Variance & Satterthwaite df_eff
-        if (isTRUE(crosstrial_se) && all(!vapply(run_joint_list, is.null, logical(1L)))) {
+        if (isTRUE(crosstrial_se) && any(!vapply(run_joint_list, is.null, logical(1L)))) {
           ct_res <- tryCatch({
             p_full <- q_i + 1L
             des_full <- cbind(`(Intercept)` = 1.0, X_i)
@@ -6187,14 +6216,19 @@ decon_connectivity_repair <- function(
             for (rk_i in seq_len(n_runs_sub)) {
               idx_r <- run_idx_list[[rk_i]]
               m_r <- length(idx_r)
+              w_r <- w_c[idx_r]
               J_r_full <- run_joint_list[[rk_i]]
+              if (is.null(J_r_full)) {
+                Sig_u0_runs[[rk_i]] <- diag(1.0 / pmax(w_r, 1e-12) + delta_s2_eps, m_r)
+                C_om_runs[[rk_i]] <- matrix(0.0, p_full, p_full)
+                next
+              }
               if (K_act < K_cand) {
                 keep_j_idx <- c(seq_len(m_r), unlist(lapply(act_cand, function(kc) (kc * m_r + 1L):((kc + 1L) * m_r))))
                 J_r <- J_r_full[keep_j_idx, keep_j_idx, drop = FALSE]
               } else {
                 J_r <- J_r_full
               }
-              w_r <- w_c[idx_r]
 
               J_k_list <- vector("list", K_act)
               Jw_k_list <- vector("list", K_act)

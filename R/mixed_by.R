@@ -292,7 +292,11 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
   # support data.frame input for single dataset execution or a vector of files that are imported and fit sequentially
   if (checkmate::test_data_frame(data)) {
     single_df <- TRUE
+    in_tau2_mode <- attr(data, "tau2_mode_used")
+    in_tau2_covs <- attr(data, "tau2_covariates")
   } else {
+    in_tau2_mode <- NULL
+    in_tau2_covs <- NULL
     if (!checkmate::test_character(data)) {
       stop("If data is not a data.frame, it should be a set of file names.")
     }
@@ -440,8 +444,11 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
       if (do_cond_tau2 && any(ok_active) &&
           (weights %in% c("precision_weight_cohort", "precision_weight"))) {
         lhs_var <- all.vars(model_formula)[1L]
+        is_eb_out <- !is.na(lhs_var) && grepl("(^|_)eb($|_)", lhs_var)
         is_w_out <- !is.na(lhs_var) && grepl("_whitened$", lhs_var)
-        se_col_mb <- if (is_w_out && ("se_whitened" %in% names(data))) {
+        se_col_mb <- if (identical(reweight_conditional_tau2, "auto") && is_eb_out) {
+          NULL
+        } else if (is_w_out && ("se_whitened" %in% names(data))) {
           "se_whitened"
         } else if ("se_demixed" %in% names(data)) {
           "se_demixed"
@@ -465,7 +472,15 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
           if (all(is.finite(se_act) & se_act > 0)) {
             df_act <- as.data.frame(data)[act_rows, , drop = FALSE]
             nb_form <- lme4::nobars(model_formula)
-            X_fix <- tryCatch(stats::model.matrix(nb_form, data = df_act), error = function(e) NULL)
+            rhs_vars <- setdiff(all.vars(nb_form), lhs_var)
+            already_cond_attr <- identical(reweight_conditional_tau2, "auto") &&
+              !is.null(in_tau2_mode) &&
+              identical(in_tau2_mode, "residual") &&
+              length(rhs_vars) > 0L &&
+              all(rhs_vars %in% as.character(in_tau2_covs))
+            X_fix <- if (!already_cond_attr) {
+              tryCatch(stats::model.matrix(nb_form, data = df_act), error = function(e) NULL)
+            } else NULL
             if (!is.null(X_fix) && is.matrix(X_fix) && nrow(X_fix) == length(act_rows) && ncol(X_fix) >= 2L) {
               int_cols <- which(colnames(X_fix) == "(Intercept)")
               X_pred_all <- if (length(int_cols) > 0L) X_fix[, -int_cols, drop = FALSE] else X_fix
@@ -475,10 +490,13 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
                 grp_act <- as.character(df_act[[grp_col]])
                 u_grps <- unique(grp_act)
                 n_grps <- length(u_grps)
-                has_run_col <- ("run" %in% names(df_act)) && !is_w_out
+                has_run_col <- ("run" %in% names(df_act))
                 run_act <- if (has_run_col) as.character(df_act[["run"]]) else NULL
+                has_t2_col <- ("tau2_bio" %in% names(df_act))
 
                 tau2_raw_s <- rep(NA_real_, n_grps)
+                pred_ms_s <- rep(0.0, n_grps)
+                t2_step3_s <- rep(NA_real_, n_grps)
                 df_vec_s <- rep(NA_real_, n_grps)
                 s2_bar_s <- rep(NA_real_, n_grps)
                 s2_med_s <- rep(NA_real_, n_grps)
@@ -491,6 +509,9 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
                   s2_s <- s2_act[idx_s]
                   s2_bar_s[si] <- mean(s2_s)
                   s2_med_s[si] <- stats::median(s2_s)
+                  if (has_t2_col) {
+                    t2_step3_s[si] <- stats::median(as.numeric(df_act[["tau2_bio"]][idx_s]), na.rm = TRUE)
+                  }
                   if (n_s < 5L) next
 
                   y_s <- y_act[idx_s]
@@ -532,14 +553,26 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
                   if (rk_s < 1L || df_res_s < 3.0) next
 
                   Q_s <- qr.Q(qr_s)[, seq_len(rk_s), drop = FALSE]
-                  res_s <- y_s_c - as.numeric(Q_s %*% crossprod(Q_s, y_s_c))
+                  fit_s <- as.numeric(Q_s %*% crossprod(Q_s, y_s_c))
+                  res_s <- y_s_c - fit_s
                   p_diag_s <- pmax(0.0, 1.0 - h0_s - rowSums(Q_s * Q_s))
                   tau2_raw_s[si] <- (sum(res_s * res_s) - sum(p_diag_s * s2_s)) / df_res_s
+                  pred_ms_s[si] <- sum(fit_s * fit_s) / df_res_s
                   df_vec_s[si] <- df_res_s
                 }
 
                 valid_s <- is.finite(tau2_raw_s) & is.finite(df_vec_s) & (df_vec_s >= 3.0)
-                if (any(valid_s)) {
+                has_w_preds <- length(rhs_vars) > 0L && all(vapply(rhs_vars, function(v) {
+                  grepl("_whitened$", v) || (paste0(v, "_whitened") %in% names(data))
+                }, logical(1L)))
+                already_cond_emp <- identical(reweight_conditional_tau2, "auto") &&
+                  is.null(in_tau2_mode) &&
+                  has_w_preds &&
+                  any(valid_s) &&
+                  all(is.finite(t2_step3_s[valid_s])) &&
+                  (stats::median(t2_step3_s[valid_s] - pmax(0.0, tau2_raw_s[valid_s]), na.rm = TRUE) <=
+                     max(1e-8, 0.35 * stats::median(pred_ms_s[valid_s], na.rm = TRUE)))
+                if (any(valid_s) && !already_cond_emp) {
                   tau2_eb_s <- rep(0.0, n_grps)
                   if (sum(valid_s) >= 2L) {
                     tau2_pool <- max(0.0, stats::median(tau2_raw_s[valid_s]))
@@ -1285,11 +1318,17 @@ mixed_by <- function(data, outcomes = NULL, rhs_model_formulae = NULL, model_for
     lapply(engine_args, function(x) if (is.language(x)) all.vars(x) else character(0)),
     use.names = FALSE
   )
+  tau2_aux_cols <- if (!is.null(weights) && weights %in% c("precision_weight_cohort", "precision_weight")) {
+    c("se_demixed", "se_whitened", "run", "tau2_bio", paste0(form_vars, "_whitened"))
+  } else {
+    character(0L)
+  }
   cols <- unique(c(
     setdiff(split_on, c(".filename", "split")),
     names(split_filter),
     external_merge_by,
     weights,
+    tau2_aux_cols,
     scale_predictors,
     model_set$outcome,
     form_vars,
