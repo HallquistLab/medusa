@@ -40,7 +40,8 @@ decon_epoch_regression(
   variance_confounds = NULL,
   shared_error_method = c("poet_covreg", "legacy", "none"),
   bold = NULL,
-  other_event_model = c("auto", "trial", "condition")
+  other_event_model = c("auto", "trial", "condition"),
+  keep_sem_operators = TRUE
 )
 ```
 
@@ -340,6 +341,18 @@ decon_epoch_regression(
   to per-trial projection only when supported), `"trial"` (one nuisance
   column per non-target trial), or `"condition"` (one nuisance column
   per non-target condition).
+
+- keep_sem_operators:
+
+  Logical; if `TRUE` (default), retains per-run frame-by-trial readout
+  operators (`U_strata` and compact `V_obs_spec`) inside
+  `shared_error_model` for exact operator-mode downstream calls to
+  [`decon_connectivity_repair`](https://hallquistlab.github.io/medusa/reference/decon_connectivity_repair.md)
+  and
+  [`aggregate_decon_panel`](https://hallquistlab.github.io/medusa/reference/aggregate_decon_panel.md).
+  Set `FALSE` in batch jobs that only persist tabular
+  `panel`/`coefficients` outputs to release operator matrices
+  immediately after Stage-3 factor embedding.
 
 ## Value
 

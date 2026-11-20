@@ -85,7 +85,8 @@ per-trial operator precision weights and within-run error covariance.</p>
 <span>  variance_confounds <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  shared_error_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"poet_covreg"</span>, <span class="st">"legacy"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  bold <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  other_event_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"trial"</span>, <span class="st">"condition"</span><span class="op">)</span></span>
+<span>  other_event_model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"trial"</span>, <span class="st">"condition"</span><span class="op">)</span>,</span>
+<span>  keep_sem_operators <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -379,6 +380,16 @@ spatially correlated Satterthwaite \(F\)-screen and switches from
 condition-mean to per-trial projection only when supported), <code>"trial"</code>
 (one nuisance column per non-target trial), or <code>"condition"</code> (one
 nuisance column per non-target condition).</p></dd>
+
+
+<dt id="arg-keep-sem-operators">keep_sem_operators<a class="anchor" aria-label="anchor" href="#arg-keep-sem-operators"></a></dt>
+<dd><p>Logical; if <code>TRUE</code> (default), retains per-run
+frame-by-trial readout operators (<code>U_strata</code> and compact
+<code>V_obs_spec</code>) inside <code>shared_error_model</code> for exact operator-mode
+downstream calls to <code><a href="decon_connectivity_repair.html">decon_connectivity_repair</a></code> and
+<code><a href="aggregate_decon_panel.html">aggregate_decon_panel</a></code>. Set <code>FALSE</code> in batch jobs that
+only persist tabular <code>panel</code>/<code>coefficients</code> outputs to release
+operator matrices immediately after Stage-3 factor embedding.</p></dd>
 
 </dl></div>
     <div class="section level2">
