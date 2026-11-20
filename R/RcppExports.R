@@ -194,8 +194,20 @@ mat2df <- function(mat, na_zeros = FALSE, varnames = as.character( c("dim1", "di
     .Call(`_medusa_mat2df`, mat, na_zeros, varnames, value_name)
 }
 
+poet_csr_transpose_mult_cpp <- function(row_ptr, col_idx, val, n_rows, n_cols, X) {
+    .Call(`_medusa_poet_csr_transpose_mult_cpp`, row_ptr, col_idx, val, n_rows, n_cols, X)
+}
+
+poet_tr_MM_factored_cpp <- function(Q_list, m_in) {
+    .Call(`_medusa_poet_tr_MM_factored_cpp`, Q_list, m_in)
+}
+
 poet_build_pair_X_cpp <- function(M_A, M_B, G_A, G_B, H_A, H_B, adj_idx1, lag_pairs, f_dyn, L_max_in) {
     .Call(`_medusa_poet_build_pair_X_cpp`, M_A, M_B, G_A, G_B, H_A, H_B, adj_idx1, lag_pairs, f_dyn, L_max_in)
+}
+
+poet_build_pair_X_factored_cpp <- function(fac_A_r, fac_B_r, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in) {
+    .Call(`_medusa_poet_build_pair_X_factored_cpp`, fac_A_r, fac_B_r, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in)
 }
 
 poet_extract_Xty_diag_cpp <- function(E_runs, X_diag_runs, sig_idx, adj_idx1_runs, lag_pairs_runs, L_max_in, B_tot_in) {
@@ -204,6 +216,30 @@ poet_extract_Xty_diag_cpp <- function(E_runs, X_diag_runs, sig_idx, adj_idx1_run
 
 poet_fit_pair_batch_cpp <- function(E_runs, adj_idx1_runs, lag_pairs_runs, slot_XtX_list, slot_X_runs_list, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, pair_slot, pair_do_hac, pair_has_rhs, rhs_override) {
     .Call(`_medusa_poet_fit_pair_batch_cpp`, E_runs, adj_idx1_runs, lag_pairs_runs, slot_XtX_list, slot_X_runs_list, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, pair_slot, pair_do_hac, pair_has_rhs, rhs_override)
+}
+
+poet_build_trial_Ci_cpp <- function(U_ti, V_ti, map_s_idx1, G_stat_sub, B_dyn_sub, lag_pairs, f_dyn_r, gm_vec, run_scale_Cu, s2_diag_mat, n_lags_in, n_sC_in, L_max_in) {
+    .Call(`_medusa_poet_build_trial_Ci_cpp`, U_ti, V_ti, map_s_idx1, G_stat_sub, B_dyn_sub, lag_pairs, f_dyn_r, gm_vec, run_scale_Cu, s2_diag_mat, n_lags_in, n_sC_in, L_max_in)
+}
+
+poet_build_Xty_bulk_cpp <- function(E_runs, X_rep_runs, rep_grp, Xty_diag, adj_idx1_runs, lag_pairs_runs, G_rep_in, L_max_in, B_tot_in) {
+    .Call(`_medusa_poet_build_Xty_bulk_cpp`, E_runs, X_rep_runs, rep_grp, Xty_diag, adj_idx1_runs, lag_pairs_runs, G_rep_in, L_max_in, B_tot_in)
+}
+
+poet_extract_psd_factors_cpp <- function(C_in, k_rank_in, nC_in = 0L, n_lags_in = 1L, probe_cache_r = NULL) {
+    .Call(`_medusa_poet_extract_psd_factors_cpp`, C_in, k_rank_in, nC_in, n_lags_in, probe_cache_r)
+}
+
+poet_stage_e_stratum_moments_cpp <- function(U_si, V_si, ok_si, lag_pairs, f_dyn_r, gm_vec, Gamma_stat_cols, B_dyn_cols, sig0_rob_cols, rsc2_cols, L_max_in, K_tcor_in, D_lag_in, return_panel) {
+    .Call(`_medusa_poet_stage_e_stratum_moments_cpp`, U_si, V_si, ok_si, lag_pairs, f_dyn_r, gm_vec, Gamma_stat_cols, B_dyn_cols, sig0_rob_cols, rsc2_cols, L_max_in, K_tcor_in, D_lag_in, return_panel)
+}
+
+poet_stage_e_component_svec_cpp <- function(U_sub_strata, ok_sub_strata, vsp_sub_strata, map_s_idx1, G_stat_sub, B_dyn_sub, lag_pairs, f_dyn_r, gm_vec, run_scale_Cu, s2_comp_arr, probe_cache_r, d_m_in, m_t_in, n_lags_in, L_max_in) {
+    .Call(`_medusa_poet_stage_e_component_svec_cpp`, U_sub_strata, ok_sub_strata, vsp_sub_strata, map_s_idx1, G_stat_sub, B_dyn_sub, lag_pairs, f_dyn_r, gm_vec, run_scale_Cu, s2_comp_arr, probe_cache_r, d_m_in, m_t_in, n_lags_in, L_max_in)
+}
+
+poet_cols_to_list_cpp <- function(M) {
+    .Call(`_medusa_poet_cols_to_list_cpp`, M)
 }
 
 #' Sigmoid transform

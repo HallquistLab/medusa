@@ -35,7 +35,8 @@ decon_epoch_regression(
   variance_confounds = NULL,
   shared_error_method = c("poet_covreg", "legacy", "none"),
   bold = NULL,
-  other_event_model = c("auto", "trial", "condition")
+  other_event_model = c("auto", "trial", "condition"),
+  keep_sem_operators = TRUE
 )
 }
 \arguments{
@@ -264,6 +265,14 @@ spatially correlated Satterthwaite \eqn{F}-screen and switches from
 condition-mean to per-trial projection only when supported), \code{"trial"}
 (one nuisance column per non-target trial), or \code{"condition"} (one
 nuisance column per non-target condition).}
+
+\item{keep_sem_operators}{Logical; if \code{TRUE} (default), retains per-run
+frame-by-trial readout operators (\code{U_strata} and compact
+\code{V_obs_spec}) inside \code{shared_error_model} for exact operator-mode
+downstream calls to \code{\link{decon_connectivity_repair}} and
+\code{\link{aggregate_decon_panel}}. Set \code{FALSE} in batch jobs that
+only persist tabular \code{panel}/\code{coefficients} outputs to release
+operator matrices immediately after Stage-3 factor embedding.}
 }
 \value{
 A list with \code{coefficients} (per voxel/parcel, lag, and predictor

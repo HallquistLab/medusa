@@ -764,3 +764,264 @@ test_that("variance_confounds accepts medusa_confounds, medusa_nifti_ts, and sta
     "Run mismatch in 'variance_confounds'"
   )
 })
+
+test_that("factored operators, bounded pair batching, compact V_obs_spec, and Kronecker-free Ci preserve exact numerical parity", {
+  set.seed(20261208L)
+  m <- 96L
+  rows <- sort(sample(seq_len(112L), m))
+  L_max <- 8L
+  d_mat <- abs(outer(rows, rows, "-"))
+  adj_idx1 <- which(abs(rows[2:m] - rows[1:(m - 1L)]) == 1L)
+  lag_pairs <- lapply(seq_len(L_max), function(d) which(d_mat == d, arr.ind = TRUE))
+  f_obs <- cbind(scale(stats::rnorm(m)), scale(stats::rnorm(m)), pmax(0.0, stats::rnorm(m)))
+
+  ar_list <- list(c(0.38), c(0.44, 0.14))
+  Q_list <- lapply(c(14L, 18L), function(rk) qr.Q(qr(matrix(stats::rnorm(m * rk), m, rk))))
+
+  # 1. poet_tr_MM_factored_cpp: exact parity on both direct (S <= 8) and blocked dsyrk (S = 40) paths
+  Q_big <- lapply(seq_len(40L), function(s) qr.Q(qr(matrix(stats::rnorm(m * (24L + (s %% 5L))), m, 24L + (s %% 5L)))))
+  M_big_flat <- vapply(Q_big, function(Qs) as.numeric(diag(m) - tcrossprod(Qs)), numeric(m * m))
+  tr_ref_big <- crossprod(M_big_flat)
+  tr_fac_small <- poet_tr_MM_factored_cpp(Q_big[1:6], m)
+  tr_fac_big <- poet_tr_MM_factored_cpp(Q_big, m)
+  expect_lt(max(abs(tr_fac_small - tr_ref_big[1:6, 1:6])), 1e-12)
+  expect_lt(max(abs(tr_fac_big - tr_ref_big)), 1e-12)
+
+  # 2. poet_build_pair_X_factored_cpp vs dense poet_build_pair_X_cpp across none, innovation, and woodbury rWLS
+  fw_eff <- rep(1.0, m)
+  fw_eff[c(12L, 47L, 81L)] <- c(0.008, 0.015, 0.022)
+  for (rw_mode in c("none", "innovation", "woodbury")) {
+    has_rw <- rw_mode != "none"
+    e_rw <- NULL
+    if (rw_mode == "woodbury") {
+      act <- which(fw_eff < 1.0 - 1e-6)
+      e_rw <- matrix(0.0, m, length(act))
+      e_rw[cbind(act, seq_along(act))] <- sqrt(1.0 / fw_eff[act] - 1.0)
+    }
+
+    dense_M <- dense_G <- dense_H <- fac_ops <- vector("list", 2L)
+    for (s in 1:2) {
+      Qs <- Q_list[[s]]
+      Ms <- diag(m) - tcrossprod(Qs)
+      Ws_dense <- hrf_whitening_matrix(rows, ar_list[[s]], unit_marginal = TRUE)
+      cs <- sqrt(mean(rowSums(Ws_dense^2)))
+      Wt0_dense <- Ws_dense / cs
+      Ws_csr <- .scale_csr_rows(.build_whitening_csr(rows, ar_list[[s]], unit_marginal = TRUE), 1.0 / cs)
+
+      if (!has_rw) {
+        Gs <- Ms
+        Hs <- Ms %*% Wt0_dense
+        Wb_csr <- Ws_csr
+        VHQ <- poet_csr_transpose_mult_cpp(Wb_csr$row_ptr, Wb_csr$col_idx, Wb_csr$val, m, m, Qs)
+        fac_ops[[s]] <- list(
+          m = m, Q = Qs, VH_Q = VHQ,
+          W_row_ptr = Wb_csr$row_ptr, W_col_idx = Wb_csr$col_idx, W_val = Wb_csr$val,
+          has_woodbury = FALSE
+        )
+      } else if (rw_mode == "innovation") {
+        sw <- sqrt(fw_eff)
+        Gs <- t(sweep(Ms, 1L, sw, "*"))
+        Hs <- Ms %*% sweep(Wt0_dense, 1L, sw, "*")
+        Wb_csr <- .scale_csr_rows(Ws_csr, sw)
+        VHQ <- poet_csr_transpose_mult_cpp(Wb_csr$row_ptr, Wb_csr$col_idx, Wb_csr$val, m, m, Qs)
+        fac_ops[[s]] <- list(
+          m = m, Q = Qs, VH_Q = VHQ,
+          W_row_ptr = Wb_csr$row_ptr, W_col_idx = Wb_csr$col_idx, W_val = Wb_csr$val,
+          has_woodbury = FALSE
+        )
+      } else {
+        we_w <- hrf_apply_whitening(e_rw, rows = rows, ar_vec = ar_list[[s]], unit_marginal = TRUE)
+        sv_w <- svd(we_w, nv = 0L)
+        uw <- sv_w$u
+        fw_fac <- 1.0 / sqrt(1.0 + sv_w$d^2) - 1.0
+        app_w <- function(A) A + uw %*% sweep(crossprod(uw, A), 1L, fw_fac, "*")
+        Gs <- t(app_w(Ms))
+        Hs <- Ms %*% app_w(Wt0_dense)
+        VHQ <- poet_csr_transpose_mult_cpp(Ws_csr$row_ptr, Ws_csr$col_idx, Ws_csr$val, m, m, Qs)
+        MUw <- uw - Qs %*% crossprod(Qs, uw)
+        Pw <- sweep(
+          poet_csr_transpose_mult_cpp(Ws_csr$row_ptr, Ws_csr$col_idx, Ws_csr$val, m, m, uw),
+          2L, fw_fac, "*"
+        )
+        fac_ops[[s]] <- list(
+          m = m, Q = Qs, VH_Q = VHQ,
+          W_row_ptr = Ws_csr$row_ptr, W_col_idx = Ws_csr$col_idx, W_val = Ws_csr$val,
+          has_woodbury = TRUE, u_we = uw, MU_we = MUw, fac_we = fw_fac, P_we = Pw
+        )
+      }
+      dense_M[[s]] <- Ms; dense_G[[s]] <- Gs; dense_H[[s]] <- Hs
+    }
+
+    f_inn <- if (rw_mode == "innovation") sweep(f_obs, 1L, fw_eff, "*") else f_obs
+    for (pair in list(c(1L, 1L), c(1L, 2L), c(2L, 2L))) {
+      sa <- pair[1L]; sb <- pair[2L]
+      X_den <- poet_build_pair_X_cpp(
+        dense_M[[sa]], dense_M[[sb]], dense_G[[sa]], dense_G[[sb]], dense_H[[sa]], dense_H[[sb]],
+        adj_idx1, lag_pairs, f_obs, L_max
+      )
+      X_fac <- poet_build_pair_X_factored_cpp(
+        fac_ops[[sa]], fac_ops[[sb]], adj_idx1, lag_pairs, f_inn, f_obs, L_max
+      )
+      expect_lt(max(abs(X_fac - X_den)), 1e-13)
+    }
+
+    # 3. Stage D batch splitting is bitwise invariant across arbitrary chunk sizes (with HAC + non-HAC + VC)
+    P_b <- 6L
+    E_r <- list(matrix(stats::rnorm(m * P_b), m, P_b), matrix(stats::rnorm(m * P_b), m, P_b))
+    X11 <- poet_build_pair_X_factored_cpp(fac_ops[[1L]], fac_ops[[1L]], adj_idx1, lag_pairs, f_inn, f_obs, L_max)
+    X12 <- poet_build_pair_X_factored_cpp(fac_ops[[1L]], fac_ops[[2L]], adj_idx1, lag_pairs, f_inn, f_obs, L_max)
+    slot_XtX <- list(2.0 * crossprod(X11), 2.0 * crossprod(X12))
+    slot_X_runs <- list(list(X11, X11), list(X12, X12))
+    L1 <- L_max + 1L; M_dyn <- ncol(f_obs); B_tot <- L1 + 2L * M_dyn
+    A_tie <- matrix(0.0, B_tot, L1 + M_dyn)
+    A_tie[1:L1, 1:L1] <- diag(L1)
+    for (j in seq_len(M_dyn)) { A_tie[L1 + j, L1 + j] <- 0.25; A_tie[L1 + M_dyn + j, L1 + j] <- 0.75 }
+    R_p <- stats::cov2cor(crossprod(matrix(stats::rnorm(P_b * P_b), P_b, P_b)) + diag(P_b))
+    s0 <- rep(1.1, P_b)
+    off_ij <- which(row(R_p) < col(R_p), arr.ind = TRUE)
+    n_op <- nrow(off_ij)
+    p_slot <- rep(c(1L, 2L), length.out = n_op)
+    p_hac <- rep(c(TRUE, FALSE, FALSE), length.out = n_op)
+    p_rhs <- rep(FALSE, n_op)
+    rhs_z <- matrix(0.0, B_tot, n_op)
+
+    fit_one <- poet_fit_pair_batch_cpp(
+      E_r, list(adj_idx1, adj_idx1), list(lag_pairs, lag_pairs),
+      slot_XtX, slot_X_runs, A_tie, L_max, L1, M_dyn, 2L, 3L, s0, R_p,
+      off_ij[, 1L], off_ij[, 2L], p_slot, p_hac, p_rhs, rhs_z
+    )
+    chunks <- split(seq_len(n_op), ceiling(seq_len(n_op) / 4L))
+    b_cat <- do.call(cbind, lapply(chunks, function(ix) {
+      poet_fit_pair_batch_cpp(
+        E_r, list(adj_idx1, adj_idx1), list(lag_pairs, lag_pairs),
+        slot_XtX, slot_X_runs, A_tie, L_max, L1, M_dyn, 2L, 3L, s0, R_p,
+        off_ij[ix, 1L], off_ij[ix, 2L], p_slot[ix], p_hac[ix], p_rhs[ix], rhs_z[, ix, drop = FALSE]
+      )$b_dyn
+    }))
+    v_cat <- do.call(cbind, lapply(chunks, function(ix) {
+      poet_fit_pair_batch_cpp(
+        E_r, list(adj_idx1, adj_idx1), list(lag_pairs, lag_pairs),
+        slot_XtX, slot_X_runs, A_tie, L_max, L1, M_dyn, 2L, 3L, s0, R_p,
+        off_ij[ix, 1L], off_ij[ix, 2L], p_slot[ix], p_hac[ix], p_rhs[ix], rhs_z[, ix, drop = FALSE]
+      )$v_dyn
+    }))
+    expect_identical(b_cat, fit_one$b_dyn)
+    expect_identical(v_cat, fit_one$v_dyn)
+  }
+
+  # 4. poet_build_trial_Ci_cpp matches explicit Kronecker trial covariance construction to < 1e-13
+  nC <- 7L; n_sC <- 4L; n_lags <- 3L
+  map_s <- c(1L, 2L, 1L, 3L, 4L, 2L, 4L)
+  U_ti <- matrix(stats::rnorm(m * n_sC * n_lags), m, n_sC * n_lags)
+  V_ti <- matrix(stats::rnorm(m * n_sC * n_lags), m, n_sC * n_lags)
+  G_sub <- lapply(seq_len(L_max + 1L), function(l) { A <- matrix(stats::rnorm(nC * nC), nC, nC); 0.5 * (A + t(A)) })
+  B_sub <- lapply(1:3, function(j) { A <- matrix(stats::rnorm(nC * nC), nC, nC); 0.5 * (A + t(A)) })
+  gm_v <- c(0.8, 1.0, 0.8)
+  rsc <- seq(0.85, 1.25, length.out = nC)
+  s2_m <- matrix(abs(stats::rnorm(nC * n_lags)) + 0.5, nC, n_lags)
+
+  Ci_cpp <- poet_build_trial_Ci_cpp(U_ti, V_ti, map_s, G_sub, B_sub, lag_pairs, f_obs, gm_v, rsc, s2_m, n_lags, n_sC, L_max)
+
+  ones_l <- matrix(1.0, n_lags, n_lags)
+  U_exp <- matrix(0.0, m, nC * n_lags); V_exp <- matrix(0.0, m, nC * n_lags)
+  for (la in seq_len(n_lags)) {
+    for (ic in seq_len(nC)) {
+      U_exp[, (la - 1L) * nC + ic] <- U_ti[, (la - 1L) * n_sC + map_s[ic]]
+      V_exp[, (la - 1L) * nC + ic] <- V_ti[, (la - 1L) * n_sC + map_s[ic]]
+    }
+  }
+  Ci_ref <- kronecker(ones_l, G_sub[[1L]]) * crossprod(U_exp)
+  for (d in seq_len(L_max)) {
+    pd <- lag_pairs[[d]]
+    Ci_ref <- Ci_ref + kronecker(ones_l, G_sub[[d + 1L]]) * crossprod(U_exp[pd[, 1L], , drop = FALSE], U_exp[pd[, 2L], , drop = FALSE])
+  }
+  for (j in 1:3) {
+    fj <- f_obs[, j]; gm <- gm_v[j]
+    Ci_ref <- Ci_ref + kronecker(ones_l, B_sub[[j]]) * ((1.0 - gm) * crossprod(U_exp, fj * U_exp) + gm * crossprod(V_exp, fj * V_exp))
+  }
+  Ci_ref <- Ci_ref * tcrossprod(rep(rsc, times = n_lags))
+  for (la in seq_len(n_lags)) diag(Ci_ref)[(la - 1L) * nC + seq_len(nC)] <- s2_m[, la]
+  expect_lt(max(abs(Ci_cpp - Ci_ref)), 1e-13)
+
+  # 5. Compact V_obs_spec + .sem_get_V_obs exact reconstruction under multi-stratum parcel_mix & Woodbury rWLS
+  tr <- 1.0; n_t <- 130L; n_tr <- 20L
+  lib <- hrf_library(tr, peak_delays = c(5.0, 6.0), dispersions = 1.0, undershoot_ratios = 6)
+  p_grp <- stats::setNames(rep(c("P1", "P2", "P3"), each = 2L), paste0("v", 1:6))
+  bold_m <- ev_m <- cov_m <- valid_m <- list()
+  for (r in 1:2) {
+    rn <- paste0("run", r)
+    tev <- cumsum(c(6.0, stats::runif(n_tr - 1L, 4.0, 5.8)))
+    xv <- as.numeric(scale(stats::rnorm(n_tr)))
+    des <- hrf_event_design_cpp(n_t, tr, 0.0, tev, rep(0.0, n_tr), seq_len(n_tr), n_tr, lib[, 1L, drop = FALSE])[[1L]] / max(lib[, 1L])
+    ym <- matrix(100 + stats::rnorm(n_t * 6L, sd = 0.25), n_t, 6L, dimnames = list(NULL, names(p_grp)))
+    f_sh <- stats::rnorm(n_t, sd = 0.30)
+    ym[, 1:4] <- ym[, 1:4] + f_sh + as.numeric(des %*% (0.7 + 0.3 * xv))
+    ym[c(35L, 90L), ] <- ym[c(35L, 90L), ] + c(8.0, -7.5)
+    kl <- rep(TRUE, n_t); kl[c(20L, 21L, 70L)] <- FALSE
+    valid_m[[rn]] <- kl; bold_m[[rn]] <- ym
+    ev_m[[rn]] <- data.frame(onset = tev, duration = 0.0, condition = "fb")
+    cov_m[[rn]] <- data.frame(x = xv)
+  }
+  fh_m <- estimate_crossrun_hrf(bold_m, ev_m, tr, lib, valid_rows = valid_m, pooling = "voxel", noise_model = "ar1")
+  dc_m <- deconvolve_crossrun_hrf(bold_m, fh_m, lambda = seq(0.3, 0.9, length.out = 6L), scaling = "noise_sd", penalty = "sobolev", rwls = "auto")
+  rg_m <- decon_epoch_regression(
+    dc_m, cov_m, events = ev_m, target_condition = "fb",
+    lags = c(0, 1), restore_scale = TRUE, aggregate_by_parcel = TRUE, parcel_groups = p_grp, return_panel = TRUE
+  )
+  rs1 <- rg_m$shared_error_model$runs[[1L]]
+  expect_null(rs1$V_obs_strata)
+  expect_true(is.list(rs1$V_obs_spec))
+  V_full_1 <- .sem_get_V_obs(rs1, 1L, 1L)
+  sub_cols <- c(7L, 2L, 14L, 2L)
+  expect_lt(max(abs(.sem_get_V_obs(rs1, 1L, 1L, sub_cols) - V_full_1[, sub_cols, drop = FALSE])), 1e-14)
+
+  # Materializing V_obs_strata yields identical decon_connectivity_repair output (< 1e-13)
+  rg_dense_v <- rg_m
+  for (ri in seq_along(rg_dense_v$shared_error_model$runs)) {
+    rs_i <- rg_dense_v$shared_error_model$runs[[ri]]
+    S_i <- length(rs_i$U_strata)
+    L_i <- length(rs_i$U_strata[[1L]])
+    rs_i$V_obs_strata <- lapply(seq_len(S_i), function(si) lapply(seq_len(L_i), function(li) .sem_get_V_obs(rs_i, si, li)))
+    rs_i$V_obs_spec <- NULL
+    rg_dense_v$shared_error_model$runs[[ri]] <- rs_i
+  }
+  c_spec <- decon_connectivity_repair(rg_m, "P1", "P2", seed_lag = 0, target_lag = 1, test_ppi = TRUE)
+  c_dens <- decon_connectivity_repair(rg_dense_v, "P1", "P2", seed_lag = 0, target_lag = 1, test_ppi = TRUE)
+  expect_equal(c_spec$group$estimate, c_dens$group$estimate, tolerance = 1e-13)
+  expect_equal(c_spec$group$std.error, c_dens$group$std.error, tolerance = 1e-13)
+
+  # 6. keep_sem_operators = FALSE preserves panel & stacked connectivity identically while releasing U_strata
+  rg_no_ops <- decon_epoch_regression(
+    dc_m, cov_m, events = ev_m, target_condition = "fb",
+    lags = c(0, 1), restore_scale = TRUE, aggregate_by_parcel = TRUE, parcel_groups = p_grp,
+    return_panel = TRUE, keep_sem_operators = FALSE
+  )
+  expect_null(rg_no_ops$shared_error_model$runs[[1L]]$U_strata)
+  expect_null(rg_no_ops$shared_error_model$runs[[1L]]$V_obs_spec)
+  expect_equal(rg_no_ops$panel$se_demixed, rg_m$panel$se_demixed, tolerance = 1e-14)
+  expect_equal(unlist(rg_no_ops$panel$trial_cor_vec), unlist(rg_m$panel$trial_cor_vec), tolerance = 1e-14)
+  expect_equal(unlist(rg_no_ops$panel$shared_noise_vec), unlist(rg_m$panel$shared_noise_vec), tolerance = 1e-12)
+  c_st_m <- decon_connectivity_repair(data.table::rbindlist(list(rg_m$panel)), "P1", "P2", seed_lag = 0, target_lag = 1, test_ppi = TRUE)
+  c_st_no <- decon_connectivity_repair(data.table::rbindlist(list(rg_no_ops$panel)), "P1", "P2", seed_lag = 0, target_lag = 1, test_ppi = TRUE)
+  expect_equal(c_st_no$group$estimate, c_st_m$group$estimate, tolerance = 1e-12)
+  expect_equal(c_st_no$group$std.error, c_st_m$group$std.error, tolerance = 1e-12)
+
+  # 7. poet_cols_to_list_cpp matches column splitting into plain numeric vectors
+  M_split <- matrix(stats::rnorm(5L * 11L), 5L, 11L)
+  lst_cpp <- poet_cols_to_list_cpp(M_split)
+  expect_length(lst_cpp, 11L)
+  expect_null(dim(lst_cpp[[1L]]))
+  expect_identical(do.call(cbind, lst_cpp), M_split)
+
+  # 8. shallow_panel_dt strips heavy attributes without mutating caller data.table
+  sh_dt <- shallow_panel_dt(rg_m$panel)
+  expect_null(attr(sh_dt, "shared_error_model"))
+  expect_false(is.null(attr(rg_m$panel, "shared_error_model")))
+  orig_names <- copy(names(rg_m$panel))
+  sh_dt[, .tmp_col := 1L]
+  expect_identical(names(rg_m$panel), orig_names)
+  c_panel_attr <- decon_connectivity_repair(rg_m$panel, "P1", "P2", seed_lag = 0, target_lag = 1, test_ppi = TRUE)
+  expect_equal(c_panel_attr$group$estimate, c_spec$group$estimate, tolerance = 1e-13)
+  expect_equal(c_panel_attr$group$std.error, c_spec$group$std.error, tolerance = 1e-13)
+  expect_identical(names(rg_m$panel), orig_names)
+})

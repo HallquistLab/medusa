@@ -202,6 +202,23 @@ parse_serialized_vec_col <- function(col) {
   replicate(n, numeric(0L), simplify = FALSE)
 }
 
+shallow_panel_dt <- function(df) {
+  if (!is.data.frame(df)) {
+    return(data.table::copy(data.table::as.data.table(df)))
+  }
+  nc <- length(df)
+  cols <- vector("list", nc)
+  names(cols) <- names(df)
+  for (j in seq_len(nc)) {
+    cols[[j]] <- .subset2(df, j)
+  }
+  nr <- if (nc > 0L) length(cols[[1L]]) else nrow(df)
+  attr(cols, "row.names") <- .set_row_names(nr)
+  class(cols) <- "data.frame"
+  data.table::setDT(cols)
+  cols
+}
+
 restore_panel_vec_cols <- function(
   df,
   cols = c("shared_noise_vec", "trial_cor_vec", "lag_noise_vec", "trial_res_vec")
