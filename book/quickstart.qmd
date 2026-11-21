@@ -36,13 +36,11 @@ Before copying a template, @fig-quickstart-mechanics traces a simulated particip
 
 ![Live signal walkthrough across Steps 0–5 (`assets/quickstart-figures.R`). **(A) Step 1:** Leave-one-run-out cross-fitting recovers the region's fast `3.0 s` HRF peak from runs 2–3 rather than assuming a sluggish `6.0 s` canonical template. **(B) Steps 0 & 2:** Flagging high-motion frames in `valid_rows` preserves exact event timestamps while `deconvolve_crossrun_hrf(..., rwls = "auto")` shifts delayed BOLD peaks back to feedback onsets (dashed lines), suppresses inverse ringing around an unmasked glitch at `95 s`, and bridges smoothly across scrubbed frames. **(C) Steps 3–4:** Joint `(T, O)` de-mixing removes preceding cue bleed and assigns wider analytical `se_demixed` bars (and lower `precision_weight`) to trials whose causal HRF tail falls partially inside the scrub gap. **(D) Step 5:** `medusa_multilag_infer()` sharpens cross-lag deconvolution smoothing onto true neural event time (`0 s`) with simultaneous 95% `Max-|T|` confidence bands.](assets/quickstart-step-mechanics.png){#fig-quickstart-mechanics width="100%" fig-alt="Four-panel signal walkthrough illustrating Step 1 out-of-sample HRF recovery, Step 2 continuous GLS deconvolution with RWLS glitch suppression and scrub bridging, Steps 3-4 de-mixed trial readouts with scrub-shadowed SEs, and Step 5 deblurred group lag trajectory."}
 
-1. **Step 0 — Intact-clock ingestion (`read_fmriprep_subject()` / `read_nifti_ts()`):** Instead of deleting high-motion or dummy volumes (which shifts the acquisition clock relative to BIDS `onset` seconds), Step 0 flags bad frames in `valid_rows` (`FALSE` = censor) and keeps nuisance task events (such as missed-response timeouts) in `events` so their BOLD waves are accounted for rather than left in the residual.
-2. **Step 1 — Out-of-sample geodesic HRF & $\text{AR}(1)$ noise (`estimate_crossrun_hrf()`):** Each target run's HRF is learned exclusively from the participant's *other* runs ($s \neq r$; @fig-quickstart-mechanics, Panel A), preventing overfitting while `pooling = "graph"` pools HRF evidence along connected in-mask gray matter without bleeding across CSF sulci. Setting `amplitude_model = "auto"` enables SVD fractional-ridge trial scoring so regions driven by zero-mean modulators (such as signed RPE with zero condition-mean intercept) still identify their true HRF, while `noise_pcs = "auto"` cross-validates $0\text{--}10$ GLMdenoise-style temporal PCs from task-silent cortex.
-3. **Step 2 — Event-informed continuous GLS deconvolution (`deconvolve_crossrun_hrf()`):** After pre-projecting `< 1/128 Hz` DCT drift, confounds, and selected noise PCs on `valid_rows` (`nuisance_mode = "preproject"`), Step 2 solves a prewhitened continuous inverse on an event-projected noise scale (`scaling = "noise_sd"`). `lambda_mode = "auto"` assigns stronger smoothing to quiet cortex and lighter smoothing to high-SNR foci, while `rwls = "auto"` downweights isolated non-task glitches without attenuating real neural bursts (@fig-quickstart-mechanics, Panel B).
-4. **Steps 3 & 4 — `(T, O)` epoch de-mixing & multi-stratum parcel pooling (`decon_epoch_regression()`):** Reading continuous $\widehat{a}(t)$ directly at feedback onset would retain collateral BOLD tails from preceding cues and smoothing cross-talk from neighboring trials. Step 3 subtracts non-target spillover (`other_event_model = "auto"`), inverts target-to-target mixing (`demix_ridge = "auto"`), and propagates exact per-trial measurement standard errors (`se_demixed`; @fig-quickstart-mechanics, Panel C). When `parcel_groups` is supplied (Step 4), voxels are weighted by cross-run precision while propagating spatial noise correlations from Step 2's task-free `noise_innovations`.
-5. **Steps 5 & 6 — Role-matched cohort inference:**
-   - When neural activity is the **outcome** (`Neural ~ Behavior`, Step 5), zero-mean trial error enters the residual without biasing slopes; `mixed_by(..., weights = "precision_weight_cohort")` weights each trial by $(\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$, and `medusa_multilag_infer()` deblurs multi-lag trajectories (@fig-quickstart-mechanics, Panel D; lag-0 RPE estimate = `r f2(qm$lag0_rpe_est)` vs. `0.70` truth).
-   - When neural activity is a **predictor** (`Target ~ Seed * Task`, Step 6), predictor measurement error attenuates naive slopes while shared physiological noise (`r f2(qm$conn_naive)` naive OLS vs. `0.50` truth here) biases them; `decon_connectivity_repair()` ([Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)) subtracts both error moments with M-MOMS conditioning protection.
+1. **Keep event time (Step 0).** A scrubbed frame still occupies one TR on the clock. Mark it in `valid_rows` and keep events such as missed-response cues in the schedule if they evoked BOLD.
+2. **Learn regional timing (Step 1, panel A).** Other runs provide the HRF for the target run. A signed prediction error can evoke strong responses that average to zero, so `amplitude_model = "auto"` also looks for trial-varying activity. Background time courses that pass the noise-PC screen can enter the nuisance model. [Noise-PC demonstration](medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-noise-pool-pcs)
+3. **Reconstruct continuous activity (Step 2, panel B).** The inverse uses the selected HRF and serial noise model. Smoothing controls how much rapid variation the data can support. Estimates inside a scrubbed interval depend on neighboring frames and the penalty.
+4. **Measure each feedback response (Steps 3–4, panel C).** Estimate and subtract spillover from preceding cues, then correct mixing among feedback trials. Each parcel gets an amplitude (`decon_demixed`) and measurement uncertainty (`se_demixed`). A connectivity analysis also needs the estimated covariance of the errors in two parcels. [POET demonstration](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)
+5. **Test the planned effect.** Use Step 5 for a behavioral predictor of neural activity (panel D gives a lag-zero estimate of `r f2(qm$lag0_rpe_est)` for a generating slope of 0.70). Use Step 6 for a neural predictor of another parcel. In the latter case, `decon_connectivity_repair()` accounts for both seed noise and shared seed–target noise.
 
 ---
 
@@ -269,14 +267,27 @@ write_nifti_ts(
 
 ## Cohort Inference Templates (Steps 5 & 6) {#sec-qs-group}
 
-Once participant outputs are collected across the cohort (`group_panel` stacked via `data.table::rbindlist()` or `subject_epochs` named list):
+Collect the Branch A epoch objects in `subject_epochs`, a list named by participant ID. Suppose `trial_behavior` contains one row per feedback event with `id`, `run`, `event_index` and `rpe`. The event index is its row in the **full run event table**, before selecting feedback. Center RPE once on those behavioral rows so the same event has the same predictor in every parcel and lag. [Step 0 join example](medusa_step0_design_bids/medusa_step0_design_bids.qmd)
 
 ```{r}
 #| eval: false
 #| code-fold: false
-# --- Step 5A: Planned parcel/lag multilevel model + 3D NIfTI backprojection ---
-# Center within-run trial predictors so fixed slopes reflect pure within-person modulation
-group_panel[, rpe_within := rpe - mean(rpe, na.rm = TRUE), by = .(id, run, parcel, evt_time)]
+library(data.table)
+behavior <- copy(as.data.table(trial_behavior))
+stopifnot(!anyDuplicated(behavior, by = c("id", "run", "event_index")))
+behavior[, rpe_within := rpe - mean(rpe, na.rm = TRUE), by = .(id, run)]
+
+for (sid in names(subject_epochs)) {
+  panel <- copy(as.data.table(subject_epochs[[sid]]$panel))
+  panel[, id := sid]
+  stopifnot(nrow(panel[!behavior, on = .(id, run, event_index)]) == 0L)
+  panel[behavior, on = .(id, run, event_index),
+        `:=`(rpe = i.rpe, rpe_within = i.rpe_within)]
+  subject_epochs[[sid]]$panel <- panel
+}
+group_panel <- rbindlist(lapply(subject_epochs, `[[`, "panel"))
+
+# Step 5A: Fit the planned multilevel model
 
 fit_mlm <- mixed_by(
   data                      = group_panel,

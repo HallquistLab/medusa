@@ -25,7 +25,7 @@ lapply(split(sub01$events$onset, sub01$events$run), range)
 
 # 2. Step 1: Check out-of-sample HRF task relevance and AR(p) rho stationarity ceiling (0.90)
 lapply(hrf_fit$selections, function(s) summary(s$selected_task_p))
-lapply(hrf_fit$noise, function(n) quantile(n$rho[, 1], probs = c(0.5, 0.9, 0.99), na.rm = TRUE))
+lapply(hrf_fit$noise, function(n) quantile(n$rho, probs = c(0.5, 0.9, 0.99), na.rm = TRUE))
 
 # 3. Step 2: Check deconvolution conditional self-gain and attenuation
 diagnose_crossrun_recovery(decon, events = sub01$events)$summary
@@ -55,9 +55,9 @@ Each section below pairs a **healthy MEDuSA run** (blue) against one or two **re
 | Peri-event curve peaks several seconds *before* `0 s` (e.g., at `-4 s` or `-6 s`) | `decon_epoch_regression(..., lags = -6:6)` lag profile | Initial dummy volumes were physically dropped from the 4D NIfTI while `events$onset` stayed referenced to scanner trigger `t = 0` (`time_offset = 0`) | Keep full 4D runs and mask dummy frames via `valid_rows` (`include_non_steady_state = TRUE`), or set `time_offset = k * tr` ([Step 0](../medusa_step0_design_bids/medusa_step0_design_bids.qmd)) |
 | Task slopes attenuate under task-correlated motion, or `noise_sd` stays elevated after ICA-AROMA | `sub01$aroma$summary` & `decon$scaling[[r]]$noise_sd` | Aggressive AROMA stripped shared task-motion variance (Pruim et al., 2015), or uncleaned `csf`/`white_matter` confounds re-injected removed motion ICs during Step 1–2 nuisance projection (Lindquist et al., 2019) | Use `aroma = "nonaggressive"` with `aroma_clean_nuisance = TRUE` and `strategy = "csf_wm"` ([Step 0 §0.5](../medusa_step0_design_bids/medusa_step0_design_bids.qmd#sec-nonaggressive-aroma)) |
 | Virtually all parcels fail Step 1 task screening (`selected_task_p > 0.10`) and lag-0 slopes vanish | `range(events$onset)` vs. `(nrow(Y) - 1) * tr` | Event onsets were supplied in **TR indices** (or milliseconds) rather than physical **seconds**, compressing or stretching the forward design | Convert `onset` and `duration` to seconds before calling `estimate_crossrun_hrf()` ([Step 0](../medusa_step0_design_bids/medusa_step0_design_bids.qmd)) |
-| Large fraction of parcels/voxels pile up at `rho = 0.90` in Step 1 | Histogram of `hrf_fit$noise[[r]]$rho[, 1]` | Unmodeled scanner shim shifts, low-frequency drift, or respiratory alias forces $\text{AR}(1)$ autocorrelation onto its stationarity upper bound | Include cosine/polynomial drift (`drift_order = 2` or `fMRIPrep` cosines), mask motion spikes via `valid_rows`, and use `motion_bandstop_bpm` for fast-TR runs ([Step 1](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd)) |
+| Large fraction of parcels/voxels pile up at `rho = 0.90` in Step 1 | Histogram of `hrf_fit$noise[[r]]$rho` | Unmodeled scanner shim shifts, low-frequency drift, or respiratory alias forces $\text{AR}(1)$ autocorrelation onto its stationarity upper bound | Include cosine/polynomial drift (`highpass = 128` or `fMRIPrep` cosines), mask motion spikes via `valid_rows`, and use `motion_bandstop_bpm` for fast-TR runs ([Step 1](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd)) |
 | Deconvolved time series $\widehat{a}_r(t)$ looks overly flat and Step 3 peaks are blunted | `diagnose_crossrun_recovery(decon, events)$summary$mean_gain` | Penalty $\lambda_v$ was fixed too high (e.g., manual override), collapsing conditional self-gain toward zero | Leave `lambda = NULL` so Step 2 tunes $\lambda_v$ automatically per series via GCV/REML ([Step 2](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)) |
-| Sharp positive/negative ringing lobes appear $\pm 6\text{--}10\text{ s}$ around isolated frames | Continuous trace `decon$deconvolved[[r]]` overlaid on `confounds` FD | Uncensored head-motion or coil spike with `rwls = "none"` rings through the inverse Toeplitz filter $D_r$ | Pass FD censor mask via `valid_rows` and keep adaptive `rwls = "auto"` enabled in Step 2 ([Step 2](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)) |
+| Sharp positive/negative ringing lobes appear $\pm 6\text{--}10\text{ s}$ around isolated frames | Continuous trace `decon$activity[[r]]` overlaid on `confounds` FD | Uncensored head-motion or coil spike with `rwls = "none"` rings through the inverse Toeplitz filter $D_r$ | Pass FD censor mask via `valid_rows` and keep adaptive `rwls = "auto"` enabled in Step 2 ([Step 2](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)) |
 | Individual trials show sharp `se_demixed` spikes or `NA` estimates | Trial index vs. `panel$se_demixed` and `is.na(panel$decon_demixed)` | Censoring inside a trial's causal HRF window reduces Fisher information (elevating `se_demixed`) or drops BOLD support below `min_bold_coverage` (`NA`) | Expected protective behavior: retain `precision_weight_cohort` so noisy trials are downweighted automatically; exclude entire runs only when censoring is pervasive (`> 25–30%`) ([Step 3](../medusa_step3_epochs/medusa_step3_epochs.qmd)) |
 | Group fixed-effect slopes in Step 5 appear ~30–60% smaller than expected | Model formula outcome column (`decon_eb` vs. `decon_demixed`) | Empirical-Bayes shrunken `decon_eb` was entered as a regression outcome, shrinking group slopes by the trial reliability factor | Always enter `decon_demixed` + `weights = "precision_weight_cohort"` when neural activity is the outcome; reserve `decon_eb` for visualization or standalone predictor summaries ([Step 4](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd)) |
 | Step 5 slope flips sign or has `df` in the thousands; Step 6 connectivity is inflated or attenuated | Step 5 formula & `df`; Step 6 `ppi$subjects$r_shared_error` | Uncentered `x_raw` conflates trait and state slopes; omitting `(1 + x_within || id)` treats trials as independent; stripping `unit_error_cor` (`shared_error = "zero"`) disattenuates shared noise | Center predictors within person/run and include random slopes in Step 5 ([Step 5](../medusa_step5_group_models/medusa_step5_group_models.qmd)); preserve `subject_epochs` metadata and keep `shared_error = "auto"` with `method = "mmoms"` in Step 6 ([Step 6](../medusa_step6_connectivity/medusa_step6_connectivity.qmd)) |
@@ -94,7 +94,7 @@ knitr::kable(
 #| code-fold: false
 # Diagnostic check & remedy for Steps 0-1
 stopifnot(max(sub01$events$onset) <= max(sub01$confounds$summary$n_volumes) * sub01$tr)
-mean(hrf_fit$noise$run1$rho[, 1] >= 0.89, na.rm = TRUE)  # healthy: typically < 0.05
+mean(hrf_fit$noise$run1$rho >= 0.89, na.rm = TRUE)  # healthy: typically < 0.05
 
 # Remedy: keep intact 4D runs + valid_rows, and ensure drift + FD censoring are active
 sub01   <- read_fmriprep_subject(..., strategy = "24p", fd_threshold = 0.5, include_non_steady_state = TRUE)
@@ -122,7 +122,7 @@ rec <- diagnose_crossrun_recovery(decon, events = sub01$events)
 print(rec$summary[, c("run", "mean_gain", "mean_abs_gain_error", "mean_abs_excess_leakage")])
 
 # Inspect minimum RWLS observation weights per run (weights << 1 indicate downweighted residual spikes)
-lapply(decon$rwls_weights, function(w) quantile(w, probs = c(0, 0.01, 0.05, 0.5), na.rm = TRUE))
+lapply(decon$frame_weights, function(w) quantile(w, probs = c(0, 0.01, 0.05, 0.5), na.rm = TRUE))
 ```
 
 For details on Sobolev versus ridge penalties, `scaling = "noise_sd"`, and `rwls = "auto"`, see [Step 2](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd).

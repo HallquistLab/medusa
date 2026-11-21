@@ -6,6 +6,7 @@ subtitle: "Precision-weighted spatial pooling, task-free spatial noise propagati
 ```{r}
 #| include: false
 d4 <- readRDS("step4_examples.rds")
+poet_demo <- readRDS("poet_demo_metrics.rds")
 ```
 
 ## Overview
@@ -38,7 +39,7 @@ ep$panel[, id := subject_id]
 **Step 2 `decon` + `parcel_groups` vector** $\longrightarrow$ **Step 4 (`decon_epoch_regression(..., parcel_groups = ...)` )** $\longrightarrow$ Subject `epochs` list & stacked `group_panel` $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`) & Step 6 (`decon_connectivity_repair`)**
 :::
 
-The walkthrough below develops Step 4 in four substeps: computing SNR-informed voxel weights (`4.1`), combining mixed intra-parcel operator strata (`4.2`), propagating spatial noise correlations without task contamination (`4.3`), and constructing cohort-ready weights and panel columns (`4.4`).
+The walkthrough below develops Step 4 in five substeps: computing SNR-informed voxel weights (`4.1`), combining mixed intra-parcel operator strata (`4.2`), propagating within-parcel spatial noise without task contamination (`4.3`), modeling stationary and dynamic cross-parcel shared error via **Adaptive-POET and covariance regression** (`4.4`), and constructing biological trial variance, cohort weights, and panel columns (`4.5`).
 
 ---
 
@@ -84,8 +85,13 @@ In addition to the Step 3 arguments (`deconvolution`, `events`, `target_conditio
 Consider a parcel containing four voxels whose observation-noise SDs range from `0.013` (interior gray matter) to `0.032` (noisy pial edge). An unweighted average gives the noisy edge voxel the same influence as the quietest voxel. Instead, Step 4 forms fixed cross-run voxel weights $u_v$ normalized to $\sum_{v \in g} u_v = 1$:
 
 $$
-u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)}.
+u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)},
 $$
+
+where:
+
+- $\overline{\sigma}_v^2$ is voxel $v$'s cross-run mean marginal observation-noise variance from Step 2 (floored at $10\%$ of the parcel median so a single artificially quiet voxel cannot monopolize the average), and
+- $\overline{R}^2_{\text{cv},v}$ is voxel $v$'s out-of-sample cross-fitted Step 1 task adjusted partial $R^2$ (so voxels carrying stronger cross-validated task responsiveness receive a gentle, bounded boost without risking circularity).
 
 Quieter voxels with stronger cross-fitted Step 1 task $R^2$ receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (@fig-step4-weights).
 
@@ -105,17 +111,19 @@ Step 4 preserves exact operator correspondence by first forming the weighted par
 
 ---
 
-### 4.3 Estimate spatial noise covariance from task-free innovations
+### 4.3 Estimate within-parcel spatial noise from task-free innovations
 
-To compute valid parcel standard errors (`se_demixed`), we need the effective observation-noise variance of the weighted parcel combination $\sum_{v \in g} u_v e_v$. For voxel noise SDs $\sigma_v$ and spatial noise correlations $R_{\text{spatial}, uv}$, that variance is
+To compute valid parcel standard errors (`se_demixed`), we need the effective observation-noise variance of the weighted parcel combination $\sum_{v \in g} u_v \varepsilon_{r,v}$. For voxel noise SDs $\sigma_v$ and pairwise spatial noise correlations $R_{\text{spatial}, uv}$, that variance is
 
 $$
-\sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv}.
+\sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv},
 $$
+
+where $u_u, u_v$ are the normalized parcel voxel weights from Substep `4.1`, $\sigma_u, \sigma_v$ are voxel marginal observation-noise SDs from Step 2, and $R_{\text{spatial}, uv}$ is the spatial correlation between voxel $u$'s and voxel $v$'s observation noise.
 
 In our 4-voxel example (`simulate_step4.R`), $\sigma_{\text{parcel}}$ equals `0.0091` if voxel errors are independent ($R_{\text{spatial}} = I$), but rises nearly twofold to `0.0171` if all four voxels share common noise ($R_{\text{spatial}} = \mathbf{1}\mathbf{1}^\top$). Estimating spatial correlation from second differences of deconvolved `activity` ($\Delta^2 \hat{a}$) conflates shared task-evoked neural responses with shared noise—pegging estimated noise near the `0.0171` ceiling even when true noise is independent (`0.00`) or negatively correlated (`-0.20`).
 
-By instead projecting $u \odot \sigma$ onto Step 2's **task-free whitened residuals** ($\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2$), MEDuSA recovers the true spatial noise SD across all four correlation regimes (@fig-step4-noise, @tbl-step4-noise) and matches analytical `se_demixed` to `r format(max(d4$metrics$se_check), digits = 3)`. Under `shared_error_method = "poet_covreg"` (default), Step 4 further applies **subspace-debiased Adaptive-POET** (Fan, Liao & Mincheva, 2013) with Tukey-Hanning tapered multi-lag Toeplitz cross-spectra and **LTZ-gated covariance regression** (Hoff & Niu, 2012) across task, covariate, Step-2 `rwls`, and external `variance_confounds` envelopes—producing `shared_error_model`, `unit_error_cor`, and per-trial Block-PAF list-columns (`shared_noise_vec`, `lag_noise_vec`, `trial_cor_vec`) for Step 6. Above 512 analysis units (e.g., whole-brain voxelwise panels), the engine switches automatically to a dual-space factor mode (`mode = "lowrank_voxel"`) that never allocates $V \times V$ matrices, and `aggregate_decon_panel()` can collapse any voxelwise fit or saved table to parcels post-hoc while propagating exact parcel `se_demixed` and inter-parcel error vectors.
+By instead projecting $u_g \odot \sigma_{r,g}$ onto Step 2's **column-unit-norm task-free whitened residuals** $\widetilde{E}_r \in \mathbb{R}^{m_r \times V}$ ($\|\widetilde{E}_{r,:,v}\|_2 = 1$, orthogonal to the convolved trial + HRF-derivative task subspace), MEDuSA computes $\hat{\sigma}_{\text{parcel}} = \|\widetilde{E}_{r,V_g} (u_g \odot \sigma_{r,V_g})\|_2$, recovering the true spatial noise SD across all four correlation regimes (@fig-step4-noise, @tbl-step4-noise) and matching analytical `se_demixed` to `r format(max(d4$metrics$se_check), digits = 3)`.
 
 ![Effective parcel BOLD noise SD across four spatial correlation regimes (`-0.20`, `0.00`, `0.65`, `0.95`): true oracle spatial SD vs. MEDuSA's task-free innovation estimator vs. a naive $\Delta^2$ activity proxy.](figures/02-noise.png){#fig-step4-noise width="95%" fig-alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy."}
 
@@ -131,13 +139,74 @@ knitr::kable(
 
 ---
 
-### 4.4 Compute biological trial variance, cohort weights, and panel columns
+### 4.4 Model cross-parcel shared error via Adaptive-POET and dynamic covariance regression (`poet_covreg`) {#sec-step4-poet}
+
+Imagine that a seed and a target have independent neural responses, but both BOLD series contain the same respiratory fluctuation. A positive error in the seed then tends to coincide with a positive error in the target. Each parcel's `se_demixed` describes the size of its own error. To estimate coupling in Step 6 we also need $c_i=\operatorname{Cov}(u_i,v_i)$, the covariance of the two errors on trial $i$.
+
+#### Estimate the background correlation
+
+Step 4 starts in BOLD space. It whitens usable observations and projects out modeled task responses, HRF derivatives and nuisance terms. For one stratum in parcel $g$, write $w_g$ for its whitened series and $M_g$ for the projector onto the *residual* space. The cross-product $(M_g w_g)^\top(M_h w_h)$ measures residual covariation with parcel $h$. Fitting the task design consumes degrees of freedom. The overlap $\operatorname{tr}(M_g M_h)$ measures how many residual directions the two designs share and supplies the degrees-of-freedom correction. A task response left in both residual series can still contaminate the estimate.
+
+With $P$ parcels there are $P(P-1)/2$ distinct correlations to estimate. The sample heatmap in @fig-step4-poet shows the problem even with only 30 parcels. POET (Principal Orthogonal Complement Thresholding) uses two kinds of spatial structure to stabilize those estimates. [Fan, Liao & Mincheva (2013)](https://doi.org/10.1111/rssb.12016)
+
+1. **A pattern shared by many parcels.** Decompose the residual correlation matrix into eigenvalues (strengths) and eigenvectors (spatial patterns). MEDuSA retains large eigenvalues above a noise-bulk cutoff only when their loadings are sufficiently spread across parcels. It shrinks the retained strengths. With $K$ retained patterns, the $P\times K$ loading matrix $L$ gives a shared contribution $LL^\top$. A large loading identifies a shared pattern. Its physiological origin requires independent evidence.
+2. **A few pairs with local covariance.** Subtract $LL^\top$. For each remaining pair, standardize the residual correlation and apply a threshold to its absolute Fisher $z$ score. Small entries go to zero, intermediate entries shrink, and large ones remain. The resulting matrix $S_{\mathrm{loc}}$ has a zero diagonal. Its off-diagonal entries can capture, for example, extra covariance between neighboring parcels that share drainage.
+
+For two distinct parcels $g,h$, the combined estimate before the final matrix correction is
+
+$$
+R^*_{gh}=\sum_{k=1}^{K} L_{gk}L_{hk}+(S_{\mathrm{loc}})_{gh},
+\qquad R^*_{gg}=1 .
+$$
+
+The sum is large when the two parcels load on the same factors with the same sign. The second term can survive even if few other parcels share the pattern. MEDuSA bounds extreme correlations and regularizes the spectrum to obtain a usable correlation matrix $\widehat R_{\mathrm{POET}}$. This estimates *observation-error correlation* across parcels. The neural coupling of interest is estimated downstream.
+
+![A. Two eigenvalues pass the bulk and spatial-spread criteria in the simulated residuals. B. A separate illustration regresses one pair's framewise residual products on a respiratory envelope and a null covariate, using MEDuSA's spatial gate. C. Compare the known correlation (1) and its noisy sample estimate (2) with the shared factors (3), local residual pairs (4) and recombined estimate (5). The gray diagonals are omitted.](figures/07-poet-covreg.png){#fig-step4-poet width="100%" fig-alt="A scree plot separates two broad factors. A framewise regression follows two simulated noise bursts. Five heatmaps on one scale show how broad and pair-specific correlation patterns combine."}
+
+In panel C, compare the mostly pale cells of matrix 4 with the broad bands of matrix 3. Thresholding has removed many small pairwise estimates while preserving several concentrated ones. Across all off-diagonal entries, root mean square error relative to the known correlation falls from `r sprintf("%.3f", poet_demo$frob_raw)` to `r sprintf("%.3f", poet_demo$frob_poet)` in this draw.
+
+<details>
+<summary>How MEDuSA selects factors and thresholds parcel pairs</summary>
+
+With $P$ parcels and effective residual degrees of freedom $\nu$, the reference upper edge for independent noise is $(1+\sqrt{P/\nu})^2$. MEDuSA adds a finite-sample margin, applies a minimum eigenvalue cutoff and checks how widely each candidate eigenvector is distributed. The dashed line in panel A (“MP + TW”) is the Marchenko–Pastur reference edge with a Tracy–Widom-inspired margin.
+
+For the multi-parcel fit shown here, let $r_{gh}$ be a residual correlation after factor subtraction and rescaling. The score $z_{gh}=\sqrt{\nu-3}\,\operatorname{atanh}(r_{gh})$ puts pairs on a comparable noise scale. With $z_1=\max(1.85,\sqrt{3\log P-0.80})$ and $z_2=z_1+1.35$, the firm threshold sets $|z_{gh}|\le z_1$ to zero, preserves $|z_{gh}|\ge z_2$, and interpolates between them. Small parcellations use separate safeguards.
+
+</details>
+
+#### Allow shared noise to change over time
+
+A single stationary correlation averages over quiet frames and respiratory bursts. A *variance envelope* is a measured time course, such as respiration volume per time (RVT), that might predict when fluctuations grow. In schematic form the same-frame covariance model is
+
+$$
+\Sigma_t=\Sigma_0+\sum_{k=1}^{q_w}\gamma_k\,w_{tk}\Phi_k .
+$$
+
+$\Sigma_0$ is the baseline parcel covariance, $w_{tk}$ is the value of envelope $k$ at frame $t$, $\Phi_k$ contains its fitted effects on parcel variances and covariances, and $q_w$ counts the envelopes. The gate $\gamma_k$ ranges from zero (omit this modulation) to one (retain it). The fit can use task, motion and other measured envelopes supplied via `variance_confounds`.
+
+One source of evidence for a gate is the sum of squared parcel variance scores. Correlated parcels provide less independent evidence than the same number of independent parcels. MEDuSA uses the elementwise squared spatial correlations and a Liu–Tang–Zhang (LTZ) moment-matched chi-square approximation to calibrate this score. Panel B isolates this mechanism in a one-pair regression. The full estimator also uses evidence from parcel pairs and temporal lags. [Liu, Tang & Zhang (2009)](https://www.sciencedirect.com/science/article/pii/S0167947308005653)
+
+#### Propagate frame covariance into a trial
+
+A trial draws information from several BOLD frames. Let $b_{S,i}$ and $b_{T,i}$ be the readout rows for trial $i$ in the seed and target, expressed on the same frame scale as their error covariance $C_{ST}$. Entry $(t,t')$ of $C_{ST}$ describes seed error at frame $t$ paired with target error at frame $t'$. Linear propagation gives
+
+$$
+c_i=b_{S,i}\,C_{ST}\, b_{T,i}^{\top}.
+$$
+
+For independent frames this reduces to a sum of $b_{S,it}\,b_{T,it}\,(\Sigma_t)_{ST}$ across frames. A respiratory burst contributes most to trials whose two readouts both weight its frames heavily. The full model can also propagate covariance across different frames. This is the link between panel B and the quantity Step 6 subtracts.
+
+Keep `subject_epochs` to evaluate the fitted `shared_error_model` directly. For a stacked panel, Step 4 stores compact factor loadings in `shared_noise_vec`: their dot product approximates a same-trial cross-parcel covariance. `lag_noise_vec` and `trial_cor_vec` carry additional lag and serial error information. Preserve these columns when exporting with `medusa_write_table()`. The [Step 6 benchmark](../medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-poet-step6) compares both representations on the same cohorts. For more than 512 units the default fit uses a low-rank representation to limit memory use.
+
+---
+
+### 4.5 Compute biological trial variance, cohort weights, and panel columns
 
 On the aggregated parcel series, Step 4 estimates biological trial-to-trial variance $\hat{\tau}_{\text{bio}}^2$ and builds three complementary sets of panel columns:
 
 1. **Within-person vs. cohort precision weights (@fig-step4-precision):** Both use composite inverse variance $(\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$. `precision_weight` normalizes to mean 1 within each participant/parcel, whereas `precision_weight_cohort` retains unnormalized inverse variance so Step 5 `mixed_by()` appropriately downweights high-noise scans and participants across the cohort.
 2. **Empirical-Bayes shrunk readouts (`decon_eb`, @fig-step4-shrinkage):** Shrinks noisy individual trials toward the run mean using trial reliability $\hat{\tau}_{\text{eff}}^2 / (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)$ for clean single-trial visualization.
-3. **Paired within-run decorrelated columns (`whiten_panel = TRUE`, @fig-step4-zca):** Applies a run-mean-preserving symmetric decorrelation map (regularized zero-phase component analysis, or ZCA whitening) equally to `decon_demixed` and supplied covariates on the parcel covariance $\Sigma_{\text{tot}}$, removing serial trial error correlations while keeping each trial aligned to its original ordering.
+3. **Paired within-run decorrelated columns (`whiten_panel = TRUE`, @fig-step4-zca):** Applies regularized correlation-based decorrelation (ZCA) equally to `decon_demixed` and supplied covariates on the parcel covariance $\Sigma_{\text{tot}}$, reducing serial trial error correlations while keeping each trial aligned to its original ordering.
 
 ![Relative `precision_weight` vs. `se_demixed` under `"marginal"` and `"residual"` working trial-variance modes.](figures/04-precision.png){#fig-step4-precision width="90%" fig-alt="Scatter plot of relative precision weights under marginal versus residual tau2_mode."}
 
@@ -165,8 +234,10 @@ ep <- decon_epoch_regression(
   source_model        = "impulse",
   readout_kernel      = "triangle",
   demix_other_events  = TRUE,
+  other_event_model   = "auto",
   demix_target_trials = TRUE,
   demix_within_trial  = FALSE,          # leave FALSE before medusa_multilag_infer()
+  demix_ridge         = "auto",
   restore_scale       = TRUE,
   tau2_mode           = "auto",
   tau2_shrinkage      = "auto",         # or "graph_eb" for dense 400-1000 parcel atlases
@@ -187,11 +258,11 @@ ep$panel[, id := subject_id]
 | Argument | Recommended | Package Default | Summary of Role & When to Adjust |
 |---|---|---|---|
 | `parcel_groups` | `parcel_ids` / `ts$parcel_ids` (or post-hoc `aggregate_decon_panel()`) | `NULL` | Activates Step 4 SNR-weighted continuous parcel aggregation (`Substep 4.1`); use `aggregate_decon_panel()` when reusing one voxelwise fit across multiple atlases. |
-| `shared_error_method` & `variance_confounds` | `"poet_covreg"` + `conf` (`read_fmriprep_confounds()`) | `"poet_covreg"`, `NULL` | Estimates subspace-debiased Adaptive-POET + dynamic covariance-regression shared-error moments (`Substep 4.3`). |
-| `restore_scale` | `TRUE` | `FALSE` | Places all runs of a parcel onto physical BOLD units so `precision_weight_cohort` is comparable across runs and participants (`Substep 4.4`). |
-| `tau2_mode` | `"auto"` (or `"marginal"` when `covariates = NULL`) | `"auto"` | Estimates parcel biological trial variance for composite trial weights and ZCA (`Substep 4.4`). |
+| `shared_error_method` & `variance_confounds` | `"poet_covreg"` + `conf` (`read_fmriprep_confounds()`) | `"poet_covreg"`, `NULL` | Estimates subspace-debiased Adaptive-POET + LTZ-gated dynamic covariance-regression shared-error moments (`Substep 4.4`). |
+| `restore_scale` | `TRUE` | `FALSE` | Places all runs of a parcel onto physical BOLD units so `precision_weight_cohort` is comparable across runs and participants (`Substep 4.5`). |
+| `tau2_mode` | `"auto"` (or `"marginal"` when `covariates = NULL`) | `"auto"` | Estimates parcel biological trial variance for composite trial weights and ZCA (`Substep 4.5`). |
 | `tau2_shrinkage` | `"auto"` (`"graph_eb"` on 400–1000 parcels) | `"auto"` | Defaults to `"none"` on coarse high-SNR parcels; `"graph_eb"` builds a 3D parcel-centroid Euclidean graph from `voxel_map`. |
-| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`TRUE` if `covariates = NULL`) | Exports the complete `panel` alongside paired `*_whitened` columns (`Substep 4.4`). |
+| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`TRUE` if `covariates = NULL`) | Exports the complete `panel` alongside paired `*_whitened` columns (`Substep 4.5`). |
 
 ---
 
@@ -200,16 +271,16 @@ ep$panel[, id := subject_id]
 1. **Checking run-to-run voxel coverage:** When partial FoV clipping drops voxels from a small parcel in one run, renormalization shifts the parcel's spatial center slightly; inspect `decon$scaling[[r]]$status` whenever dropout is non-trivial.
 2. **Pre-aggregation (`parcel_groups`) vs. post-hoc `aggregate_decon_panel()`:** Supplying `parcel_groups` directly inside `decon_epoch_regression()` is fastest when your target atlas is fixed. When you also want voxelwise maps—or plan to evaluate several atlases without repeating Step 3—fit `decon_epoch_regression(..., aggregate_by_parcel = FALSE)` once (automatically using memory-safe `lowrank_voxel` mode above 512 voxels) and call `aggregate_decon_panel(ep_vox, parcel_groups = atlas_vec)` per parcellation.
 3. **Matching panel columns to their statistical role:** Mirrors the distinction between unshrunk likelihood-only readouts and shrunken EB predictions (Skrondal & Laake, 2001; Vig & Hallquist, 2026):
-   - Use **`decon_demixed`** (with `weights = "precision_weight_cohort"`) for Step 5 outcomes and Step 6 M-MOMS connectivity; reserve **`decon_eb`** for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage (see the [Visual QC Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd) for a visual demonstration of `decon_eb` slope attenuation).
+   - Use **`decon_demixed`** with `weights = "precision_weight_cohort"` for Step 5 outcomes. For Step 6 connectivity, retain `decon_demixed`, its measurement SE and the shared-error columns. Reserve **`decon_eb`** for plotting stabilized trial values rather than entering it into regressions without accounting for shrinkage (see the [Visual QC Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd) for a visual demonstration of `decon_eb` slope attenuation).
    - When using ZCA-whitened variables, pair `decon_demixed_whitened` exclusively with matched `<var>_whitened` predictors from the same `(parcel, evt_time)` split.
 4. **Cohort storage handoff:** Attach `id` (and `session` if longitudinal) before combining participants. Saving `subject_epochs` as `.rds`, writing partitioned Parquet (`arrow::write_dataset()`), or exporting pipe-delimited CSV/`.csv.gz` via `medusa_write_table()` (read back via `medusa_read_table()` or directly by `decon_connectivity_repair()`) preserves `shared_noise_vec`, `lag_noise_vec`, and `trial_cor_vec` for Step 6 alongside scalable disk streaming for Step 5 `mixed_by()`.
 
 <details>
 <summary>Mathematical Reference & Reproduction</summary>
 
-- **Within-parcel effective noise variance:** Let $Z_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(Z_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ estimates parcel observation-noise variance without task contamination, bounded into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
-- **Subspace-debiased Adaptive-POET & LTZ-gated covariance regression (`poet_covreg`):** On uncensored whitened residuals projected orthogonal to each stratum's convolved `[trial, duration, dHRF/dt]` subspace $M_{s_g}$ (with exact $\operatorname{tr}((I - M_{s_g})(I - M_{s_h}))$ degrees-of-freedom debiasing), `medusa_fit_shared_error_covreg()` separates pervasive global physiological/scanner factors above the Marchenko–Pastur + Tracy–Widom bulk edge from firm-thresholded idiosyncratic residual correlations (`poet_regularize_cor()`), estimates Tukey-Hanning tapered multi-lag error cross-spectra, and fits Liu–Tang–Zhang (2009) spatial-$\chi^2$-gated heteroskedastic variance slopes over task drive, covariates, Step-2 `rwls` bursts, and `variance_confounds` (restoring the baseline intercept via exact Schur complement whenever null confound columns are gated to zero). Block-PAF factorization embeds the resulting trial-by-parcel error covariance onto `panel$shared_noise_vec`, `panel$lag_noise_vec`, and `panel$trial_cor_vec`.
+- **Within-parcel effective noise variance:** Let $\widetilde{E}_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(E_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = \widetilde{E}_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[\widetilde{E}_{r,i}^\top \widetilde{E}_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ estimates parcel observation-noise variance without task contamination, bounded into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
+- `poet_regularize_cor()` implements the stationary factor and sparse-residual estimate. `medusa_fit_shared_error_covreg()` fits the broader shared-error model used for trial propagation.
 
-[Step 4 simulation script](simulate_step4.R) · [Figure script](figures_step4.R) · [Parcel noise table](parcel_noise_check.csv)
+[Step 4 simulation script](simulate_step4.R) · [Figure script](figures_step4.R) · [POET & CovReg figure script](make_poet_fig.R) · [Parcel noise table](parcel_noise_check.csv)
 
 </details>

@@ -97,22 +97,28 @@ Alongside the readout window, Step 3 asks a substantive question about **source 
 
 ### 3.2 Write the epoch measurement model and subtract non-target spillover
 
-Now consider a cue–feedback paradigm where each `Cue` precedes `Feedback` by 1–3 seconds. Let $\theta_T$ denote true target (`Feedback`) trial amplitudes with forward BOLD design $G_\tau$, and $\theta_O$ denote non-target (`Cue`) amplitudes with forward design $G_O$. Applying readout $S_\tau$ to deconvolved activity $\widehat{a}_r = D_r y_r$ yields a raw trial readout whose conditional expectation contains two distinct terms:
+Now consider a cue–feedback paradigm where each `Cue` precedes `Feedback` by 1–3 seconds. Let $\theta_T \in \mathbb{R}^m$ denote true target (`Feedback`) trial amplitudes with convolved forward BOLD design $G_\tau \in \mathbb{R}^{m_r \times m}$, and let $\theta_O$ denote non-target (`Cue`) amplitudes with forward BOLD design $G_O$. Applying readout $S_\tau$ to deconvolved activity $\widehat{a}_r = D_r \tilde{y}_{r,o}$ yields a raw trial readout whose conditional expectation contains two distinct terms:
 
 $$
-\mathbb{E}\bigl[\hat{z}_{\text{raw},\tau} \mid \theta_T, \theta_O\bigr]
-= \underbrace{(S_\tau D_r G_\tau)\,\theta_T}_{\text{attenuated & mixed targets}}
+\mathbb{E}\bigl[\widehat{z}_{\text{raw},\tau} \mid \theta_T, \theta_O\bigr]
+= \underbrace{(S_\tau D_r G_\tau)\,\theta_T}_{\text{attenuated \& mixed targets}}
 \;+\;
-\underbrace{(S_\tau D_r G_O)\,\theta_O}_{\text{non-target spillover}}.
+\underbrace{(S_\tau D_r G_O)\,\theta_O}_{\text{non-target spillover}},
 $$
 
-In `simulate_step3.R`, a `Cue_only` voxel responds to cues but has **zero** true feedback slope ($\beta = 0$), while reaction time links cue–feedback spacing to covariate `x`. Because of the second term above, raw feedback readouts in `Cue_only` pick up spurious cue spillover (`beta_raw = -0.115`; @tbl-step3-policies).
+where $S_\tau D_r G_\tau \in \mathbb{R}^{m \times m}$ maps true target amplitudes onto raw readouts and $S_\tau D_r G_O$ maps non-target events into the target window. In `simulate_step3.R`, a `Cue_only` voxel responds to cues but has **zero** true feedback slope ($\beta = 0$), while reaction time links cue–feedback spacing to covariate `x`. Because of the second term above, raw feedback readouts in `Cue_only` pick up spurious cue spillover (`beta_raw = -0.115`; @tbl-step3-policies).
 
-Enabling `demix_other_events = TRUE` estimates and subtracts the operator-predicted non-target contribution $(S_\tau D_r G_O) L_{\text{other}} y_r$, forming cleaned readout rows $S_{\text{clean},\tau}$ before target amplitudes are evaluated (@fig-step3-other-events).
+Enabling `demix_other_events = TRUE` forms a linear estimator $L_{\text{other}}$ of the non-target amplitudes and subtracts their operator-predicted bleed directly from the readout rows:
+
+$$
+S_{\text{clean},\tau} = S_\tau - (S_\tau D_r G_O) L_{\text{other}},
+$$
+
+so that $S_{\text{clean},\tau} \widehat{a}_r$ cancels non-target spillover *before* target amplitudes are evaluated (@fig-step3-other-events).
 
 ![Estimated feedback slopes in the null-feedback `Cue_only` voxel under constant cue amplitude (left) versus trial-varying cue amplitude correlated with `x` (right), comparing default condition-mean de-mixing (`0.05`) against joint trial-level de-mixing (`0.02`).](figures/02-other-events.png){#fig-step3-other-events width="95%" fig-alt="Lag profiles comparing default 0.05 and joint 0.02 demix_ridge policies."}
 
-**Choice point — Non-target subtraction (`demix_other_events`, `other_event_model`, & `demix_ridge`):** Keep `demix_other_events = TRUE` and **`other_event_model = "auto"`** (default). Earlier prototypes gated trial-varying collateral subtraction on a numeric `demix_ridge < 0.03` threshold, which left `demix_ridge = 0.05` vulnerable to trial-by-trial cue bleed when upstream cues covaried with target predictors (e.g., expected value covarying with feedback RPE). `other_event_model = "auto"` decouples model structure from `demix_ridge`: whenever non-target events overlap target windows within the hemodynamic horizon, `"auto"` fits a GCV/block-ridge-stabilized joint `(T, O)` trial operator that removes both mean and trial-varying collateral spillover automatically (@fig-step3-other-events, right), while collapsing to low-variance `"condition"` subtraction when phases are well separated. Furthermore, for variable-duration epochs (`source_model = "duration"`), post-subtraction target rows $S_{\text{clean},\tau}$ are passed directly into `solve_duration_demix_operator()` (`K_unc = S_clean_tau %*% D_r %*% G_tau_unc`) so adjacent encode/probe subtraction never under-restores sustained delay gain.
+**Choice point — Non-target subtraction (`demix_other_events`, `other_event_model`, & `demix_ridge`):** Keep `demix_other_events = TRUE` and **`other_event_model = "auto"`** (default). Earlier prototypes gated trial-varying collateral subtraction on a numeric `demix_ridge < 0.03` threshold, which left `demix_ridge = 0.05` vulnerable to trial-by-trial cue bleed when upstream cues covaried with target predictors (e.g., expected value covarying with feedback RPE). `other_event_model = "auto"` decouples model structure from `demix_ridge`: whenever non-target events overlap target windows within the hemodynamic horizon, `"auto"` fits a GCV/block-ridge-stabilized joint `(T, O)` trial operator that removes both mean and trial-varying collateral spillover automatically (@fig-step3-other-events, right), while collapsing to low-variance `"condition"` subtraction when phases are well separated. Furthermore, for variable-duration epochs (`source_model = "duration"`), post-subtraction target rows $S_{\text{clean},\tau}$ pass directly into duration gain calibration so adjacent encode/probe subtraction never under-restores sustained delay gain.
 
 ---
 
@@ -122,10 +128,30 @@ After removing non-target spillover, the cleaned readout still reflects Step 2's
 
 $$
 S_{\text{clean},\tau}\widehat{a}_r
-= \theta_T - (I - K_{\text{clean},\tau})\theta_T + S_{\text{clean},\tau} D_r \varepsilon_r.
+= \theta_T - (I - K_{\text{clean},\tau})\theta_T + S_{\text{clean},\tau} D_r \varepsilon_{r,o}.
 $$
 
-Without inverting $K_{\text{clean},\tau}$, diagonal shrinkage ($[K_{\text{clean},\tau}]_{ii} < 1$) and neighbor overlap attenuate the true `0.70` feedback slope in `Target` down to `beta_raw = 0.088` (@tbl-step3-policies). Enabling `demix_target_trials = TRUE` applies a ridge-stabilized inverse $W_\tau$ on run-centered trials (Tikhonov regularization) with diagonal gain restoration $\tilde{G}_\tau$ (`decon_demixed`), sharpening the 20×20 target resolution matrix toward the identity (@fig-step3-resolution) and recovering the true `0.70` slope cleanly (`Target = 0.705`, `Noisy_target = 0.673`; @fig-step3-target-readout, @tbl-step3-policies). To ensure any small ridge stabilization in $W_\tau$ at rapid ISIs never biases trial regressions, centered covariates are multiplied by the matched post-demixing resolution matrix $M_{\text{post}}$ so predictor and response share identical coordinates.
+For a two-trial illustration, suppose the cleaned mixing matrix is
+$\left(\begin{smallmatrix}0.6&0.2\\0.2&0.6\end{smallmatrix}\right)$.
+A unit response on trial 1 alone produces noiseless readouts $(0.6,0.2)^\top$. The first column thus gives both self-gain and leakage. A contrast between the two trials is attenuated by a factor of $0.4$, so exact inversion would also multiply noise in that contrast by $2.5$. This is the reason to regularize trial demixing even after regularizing the continuous inverse.
+
+Without inverting $K_{\text{clean},\tau}$, diagonal shrinkage ($[K_{\text{clean},\tau}]_{ii} < 1$) and neighbor overlap attenuate the true `0.70` feedback slope in `Target` down to `beta_raw = 0.088` (@tbl-step3-policies). Enabling `demix_target_trials = TRUE` applies a ridge-stabilized inverse $W_\tau$ on run-centered trials (Tikhonov regularization with penalty $\lambda_{\text{demix}}$) followed by diagonal gain restoration $\tilde{G}_\tau$ to form the composite de-mixed trial operator $B_{r,\tau}$:
+
+$$
+\widehat{z}_{r,\tau} = B_{r,\tau}\tilde{y}_{r,o},
+\qquad
+B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r,
+\qquad
+M_{\text{post}} = Q_m (B_{r,\tau} G_\tau) Q_m,
+$$
+
+where:
+
+- $\widehat{z}_{r,\tau} \in \mathbb{R}^m$ is the de-mixed trial vector (`decon_demixed`),
+- $W_\tau$ approximately inverts $K_{\text{clean},\tau}$ across target trials while preventing variance explosion at sub-2-second ISIs,
+- $\tilde{G}_\tau$ is a diagonal matrix restoring unit self-gain on each trial after ridge damping,
+- $Q_m = I_m - \frac{1}{m}\mathbf{1}_m\mathbf{1}_m^\top$ centers vectors within run $r$, and
+- $M_{\text{post}} \in \mathbb{R}^{m \times m}$ is the **post-demixing target resolution matrix** (close to $Q_m$ once $K_{\text{clean},\tau}$ is inverted; @fig-step3-resolution). Multiplying centered covariates by $M_{\text{post}}$ ensures that even when a small ridge $\lambda_{\text{demix}} > 0$ is retained for stability, both predictor and response live in identical coordinates, recovering the true `0.70` slope cleanly (`Target = 0.705`, `Noisy_target = 0.673`; @fig-step3-target-readout, @tbl-step3-policies).
 
 ![Run-centered trial readouts vs. true injected feedback amplitudes in `Target` across raw readout, target-only de-mixing, and full cue + target de-mixing.](figures/03-target-readout.png){#fig-step3-target-readout width="95%" fig-alt="Scatter plots of estimated versus true centered trial amplitudes under three de-mixing policies."}
 
@@ -148,19 +174,46 @@ When multiple peri-event lags are requested, adjacent lags within the same trial
 
 ### 3.4 Propagate observation-noise covariance and construct trial precision weights
 
-Because every operation from centered BOLD to `decon_demixed` is captured in the composite linear map $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, the conditional sampling covariance of the de-mixed trial vector is known analytically:
+Because every operation from centered run BOLD to `decon_demixed` is captured in the composite linear map $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, MEDuSA can propagate the fitted noise covariance and apply its run-centering adjustment. Absorbing input centering into the readout operator, the reported variance scale is
+
 $$
-\Omega_{r,\tau} = \operatorname{Cov}(e_{r,\tau} \mid B_{r,\tau}) \propto Q_m B_{r,\tau} \Sigma_{\text{obs},r} B_{r,\tau}^\top Q_m.
+\widehat{\Omega}_{r,\tau}
+= \frac{\sigma_{\text{eff}}^2}{1 - 1/m}\, Q_m B_{r,\tau} \Sigma_{\text{cor}}[I_r, I_r] B_{r,\tau}^\top Q_m,
+\qquad
+s_{ri} = \texttt{se\_demixed}_{ri} = \sqrt{[\widehat{\Omega}_{r,\tau}]_{ii}},
 $$
-MEDuSA evaluates $\Omega_{r,\tau}$ in fast factored form without forming dense $T \times T$ covariance matrices, matching dense matrix multiplication to `r format(d3$cov_error, digits = 3)` and reproducing 2,500-draw Monte Carlo noise SDs trial by trial (`se_demixed`; @fig-step3-se-check).
+
+where:
+
+- $\sigma_{\text{eff}}^2$ is the effective run marginal observation-noise variance (equal to $1$ on noise-SD units or $\widehat{\sigma}_{\text{obs}}^2$ after `restore_scale = TRUE`),
+- $\Sigma_{\text{cor}}[I_r, I_r]$ is Step 1's stationary $\text{AR}(p)$ correlation matrix restricted to unmasked frames $I_r$, and
+- $Q_m = I_m - \frac{1}{m}\mathbf{1}_m\mathbf{1}_m^\top$ centers across the $m$ target trials in run $r$, with Bessel's $(1 - 1/m)^{-1}$ finite-sample factor accounting for the 1 degree of freedom lost by run-centering (see [Propagating BOLD Noise into Trial Standard Errors](../medusa_standard_errors_mmom.qmd) for the complete derivation).
+
+MEDuSA evaluates $\widehat{\Omega}_{r,\tau}$ in fast factored form without forming dense $T \times T$ covariance matrices, matching dense matrix multiplication to `r format(d3$cov_error, digits = 3)` and reproducing 2,500-draw Monte Carlo noise SDs trial by trial (`se_demixed`; @fig-step3-se-check).
 
 ![Ratio of 2,500-draw Monte Carlo trial SD to analytical `se_demixed` across all 20 target trials in Run 1.](figures/07-se-check.png){#fig-step3-se-check width="90%" fig-alt="Dot plot of simulated SD divided by analytical SE near 1.0 across 20 trials."}
 
-Trials near run boundaries, scrub gaps, or rapid event clusters naturally have larger measurement error $s_{ri}^2 = \texttt{se\_demixed}_{ri}^2$. However, trials also vary due to genuine biological trial-to-trial variability $\tau_{\text{bio}}^2$. Just as composite weights in multilevel moment estimation combine structural disturbance variance with measurement-error variance (Vig & Hallquist, 2026), Step 3 estimates $\hat{\tau}_{\text{bio}}^2$ and forms **Empirical-Bayes composite precision weights** $w_{ri} \propto (\hat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$ (`precision_weight` normalized to mean 1 within unit; `precision_weight_cohort` left unnormalized for multi-subject models), downweighting high-SE trials smoothly without letting a single low-SE trial dominate (@fig-step3-weights). When requested (`whiten_panel = TRUE`), Step 3 also applies a run-mean-preserving symmetric decorrelation transform that removes off-diagonal within-run trial error correlations while keeping each trial aligned as closely as possible to its original ordering (regularized zero-phase component analysis, or ZCA whitening; @fig-step3-zca).
+Trials near run boundaries, scrub gaps, or rapid event clusters naturally have larger measurement error $s_{ri}^2 = \texttt{se\_demixed}_{ri}^2$. However, trials also vary due to genuine biological trial-to-trial variability $\tau_{\text{bio}}^2$. Just as composite weights in multilevel moment estimation combine structural disturbance variance with measurement-error variance (Vig & Hallquist, 2026), Step 3 estimates $\hat{\tau}_{\text{bio}}^2$ and forms **Empirical-Bayes composite precision weights**:
+
+$$
+w_{ri} = \frac{1}{\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2},
+$$
+
+exported both normalized to mean 1 within each unit (`precision_weight`) and unnormalized for cross-run and cross-participant comparability (`precision_weight_cohort`), downweighting high-SE trials smoothly without letting a single low-SE trial dominate (@fig-step3-weights).
+
+**When do diagonal weights suffice?** Two neighboring trials can borrow information from the same BOLD frames. Weighting their rows by inverse variance adjusts their relative precision, but a model that treats them as independent still ignores the shared fluctuation. The optional `whiten_panel = TRUE` reduces this dependence. It applies the same transformation to the run-centered outcome and its resolution-matched predictors.
+
+Let $\Sigma_{\mathrm{tot}}$ combine propagated observation error with biological trial variation on the resolved scale. After stabilizing the run-mean direction, let $D$ be the diagonal matrix of marginal trial SDs and $R=D^{-1}\Sigma_{\mathrm{tot}}D^{-1}$ the corresponding correlation matrix. The transform has the form
+
+$$
+\Phi\ \propto\ D\,R_{\mathrm{reg}}^{-1/2}\,D^{-1}.
+$$
+
+Here $R_{\mathrm{reg}}^{-1/2}$ denotes a regularized inverse square root. MEDuSA shrinks off-diagonal correlations toward zero, limits the amplification of small eigenvalues, and normalizes $\Phi$ to have mean diagonal one. The right panel of @fig-step3-zca shows how much correlation remains. In Step 5 use the paired whitened outcome and predictor columns together. For seed–target regression, Step 6 uses unwhitened readouts so the two parcels share trial coordinates.
 
 ![Pure measurement-only inverse-variance weights (`precision_weight_op`) versus biological-variance-stabilized Empirical-Bayes weights (`precision_weight`).](figures/08-weights.png){#fig-step3-weights width="90%" fig-alt="Scatter plot of normalized precision weights against trial measurement SE."}
 
-![Within-run total trial correlation matrix $\Sigma_{\text{tot}}$ before and after symmetric trial decorrelation (`whiten_panel = TRUE`, regularized ZCA).](figures/09-decorrelation.png){#fig-step3-zca width="92%" fig-alt="20x20 correlation heatmaps before and after regularized ZCA whitening."}
+![Within-run total trial correlation before and after symmetric trial decorrelation (`whiten_panel = TRUE`, regularized ZCA).](figures/09-decorrelation.png){#fig-step3-zca width="92%" fig-alt="20x20 correlation heatmaps before and after regularized ZCA whitening."}
 
 **Choice point — Variance shrinkage (`tau2_shrinkage`), physical units (`restore_scale`), and trial decorrelation (`whiten_panel`):**
 
@@ -188,7 +241,7 @@ epochs <- decon_epoch_regression(
   other_event_model   = "auto",          # joint (T, O) trial subtraction when phases overlap
   demix_target_trials = TRUE,
   demix_within_trial  = FALSE,           # FALSE before medusa_multilag_infer(); TRUE for 1-subject curves
-  demix_ridge         = 0.05,
+  demix_ridge         = "auto",          # SURE-tuned trial ridge (or fixed 0.05)
   restore_scale       = TRUE,
   weighting           = "gls",
   tau2_mode           = "auto",

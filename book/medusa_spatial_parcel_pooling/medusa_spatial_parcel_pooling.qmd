@@ -413,9 +413,9 @@ where $\tilde{c}_{uv} \in [-1, 1]$ is the Spearman-disattenuated cross-run candi
 $$
 \pi_{uv}^{\text{soft}} = w_{\times} + (1 - w_{\times})\, c_+^2 \quad (g_u \neq g_v).
 $$
-To calibrate out-of-sample signal gating against spatially correlated scanner innovations $Z^{(-r)}$, `csr_quad_cor_cpp()` evaluates the exact quadratic spatial correlation inflation factor on the normalized graph weights $\tilde{w}_{uv} = w_{uv}^{(-r)} / \sum_{v'} w_{uv'}^{(-r)}$ in $O(m k_{\max}^2 V)$ time:
+To calibrate out-of-sample signal gating against spatially correlated scanner innovations $\widetilde{E}^{(-r)}$, `csr_quad_cor_cpp()` evaluates the exact quadratic spatial correlation inflation factor on the normalized graph weights $\tilde{w}_{uv} = w_{uv}^{(-r)} / \sum_{v'} w_{uv'}^{(-r)}$ in $O(m k_{\max}^2 V)$ time:
 $$
-v_{\text{quad}, u}^{(-r)} = \sum_{a \in \mathcal{N}(u) \cup \{u\}} \sum_{b \in \mathcal{N}(u) \cup \{u\}} \tilde{w}_{ua}\,\tilde{w}_{ub}\,\widehat{\operatorname{Corr}}\!\left(z_a^{(-r)}, z_b^{(-r)}\right)^2,
+v_{\text{quad}, u}^{(-r)} = \sum_{a \in \mathcal{N}(u) \cup \{u\}} \sum_{b \in \mathcal{N}(u) \cup \{u\}} \tilde{w}_{ua}\,\tilde{w}_{ub}\,\widehat{\operatorname{Corr}}\!\left(\tilde{e}_a^{(-r)}, \tilde{e}_b^{(-r)}\right)^2,
 $$
 scaling Stouffer–Cauchy combined run evidence by $(v_{\text{quad}, u}^{(-r)})^{-1/2}$.
 

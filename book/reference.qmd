@@ -47,8 +47,8 @@ Rscript assets/compare_glm_fir_lss_medusa.R
 # Step 0: Experimental design benchmarks & BIDS/fMRIPrep subject ingestion
 (cd medusa_step0_design_bids && Rscript simulate_step0.R && Rscript figures_step0.R)
 
-# Step 1: Cross-run HRF & AR(p) noise + Woolrich noise review
-(cd medusa_step1_hrf_noise && Rscript simulate_step1.R && Rscript figures_step1.R)
+# Step 1: Cross-run HRF & AR(p) noise + background noise-pool PCs + Woolrich noise review
+(cd medusa_step1_hrf_noise && Rscript simulate_step1.R && Rscript figures_step1.R && Rscript make_noise_pcs_fig.R)
 (cd medusa_step1_hrf_noise/woolrich_review && Rscript compare_noise.R && Rscript variance_check.R && Rscript plot_comparison.R)
 
 # Step 2: Event-informed continuous deconvolution (including blind vs. event-informed benchmark)
@@ -57,8 +57,8 @@ Rscript assets/compare_glm_fir_lss_medusa.R
 # Step 3: Peri-event epoch readout & demixing
 (cd medusa_step3_epochs && Rscript simulate_step3.R && Rscript figures_step3.R)
 
-# Step 4: Parcel aggregation, shared noise loadings, & cohort precision weights
-(cd medusa_step4_parcel_panels && Rscript simulate_step4.R && Rscript figures_step4.R)
+# Step 4: Parcel aggregation, Adaptive-POET & CovReg, & cohort precision weights
+(cd medusa_step4_parcel_panels && Rscript simulate_step4.R && Rscript figures_step4.R && Rscript make_poet_fig.R)
 
 # Step 5: Split-wise mixed models & joint multi-lag trajectory inference
 (cd medusa_step5_group_models && Rscript simulate_step5.R && Rscript figures_step5.R && Rscript simulate_pr62.R && Rscript figures_pr62.R)
@@ -66,8 +66,8 @@ Rscript assets/compare_glm_fir_lss_medusa.R
 # Multi-lag trajectory empirical calibration (180 replications x 2 regimes)
 (cd medusa_multilag_calibration && Rscript simulate.R && Rscript figures.R)
 
-# Step 6: Trial-level connectivity, M-MOMS, & PPI sensitivity
-(cd medusa_step6_connectivity && Rscript simulate.R && Rscript figures.R)
+# Step 6: Trial-level connectivity, M-MOMS, POET CovReg benchmark, & PPI sensitivity
+(cd medusa_step6_connectivity && Rscript simulate.R && Rscript figures.R && Rscript make_poet_step6_fig.R)
 (cd medusa_connectivity_inference && Rscript prepare_figures.R)
 
 # Volumetric spatial & parcel pooling benchmark + ggbrain maps
