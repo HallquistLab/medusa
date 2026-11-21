@@ -424,7 +424,7 @@ y_r = H_r a_r + Z_r \gamma_r + \varepsilon_r,
 <p>where <span class="math inline">\(\widetilde{B}_{r,\tau}\)</span> absorbs input run-centering and whitened nuisance projections. In our independent algebraic audit (<code>worked/mmom-check.R</code>), MEDuSA’s factored cascade propagation matches brute-force dense <span class="math inline">\(\text{AR}(3)\)</span> Toeplitz matrix multiplication to <strong>1.11e-16</strong>.</p>
 <section id="why-run-centering-introduces-1---1m-1" class="level3">
 <h3 class="anchored" data-anchor-id="why-run-centering-introduces-1---1m-1">Why run-centering introduces <span class="math inline">\((1 - 1/m)^{-1}\)</span></h3>
-<p>Because BOLD runs lack an absolute baseline unit across scanner acquisitions, within-run trial regressions center trial vectors within each run using <span class="math inline">\(Q_m = I_m - \frac{1}{m}\mathbf{1}_m\mathbf{1}_m^\top\)</span>. Centering <span class="math inline">\(m\)</span> noisy trial estimates subtracts the sample mean error <span class="math inline">\(\bar{e}_r = \frac{1}{m}\sum_{j=1}^m e_{rj}\)</span> from every trial. Even if uncentered errors had variance <span class="math inline">\(\sigma^2\)</span>, the expected squared centered error is <span class="math inline">\(\mathbb{E}[(e_{ri} - \bar{e}_r)^2] = \sigma^2(1 - 1/m)\)</span>, so sample inner products over centered trials lose one degree of freedom per run (just like Bessel’s <span class="math inline">\(n/(n-1)\)</span> sample-variance correction). Dividing by <span class="math inline">\(1 - 1/m\)</span> calibrates the centered covariance matrix so <span class="math inline">\(\sum_{i=1}^m [\widehat{\Omega}_{r,\tau}]_{ii}\)</span> is an unbiased estimator of expected centered error sum of squares <span class="math inline">\(\mathbb{E}[\|Q_m e_r\|_2^2]\)</span> in Step 6 normal equations:</p>
+<p>Subtracting the run mean from <span class="math inline">\(m&gt;1\)</span> trial estimates applies <span class="math inline">\(Q_m\)</span> to their error vector. Its covariance is exactly <span class="math inline">\(Q_m\Omega_{r,\tau,\text{raw}}Q_m\)</span>. For independent errors of common variance <span class="math inline">\(\sigma^2\)</span>, each diagonal is now <span class="math inline">\(\sigma^2(1-1/m)\)</span>. MEDuSA divides by <span class="math inline">\(1-1/m\)</span> when reporting per-trial variance on a degrees-of-freedom-adjusted scale. In the general correlated case, the matrix multiplication accounts for how centering changes each diagonal.</p>
 <p><span class="math display">\[
 Q_m = I_m - \frac{\mathbf{1}_m\mathbf{1}_m^\top}{m},
 \qquad
@@ -442,7 +442,7 @@ Q_m = I_m - \frac{\mathbf{1}_m\mathbf{1}_m^\top}{m},
 <section id="preserving-scale-equivalence-and-spatial-parcel-correlations" class="level3">
 <h3 class="anchored" data-anchor-id="preserving-scale-equivalence-and-spatial-parcel-correlations">Preserving scale equivalence and spatial parcel correlations</h3>
 <p>When Step 2 standardizes series by <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span> (<code>scaling = "noise_sd"</code>), setting <strong><code>restore_scale = TRUE</code></strong> in Step 3 multiplies both <code>decon_demixed</code> and <code>se_demixed</code> back by <span class="math inline">\(\widehat{\sigma}_{\text{obs}}\)</span> so every run of a parcel shares physical BOLD units. More generally, rescaling any neural variable by a constant <span class="math inline">\(c\)</span> rescales its SE by <span class="math inline">\(|c|\)</span> and its error variance by <span class="math inline">\(c^2\)</span>.</p>
-<p>When voxels are aggregated into anatomical parcels in Step 4 (<code>parcel_groups</code>), summing voxel variances naively would underestimate parcel noise because neighboring voxels share physiological and thermal fluctuations. MEDuSA instead propagates Step 2’s task-free whitened <code>noise_innovations</code> through each voxel’s operator stratum to compute exact spatial noise covariance within each parcel, while storing low-rank cross-parcel innovation vectors (<code>shared_noise_loading</code> and <code>unit_error_cor</code>) for Step 6.</p>
+<p>When voxels are aggregated into anatomical parcels in Step 4 (<code>parcel_groups</code>), summing voxel variances naively would underestimate parcel noise because neighboring voxels share physiological and thermal fluctuations. MEDuSA instead propagates Step 2’s task-free whitened <code>noise_innovations</code> (<span class="math inline">\(\widetilde{E}_r\)</span>) through each voxel’s operator stratum to compute exact within-parcel spatial noise covariance, while fitting <strong>Adaptive-POET and LTZ-gated dynamic covariance regression</strong> (<code>shared_error_model</code> and compact Block-PAF list-columns <code>shared_noise_vec</code> / <code>lag_noise_vec</code>; see <a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html#sec-step4-poet">Step 4 §4.4</a>) for Step 6 cross-parcel shared-error subtraction.</p>
 <hr>
 </section>
 </section>
@@ -480,9 +480,9 @@ Table&nbsp;14.1: Mapping exported Step 3–4 variance and weight columns to thei
 <td style="text-align: left;"><strong>Step 5 outcome weights</strong> in <code>mixed_by()</code> (never pass inverse weights where <code>err_x</code> expects variances)</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><code>shared_noise_loading</code> / <code>unit_error_cor</code></td>
-<td style="text-align: left;">Task-free cross-parcel noise correlation basis (<span class="math inline">\(\widehat{r}_{ST}\)</span>)</td>
-<td style="text-align: left;"><strong>Step 6 shared-error moment</strong> <span class="math inline">\(c_i = \widehat{r}_{ST} s_{S,i} s_{T,i}\)</span> subtracted from <span class="math inline">\(X^\top Y\)</span> under <code>shared_error = "auto"</code></td>
+<td style="text-align: left;"><code>shared_noise_vec</code> / <code>shared_error_model</code> (<code>unit_error_cor</code>)</td>
+<td style="text-align: left;">Adaptive-POET + dynamic covariance-regression shared-error factors (<a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html#sec-step4-poet">Step 4 §4.4</a>)</td>
+<td style="text-align: left;"><strong>Step 6 shared-error moment</strong> <span class="math inline">\(c_i = \operatorname{Cov}(u_i, v_i \mid x_i, w_i)\)</span> subtracted from <span class="math inline">\(X^\top Y\)</span> under <code>shared_error = "auto"</code></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>se_whitened^2</code></td>
@@ -548,7 +548,7 @@ x_i &amp; 0 &amp; x_i^2
 3 0.2832399</code></pre>
 </div>
 </div>
-<p>Across multiple participants, pool each participant’s <code>fit$coefficients</code> slope and SE via <code>medusa_between_subject_repair()</code> so cohort <span class="math inline">\(p\)</span>-values and confidence intervals reflect participant-level replication (HKSJ <span class="math inline">\(t\)</span>-intervals).</p>
+<p>For this neural-to-behavior model, fit the trial regression within each participant and treat participants as the replication units for a population slope. For a seed parcel predicting a target parcel, <code>decon_connectivity_repair()</code> performs both the within-participant correction and cohort pooling. A different question is whether <em>participant-level random effects</em> covary across fitted mixed models. Use <code>medusa_between_subject_repair()</code> with those fitted models as inputs. <a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Trial connectivity and group pooling</a></p>
 <hr>
 </section>
 </section>

@@ -440,15 +440,11 @@ Figure&nbsp;1.2: Live signal walkthrough across Steps 0–5 (<code>assets/quicks
 </figure>
 </div>
 <ol type="1">
-<li><strong>Step 0 — Intact-clock ingestion (<code>read_fmriprep_subject()</code> / <code>read_nifti_ts()</code>):</strong> Instead of deleting high-motion or dummy volumes (which shifts the acquisition clock relative to BIDS <code>onset</code> seconds), Step 0 flags bad frames in <code>valid_rows</code> (<code>FALSE</code> = censor) and keeps nuisance task events (such as missed-response timeouts) in <code>events</code> so their BOLD waves are accounted for rather than left in the residual.</li>
-<li><strong>Step 1 — Out-of-sample geodesic HRF &amp; <span class="math inline">\(\text{AR}(1)\)</span> noise (<code>estimate_crossrun_hrf()</code>):</strong> Each target run’s HRF is learned exclusively from the participant’s <em>other</em> runs (<span class="math inline">\(s \neq r\)</span>; <a href="#fig-quickstart-mechanics" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>, Panel A), preventing overfitting while <code>pooling = "graph"</code> pools HRF evidence along connected in-mask gray matter without bleeding across CSF sulci. Setting <code>amplitude_model = "auto"</code> enables SVD fractional-ridge trial scoring so regions driven by zero-mean modulators (such as signed RPE with zero condition-mean intercept) still identify their true HRF, while <code>noise_pcs = "auto"</code> cross-validates <span class="math inline">\(0\text{--}10\)</span> GLMdenoise-style temporal PCs from task-silent cortex.</li>
-<li><strong>Step 2 — Event-informed continuous GLS deconvolution (<code>deconvolve_crossrun_hrf()</code>):</strong> After pre-projecting <code>&lt; 1/128 Hz</code> DCT drift, confounds, and selected noise PCs on <code>valid_rows</code> (<code>nuisance_mode = "preproject"</code>), Step 2 solves a prewhitened continuous inverse on an event-projected noise scale (<code>scaling = "noise_sd"</code>). <code>lambda_mode = "auto"</code> assigns stronger smoothing to quiet cortex and lighter smoothing to high-SNR foci, while <code>rwls = "auto"</code> downweights isolated non-task glitches without attenuating real neural bursts (<a href="#fig-quickstart-mechanics" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>, Panel B).</li>
-<li><strong>Steps 3 &amp; 4 — <code>(T, O)</code> epoch de-mixing &amp; multi-stratum parcel pooling (<code>decon_epoch_regression()</code>):</strong> Reading continuous <span class="math inline">\(\widehat{a}(t)\)</span> directly at feedback onset would retain collateral BOLD tails from preceding cues and smoothing cross-talk from neighboring trials. Step 3 subtracts non-target spillover (<code>other_event_model = "auto"</code>), inverts target-to-target mixing (<code>demix_ridge = "auto"</code>), and propagates exact per-trial measurement standard errors (<code>se_demixed</code>; <a href="#fig-quickstart-mechanics" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>, Panel C). When <code>parcel_groups</code> is supplied (Step 4), voxels are weighted by cross-run precision while propagating spatial noise correlations from Step 2’s task-free <code>noise_innovations</code>.</li>
-<li><strong>Steps 5 &amp; 6 — Role-matched cohort inference:</strong>
-<ul>
-<li>When neural activity is the <strong>outcome</strong> (<code>Neural ~ Behavior</code>, Step 5), zero-mean trial error enters the residual without biasing slopes; <code>mixed_by(..., weights = "precision_weight_cohort")</code> weights each trial by <span class="math inline">\((\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}\)</span>, and <code>medusa_multilag_infer()</code> deblurs multi-lag trajectories (<a href="#fig-quickstart-mechanics" class="quarto-xref">Figure&nbsp;<span>1.2</span></a>, Panel D; lag-0 RPE estimate = 0.70 vs.&nbsp;<code>0.70</code> truth).</li>
-<li>When neural activity is a <strong>predictor</strong> (<code>Target ~ Seed * Task</code>, Step 6), predictor measurement error attenuates naive slopes while shared physiological noise (0.63 naive OLS vs.&nbsp;<code>0.50</code> truth here) biases them; <code>decon_connectivity_repair()</code> (<a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">Step 6</a>) subtracts both error moments with M-MOMS conditioning protection.</li>
-</ul></li>
+<li><strong>Keep event time (Step 0).</strong> A scrubbed frame still occupies one TR on the clock. Mark it in <code>valid_rows</code> and keep events such as missed-response cues in the schedule if they evoked BOLD.</li>
+<li><strong>Learn regional timing (Step 1, panel A).</strong> Other runs provide the HRF for the target run. A signed prediction error can evoke strong responses that average to zero, so <code>amplitude_model = "auto"</code> also looks for trial-varying activity. Background time courses that pass the noise-PC screen can enter the nuisance model. <a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-noise-pool-pcs">Noise-PC demonstration</a></li>
+<li><strong>Reconstruct continuous activity (Step 2, panel B).</strong> The inverse uses the selected HRF and serial noise model. Smoothing controls how much rapid variation the data can support. Estimates inside a scrubbed interval depend on neighboring frames and the penalty.</li>
+<li><strong>Measure each feedback response (Steps 3–4, panel C).</strong> Estimate and subtract spillover from preceding cues, then correct mixing among feedback trials. Each parcel gets an amplitude (<code>decon_demixed</code>) and measurement uncertainty (<code>se_demixed</code>). A connectivity analysis also needs the estimated covariance of the errors in two parcels. <a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html#sec-step4-poet">POET demonstration</a></li>
+<li><strong>Test the planned effect.</strong> Use Step 5 for a behavioral predictor of neural activity (panel D gives a lag-zero estimate of 0.70 for a generating slope of 0.70). Use Step 6 for a neural predictor of another parcel. In the latter case, <code>decon_connectivity_repair()</code> accounts for both seed noise and shared seed–target noise.</li>
 </ol>
 <hr>
 </section>
@@ -657,55 +653,68 @@ Figure&nbsp;1.2: Live signal walkthrough across Steps 0–5 (<code>assets/quicks
 </section>
 <section id="sec-qs-group" class="level2">
 <h2 class="anchored" data-anchor-id="sec-qs-group">Cohort Inference Templates (Steps 5 &amp; 6)</h2>
-<p>Once participant outputs are collected across the cohort (<code>group_panel</code> stacked via <code>data.table::rbindlist()</code> or <code>subject_epochs</code> named list):</p>
+<p>Collect the Branch A epoch objects in <code>subject_epochs</code>, a list named by participant ID. Suppose <code>trial_behavior</code> contains one row per feedback event with <code>id</code>, <code>run</code>, <code>event_index</code> and <code>rpe</code>. The event index is its row in the <strong>full run event table</strong>, before selecting feedback. Center RPE once on those behavioral rows so the same event has the same predictor in every parcel and lag. <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">Step 0 join example</a></p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Step 5A: Planned parcel/lag multilevel model + 3D NIfTI backprojection ---</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Center within-run trial predictors so fixed slopes reflect pure within-person modulation</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>group_panel[, rpe_within <span class="sc">:</span><span class="er">=</span> rpe <span class="sc">-</span> <span class="fu">mean</span>(rpe, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), by <span class="ot">=</span> .(id, run, parcel, evt_time)]</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>fit_mlm <span class="ot">&lt;-</span> <span class="fu">mixed_by</span>(</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">data                      =</span> group_panel,</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">outcomes                  =</span> <span class="st">"decon_demixed"</span>,          <span class="co"># NEVER use decon_eb as a group outcome</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">rhs_model_formulae        =</span> <span class="sc">~</span> rpe_within <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">+</span> rpe_within <span class="sc">||</span> id) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> id<span class="sc">:</span>run),</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">split_on                  =</span> <span class="fu">c</span>(<span class="st">"parcel"</span>, <span class="st">"evt_time"</span>),</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights                   =</span> <span class="st">"precision_weight_cohort"</span>,</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">reweight_conditional_tau2 =</span> <span class="st">"auto"</span>,                   <span class="co"># upgrades marginal panel weights to residual tau2</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">padjust_by                =</span> <span class="st">"term"</span>,</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">padjust_method            =</span> <span class="st">"BY"</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>behavior <span class="ot">&lt;-</span> <span class="fu">copy</span>(<span class="fu">as.data.table</span>(trial_behavior))</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">anyDuplicated</span>(behavior, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"id"</span>, <span class="st">"run"</span>, <span class="st">"event_index"</span>)))</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>behavior[, rpe_within <span class="sc">:</span><span class="er">=</span> rpe <span class="sc">-</span> <span class="fu">mean</span>(rpe, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), by <span class="ot">=</span> .(id, run)]</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (sid <span class="cf">in</span> <span class="fu">names</span>(subject_epochs)) {</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  panel <span class="ot">&lt;-</span> <span class="fu">copy</span>(<span class="fu">as.data.table</span>(subject_epochs[[sid]]<span class="sc">$</span>panel))</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  panel[, id <span class="sc">:</span><span class="er">=</span> sid]</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(<span class="fu">nrow</span>(panel[<span class="sc">!</span>behavior, <span class="at">on =</span> .(id, run, event_index)]) <span class="sc">==</span> <span class="dv">0</span>L)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  panel[behavior, on <span class="ot">=</span> .(id, run, event_index),</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">`</span><span class="at">:=</span><span class="st">`</span>(<span class="at">rpe =</span> i.rpe, <span class="at">rpe_within =</span> i.rpe_within)]</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  subject_epochs[[sid]]<span class="sc">$</span>panel <span class="ot">&lt;-</span> panel</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>group_panel <span class="ot">&lt;-</span> <span class="fu">rbindlist</span>(<span class="fu">lapply</span>(subject_epochs, <span class="st">`</span><span class="at">[[</span><span class="st">`</span>, <span class="st">"panel"</span>))</span>
 <span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Map group parcel statistics back onto a 3D NIfTI volume for ggbrain visualization:</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="fu">backproject_medusa</span>(</span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">coef_df    =</span> <span class="fu">subset</span>(fit_mlm<span class="sc">$</span>coef_df_reml, term <span class="sc">==</span> <span class="st">"rpe_within"</span> <span class="sc">&amp;</span> evt_time <span class="sc">==</span> <span class="dv">0</span>),</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">brain_mask =</span> decon,</span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">plot_cols  =</span> <span class="fu">c</span>(<span class="st">"estimate"</span>, <span class="st">"statistic"</span>),</span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">output_dir =</span> <span class="st">"group_maps"</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Step 5B: Continuous multi-lag trajectory, simultaneous bands, &amp; window contrasts ---</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>fit_traj <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  subject_epochs,</span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates      =</span> <span class="st">"rpe"</span>,</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">trajectory_mode =</span> <span class="st">"auto"</span>,           <span class="co"># spectral deblurring + P-spline across lags</span></span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">contrast_source =</span> <span class="st">"unsmoothed"</span>,     <span class="co"># unbiased deblurred curve for window integrals</span></span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">contrasts       =</span> <span class="fu">list</span>(<span class="at">late_minus_early =</span> <span class="fu">list</span>(<span class="at">early =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">late =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>))),</span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened    =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr              =</span> sub_obj<span class="sc">$</span>tr,</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_perm          =</span> <span class="dv">4000</span>L</span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Step 6: Disattenuated trial-by-trial seed-target connectivity / PPI (M-MOMS) ---</span></span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>fit_ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel_dt         =</span> subject_epochs,</span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_region      =</span> <span class="st">"Parcel_Seed"</span>,</span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_region    =</span> <span class="st">"Parcel_Target"</span>,</span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_lag         =</span> <span class="dv">0</span>,</span>
-<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_lag       =</span> <span class="dv">0</span>,</span>
-<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates       =</span> <span class="st">"rpe"</span>,</span>
-<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi         =</span> <span class="cn">TRUE</span>,            <span class="co"># tests Seed + RPE + Seed:RPE PPI interaction</span></span>
-<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">multilag_control =</span> <span class="cn">TRUE</span>,            <span class="co"># partials adjacent-lag spillover when multiple lags exist</span></span>
-<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col       =</span> <span class="st">"parcel"</span></span>
-<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5A: Fit the planned multilevel model</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>fit_mlm <span class="ot">&lt;-</span> <span class="fu">mixed_by</span>(</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">data                      =</span> group_panel,</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">outcomes                  =</span> <span class="st">"decon_demixed"</span>,          <span class="co"># NEVER use decon_eb as a group outcome</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">rhs_model_formulae        =</span> <span class="sc">~</span> rpe_within <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">+</span> rpe_within <span class="sc">||</span> id) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> id<span class="sc">:</span>run),</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">split_on                  =</span> <span class="fu">c</span>(<span class="st">"parcel"</span>, <span class="st">"evt_time"</span>),</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">weights                   =</span> <span class="st">"precision_weight_cohort"</span>,</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">reweight_conditional_tau2 =</span> <span class="st">"auto"</span>,                   <span class="co"># upgrades marginal panel weights to residual tau2</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">padjust_by                =</span> <span class="st">"term"</span>,</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">padjust_method            =</span> <span class="st">"BY"</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Map group parcel statistics back onto a 3D NIfTI volume for ggbrain visualization:</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a><span class="fu">backproject_medusa</span>(</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">coef_df    =</span> <span class="fu">subset</span>(fit_mlm<span class="sc">$</span>coef_df_reml, term <span class="sc">==</span> <span class="st">"rpe_within"</span> <span class="sc">&amp;</span> evt_time <span class="sc">==</span> <span class="dv">0</span>),</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">brain_mask =</span> decon,</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">plot_cols  =</span> <span class="fu">c</span>(<span class="st">"estimate"</span>, <span class="st">"statistic"</span>),</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">output_dir =</span> <span class="st">"group_maps"</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Step 5B: Continuous multi-lag trajectory, simultaneous bands, &amp; window contrasts ---</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>fit_traj <span class="ot">&lt;-</span> <span class="fu">medusa_multilag_infer</span>(</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  subject_epochs,</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates      =</span> <span class="st">"rpe"</span>,</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">trajectory_mode =</span> <span class="st">"auto"</span>,           <span class="co"># spectral deblurring + P-spline across lags</span></span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">contrast_source =</span> <span class="st">"unsmoothed"</span>,     <span class="co"># unbiased deblurred curve for window integrals</span></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>  <span class="at">contrasts       =</span> <span class="fu">list</span>(<span class="at">late_minus_early =</span> <span class="fu">list</span>(<span class="at">early =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">late =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>))),</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_whitened    =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">tr              =</span> sub_obj<span class="sc">$</span>tr,</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_perm          =</span> <span class="dv">4000</span>L</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Step 6: Disattenuated trial-by-trial seed-target connectivity / PPI (M-MOMS) ---</span></span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>fit_ppi <span class="ot">&lt;-</span> <span class="fu">decon_connectivity_repair</span>(</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel_dt         =</span> subject_epochs,</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_region      =</span> <span class="st">"Parcel_Seed"</span>,</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_region    =</span> <span class="st">"Parcel_Target"</span>,</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed_lag         =</span> <span class="dv">0</span>,</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">target_lag       =</span> <span class="dv">0</span>,</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates       =</span> <span class="st">"rpe"</span>,</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>  <span class="at">test_ppi         =</span> <span class="cn">TRUE</span>,            <span class="co"># tests Seed + RPE + Seed:RPE PPI interaction</span></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>  <span class="at">multilag_control =</span> <span class="cn">TRUE</span>,            <span class="co"># partials adjacent-lag spillover when multiple lags exist</span></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>  <span class="at">region_col       =</span> <span class="st">"parcel"</span></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <hr>
 </section>

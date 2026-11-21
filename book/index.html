@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-11-20">
+<meta name="dcterms.date" content="2026-11-21">
 
 <title>MEDuSA</title>
 <style>
@@ -315,7 +315,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 20, 2026</p>
+      <p class="date">November 21, 2026</p>
     </div>
   </div>
   
@@ -354,51 +354,46 @@ window.Quarto = {
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th>Pipeline step</th>
-<th>Primary <code>medusa</code> function(s)</th>
-<th>Core question answered</th>
+<th>Step</th>
+<th>What you learn</th>
+<th>Main entry point</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">0. Task Design &amp; BIDS/fMRIPrep Ingestion</a></td>
-<td><code>read_fmriprep_subject()</code>, <code>read_bids_events()</code>, <code>read_fmriprep_confounds()</code>, <code>read_fmriprep_aroma()</code>, <code>apply_aroma()</code>, <code>read_nifti_ts()</code></td>
-<td>How should runs and inter-phase jitter be scheduled for trial-level identifiability, and how do we ingest BIDS events, <code>fMRIPrep</code> confounds, <a href="./medusa_step0_design_bids/medusa_step0_design_bids.html#sec-nonaggressive-aroma">non-aggressive ICA-AROMA</a> components, dummy scans, and missed trials onto an intact acquisition clock?</td>
+<td><a href="./medusa_step0_design_bids/medusa_step0_design_bids.html">0. Design and ingestion</a></td>
+<td>Which events can the schedule distinguish, and which BOLD frames can support them?</td>
+<td><code>read_fmriprep_subject()</code></td>
 </tr>
 <tr class="even">
-<td><a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">1. Estimate Cross-Run HRF &amp; Noise</a></td>
-<td><code>build_spatial_graph()</code>, <code>hrf_library()</code>, <code>estimate_crossrun_hrf()</code></td>
-<td>How do we learn each parcel’s or cortical neighborhood’s HRF out of sample—including zero-mean modulated regions (<code>amplitude_model = "auto"</code> / <code>hrf_modulators</code>), SNR-adaptive de-shrinking, cross-validated background noise-pool PCs (<code>noise_pcs = "auto"</code>), and run-specific AR(<span class="math inline">\(p\)</span>) covariance (<a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html#sec-respiratory-fd-filter">fast-TR respiratory FD filtering</a>)?</td>
+<td><a href="./medusa_step1_hrf_noise/medusa_step1_hrf_noise.html">1. HRF and noise</a></td>
+<td>How does a brief event appear in BOLD here, and how persistent is the remaining noise?</td>
+<td><code>estimate_crossrun_hrf()</code></td>
 </tr>
 <tr class="odd">
-<td><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">2. Deconvolve Continuous Signal</a></td>
-<td><code>deconvolve_crossrun_hrf()</code>, <code>diagnose_crossrun_recovery()</code>, <code>write_nifti_ts()</code></td>
-<td>What continuous latent time course is supported on the acquisition grid when clock-aligned <code>&lt; 1/128 Hz</code> DCT drift and noise-pool PCs (<code>nuisance_mode = "preproject"</code>, <code>noise_pcs = "auto"</code>) are removed upfront and event-informed GLS calibrates noise scaling, outlier weights (<code>rwls = "auto"</code>), and SNR-stratified smoothing (<code>lambda_mode = "auto"</code>)?</td>
+<td><a href="./medusa_step2_deconvolution/medusa_step2_deconvolution.html">2. Continuous deconvolution</a></td>
+<td>Which activity time courses are consistent with the observed BOLD and the chosen smoothing?</td>
+<td><code>deconvolve_crossrun_hrf()</code></td>
 </tr>
 <tr class="even">
-<td><a href="./medusa_step3_epochs/medusa_step3_epochs.html">3. Align Epochs &amp; De-Mix Overlap</a></td>
-<td><code>decon_epoch_regression()</code>, <code>align_medusa_ts()</code></td>
-<td>How do we read out event-locked lags, remove trial-varying collateral spillover (<code>other_event_model = "auto"</code>), invert target-to-target mixing across impulses or variable durations, and compute per-trial standard errors?</td>
+<td><a href="./medusa_step3_epochs/medusa_step3_epochs.html">3. Epoch readout</a></td>
+<td>How much of a feedback readout belongs to that trial, and how much came from a nearby cue or trial?</td>
+<td><code>decon_epoch_regression()</code></td>
 </tr>
 <tr class="odd">
-<td><a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">4. Assemble Parcel Panels</a></td>
+<td><a href="./medusa_step4_parcel_panels/medusa_step4_parcel_panels.html">4. Parcel panels</a></td>
+<td>How precisely can we estimate the parcel average, and how much error do two parcels share?</td>
 <td><code>decon_epoch_regression(..., parcel_groups = ...)</code></td>
-<td>How do we pool voxels into parcels using cross-run precision weights while propagating spatial noise correlations, cohort weights, and paired within-run decorrelated (<code>*_whitened</code>) columns?</td>
 </tr>
 <tr class="even">
-<td><a href="./medusa_step5_group_models/medusa_step5_group_models.html">5. Fit Group Multilevel &amp; Trajectory Models</a></td>
-<td><code>mixed_by()</code>, <code>medusa_multilag_infer()</code>, <code>backproject_medusa()</code></td>
-<td>How do we test within-person slopes, spectrally deblurred multi-lag trajectories, simultaneous confidence bands, window contrasts, and volumetric brain maps across participants?</td>
+<td><a href="./medusa_step5_group_models/medusa_step5_group_models.html">5. Group effects</a></td>
+<td>Does a behavioral predictor explain neural activity across participants at a planned lag or across a lag window?</td>
+<td><code>mixed_by()</code>, <code>medusa_multilag_infer()</code></td>
 </tr>
 <tr class="odd">
-<td><a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">6. Estimate Connectivity &amp; PPI</a></td>
-<td><code>decon_connectivity_repair()</code>, <code>medusa_fit_mmom()</code></td>
-<td>How do we correct predictor attenuation, dynamic shared regional measurement error, and cross-lag overlap (<code>multilag_control = TRUE</code>) when deconvolved neural activity predicts another region or behavior?</td>
-</tr>
-<tr class="even">
-<td><a href="./medusa_qc_gallery/medusa_qc_gallery.html">Visual QC &amp; Troubleshooting Gallery</a></td>
-<td><code>diagnose_crossrun_recovery()</code>, <code>$confounds$summary</code>, <code>$noise</code>, <code>$panel</code>, <code>$subjects</code></td>
-<td>What do healthy versus mis-specified diagnostics look like side by side across Steps 0–6 (clock shifts, <code>rho = 0.90</code> ceiling pile-ups, gain collapse, spike ringing, scrubbing shadows, <code>decon_eb</code> misuse, centering/random-slope pitfalls, and shared connectivity noise)?</td>
+<td><a href="./medusa_step6_connectivity/medusa_step6_connectivity.html">6. Connectivity and PPI</a></td>
+<td>Does the seed predict the target after accounting for noise in both, and does this association change with task context?</td>
+<td><code>decon_connectivity_repair()</code></td>
 </tr>
 </tbody>
 </table>
@@ -412,7 +407,7 @@ window.Quarto = {
 <li>Explore <a href="./medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.html">Spatial Graph Pooling: Voxelwise and Parcel-Wise NIfTI Workflows</a> for an MNI152 cortical-ribbon walkthrough comparing geodesic bilateral graph pooling, SNR-stratified deconvolution, voxelwise Graph-EB mapping (<code>write_nifti_ts()</code>), and parcel-wise panel backprojection (<code>backproject_medusa()</code>) visualized with <code>ggbrain</code>.</li>
 <li>Consult <strong>Methodological deep dives</strong> for question-driven chapters examining <a href="./medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.html">fast-TR REML AR(<span class="math inline">\(p\)</span>) prewhitening vs.&nbsp;lag tapering</a>, <a href="./medusa_standard_errors_mmom.html">propagating BOLD noise into trial standard errors</a>, <a href="./medusa_multilag_calibration/medusa_multilag_calibration.html">simultaneous trajectory bands and familywise calibration</a>, <a href="./medusa_connectivity_inference/medusa_connectivity_inference.html">latent connectivity beyond per-trial disattenuation</a>, and <a href="./evidence.html">what validation proves—plus building study-specific calibration checks</a>.</li>
 </ol>
-<p>All code examples, figures, and diagnostic tables in this book are generated directly from the standalone <code>medusa</code> package (<code>library(medusa)</code>). For manuscript checklists, adaptable <em>Methods</em> templates, and peer-review FAQs, see <a href="./reporting.html">Appendix A: Reporting MEDuSA in Empirical Papers</a>; for simulation regeneration commands and full references, see <a href="./reference.html">Appendix B: Package Architecture and Reproduction</a>.</p>
+<p>The chapters pair MEDuSA fits with schematic examples and simulations whose generating parameters are known. For manuscript checklists, adaptable <em>Methods</em> templates, and peer-review FAQs, see <a href="./reporting.html">Appendix A: Reporting MEDuSA in Empirical Papers</a>; for simulation regeneration commands and full references, see <a href="./reference.html">Appendix B: Package Architecture and Reproduction</a>.</p>
 
 
 </section>
