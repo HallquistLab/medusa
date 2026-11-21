@@ -88,11 +88,26 @@ Because $H_r$ acts as a low-pass filter, high-frequency oscillations in $a_r$ le
 
 ![Effect of varying `lambda` (`0.0001`, `0.03`, `3`) on the same noisy BOLD series under the `sobolev` penalty.](figures/02-lambda.png){#fig-step2-lambda width="95%" fig-alt="Three-panel comparison of weak, moderate, and strong lambda regularization."}
 
-Step 2 estimates $\widehat{a}_r$ by minimizing the penalized prewhitened GLS objective across the full $T_r$-sample run grid:
+Step 2 estimates $\widehat{a}_r$ by minimizing a penalized prewhitened generalized least squares (GLS) objective across the full $T_r$-sample acquisition grid:
+
 $$
-\widehat{a}_r = \arg\min_{a \in \mathbb{R}^{T_r}} \left\| W_r \bigl(\tilde{y}_{r,o} - M_{r,o} H_r a\bigr) \right\|_2^2 + \lambda a^\top P a.
+\widehat{a}_r = \arg\min_{a \in \mathbb{R}^{T_r}} \left\| \tilde{W}_r \bigl(\tilde{y}_{r,o} - M_{r,o} H_r a\bigr) \right\|_2^2 + \lambda \, a^\top P a
+\quad\Longrightarrow\quad
+\widehat{a}_r = D_r \tilde{y}_{r,o},
+\qquad
+D_r = \bigl(A_r^\top A_r + \lambda P\bigr)^{-1} A_r^\top \tilde{W}_r,
 $$
-Notice that **no event timestamps appear inside $P$ or restrict $a$**: spontaneous inter-trial fluctuations, sustained deliberation plateaus, and brief phasic bursts can occur anywhere on the acquisition clock, and the solution is a linear map $\widehat{a}_r = D_r \tilde{y}_{r,o}$.
+
+where:
+
+- $\tilde{y}_{r,o} \in \mathbb{R}^{m_r}$ is the centered, standardized BOLD vector restricted to the $m_r$ unmasked acquisition frames $I_r$ (`valid_rows[[r]] == TRUE`),
+- $M_{r,o} \in \mathbb{R}^{m_r \times T_r}$ selects those $m_r$ observed rows from the full $T_r$-sample clock,
+- $H_r \in \mathbb{R}^{T_r \times T_r}$ is the causal Toeplitz convolution matrix for Step 1's cross-fitted HRF,
+- $\tilde{W}_r$ combines exact $\text{AR}(p)$ prewhitening $W_r$ on the retained timestamps $I_r$ with nuisance orthogonalization (described below), and $A_r = \tilde{W}_r M_{r,o} H_r$ is the prewhitened forward operator,
+- $P \in \mathbb{R}^{T_r \times T_r}$ is a symmetric positive semi-definite roughness penalty matrix, and $\lambda > 0$ tunes the bias–variance trade-off between high-frequency noise suppression and phasic sharpness, and
+- $D_r \in \mathbb{R}^{T_r \times m_r}$ is the resulting **exact linear inverse operator**, carried forward into Steps 3–4 so downstream uncertainty propagation requires no resampling.
+
+Notice that **no event timestamps appear inside $P$ or restrict $a$**: spontaneous inter-trial fluctuations, sustained deliberation plateaus, and brief phasic bursts can occur anywhere on the acquisition clock.
 
 ![Comparison of all five penalty families (`ridge`, `diff1`, `diff2`, `matern1`, `sobolev`) on the same run.](figures/03-penalties.png){#fig-step2-penalties width="95%" fig-alt="Five-panel comparison of deconvolved series across penalty geometries."}
 
@@ -105,8 +120,14 @@ knitr::kable(d2$metrics, digits = 3, row.names = FALSE,
 
 **Choice point — Roughness penalty (`penalty`) and nuisance projection (`nuisance_mode`):**
 
-- **Penalty geometry:** `penalty = "sobolev"` combines a gentle first-difference slope penalty with a strong second-difference curvature penalty ($0.10 D_1^\top D_1 + 0.90 D_2^\top D_2$, a discrete Sobolev norm) and is recommended as the standard choice. Pure second-difference curvature smoothing (`"diff2"`) leaves global linear ramps unpenalized, whereas pure `"ridge"` shrinks each time point toward zero without sharing smoothness across neighboring TRs; `"sobolev"` (and `"matern1"`) gently anchors baseline drift while keeping phasic transitions crisp (@fig-step2-penalties, @tbl-step2-penalties).
-- **Clock-aligned drift, confound, and noise-pool pre-projection (`nuisance_mode = "preproject"` & `noise_pcs = "auto"`):** Because the Sobolev penalty vanishes on constant/ultra-slow modes while $H(0) = 1$, leaving `< 1/128 Hz` scanner drift or motion confounds unprojected (`nuisance_mode = "ignore"` on raw BOLD) lets slow drift pass directly into $\widehat{a}_r(t)$ even though Step 1's `noise_sd` excluded drift variance—inflating trial variance without matching `se_demixed`. Conversely, projecting nuisance columns *jointly* inside $(A_r^\top A_r + P_\lambda)^{-1}$ (`nuisance_mode = "joint"`) can amplify collinear slow neural modes. **`nuisance_mode = "preproject"`** (automatic default whenever `nuisance`, `highpass = 128`, or `noise_pcs` are active) orthogonalizes `[1, linear_trend, DCT(< 1/128 Hz), nuisance, noise_pcs]` on `valid_rows` *before* continuous deconvolution and carries that exact projection into Step 3 (`decon_epoch_regression()`), `diagnose_crossrun_recovery()`, and Stage-3 `poet_covreg`. Simultaneously, `noise_pcs = "auto"` projects out cross-validated background physiological PCs ([Step 1 §1.5](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-noise-pool-pcs)) *before* $|H(\omega)|^{-1}$ amplifies `0.15–0.30 Hz` respiratory and aliased cardiac harmonics. Use `"ignore"` only when BOLD and events were already matched-projected upstream.
+- **Penalty geometry (`penalty = "sobolev"`):** MEDuSA's recommended discrete Sobolev penalty combines a mild first-difference slope penalty ($D_1 a$, penalizing changes $a_{t+1} - a_t$) with a dominant second-difference curvature penalty ($D_2 a$, penalizing acceleration $a_{t+1} - 2a_t + a_{t-1}$):
+  $$
+  P_{\text{sobolev}} = 0.10\, D_1^\top D_1 + 0.90\, D_2^\top D_2.
+  $$
+  Why combine both terms? Pure second-difference smoothing (`"diff2"`) leaves constant shifts *and* global linear ramps completely unpenalized ($D_2 a = 0$ for any line $a_t = c_0 + c_1 t$), allowing slow baseline tilts to drift through the inverse, whereas pure `"ridge"` ($P = I$) shrinks every timepoint toward zero independently without sharing smoothness across neighboring TRs. Combining $0.10 D_1^\top D_1 + 0.90 D_2^\top D_2$ gently anchors slow ramps while preserving crisp phasic event peaks (@fig-step2-penalties, @tbl-step2-penalties).
+- **Clock-aligned drift, confound, and noise-pool pre-projection (`nuisance_mode = "preproject"` & `noise_pcs = "auto"`):** Because the Sobolev penalty vanishes on constant/ultra-slow modes while $H(0) = 1$, leaving `< 1/128 Hz` scanner drift or motion confounds unprojected (`nuisance_mode = "ignore"` on raw BOLD) lets slow drift pass directly into $\widehat{a}_r(t)$ even though Step 1's `noise_sd` excluded drift variance—inflating trial variance without matching `se_demixed`. Conversely, solving for nuisance coefficients *jointly* inside $(A_r^\top A_r + \lambda P)^{-1}$ (`nuisance_mode = "joint"`) can amplify collinear slow neural modes.
+  - **`nuisance_mode = "preproject"`** (automatic default whenever `nuisance`, `highpass = 128`, or `noise_pcs` are active) removes the full nuisance basis $Z_{r,o} = [1,\, \text{linear trend},\, \text{DCT}(< 1/128\text{ Hz}),\, \text{nuisance},\, \text{noise\_pcs}]$ on `valid_rows` *before* continuous deconvolution via the orthogonal projector $Q_{Z}^\perp = I - Q_Z Q_Z^\top$, and carries that exact projection into Step 3 (`decon_epoch_regression()`), `diagnose_crossrun_recovery()`, and Step 4's POET + covariance-regression engine.
+  - Simultaneously, `noise_pcs = "auto"` removes cross-validated background physiological PCs ([Step 1 §1.5](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-noise-pool-pcs)) *before* $|H(f)|^{-1}$ can amplify `0.14–0.30 Hz` respiratory and aliased cardiac harmonics. Use `"ignore"` only when BOLD and events were already matched-projected upstream.
 
 ![Joint vs. ignored nuisance handling when drift remains in `bold` (top) and bridging a masked `valid_rows = FALSE` artifact window `70–80 s` under `observation_mask = "fit"` (bottom).](figures/07-mask-nuisance.png){#fig-step2-mask-nuisance width="95%" fig-alt="Two-panel plot showing drift removal under nuisance_mode = joint and artifact containment under observation_mask = fit."}
 
@@ -136,12 +157,19 @@ knitr::kable(bve$scale_table, digits = 3, row.names = FALSE,
 
 ### 2.3 Guard against transient scanner glitches without clipping neural bursts
 
-Even after binary motion censoring (`valid_rows`), fMRI runs occasionally contain sub-threshold micro-movements or RF spikes ($\text{FD} \approx 0.2\text{--}0.3\text{ mm}$) that would cause oscillatory ringing in an unweighted linear inverse. At the same time, naive outlier downweighting risks mistaking an unusually large, genuine neural response (such as a surprise prediction-error burst) for an artifact.
+Even after binary motion censoring (`valid_rows`), fMRI runs occasionally contain sub-threshold micro-movements or RF spikes ($\text{FD} \approx 0.2\text{--}0.3\text{ mm}$) that cause oscillatory ringing in an unweighted linear inverse. At the same time, naive robust weighting risks mistaking an unusually large, genuine neural response (such as a surprise prediction-error burst) for an artifact.
 
-Under `rwls = "auto"`, Step 2 screens the most task-informative voxels across whole-brain maps (ranking `selected_adjusted_partial_r2` up to `4,096` voxels with numerical QR/SVD fallbacks via `hrf_safe_svd()`), measures cross-voxel residual energy **orthogonal to the modeled `[trial HRF, dHRF/dt]` task subspace**, and widens frame tolerance in proportion to the convolved task envelope:
+Under `rwls = "auto"`, Step 2 separates non-task glitches from real neural bursts in three transparent steps:
 
-- On clean Gaussian runs, a whole-brain tail-energy test calibrated for spatially correlated voxels (via the Liu–Tang–Zhang, 2009 moment approximation) keeps all weights at $w_t = 1$ so standard unweighted GLS is preserved exactly.
-- When genuine non-task glitches occur, isolated 1–2 TR spikes are absorbed by adding **transient observation-noise variance at only those flagged volumes** ($\Sigma_{\text{AR}} + \operatorname{diag}(\delta^2)$, solved via low-rank Woodbury Sparse Bayesian Learning updates so high-$\rho$ AR filters do not smear a single-volume spike into neighboring frames), while multi-TR physiological bursts receive smooth innovation-space downweighting—all while keeping $w_t = 1$ across heavy task-evoked neural bursts.
+1. **Task-orthogonal residual screening:** Ranks the most task-informative voxels (up to `4,096` voxels by Step 1 `selected_adjusted_partial_r2`), projects residuals orthogonal to the modeled `[trial HRF, dHRF/dt]` task subspace, and widens per-frame tolerance proportionally to the convolved task envelope so genuine large neural responses keep full weight ($w_t = 1$).
+2. **Spatial $\chi^2$ calibration on clean Gaussian runs:** Evaluates cross-voxel framewise tail energy against the spatially correlated null distribution (via the Liu–Tang–Zhang, 2009 moment approximation, the same spatial quadratic-form calibration used in Step 4). On clean Gaussian runs, all frame weights stay identically at $w_t = 1$ so standard unweighted GLS is preserved without unnecessary variance loss.
+3. **Observation-space spike variance vs. innovation-space bursts:** Why not simply multiply whitened frame $t$ by $\sqrt{w_t}$ when a single-volume RF spike hits a high-$\rho$ $\text{AR}(p)$ run? Because prewhitening filters $(1 - \rho B)$ difference adjacent frames, an isolated 1-TR spike at time $t$ leaks into $t + 1, t + 2, \dots$ *before* innovation weighting sees it. Instead, for isolated 1–2 TR spikes on flagged frames $S$, MEDuSA adds transient observation-noise variance directly *before* prewhitening:
+   $$
+   \operatorname{Cov}(\varepsilon_{r,o}) = \sigma_{\text{obs}}^2 \Bigl(\Sigma_{\text{AR}}[I_r, I_r] + \operatorname{diag}(\delta^2)\Bigr),
+   \qquad
+   \delta_t^2 = \begin{cases} (1 - w_t)/w_t, & t \in S, \\ 0, & t \notin S, \end{cases}
+   $$
+   inverting this rank-$|S|$ perturbation via the Sherman–Morrison–Woodbury identity in $O(m_r |S|)$ operations (Woodbury Sparse Bayesian Learning, SBL). Multi-TR physiological bursts receive smooth innovation-space downweighting, while heavy task-evoked neural bursts retain $w_t = 1$.
 
 **Choice point — Glitch downweighting (`rwls`):** Leave `rwls = "auto"` enabled for empirical data; set `rwls = "none"` only when testing exact unweighted operator identities in synthetic benchmarks.
 
@@ -149,12 +177,22 @@ Under `rwls = "auto"`, Step 2 screens the most task-informative voxels across wh
 
 ### 2.4 Tune smoothing strength (`lambda`) across task-SNR strata
 
-Choosing $\lambda$ by ordinary observation-space out-of-sample prediction error—approximated via generalized cross-validation (GCV)—targets BOLD curve fitting rather than downstream trial estimation, and averaging GCV across thousands of task-silent voxels pulls a single global penalty toward oversmoothing.
+Choosing $\lambda$ by ordinary observation-space generalized cross-validation (GCV) alone—which minimizes
+$$
+\operatorname{GCV}(\lambda) = \frac{\frac{1}{m_r}\bigl\|(I - S_\lambda)\tilde{W}_r \tilde{y}_{r,o}\bigr\|_2^2}{\bigl(1 - \frac{1}{m_r}\operatorname{tr}(S_\lambda)\bigr)^2},
+\qquad
+S_\lambda = A_r (A_r^\top A_r + \lambda P)^{-1} A_r^\top,
+$$
+where $S_\lambda$ is the prewhitened smoother ("hat") matrix—targets raw BOLD curve fitting rather than downstream trial estimation. Furthermore, averaging GCV across thousands of task-silent background voxels pulls a single global $\lambda$ toward oversmoothing active cortex.
 
-When `lambda = NULL`, Step 2 pools prewhitened GCV across usable runs alongside Stage-3 gain-restored trial level/contrast variance and modulation transfer weighted by Step 1's out-of-sample task SNR (@fig-step2-tuning). Furthermore, on volumetric maps where focal task regions coexist with quiet background cortex, `lambda_mode = "auto"` stratifies voxels by out-of-sample task SNR and enforces that smoothing never increases as task signal strengthens:
+When `lambda = NULL`, Step 2 combines prewhitened GCV across usable runs with Stage-3 gain-restored trial level/contrast variance proxies weighted by Step 1's out-of-sample task SNR (@fig-step2-tuning). On volumetric maps where focal active regions coexist with quiet background cortex, `lambda_mode = "auto"` stratifies voxels by out-of-sample task SNR and enforces monotone ordering:
 
 1. **Cross-run false-discovery gate:** Combines Step 1 per-run task $p$-values across runs (Fisher combination + Benjamini–Hochberg FDR); if no voxels pass $q \le 0.10$ (e.g., pure-null maps), `"auto"` collapses safely to one global penalty.
-2. **Monotone task-SNR tiers:** When focal signal is present, voxels are grouped into a quiet background tier ($q > 0.20$, graph-stabilized $R^2 < 0.025$) and ascending active task-$R^2$ quantiles (`max_lambda_strata = 4L`), enforcing $\lambda_{\text{quiet}} \ge \lambda_{\text{low-SNR}} \ge \dots \ge \lambda_{\text{high-SNR}}$ via a monotone ordering constraint (weighted pool-adjacent-violators, PAVA; see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-step2-stratified-lambda)).
+2. **Monotone task-SNR tiers (weighted PAVA):** When focal signal is present, voxels are grouped into a quiet background tier ($q > 0.20$, graph-stabilized $R^2 < 0.025$) and ascending active task-$R^2$ quantiles (`max_lambda_strata = 4L`). A monotone ordering constraint (weighted pool-adjacent-violators, PAVA) then ensures smoothing never increases as task SNR grows:
+   $$
+   \lambda_{\text{quiet}} \;\ge\; \lambda_{\text{low-SNR}} \;\ge\; \dots \;\ge\; \lambda_{\text{high-SNR}}
+   $$
+   (see [Spatial Graph Pooling](../medusa_spatial_parcel_pooling/medusa_spatial_parcel_pooling.qmd#sec-step2-stratified-lambda)).
 
 ![Comparison of raw prewhitened GCV versus MEDuSA's adaptive task-weighted criterion (top) and the underlying gain-restored level and contrast variance proxies (bottom).](figures/04-tuning.png){#fig-step2-tuning width="95%" fig-alt="Tuning curves across lambda_grid showing raw GCV, adaptive criterion, level variance, and contrast variance."}
 
@@ -239,9 +277,9 @@ recovery <- diagnose_crossrun_recovery(decon, lags = 0)
 <details>
 <summary>Mathematical Reference & Reproduction</summary>
 
-Let $I_r \subset \{1, \dots, T_r\}$ index the $m_r$ valid frames (`valid_rows[[r]] == TRUE`), $M_{r,o}$ select rows $I_r$, $H_r \in \mathbb{R}^{T_r \times T_r}$ be the causal Toeplitz HRF convolution matrix for stratum kernel $h$, and $Z_{r,o}$ be the active nuisance basis (`[1, trend, nuisance]` under `nuisance_mode = "joint"`, empty under `"ignore"`).
+Let $I_r \subset \{1, \dots, T_r\}$ index the $m_r$ valid frames (`valid_rows[[r]] == TRUE`), $M_{r,o}$ select rows $I_r$, $H_r \in \mathbb{R}^{T_r \times T_r}$ be the causal Toeplitz HRF convolution matrix for stratum kernel $h$, and $Z_{r,o}$ be the active nuisance basis (`[1, trend, DCT(< 1/128 Hz), nuisance, noise_pcs]` under `nuisance_mode = "preproject"` or `"joint"`, empty under `"ignore"`).
 
-- **Exact gapped whitening & Woodbury SBL:** $W_r = L_r^{-1}$ is the inverse Cholesky factor of the stationary $\text{AR}(p)$ correlation submatrix $\Sigma_{\text{AR}}[I_r, I_r]$. Under `rwls_space = "woodbury"` with transient variances $\delta_t^2 = (1 - w_t)/w_t$ on flagged frames $S$, MEDuSA whitens against $\Sigma_{\text{AR}}[I_r, I_r] + \operatorname{diag}(\delta^2)$ via a rank-$|S|$ Sherman–Morrison–Woodbury update in $O(m_r |S|)$ operations. Orthogonalizing $Q_Z = \operatorname{orth}(W_r Z_{r,o})$ projects out nuisance terms jointly via $\tilde{W}_r = (I - Q_Z Q_Z^\top) W_r$.
+- **Exact gapped whitening & Woodbury SBL:** $W_r = L_r^{-1}$ is the inverse Cholesky factor of the stationary $\text{AR}(p)$ correlation submatrix $\Sigma_{\text{AR}}[I_r, I_r]$. Under `rwls_space = "woodbury"` with transient variances $\delta_t^2 = (1 - w_t)/w_t$ on flagged frames $S$, MEDuSA whitens against $\Sigma_{\text{AR}}[I_r, I_r] + \operatorname{diag}(\delta^2)$ via a rank-$|S|$ Sherman–Morrison–Woodbury update in $O(m_r |S|)$ operations. Under `nuisance_mode = "preproject"`, the orthonormalized basis $Q_Z = \operatorname{orth}(Z_{r,o})$ pre-projects BOLD via $M_{Z}^\perp = I - Q_Z Q_Z^\top$ before whitening ($\tilde{W}_r = W_r M_Z^\perp$); under `"joint"`, nuisance projection occurs in whitened coordinates via $(I - Q_{WZ} Q_{WZ}^\top) W_r$ with $Q_{WZ} = \operatorname{orth}(W_r Z_{r,o})$.
 - **Linear inverse operator:** With $A_r = \tilde{W}_r M_{r,o} H_r$ and penalty $P_{\lambda} = \lambda P + \epsilon_{\text{ridge}} I_{T_r}$, the frozen inverse operator is
   $$
   D_r = \bigl(A_r^\top A_r + P_{\lambda}\bigr)^{-1} A_r^\top \tilde{W}_r \in \mathbb{R}^{T_r \times m_r},

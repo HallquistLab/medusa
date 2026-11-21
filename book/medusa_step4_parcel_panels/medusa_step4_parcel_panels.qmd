@@ -6,6 +6,7 @@ subtitle: "Precision-weighted spatial pooling, task-free spatial noise propagati
 ```{r}
 #| include: false
 d4 <- readRDS("step4_examples.rds")
+poet_demo <- readRDS("poet_demo_metrics.rds")
 ```
 
 ## Overview
@@ -38,7 +39,7 @@ ep$panel[, id := subject_id]
 **Step 2 `decon` + `parcel_groups` vector** $\longrightarrow$ **Step 4 (`decon_epoch_regression(..., parcel_groups = ...)` )** $\longrightarrow$ Subject `epochs` list & stacked `group_panel` $\longrightarrow$ **Step 5 (`mixed_by` / `medusa_multilag_infer`) & Step 6 (`decon_connectivity_repair`)**
 :::
 
-The walkthrough below develops Step 4 in four substeps: computing SNR-informed voxel weights (`4.1`), combining mixed intra-parcel operator strata (`4.2`), propagating spatial noise correlations without task contamination (`4.3`), and constructing cohort-ready weights and panel columns (`4.4`).
+The walkthrough below develops Step 4 in five substeps: computing SNR-informed voxel weights (`4.1`), combining mixed intra-parcel operator strata (`4.2`), propagating within-parcel spatial noise without task contamination (`4.3`), modeling stationary and dynamic cross-parcel shared error via **Adaptive-POET and covariance regression** (`4.4`), and constructing biological trial variance, cohort weights, and panel columns (`4.5`).
 
 ---
 
@@ -84,8 +85,13 @@ In addition to the Step 3 arguments (`deconvolution`, `events`, `target_conditio
 Consider a parcel containing four voxels whose observation-noise SDs range from `0.013` (interior gray matter) to `0.032` (noisy pial edge). An unweighted average gives the noisy edge voxel the same influence as the quietest voxel. Instead, Step 4 forms fixed cross-run voxel weights $u_v$ normalized to $\sum_{v \in g} u_v = 1$:
 
 $$
-u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)}.
+u_v \propto \frac{1 + \overline{R}^2_{\text{cv},v} / \bigl(0.05 + \operatorname{med}(\overline{R}^2_{\text{cv}})\bigr)}{\max\!\bigl(\overline{\sigma}_v^2,\; 0.10\,\operatorname{med}(\overline{\sigma}^2)\bigr)},
 $$
+
+where:
+
+- $\overline{\sigma}_v^2$ is voxel $v$'s cross-run mean marginal observation-noise variance from Step 2 (floored at $10\%$ of the parcel median so a single artificially quiet voxel cannot monopolize the average), and
+- $\overline{R}^2_{\text{cv},v}$ is voxel $v$'s out-of-sample cross-fitted Step 1 task adjusted partial $R^2$ (so voxels carrying stronger cross-validated task responsiveness receive a gentle, bounded boost without risking circularity).
 
 Quieter voxels with stronger cross-fitted Step 1 task $R^2$ receive higher weight, and if a single voxel becomes invalid in one scan (for instance, partial field-of-view dropout in Run 2), the remaining valid voxels in that run renormalize smoothly to sum to 1 (@fig-step4-weights).
 
@@ -105,17 +111,19 @@ Step 4 preserves exact operator correspondence by first forming the weighted par
 
 ---
 
-### 4.3 Estimate spatial noise covariance from task-free innovations
+### 4.3 Estimate within-parcel spatial noise from task-free innovations
 
-To compute valid parcel standard errors (`se_demixed`), we need the effective observation-noise variance of the weighted parcel combination $\sum_{v \in g} u_v e_v$. For voxel noise SDs $\sigma_v$ and spatial noise correlations $R_{\text{spatial}, uv}$, that variance is
+To compute valid parcel standard errors (`se_demixed`), we need the effective observation-noise variance of the weighted parcel combination $\sum_{v \in g} u_v \varepsilon_{r,v}$. For voxel noise SDs $\sigma_v$ and pairwise spatial noise correlations $R_{\text{spatial}, uv}$, that variance is
 
 $$
-\sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv}.
+\sigma_{\text{parcel}}^2 = \sum_{u \in g} \sum_{v \in g} u_u u_v \sigma_u \sigma_v R_{\text{spatial}, uv},
 $$
+
+where $u_u, u_v$ are the normalized parcel voxel weights from Substep `4.1`, $\sigma_u, \sigma_v$ are voxel marginal observation-noise SDs from Step 2, and $R_{\text{spatial}, uv}$ is the spatial correlation between voxel $u$'s and voxel $v$'s observation noise.
 
 In our 4-voxel example (`simulate_step4.R`), $\sigma_{\text{parcel}}$ equals `0.0091` if voxel errors are independent ($R_{\text{spatial}} = I$), but rises nearly twofold to `0.0171` if all four voxels share common noise ($R_{\text{spatial}} = \mathbf{1}\mathbf{1}^\top$). Estimating spatial correlation from second differences of deconvolved `activity` ($\Delta^2 \hat{a}$) conflates shared task-evoked neural responses with shared noise—pegging estimated noise near the `0.0171` ceiling even when true noise is independent (`0.00`) or negatively correlated (`-0.20`).
 
-By instead projecting $u \odot \sigma$ onto Step 2's **task-free whitened residuals** ($\hat{\sigma}_{\text{parcel}} = \|Z_r (u \odot \sigma)\|_2$), MEDuSA recovers the true spatial noise SD across all four correlation regimes (@fig-step4-noise, @tbl-step4-noise) and matches analytical `se_demixed` to `r format(max(d4$metrics$se_check), digits = 3)`. Under `shared_error_method = "poet_covreg"` (default), Step 4 further applies **subspace-debiased Adaptive-POET** (Fan, Liao & Mincheva, 2013) with Tukey-Hanning tapered multi-lag Toeplitz cross-spectra and **LTZ-gated covariance regression** (Hoff & Niu, 2012) across task, covariate, Step-2 `rwls`, and external `variance_confounds` envelopes—producing `shared_error_model`, `unit_error_cor`, and per-trial Block-PAF list-columns (`shared_noise_vec`, `lag_noise_vec`, `trial_cor_vec`) for Step 6. Above 512 analysis units (e.g., whole-brain voxelwise panels), the engine switches automatically to a dual-space factor mode (`mode = "lowrank_voxel"`) that never allocates $V \times V$ matrices, and `aggregate_decon_panel()` can collapse any voxelwise fit or saved table to parcels post-hoc while propagating exact parcel `se_demixed` and inter-parcel error vectors.
+By instead projecting $u_g \odot \sigma_{r,g}$ onto Step 2's **column-unit-norm task-free whitened residuals** $\widetilde{E}_r \in \mathbb{R}^{m_r \times V}$ ($\|\widetilde{E}_{r,:,v}\|_2 = 1$, orthogonal to the convolved trial + HRF-derivative task subspace), MEDuSA computes $\hat{\sigma}_{\text{parcel}} = \|\widetilde{E}_{r,V_g} (u_g \odot \sigma_{r,V_g})\|_2$, recovering the true spatial noise SD across all four correlation regimes (@fig-step4-noise, @tbl-step4-noise) and matching analytical `se_demixed` to `r format(max(d4$metrics$se_check), digits = 3)`.
 
 ![Effective parcel BOLD noise SD across four spatial correlation regimes (`-0.20`, `0.00`, `0.65`, `0.95`): true oracle spatial SD vs. MEDuSA's task-free innovation estimator vs. a naive $\Delta^2$ activity proxy.](figures/02-noise.png){#fig-step4-noise width="95%" fig-alt="Dot plot across four spatial noise regimes comparing true parcel noise, MEDuSA task-free innovation SD, and naive activity second-difference proxy."}
 
@@ -131,7 +139,62 @@ knitr::kable(
 
 ---
 
-### 4.4 Compute biological trial variance, cohort weights, and panel columns
+### 4.4 Model cross-parcel shared error via Adaptive-POET and dynamic covariance regression (`poet_covreg`) {#sec-step4-poet}
+
+Within-parcel spatial correlation governs each parcel's own `se_demixed`. When we move to **Step 6 connectivity and PPI (`Target ~ Seed * Task`)**, however, we also need the **cross-parcel shared observation-error covariance** $c_i = \operatorname{Cov}(u_i, v_i \mid x_i, w_i)$ between the seed parcel's error $u_i$ and the target parcel's error $v_i$. Why is estimating this $P \times P$ cross-parcel error matrix challenging in fMRI?
+
+Three realities collide in whole-brain parcellations (say, $P = 100\text{--}400$ parcels over $m_r \approx 200\text{--}350$ frames per run):
+
+1. **High-dimensional sampling clutter ($P \sim m_r$):** When the number of parcels approaches or exceeds the effective number of frames $\nu$, the raw sample correlation matrix $\widehat{R}$ of task-free innovations is noisy—accumulating hundreds of spurious off-diagonal entries that inject variance into Step 6 subtraction.
+2. **Global factors *plus* local vascular structure:** Standard shrinkage toward a diagonal matrix underestimates **pervasive global noise factors** (respiration, cardiac aliasing, global head motion, scanner drift) that correlate *many* parcels simultaneously. Conversely, pure low-rank PCA misses **sparse local correlations** between adjacent parcels sharing a draining vein or partial-volume boundary.
+3. **Time-varying physiological bursts:** Even an exact run-averaged correlation matrix misses *non-stationary* shared noise—for example, when a breath-hold, arousal shift, or sub-scrubbing motion burst temporarily amplifies shared noise on specific trials.
+
+Under `shared_error_method = "poet_covreg"` (default), Step 4 resolves all three problems in four transparent stages (`medusa_fit_shared_error_covreg()`):
+
+#### Stage 1: Subspace-debiased residual cross-products
+For each parcel $g$, Step 4 forms task-free whitened residuals $\tilde{e}_g = (I - M_{s_g}) w_g$ orthogonal to its stratum's convolved `[trial, duration, dHRF/dt]` subspace $M_{s_g}$. Because projecting out $d_g$ task/drift columns reduces residual energy, pairwise correlations are debiased by the exact overlapping residual degrees of freedom $\nu_{gh} = \operatorname{tr}\!\bigl((I - M_{s_g})(I - M_{s_h})\bigr)$ rather than raw frame count $m_r$.
+
+#### Stage 2: Adaptive-POET stationary correlation decomposition (Fan, Liao & Mincheva, 2013)
+**POET** (*Principal Orthogonal complEment Thresholding*) separates pervasive global factors from sparse local vascular pairs via the eigendecomposition $\widehat{R} = \sum_{k=1}^P \lambda_k v_k v_k^\top$:
+
+$$
+\widehat{R}_{\text{POET}} = \operatorname{Proj}_{\text{PSD}}\!\bigl(\underbrace{L L^\top}_{\text{pervasive global factors}} \;+\; \underbrace{S_{\text{loc}}}_{\text{sparse local residual pairs}}\bigr),
+$$
+
+built in three clean steps:
+
+1. **Random-matrix spike detection & shrinkage ($LL^\top$):** Under independent Gaussian noise with aspect ratio $\gamma = P / \nu$, sample eigenvalues cluster below the **Marchenko–Pastur + Tracy–Widom bulk edge**,
+   $$
+   \lambda_+ = \bigl(1 + \sqrt{\gamma}\bigr)^2 + \Delta_{\text{TW}}(\gamma, \nu).
+   $$
+   Eigenvalues $\lambda_k > \lambda_+$ whose eigenvectors spread broadly across cortex (checked via inverse participation ratio so a single local pair is never mislabeled as a global factor) are retained as the $K$ pervasive global factors, shrunk for finite-sample spike inflation (Baik–Ben Arous–Péché optimal shrinkage), and assembled into $L \in \mathbb{R}^{P \times K}$ (@fig-step4-poet, Panel A).
+2. **Firm thresholding of the orthogonal complement ($S_{\text{loc}}$):** Subtracting the pervasive factors leaves the residual matrix $E = \widehat{R} - LL^\top$, standardized onto residual correlations $C_{\text{res}}$ and transformed via Fisher's $z = \sqrt{\nu - 3}\,\operatorname{atanh}(C_{\text{res}})$. Entries below a dimension-adaptive threshold $z_1 = \max\bigl(1.85, \sqrt{3\log P - 0.80}\bigr)$ are set cleanly to zero (eliminating random bulk clutter), entries above $z_2 = z_1 + 1.35$ are kept untouched (preserving genuine local vascular pairs without shrinkage bias), and intermediate entries taper smoothly (**firm thresholding**).
+3. **PSD projection & multi-lag Toeplitz cross-spectra:** Recombining $LL^\top + S_{\text{loc}}$ and projecting onto the positive semi-definite (PSD) correlation cone yields $\widehat{R}_{\text{POET}}$ (@fig-step4-poet, Panel C), paired with Tukey–Hanning tapered multi-lag error cross-spectra for lagged connectivity pairs.
+
+#### Stage 3: LTZ-gated dynamic covariance regression (`covreg`; Hoff & Niu, 2012)
+To capture trial-varying bursts of shared noise, MEDuSA models framewise error covariance across a set of variance envelopes $w_{tk}$—combining task drive, trial covariates, Step 2 `rwls` glitch weights, and any frame-level physiological/motion confounds supplied via `variance_confounds` (`FD`, `DVARS`, `RVT`):
+
+$$
+\Sigma_t = \Sigma_0 + \sum_{k=1}^{q_w} \gamma_k\, \Phi_k\, w_{tk},
+\qquad \gamma_k \in [0, 1],
+$$
+
+where $\Sigma_0$ is the baseline stationary covariance, $\Phi_k$ is the estimated symmetric covariance-modulation matrix for envelope $k$, and $\gamma_k$ is a **Liu–Tang–Zhang (2009) spatial-$\chi^2$ gate**. Specifically, MEDuSA computes each parcel's variance-regression $z$-statistic $z_{gk}$ against envelope $k$ and tests the whole-brain quadratic energy $Q_k = \sum_{g=1}^P z_{gk}^2$ against the exact null distribution accounting for cross-parcel squared correlation $\widehat{R}_{\text{POET}} \circ \widehat{R}_{\text{POET}}$ (via Isserlis' identity). Genuine physiological bursts (such as `RVT` or motion episodes) pass cleanly ($\gamma_k = 1$), whereas irrelevant decoy confounds are gated strictly to $\gamma_k = 0$ (restoring $\Sigma_0$ via exact Schur complement so null confounds add zero noise; @fig-step4-poet, Panel B).
+
+#### Stage 4: Compact Block-PAF panel embeddings & whole-brain scalability
+Storing a full $P \times P$ error matrix for every trial inside a tidy `data.table` would explode memory on large atlases. Instead, Step 4 compresses each trial's propagated cross-parcel error matrix via **Block Principal Axis Factoring (Block-PAF)** into short per-parcel loading vectors stored in list-columns (`shared_noise_vec`, `lag_noise_vec`, `trial_cor_vec`). For any seed parcel $S$ and target parcel $T$ on trial $i$, their shared error covariance is reconstructed on the fly by a simple dot product:
+
+$$
+c_i = \operatorname{Cov}(u_i, v_i \mid x_i, w_i) \approx \langle \texttt{shared\_noise\_vec}_{S,i},\; \texttt{shared\_noise\_vec}_{T,i} \rangle.
+$$
+
+Because these vectors live right inside `panel` (surviving `rbindlist()`, `.rds`, Parquet, and pipe-delimited CSV/`.csv.gz` via `medusa_write_table()`), stacked tabular panels retain full parity with in-memory `subject_epochs` objects in Step 6. Above 512 units (e.g., whole-brain voxelwise panels), the engine switches automatically to a dual-space factor mode (`mode = "lowrank_voxel"`) that never allocates $V \times V$ matrices, while `aggregate_decon_panel()` can collapse any voxelwise fit to parcels post-hoc with full shared-error propagation.
+
+![Conceptual and live demonstration of MEDuSA's Adaptive-POET and LTZ-gated dynamic covariance regression (`make_poet_fig.R`, calling `medusa:::poet_regularize_cor()` and `medusa:::.ltz_from_cor_quad()`). **(A) Random-matrix spike detection:** Across $P = `r poet_demo$P`$ parcels ($\nu = `r poet_demo$df_eff`$), the Marchenko–Pastur + Tracy–Widom bulk edge (`r sprintf("%.2f", poet_demo$mp_edge)`) cleanly separates the $K = `r poet_demo$K_sel`$ pervasive physiological factors (orange) from the bulk noise spectrum (blue), reducing off-diagonal correlation RMSE from `r sprintf("%.3f", poet_demo$frob_raw)` to `r sprintf("%.3f", poet_demo$frob_poet)`. **(B) Dynamic covariance regression & LTZ gating:** Under respiratory/motion variance bursts plus a pure-null decoy confound, `poet_covreg` tracks trial-varying shared error covariance $c_i$ closely ($\gamma_{\text{RVT}} = `r sprintf("%.2f", poet_demo$gate_rvt)`$) while gating the null decoy strictly to zero ($\gamma_{\text{null}} = `r sprintf("%.2f", poet_demo$gate_null)`$); a stationary-only average misses both bursts. **(C) Step-by-step matrix decomposition:** Starting from noisy sample correlations (`2`), Adaptive-POET extracts global physiology into $LL^\top$ (`3`), isolates only the 3 true local vascular clusters via Fisher-$z$ firm thresholding into $S_{\text{loc}}$ (`4`), and recombines them into $\widehat{R}_{\text{POET}}$ (`5`) closely matching ground truth (`1`).](figures/07-poet-covreg.png){#fig-step4-poet width="100%" fig-alt="Three-part figure showing eigenvalue scree plot vs Marchenko-Pastur + Tracy-Widom edge (A), dynamic trial-by-trial shared error covariance tracking with LTZ gating of null confounds (B), and five side-by-side 30x30 correlation heatmaps illustrating ground truth, noisy sample correlation, POET global factors LL^T, sparse local thresholded S_loc, and reconstructed R_POET (C)."}
+
+---
+
+### 4.5 Compute biological trial variance, cohort weights, and panel columns
 
 On the aggregated parcel series, Step 4 estimates biological trial-to-trial variance $\hat{\tau}_{\text{bio}}^2$ and builds three complementary sets of panel columns:
 
@@ -165,8 +228,10 @@ ep <- decon_epoch_regression(
   source_model        = "impulse",
   readout_kernel      = "triangle",
   demix_other_events  = TRUE,
+  other_event_model   = "auto",
   demix_target_trials = TRUE,
   demix_within_trial  = FALSE,          # leave FALSE before medusa_multilag_infer()
+  demix_ridge         = "auto",
   restore_scale       = TRUE,
   tau2_mode           = "auto",
   tau2_shrinkage      = "auto",         # or "graph_eb" for dense 400-1000 parcel atlases
@@ -187,11 +252,11 @@ ep$panel[, id := subject_id]
 | Argument | Recommended | Package Default | Summary of Role & When to Adjust |
 |---|---|---|---|
 | `parcel_groups` | `parcel_ids` / `ts$parcel_ids` (or post-hoc `aggregate_decon_panel()`) | `NULL` | Activates Step 4 SNR-weighted continuous parcel aggregation (`Substep 4.1`); use `aggregate_decon_panel()` when reusing one voxelwise fit across multiple atlases. |
-| `shared_error_method` & `variance_confounds` | `"poet_covreg"` + `conf` (`read_fmriprep_confounds()`) | `"poet_covreg"`, `NULL` | Estimates subspace-debiased Adaptive-POET + dynamic covariance-regression shared-error moments (`Substep 4.3`). |
-| `restore_scale` | `TRUE` | `FALSE` | Places all runs of a parcel onto physical BOLD units so `precision_weight_cohort` is comparable across runs and participants (`Substep 4.4`). |
-| `tau2_mode` | `"auto"` (or `"marginal"` when `covariates = NULL`) | `"auto"` | Estimates parcel biological trial variance for composite trial weights and ZCA (`Substep 4.4`). |
+| `shared_error_method` & `variance_confounds` | `"poet_covreg"` + `conf` (`read_fmriprep_confounds()`) | `"poet_covreg"`, `NULL` | Estimates subspace-debiased Adaptive-POET + LTZ-gated dynamic covariance-regression shared-error moments (`Substep 4.4`). |
+| `restore_scale` | `TRUE` | `FALSE` | Places all runs of a parcel onto physical BOLD units so `precision_weight_cohort` is comparable across runs and participants (`Substep 4.5`). |
+| `tau2_mode` | `"auto"` (or `"marginal"` when `covariates = NULL`) | `"auto"` | Estimates parcel biological trial variance for composite trial weights and ZCA (`Substep 4.5`). |
 | `tau2_shrinkage` | `"auto"` (`"graph_eb"` on 400–1000 parcels) | `"auto"` | Defaults to `"none"` on coarse high-SNR parcels; `"graph_eb"` builds a 3D parcel-centroid Euclidean graph from `voxel_map`. |
-| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`TRUE` if `covariates = NULL`) | Exports the complete `panel` alongside paired `*_whitened` columns (`Substep 4.4`). |
+| `whiten_panel` & `return_panel` | `TRUE` & `TRUE` | `FALSE` (`TRUE` if `covariates = NULL`) | Exports the complete `panel` alongside paired `*_whitened` columns (`Substep 4.5`). |
 
 ---
 
@@ -207,9 +272,9 @@ ep$panel[, id := subject_id]
 <details>
 <summary>Mathematical Reference & Reproduction</summary>
 
-- **Within-parcel effective noise variance:** Let $Z_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(Z_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = Z_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[Z_{r,i}^\top Z_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ estimates parcel observation-noise variance without task contamination, bounded into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
-- **Subspace-debiased Adaptive-POET & LTZ-gated covariance regression (`poet_covreg`):** On uncensored whitened residuals projected orthogonal to each stratum's convolved `[trial, duration, dHRF/dt]` subspace $M_{s_g}$ (with exact $\operatorname{tr}((I - M_{s_g})(I - M_{s_h}))$ degrees-of-freedom debiasing), `medusa_fit_shared_error_covreg()` separates pervasive global physiological/scanner factors above the Marchenko–Pastur + Tracy–Widom bulk edge from firm-thresholded idiosyncratic residual correlations (`poet_regularize_cor()`), estimates Tukey-Hanning tapered multi-lag error cross-spectra, and fits Liu–Tang–Zhang (2009) spatial-$\chi^2$-gated heteroskedastic variance slopes over task drive, covariates, Step-2 `rwls` bursts, and `variance_confounds` (restoring the baseline intercept via exact Schur complement whenever null confound columns are gated to zero). Block-PAF factorization embeds the resulting trial-by-parcel error covariance onto `panel$shared_noise_vec`, `panel$lag_noise_vec`, and `panel$trial_cor_vec`.
+- **Within-parcel effective noise variance:** Let $\widetilde{E}_r \in \mathbb{R}^{m_r \times V}$ denote Step 2's column-unit-norm task-projected whitened innovations (`colSums(E_r^2) == 1`). For parcel $g$ with valid voxels $V_g$, normalized weights $u_g$, and voxel observation-noise SDs $\sigma_{r,V_g}$, define $\zeta_{r,g} = \widetilde{E}_{r,V_g} (u_g \odot \sigma_{r,V_g})$. Because $\mathbb{E}[\widetilde{E}_{r,i}^\top \widetilde{E}_{r,j}] = R_{\text{spatial},ij}$, $\|\zeta_{r,g}\|_2^2 = \sum_{i,j \in V_g} u_i u_j \sigma_i \sigma_j \hat{R}_{\text{spatial},ij}$ estimates parcel observation-noise variance without task contamination, bounded into $[0.05\,\sigma_{\text{ind}}^2, \sigma_{\text{ceil}}^2]$.
+- **Subspace-debiased Adaptive-POET & LTZ-gated covariance regression (`poet_covreg`):** Implemented in `R/poet_covreg.R` (`poet_shrink_spikes()`, `poet_regularize_cor()`, `.ltz_from_cor_quad()`, `medusa_fit_shared_error_covreg()`, `aggregate_decon_panel()`). On uncensored whitened residuals projected orthogonal to each stratum's convolved `[trial, duration, dHRF/dt]` subspace $M_{s_g}$ (with exact $\operatorname{tr}((I - M_{s_g})(I - M_{s_h}))$ degrees-of-freedom debiasing), `poet_regularize_cor()` separates pervasive global factors above the Marchenko–Pastur + Tracy–Widom bulk edge from firm-thresholded idiosyncratic residual correlations, estimates Tukey–Hanning tapered multi-lag error cross-spectra, and fits Liu–Tang–Zhang (2009) spatial-$\chi^2$-gated heteroskedastic variance slopes over task drive, covariates, Step-2 `rwls` bursts, and `variance_confounds` (restoring the baseline intercept via exact Schur complement whenever null confound columns are gated to zero). Block-PAF factorization embeds the resulting trial-by-parcel error covariance onto `panel$shared_noise_vec`, `panel$lag_noise_vec`, and `panel$trial_cor_vec`.
 
-[Step 4 simulation script](simulate_step4.R) · [Figure script](figures_step4.R) · [Parcel noise table](parcel_noise_check.csv)
+[Step 4 simulation script](simulate_step4.R) · [Figure script](figures_step4.R) · [POET & CovReg figure script](make_poet_fig.R) · [Parcel noise table](parcel_noise_check.csv)
 
 </details>

@@ -93,7 +93,7 @@ Why do individual trials within the same run have *different* values of `se_demi
 
 When Step 2 standardizes series by $\widehat{\sigma}_{\text{obs}}$ (`scaling = "noise_sd"`), setting **`restore_scale = TRUE`** in Step 3 multiplies both `decon_demixed` and `se_demixed` back by $\widehat{\sigma}_{\text{obs}}$ so every run of a parcel shares physical BOLD units. More generally, rescaling any neural variable by a constant $c$ rescales its SE by $|c|$ and its error variance by $c^2$.
 
-When voxels are aggregated into anatomical parcels in Step 4 (`parcel_groups`), summing voxel variances naively would underestimate parcel noise because neighboring voxels share physiological and thermal fluctuations. MEDuSA instead propagates Step 2's task-free whitened `noise_innovations` through each voxel's operator stratum to compute exact spatial noise covariance within each parcel, while storing low-rank cross-parcel innovation vectors (`shared_noise_loading` and `unit_error_cor`) for Step 6.
+When voxels are aggregated into anatomical parcels in Step 4 (`parcel_groups`), summing voxel variances naively would underestimate parcel noise because neighboring voxels share physiological and thermal fluctuations. MEDuSA instead propagates Step 2's task-free whitened `noise_innovations` ($\widetilde{E}_r$) through each voxel's operator stratum to compute exact within-parcel spatial noise covariance, while fitting **Adaptive-POET and LTZ-gated dynamic covariance regression** (`shared_error_model` and compact Block-PAF list-columns `shared_noise_vec` / `lag_noise_vec`; see [Step 4 §4.4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)) for Step 6 cross-parcel shared-error subtraction.
 
 ---
 
@@ -106,7 +106,7 @@ A frequent source of confusion in two-stage neuroimaging workflows is mixing up 
 | `se_demixed^2` ($s_{ri}^2$) | $[\widehat{\Omega}_{r,\tau}]_{ii}$, pure conditional BOLD-noise variance on trial $i$ | **Step 6 predictor error variance** ($\psi_i$) subtracted from $X^\top X$ in `decon_connectivity_repair()` / `medusa_fit_mmom()` |
 | `tau2_bio` ($\widehat{\tau}_{\text{bio}}^2$) | Method-of-moments / Graph-EB estimate of true trial-to-trial neural variance $\operatorname{Var}(\theta)$ | Reliability diagnostics ($\widehat{\tau}^2 / (\widehat{\tau}^2 + s_{ri}^2)$) and EB shrinkage (`decon_eb`); **not** measurement noise |
 | `precision_weight_cohort` ($w_{ri}$) | Normalized inverse *total* variance $\propto (\widehat{\tau}_{\text{eff}}^2 + s_{ri}^2)^{-1}$ | **Step 5 outcome weights** in `mixed_by()` (never pass inverse weights where `err_x` expects variances) |
-| `shared_noise_loading` / `unit_error_cor` | Task-free cross-parcel noise correlation basis ($\widehat{r}_{ST}$) | **Step 6 shared-error moment** $c_i = \widehat{r}_{ST} s_{S,i} s_{T,i}$ subtracted from $X^\top Y$ under `shared_error = "auto"` |
+| `shared_noise_vec` / `shared_error_model` (`unit_error_cor`) | Adaptive-POET + dynamic covariance-regression shared-error factors ([Step 4 §4.4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)) | **Step 6 shared-error moment** $c_i = \operatorname{Cov}(u_i, v_i \mid x_i, w_i)$ subtracted from $X^\top Y$ under `shared_error = "auto"` |
 | `se_whitened^2` | Transformed error variance of ZCA-decorrelated `decon_demixed_whitened` | Diagnostic variance of within-run whitened Step 5 series (`use_whitened = TRUE`) |
 
 : Mapping exported Step 3–4 variance and weight columns to their structural role in Steps 5 and 6. {#tbl-se-roles}

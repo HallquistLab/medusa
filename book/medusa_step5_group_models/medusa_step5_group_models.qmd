@@ -144,7 +144,15 @@ $$
 \widehat{z}_{sri} = \beta_0 + \beta_W x^W_{sri} + \beta_B \bar{x}_s + b_{0s} + b_{Ws} x^W_{sri} + a_{sr} + \varepsilon_{sri},
 $$
 
-with participant random intercept and slope $(b_{0s}, b_{Ws})$ (`(1 + x_within || id)`) and participant-nested run intercept $a_{sr}$ (`(1 | id:run)`). In a balanced design with $S$ participants, $m$ trials per participant, slope variance $\sigma_b^2$, and trial residual variance $\sigma_\varepsilon^2$, the sampling variance of the population slope is
+where:
+
+- $\beta_0$ is the population average event-locked deflection,
+- $\beta_W$ is the population **within-person slope** relating trial-to-trial state fluctuations $x^W_{sri}$ to neural activity, while $\beta_B$ captures the **between-person** association across participant means $\bar{x}_s$,
+- $(b_{0s}, b_{Ws})$ are participant-specific random intercepts and slopes (`(1 + x_within || id)`) capturing true individual differences across participants ($s = 1, \dots, S$),
+- $a_{sr}$ is a participant-nested run random intercept (`(1 | id:run)`) absorbing run-level mean shifts, and
+- $\varepsilon_{sri}$ is the composite trial residual combining biological trial variance and Step 3–4 measurement error, $\operatorname{Var}(\varepsilon_{sri}) = \tau_{\text{latent}}^2 + s_{sri}^2$.
+
+In a balanced design with $S$ participants, $m$ trials per participant, random-slope variance $\sigma_b^2 = \operatorname{Var}(b_{Ws})$, and trial residual variance $\sigma_\varepsilon^2$, the sampling variance of the population slope is
 
 $$
 \operatorname{Var}(\widehat{\beta}_W) = \frac{\sigma_b^2}{S} + \frac{\sigma_\varepsilon^2}{Sm}.
@@ -170,11 +178,31 @@ Across 3 simulated parcels (`Phasic`, `Sustained`, `Null`) × 8 lags × 2 focal 
 
 ### 5.3 Model multi-lag trajectories jointly with `medusa_multilag_infer()` {#sec-multilag-infer}
 
-Because neighboring lags share both deconvolution smoothness ($R_{\text{lag}}$) and correlated observation noise ($C_{\text{lag}}$), modeling the lag vector $\widehat{b} = (\widehat{b}_1, \dots, \widehat{b}_L)^\top$ jointly is substantially more informative than treating lags as unrelated splits:
+Because neighboring lags share both deconvolution smoothness ($R_{\text{lag}} \in \mathbb{R}^{L \times L}$) and correlated observation noise ($C_{\text{lag}} \in \mathbb{R}^{L \times L}$), modeling the group lag slope vector $\widehat{b}_{\text{raw}} = (\widehat{b}_1, \dots, \widehat{b}_L)^\top$ jointly is substantially more informative than treating lags as unrelated splits:
 
 1. **Joint within-run regression and available-case lag pooling:** `medusa_multilag_infer()` fits all supplied time-varying `covariates` together within each run (routing any participant-constant trait covariates to between-participant weighted least squares with leverage-adjusted HC2 standard errors) and pools participant slopes across lags using available cases—retaining participants at interior lags even if boundary censoring removed an edge lag.
-2. **Cross-lag sharpening and uncertainty-aware spline smoothing:** Under `trajectory_mode = "auto"` (with upstream `demix_within_trial = FALSE`), `medusa_multilag_infer()` first gently inverts the known cross-lag blurring matrix $R_{\text{lag}}$ (regularized spectral deblurring; `"deblur"`, @fig-pr62-deblur) and then fits a smooth penalized spline (`"deblur_pspline"`), folding uncertainty from the smoothing penalty itself into $\Sigma_{\text{multilag}}$ (Marra–Wood posterior covariance; Marra & Wood, 2012) rather than treating the smooth curve as bias-free.
-3. **Finite-sample cross-lag calibration (`n_perm` draws):** Because the $L \times L$ cross-lag covariance is estimated from a finite cohort of participants, `medusa_multilag_infer()` simulates null covariance draws that propagate that finite-sample covariance uncertainty (studentized Wishart draws). From those joint draws it computes simultaneous `Max-|T|` bands (`p_maxT`, `conf.low.sim`, `conf.high.sim`), threshold-free cluster enhancement (`p_tfce`, accumulating contiguous same-sign deflections without an arbitrary cutoff), and a multivariate departure test across the whole epoch (`omnibus_p`, Mahalanobis test; @fig-pr62-trajectory, @fig-pr62-tests).
+2. **Spectral cross-lag deblurring & uncertainty-aware P-spline smoothing:** Under `trajectory_mode = "auto"` (with upstream `demix_within_trial = FALSE`), `medusa_multilag_infer()` sharpens the group curve against the symmetrized cross-lag blurring matrix $C_{\text{sym}} = \frac{1}{2}(R_{\text{lag}} + R_{\text{lag}}^\top) = V \operatorname{diag}(\mu) V^\top$ before applying a 2nd-order penalized spline smoother $S_{\text{spline}}$:
+   $$
+   \widehat{b}_{\text{deblur}} = W_{\text{deblur}} \widehat{b}_{\text{raw}},
+   \qquad
+   W_{\text{deblur}} = \operatorname{diag}(g_{\text{lobe}})^{-1} V \operatorname{diag}\!\left(\frac{\mu}{\mu^2 + \alpha_1 \mu + \alpha_0^2}\right) V^\top,
+   \qquad
+   \widehat{b}_{\text{multilag}} = S_{\text{spline}} \widehat{b}_{\text{deblur}},
+   $$
+   where:
+   - $\mu$ and $V$ are the eigenvalues and eigenvectors of the pooled cross-lag resolution matrix $C_{\text{sym}}$,
+   - the spectral filter $\mu / (\mu^2 + \alpha_1 \mu + \alpha_0^2)$ ($\alpha_1 = 0.05$, $\alpha_0^2 = 0.020$) inverts well-resolved low-frequency lag modes ($\mu$ large) while gently damping noisy high-frequency oscillations ($\mu \to 0$) and restoring main-lobe amplitude via $g_{\text{lobe}}$ (@fig-pr62-deblur),
+   - $S_{\text{spline}}$ fits a smooth P-spline across lags tuned by correlated Stein's unbiased risk estimate (SURE), and
+   - uncertainty from both sampling variance ($W_{\text{deblur}} \widehat{\Sigma}_{\text{raw}} W_{\text{deblur}}^\top$) and spline smoothing bias is folded into $\widehat{\Sigma}_{\text{multilag}}$ via the **Marra–Wood (2012) posterior covariance**, preventing artificially narrow smooth bands.
+3. **Finite-sample cross-lag inference (`n_perm` studentized Wishart draws):** Because the $L \times L$ cross-lag covariance $\widehat{\Sigma}$ is estimated from a finite cohort of $S$ participants, `medusa_multilag_infer()` draws null trajectories from a studentized Wishart distribution that propagates both cross-lag correlation and finite-$S$ covariance uncertainty. Letting $T_\ell = \widehat{b}_\ell / \text{SE}_\ell$ denote the lag-$\ell$ test statistic, those joint draws calibrate three complementary inferential summaries (@fig-pr62-trajectory, @fig-pr62-tests):
+   $$
+   \text{Simultaneous band:}\;\; \widehat{b}_\ell \pm c_{1-\alpha}^{\max}\,\text{SE}_\ell,
+   \qquad
+   \text{1D TFCE:}\;\; \operatorname{TFCE}(\ell) = \int_0^{|T_\ell|} e(h)^E\, h^H\, dh,
+   \qquad
+   \text{Omnibus:}\;\; T^2 = \widehat{b}^\top \widehat{\Sigma}^{-1} \widehat{b},
+   $$
+   where $c_{1-\alpha}^{\max}$ is the $(1-\alpha)$ quantile of $\max_\ell |T_\ell^{\text{null}}|$ (controlling familywise error across all $L$ lags simultaneously via `p_maxT`), $e(h)$ is the contiguous lag extent exceeding threshold $h$ in threshold-free cluster enhancement (`p_tfce`, $E = 0.5, H = 2.0$, sensitive to sustained same-sign deflections without an arbitrary cluster cutoff), and $T^2$ is the multivariate Mahalanobis epoch departure test (`omnibus_p`).
 
 ![Spectral cross-lag deblurring on a deterministic coefficient curve spread by `C_blur`: the deblurred trajectory recovers the underlying phasic width.](figures/09-pr62-deblur.png){#fig-pr62-deblur fig-alt="The blurred effect is wider than the known target. The deblurred curve is closer to the target in this controlled example."}
 

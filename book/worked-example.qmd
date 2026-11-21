@@ -172,7 +172,7 @@ The recommended default, `contrast_source = "unsmoothed"`, evaluates the contras
 
 ## 4. Test seed-to-target connectivity and PPI (Step 6: `decon_connectivity_repair()`)
 
-Finally, when `Parcel_A` moves to the right-hand side to test whether its coupling with `Parcel_B` changes with RPE (`Parcel_B ~ Parcel_A + rpe + Parcel_A:rpe`), `decon_connectivity_repair(..., shared_error = "auto", crosstrial_se = TRUE, method = "mmoms")` uses per-trial `se_demixed^2`, Step 4's Adaptive-POET + covariance-regression shared-error model (`shared_error_model` / `shared_noise_vec`), and cross-trial sandwich SEs to correct predictor measurement error and cross-parcel noise while controlling for the main effect of RPE in both parcels. Because our teaching simulation contains no true PPI modulation, the estimated interaction centers near zero as expected.
+Finally, when `Parcel_A` moves to the right-hand side to test whether its coupling with `Parcel_B` changes with RPE (`Parcel_B ~ Parcel_A + rpe + Parcel_A:rpe`), `decon_connectivity_repair(..., shared_error = "auto", crosstrial_se = TRUE, method = "mmoms")` uses per-trial `se_demixed^2`, Step 4's cross-parcel shared-error model (`shared_error_model` / `shared_noise_vec`, estimated via Adaptive-POET and dynamic covariance regression; [Step 4 §4.4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)), and cross-trial sandwich SEs to correct predictor measurement error and cross-parcel noise while controlling for the main effect of RPE in both parcels. Because our teaching simulation contains no true PPI modulation, the estimated interaction centers near zero as expected.
 
 ## 5. Practical checks: Censoring support and file handoffs
 
@@ -192,7 +192,7 @@ knitr::kable(data.frame(
 
 ### Preserving cross-parcel error metadata across exports {#sec-worked-handoff}
 
-Step 6's `shared_error = "auto"` evaluates the full POET + covariance-regression `$shared_error_model` when given `subject_epochs`, or uses the embedded Block-PAF factor list-columns (`shared_noise_vec`, `lag_noise_vec`, `trial_cor_vec`) when given a stacked `data.table`, `.rds`/Parquet file, or a pipe-delimited CSV/`.csv.gz` written via `medusa_write_table()` and restored automatically by `medusa_read_table()` (or `decon_connectivity_repair()`). Stripping all shared-error columns during a minimal plain-text export leaves no cross-parcel error metadata, causing `"auto"` to fall back transparently to zero shared error:
+Step 6's `shared_error = "auto"` evaluates the full Step 4 cross-parcel error model (`$shared_error_model`) when given `subject_epochs`, or reconstructs trial-level cross-parcel error covariances from compact per-parcel loading vectors (`shared_noise_vec`, `lag_noise_vec`, `trial_cor_vec`; [Step 4 §4.4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)) when given a stacked `data.table`, `.rds`/Parquet file, or a pipe-delimited CSV/`.csv.gz` written via `medusa_write_table()` and restored automatically by `medusa_read_table()` (or `decon_connectivity_repair()`). Stripping all shared-error columns during a minimal plain-text export leaves no cross-parcel error metadata, causing `"auto"` to fall back transparently to zero shared error:
 
 ```{r ppi-handoff-table, echo=FALSE}
 h <- as.data.frame(check$handoff)

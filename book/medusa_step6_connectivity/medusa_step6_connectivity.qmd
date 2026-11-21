@@ -31,7 +31,7 @@ ppi <- decon_connectivity_repair(
   target_lag           = 0,
   covariates           = "x_within",
   test_ppi             = TRUE,
-  orthogonalize_seed_x = FALSE,
+  orthogonalize_seed_x = TRUE,          # residualizes seed on x_within; set FALSE for total-seed PPI
   shared_error         = "auto",
   crosstrial_se        = TRUE,
   method               = "mmoms"
@@ -108,7 +108,12 @@ $$
 
 Two properties follow immediately from $\Psi_i$: interaction error variance scales heteroskedastically with $x_i^2 s_{S,i}^2$, and whenever $x_i \neq 0$, the predictor and interaction errors covary with signed entry $x_i s_{S,i}^2$.
 
-At the same time, scanner drift, physiological pulsatility, head micro-movements, and vascular proximity can induce correlated observation error $\operatorname{Cov}(u_i, v_i \mid x_i, w_i) = c_i$ between seed and target parcels—including **trial-varying** error covariance when physiological arousal, sub-scrubbing motion jolts, or respiration fluctuates with task demands—shifting the observed cross-moment $X_i Y_i$ by $[c_i,\, 0,\, x_i c_i]^\top$. Under `shared_error = "auto"`, Step 6 evaluates per-trial $(s_{S,i}^2, s_{T,i}^2, c_i)$ directly from Step 4's **Adaptive-POET + LTZ-gated dynamic covariance-regression model** (`shared_error_model` in operator mode—including on-the-fly dynamic covariance evaluation against the PPI `modulator` even when Step 3 was run covariate-agnostically with `covariates = NULL`, plus exact Step-2 `rwls` `frame_weights` jolt propagation—or inner products of the per-trial Block-PAF vectors `shared_noise_vec` and `lag_noise_vec` on stacked/CSV panels, projected onto the positive semi-definite cone).
+At the same time, scanner drift, physiological pulsatility, head micro-movements, and vascular proximity can induce correlated observation error $\operatorname{Cov}(u_i, v_i \mid x_i, w_i) = c_i$ between seed and target parcels—including **trial-varying** error covariance when physiological arousal, sub-scrubbing motion jolts, or respiration fluctuates with task demands—shifting the observed cross-moment $X_i Y_i$ by $\psi_{XY,i} = [c_i,\, 0,\, x_i c_i]^\top$.
+
+Under `shared_error = "auto"`, Step 6 evaluates per-trial $(s_{S,i}^2, s_{T,i}^2, c_i)$ directly from Step 4's **Adaptive-POET + LTZ-gated dynamic covariance-regression engine** ([Step 4 §4.4](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)):
+
+- When given `subject_epochs`, Step 6 queries `$shared_error_model` directly—including on-the-fly dynamic covariance evaluation against the PPI `modulator` even if Step 3 ran covariate-agnostically (`covariates = NULL`), plus exact Step 2 `rwls` `frame_weights` propagation.
+- When given a stacked `data.table`, Parquet, or `medusa_write_table()` CSV panel, Step 6 reconstructs $c_i \approx \langle \texttt{shared\_noise\_vec}_{S,i}, \texttt{shared\_noise\_vec}_{T,i} \rangle$ (plus cross-lag terms from `lag_noise_vec`), projected onto the positive semi-definite cone.
 
 **Choice point — Cross-parcel shared error (`shared_error`):** Use `shared_error = "auto"` (paired with `shared_error_method = "poet_covreg"` and `variance_confounds` in Step 4) as the standard setting, and compare against `shared_error = "zero"` to see how much stationary and dynamic background noise correlation contributed to the raw coupling estimate.
 
@@ -116,16 +121,27 @@ At the same time, scanner drift, physiological pulsatility, head micro-movements
 
 ### 6.3 Estimate participant slopes via regularized Modified Method of Moments (M-MOMS)
 
-Given observed trial vectors $(X_i, Y_i)$ and error moments $(\Psi_i, c_i)$, `medusa_fit_mmom()` estimates each participant's structural coefficients in three non-iterative moment steps (Fuller, 1987; Vig & Hallquist, 2026):
+Given observed trial vectors $(X_i, Y_i)$ across $n$ trials and error moments $(\Psi_i, \psi_{XY,i})$ with $\psi_{XY,i} = [c_i,\, 0,\, x_i c_i]^\top$, `medusa_fit_mmom()` estimates each participant's structural coefficients in three non-iterative moment steps (Fuller, 1987; Vig & Hallquist, 2026):
 
 1. **Error-corrected preliminary normal equations:** Subtracts predictor error covariances from $X^\top X$ and shared seed–target error covariances from $X^\top Y$:
    $$
    \left(X^\top X - c(\hat{\lambda}_1, \alpha_1)\sum_{i=1}^n \Psi_i\right) \widehat{\beta}^{(1)}
-   = X^\top Y - c(\hat{\lambda}_1, \alpha_1)\sum_{i=1}^n \begin{pmatrix} c_i \\ 0 \\ x_i c_i \end{pmatrix},
+   = X^\top Y - c(\hat{\lambda}_1, \alpha_1)\sum_{i=1}^n \psi_{XY,i},
    $$
-   where Fuller's generalized-eigenvalue factor $c(\hat{\lambda}, \alpha)$ prevents subtracting more error variance than the sample design matrix supports.
-2. **Structural disturbance variance & composite trial weights:** Uses $\widehat{\beta}^{(1)}$ to estimate measurement-error-corrected structural disturbance variance $\hat{\sigma}_\varepsilon^2$ and forms per-trial composite residual variances $\hat{w}_i = \hat{\sigma}_\varepsilon^2 + s_{T,i}^2 - 2\widehat{\beta}^{(1)\top}\psi_{XY,i} + \widehat{\beta}^{(1)\top}\Psi_i\widehat{\beta}^{(1)}$.
-3. **Weighted M-MOMS update & conditioning guard:** Re-estimates $\widehat{\beta}$ and sandwich standard errors using inverse composite weights $\hat{w}_i^{-1}$. Under `method = "mmoms"`, an adaptive step-up search selects the smallest regularization constant $\alpha \ge p + 1$ that keeps the corrected predictor block well-conditioned—preventing small-denominator outliers in low-reliability participants while matching unmodified M-MOM whenever signal reliability is moderate to high.
+   where **Fuller's generalized-eigenvalue modification factor** is
+   $$
+   c(\hat{\lambda}, \alpha) = \begin{cases}
+   1 - \dfrac{\alpha}{n}, & \hat{\lambda} > 1 + \dfrac{1}{n}, \\[6pt]
+   \hat{\lambda} - \dfrac{1 + \alpha}{n}, & \hat{\lambda} \le 1 + \dfrac{1}{n}.
+   \end{cases}
+   $$
+   Here $\hat{\lambda}$ is the smallest generalized eigenvalue of the joint observed moment matrix relative to the error moment matrix (measuring the participant's weakest signal-to-noise direction), $n$ is the trial count, and $\alpha \ge q + 2$ is a small-sample regularization constant. Intuitively: when seed reliability is moderate to high ($\hat{\lambda} > 1 + 1/n$), $c(\hat{\lambda}, \alpha) = 1 - \alpha/n \approx 1$, performing near-full measurement-error subtraction; when reliability is very low ($\hat{\lambda} \le 1 + 1/n$), subtracting full error covariance would drive the denominator singular or negative definite, so $c(\hat{\lambda}, \alpha)$ automatically dials back error subtraction just enough to keep the matrix strictly positive definite.
+2. **Structural disturbance variance & composite trial weights:** Uses $\widehat{\beta}^{(1)}$ to estimate measurement-error-corrected structural disturbance variance $\hat{\sigma}_\varepsilon^2$ and forms per-trial composite residual variances
+   $$
+   \hat{w}_i = \hat{\sigma}_\varepsilon^2 + s_{T,i}^2 - 2\,\widehat{\beta}^{(1)\top}\psi_{XY,i} + \widehat{\beta}^{(1)\top}\Psi_i\widehat{\beta}^{(1)},
+   $$
+   combining true biological residual variance ($\hat{\sigma}_\varepsilon^2$), target measurement error ($s_{T,i}^2$), propagated seed error ($\widehat{\beta}^{(1)\top}\Psi_i\widehat{\beta}^{(1)}$), and their shared-error cross term ($-2\widehat{\beta}^{(1)\top}\psi_{XY,i}$).
+3. **Weighted M-MOMS update & step-up conditioning guard:** Re-estimates $\widehat{\beta}$ and sandwich standard errors using inverse composite weights $\hat{w}_i^{-1}$. Under `method = "mmoms"`, an adaptive step-up search selects the smallest $\alpha \ge q + 2$ that keeps the corrected predictor Gram matrix well-conditioned (minimum eigenvalue $\ge 5\%$ of largest observed eigenvalue, condition number $\le 10^5$)—preventing explosive small-denominator outliers in low-reliability participants while matching unmodified M-MOM whenever reliability is moderate to high.
 
 **Choice point — Moment estimator (`method`):** Use `method = "mmoms"` as the primary estimator, and fit `method = "naive_unweighted"` in the same coordinates (`use_whitened = FALSE`) alongside it so the magnitude of measurement-error disattenuation is directly visible.
 
@@ -133,7 +149,17 @@ Given observed trial vectors $(X_i, Y_i)$ and error moments $(\Psi_i, c_i)$, `me
 
 ### 6.4 Pool participant slopes and compare against naive regression
 
-Across independent participants, `decon_connectivity_repair()` pools participant slopes $\widehat{\beta}_s$ and standard errors using dispersion-scaled finite-sample random-effects $t$-intervals (**Hartung–Knapp–Sidik–Jonkman, HKSJ** meta-regression, with leverage protection against extreme precision weights), anchoring group degrees of freedom to the number of participants $S$.
+Across $S \ge 2$ independent participants, `decon_connectivity_repair()` pools participant slopes $\widehat{\beta}_s$ and cross-trial sandwich variances $v_s = \text{SE}_s^2$ using random-effects inverse-variance weights $w_s^{\text{RE}} = (v_s + \hat{\tau}_{\text{pop}}^2)^{-1}$ (with leverage protection so no single ultra-precise participant dominates) and **Hartung–Knapp–Sidik–Jonkman (HKSJ)** finite-sample $t$-intervals:
+
+$$
+\widehat{\beta}_{\text{pop}} = \frac{\sum_{s=1}^S w_s^{\text{RE}} \widehat{\beta}_s}{\sum_{s=1}^S w_s^{\text{RE}}},
+\qquad
+\operatorname{SE}_{\text{HKSJ}} = \sqrt{\frac{q_{\text{HKSJ}}}{\sum_{s=1}^S w_s^{\text{RE}}}},
+\qquad
+q_{\text{HKSJ}} = \max\!\left(1,\; \frac{1}{S - 1}\sum_{s=1}^S w_s^{\text{RE}}\bigl(\widehat{\beta}_s - \widehat{\beta}_{\text{pop}}\bigr)^2\right),
+$$
+
+evaluating $p$-values and 95% confidence intervals against a $t_{S-1}$ distribution rather than a normal $z$ distribution. Scaling by $q_{\text{HKSJ}}$ and using $S - 1$ degrees of freedom prevents the anti-conservative coverage seen with asymptotic normal random-effects intervals in typical neuroimaging cohorts ($S = 12\text{--}30$).
 
 To see how M-MOMS behaves when disattenuating genuine trial-level PPI (`Genuine PPI` scenario in `simulate.R`: 120 simulated cohorts of $S = 16$ participants, 2 runs × 60 trials, true population interaction $\beta_P = 0.35$, seed and target measurement error SDs $= 0.70$, independent errors), compare the top three rows of the benchmark table and left panel of @fig-ppi:
 
@@ -207,7 +233,9 @@ What happens when physiological or motion noise correlation between two regions 
 
 Two distinct regimes arise depending on what data are available:
 
-1. **Full MEDuSA pipeline with multi-parcel BOLD & `variance_confounds` (`poet_covreg`):** When `decon_epoch_regression(..., shared_error_method = "poet_covreg", variance_confounds = conf)` has access to multi-parcel whitened residuals ($P = 9$ parcels) and frame-level variance envelopes (`FD`, `DVARS`, `RVT`), Adaptive-POET + LTZ-gated covariance regression estimates trial-varying cross-parcel error moments $c_i$ directly—and embeds them onto `panel$shared_noise_vec` so even a CSV-exported stacked table retains full parity with operator mode. In @tbl-poet-step6 (`Dynamic Shared-Noise Null`: 24 cohorts of $S = 16$ participants, zero true coupling or PPI, pervasive physiological factor plus RVT-modulated bursts and two pure-null confound columns), ignoring shared error (`Zero Shared Error`) yields strong false main coupling (`r fmt(pp("seed_c", "Zero Shared Error"))`, **`r pct(pp("seed_c", "Zero Shared Error", "reject"))`** false positives) and stationary-only shrinkage (`Legacy Stationary (auto)`) still inflates Type I error (`r fmt(pp("seed_c", "Legacy Stationary (auto)"))`, **`r pct(pp("seed_c", "Legacy Stationary (auto)", "reject"))`** false positives). **`POET + CovReg`** eliminates the bias in **both** operator mode and CSV-restored stacked mode (`seed_c` mean **`r fmt(pp("seed_c", "POET + CovReg (Operator)"))`** / **`r fmt(pp("seed_c", "POET + CovReg (CSV Panel)"))`**, **`r pct(pp("seed_c", "POET + CovReg (Operator)", "reject"))`** Type I error, **`r pct(pp("seed_c", "POET + CovReg (Operator)", "coverage"))`** coverage; `seed_c:x_c` **`r pct(pp("seed_c:x_c", "POET + CovReg (Operator)", "coverage"))`** coverage). Likewise, in single-subject ($N = 1$) rapid-ITI scans (`mean ITI = 2.2 s`), enabling `crosstrial_se = TRUE` accounts for serial trial error correlation via Satterthwaite `df` (`r fmt(pp("seed_c", "N=1 Cross-Trial SE (crosstrial_se=TRUE)", "mean_df"), 1)` vs. `Inf`), improving CI coverage from **`r pct(pp("seed_c", "N=1 Diagonal SE (crosstrial_se=FALSE)", "coverage"))`** to **`r pct(pp("seed_c", "N=1 Cross-Trial SE (crosstrial_se=TRUE)", "coverage"))`** (see the [15-Study Validation Suite](../library/medusa_validation_suite.html) Pillar 15 for full multi-regime power and calibration curves).
+1. **Full MEDuSA pipeline with multi-parcel BOLD & `variance_confounds` (`poet_covreg`):** When `decon_epoch_regression(..., shared_error_method = "poet_covreg", variance_confounds = conf)` has access to multi-parcel whitened residuals ($P = 9$ parcels) and frame-level variance envelopes (`FD`, `DVARS`, `RVT`), Adaptive-POET + LTZ-gated covariance regression ([Step 4 §4.4](../medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)) estimates trial-varying cross-parcel error moments $c_i$ directly—and embeds them onto `panel$shared_noise_vec` so even a CSV-exported stacked table retains full parity with operator mode. In @fig-poet-step6 and @tbl-poet-step6 (`Dynamic Shared-Noise Null`: 24 cohorts of $S = 16$ participants, zero true coupling or PPI, pervasive physiological factor plus RVT-modulated bursts and two pure-null confound columns), ignoring shared error (`Zero Shared Error`) yields strong false main coupling (`r fmt(pp("seed_c", "Zero Shared Error"))`, **`r pct(pp("seed_c", "Zero Shared Error", "reject"))`** false positives) and stationary-only shrinkage (`Legacy Stationary (auto)`) still inflates Type I error (`r fmt(pp("seed_c", "Legacy Stationary (auto)"))`, **`r pct(pp("seed_c", "Legacy Stationary (auto)", "reject"))`** false positives). **`POET + CovReg`** eliminates the bias in **both** operator mode and CSV-restored stacked mode (`seed_c` mean **`r fmt(pp("seed_c", "POET + CovReg (Operator)"))`** / **`r fmt(pp("seed_c", "POET + CovReg (CSV Panel)"))`**, **`r pct(pp("seed_c", "POET + CovReg (Operator)", "reject"))`** Type I error, **`r pct(pp("seed_c", "POET + CovReg (Operator)", "coverage"))`** coverage; `seed_c:x_c` **`r pct(pp("seed_c:x_c", "POET + CovReg (Operator)", "coverage"))`** coverage). Likewise, in single-subject ($N = 1$) rapid-ITI scans (`mean ITI = 2.2 s`), enabling `crosstrial_se = TRUE` accounts for serial trial error correlation via Satterthwaite `df` (`r fmt(pp("seed_c", "N=1 Cross-Trial SE (crosstrial_se=TRUE)", "mean_df"), 1)` vs. `Inf`), improving CI coverage from **`r pct(pp("seed_c", "N=1 Diagonal SE (crosstrial_se=FALSE)", "coverage"))`** to **`r pct(pp("seed_c", "N=1 Cross-Trial SE (crosstrial_se=TRUE)", "coverage"))`** (see the [15-Study Validation Suite](../library/medusa_validation_suite.html) Pillar 15 for full multi-regime power and calibration curves).
+
+![End-to-end Step 1–6 dynamic shared-noise null benchmark (`make_poet_step6_fig.R` from `poet_covreg_step6_summary.csv`, $S = 16$ cohorts, true connectivity = 0). **(A)** Mean estimated `seed_c` slope: ignoring shared error yields `+0.161` false coupling and stationary-only shrinkage leaves `+0.041`, whereas `POET + CovReg` centers cleanly at `-0.002` in both operator and CSV-restored panel modes. **(B)** Corresponding false-positive rates (`p <= .05`), collapsing from `75.0%` (zero shared error) and `20.8%` (stationary-only) down to the nominal **`4.2%`** under `POET + CovReg`.](poet_covreg_step6.png){#fig-poet-step6 width="100%" fig-alt="Two-panel horizontal dot and bar plot showing zero bias (-0.002) and nominal 4.2% false-positive rate for POET + CovReg in both operator and CSV panel modes versus +0.041 / 20.8% for legacy stationary and +0.161 / 75.0% for zero shared error."}
 
 ```{r}
 #| label: tbl-poet-step6
@@ -235,7 +263,7 @@ knitr::kable(tab_p, align = c("l", "l", "l", "r", "r", "r", "r", "r"))
 
 1. **Report circuit, lag, and estimand choices:** Document `seed_region`, `target_region`, `seed_lag`, `target_lag`, `orthogonalize_seed_x`, `control_target_seed_lag`, and multiplicity adjustment across region pairs (see [Appendix A: Reporting MEDuSA in Empirical Papers](../reporting.qmd) for an adaptable *Methods* template).
 2. **Present naive and M-MOMS side by side:** Include `"naive_unweighted"` alongside `"mmoms"` and summarize `ppi$subjects` (`r_shared_error`, `alpha_final`, `lambda_final`, participant/trial counts, and convergence; see the [Visual QC Gallery](../medusa_qc_gallery/medusa_qc_gallery.qmd) for side-by-side participant connectivity distributions under intact vs. stripped `shared_error` metadata).
-3. **Scope boundaries:** Just as in Vig & Hallquist (2026), Step 6 treats first-stage error variances (`se_demixed^2`) and selected regularization constants as fixed plug-in quantities, requires full-rank within-person predictor designs with adequate seed reliability, and corrects within-trial second moments rather than asymmetric cross-parcel resolution differences ($K_S \neq K_T$). For mathematical derivations and full-covariance extensions, see [Propagating BOLD Noise into Trial Standard Errors](../medusa_standard_errors_mmom.qmd) and [Latent Connectivity Beyond Per-Trial Disattenuation](../medusa_connectivity_inference/medusa_connectivity_inference.qmd).
+3. **Scope boundaries:** Just as in Vig & Hallquist (2026), Step 6 treats first-stage error variances (`se_demixed^2`) and selected regularization constants as fixed plug-in quantities and requires full-rank within-person predictor designs with adequate seed reliability. While `match_resolution = TRUE` (default) aligns deterministic post-demixing resolution differences ($M_S \neq M_T$) automatically across parcels, severe unmodeled HRF mis-specification or extreme non-commuting smoothing mismatches remain scope limits. For mathematical derivations and full-covariance extensions, see [Propagating BOLD Noise into Trial Standard Errors](../medusa_standard_errors_mmom.qmd) and [Latent Connectivity Beyond Per-Trial Disattenuation](../medusa_connectivity_inference/medusa_connectivity_inference.qmd).
 
 ---
 

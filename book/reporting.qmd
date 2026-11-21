@@ -11,7 +11,7 @@ This appendix provides three practical resources for manuscript preparation:
 
 1. A **stage-by-stage reporting checklist** (@tbl-reporting-checklist) paired with a short R snippet to extract cohort-level quality-control numbers.
 2. **Adaptable *Methods* prose templates** covering Steps 0–4 preprocessing/deconvolution, Step 5 multilevel and trajectory inference, and Step 6 connectivity/PPI disattenuation.
-3. A **Peer-Review FAQ** addressing eight methodological questions frequently raised by cognitive neuroscience reviewers.
+3. A **Peer-Review FAQ** addressing nine methodological questions frequently raised by cognitive neuroscience reviewers.
 
 ---
 

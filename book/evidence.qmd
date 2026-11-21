@@ -1,6 +1,6 @@
 ---
 title: "What Validation Proves—and Building Study-Specific Checks"
-subtitle: "Synthesizing mechanism benchmarks, the 14-study validation suite, and custom power/calibration simulations on empirical schedules"
+subtitle: "Synthesizing mechanism benchmarks, the 15-study validation suite, and custom power/calibration simulations on empirical schedules"
 ---
 
 ## Overview: Why No Single Simulation Answers Every Empirical Question
@@ -13,7 +13,7 @@ Across the stepwise tutorials (Part II), spatial workflows (Part III), and metho
 ### Core Methodological Question & Connection to the Pipeline
 *Where do general package benchmarks end and study-specific design geometry begin—and how do you turn an empirical `events` table and `valid_rows` mask from [Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd) into a custom end-to-end calibration check?*
 
-This capstone chapter synthesizes the evidence across all four Part IV deep dives and the [14-Study Validation Suite](library/medusa_validation_suite.html), then provides a compact R template for study-specific synthetic calibration.
+This capstone chapter synthesizes the evidence across all four Part IV deep dives and the [15-Study Validation Suite](library/medusa_validation_suite.html), then provides a compact R template for study-specific synthetic calibration.
 :::
 
 ---
@@ -24,7 +24,7 @@ Keeping three levels of validation distinct prevents both over-claiming and unne
 
 1. **Exact conditional operator identities (algebraic & numerical checks):** Once run $r$'s HRF, smoothing parameter $\lambda_v$, adaptive weights, and noise correlation $\Sigma_{\text{cor}}$ are fixed, deconvolution ($D_r$) and de-mixed epoch readout ($B_{r,\tau}$) are deterministic linear maps. Identities such as $\operatorname{Cov}(B_{r,\tau}\varepsilon_r) = \sigma_{\text{obs}}^2 B_{r,\tau}\Sigma_{\text{cor}}B_{r,\tau}^\top$ ([Propagating BOLD Noise into Trial SEs](medusa_standard_errors_mmom.qmd)), scale invariance under `restore_scale = TRUE`, and $B_g G_g = I$ in full-rank finite bases ([Latent Connectivity Beyond Per-Trial Disattenuation](medusa_connectivity_inference/medusa_connectivity_inference.qmd)) hold to machine precision ($10^{-13}\text{--}10^{-15}$). They guarantee that the code computes the exact mathematical quantity promised—*conditional* on the first-stage operators.
 2. **Isolated mechanism stress tests (Part IV deep dives & chapter benchmarks):** Each mechanism study varies one realistic threat at a time while holding surrounding structure transparent—such as fast/slow neurovascular dispersion against $\text{AR}(3)$ noise ([Autocorrelation Prewhitening Under Fast-TR Event Designs](medusa_step1_hrf_noise/woolrich_review/woolrich_noise_assessment.qmd)), censored edge lags and serial trial dependence in `medusa_multilag_infer()` ([Simultaneous Bands Across Lags](medusa_multilag_calibration/medusa_multilag_calibration.qmd)), or unequal regional smoothing $K_S \neq K_T$ and small-$S$ clustering in connectivity ([Latent Connectivity Beyond Per-Trial Disattenuation](medusa_connectivity_inference/medusa_connectivity_inference.qmd)). These isolate *why* an estimator succeeds or breaks down.
-3. **End-to-end pipeline Monte Carlo benchmarks ([14-Study Validation Suite](library/medusa_validation_suite.html)):** Refits the entire sequence (`estimate_crossrun_hrf()` $\to$ `deconvolve_crossrun_hrf()` $\to$ `decon_epoch_regression()` $\to$ `mixed_by()` / `medusa_multilag_infer()` / `decon_connectivity_repair()`) inside every synthetic cohort, capturing how estimation uncertainty in Step 1 HRF selection and Step 2 GCV/RWLS tuning propagates into final population $p$-values and confidence intervals.
+3. **End-to-end pipeline Monte Carlo benchmarks ([15-Study Validation Suite](library/medusa_validation_suite.html)):** Refits the entire sequence (`estimate_crossrun_hrf()` $\to$ `deconvolve_crossrun_hrf()` $\to$ `decon_epoch_regression()` $\to$ `mixed_by()` / `medusa_multilag_infer()` / `decon_connectivity_repair()`) inside every synthetic cohort, capturing how estimation uncertainty in Step 1 HRF selection and Step 2 GCV/RWLS tuning propagates into final population $p$-values and confidence intervals.
 
 ---
 
@@ -36,9 +36,9 @@ Keeping three levels of validation distinct prevents both over-claiming and unne
 | **[Propagating BOLD Noise into Trial SEs](medusa_standard_errors_mmom.qmd)** & Validation Studies 1–4 | Operator-propagated `se_demixed`, `(1 - 1/m)^{-1}` run-centering calibration, and `precision_weight_cohort` improve group slope RMSE and maintain nominal mixed-model Type I error | Treats first-stage `se_demixed^2` as fixed plug-in variances; requires centering within-person covariates (`x_within`) and specifying participant random slopes in `mixed_by()`. |
 | **[Step 1–3](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)** & Validation Studies 5–9, 13–14 | 3D physiological HRF library (`preset = "medusa"`, `normalize = "positive_lobe"`), modulator-aware & fractional-ridge HRF scoring (`amplitude_model = "auto"`), `GLMdenoise`-style cross-validated `noise_pcs = "auto"` & `< 1/128 Hz` DCT drift pre-projection (`nuisance_mode = "preproject"`), monotone SNR-stratified `lambda_mode = "auto"`, `rwls = "auto"` glitch protection, and `other_event_model = "auto"` `(T, O)` epoch demixing | Sub-second fixed ISIs without inter-phase jitter remain fundamentally collinear under hemodynamic low-pass filtering (audit via [Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd) and `diagnose_crossrun_recovery()`). |
 | **[Simultaneous Bands Across Lags](medusa_multilag_calibration/medusa_multilag_calibration.qmd)** & Validation Study 11 | Studentized Wishart draws + conditioned spectral deblurring + available-case lag pooling hold `Max-|T|`, `1D TFCE`, `omnibus_p`, and `"unsmoothed"` window contrasts near nominal 5% / 95% targets under serial dependence and missing participant edge lags | `p_maxT` and `p_tfce` control FWER across lags of *one* `(parcel, term)` curve; apply `"holm"` or `"BY"` across `omnibus_p` when testing multiple parcels. |
-| **[Latent Connectivity](medusa_connectivity_inference/medusa_connectivity_inference.qmd)**, **[Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)**, & Validation Study 10 | Per-trial M-MOMS + multi-lag partialed directed EIV (`multilag_control = TRUE`) + Adaptive-POET & dynamic covariance regression (`shared_error_method = "poet_covreg"`, `shared_error = "auto"`, `variance_confounds`) + `crosstrial_se = TRUE` ($N=1$ Satterthwaite SEs & cohort HKSJ $t$-intervals) remove predictor attenuation, cross-lag blur, and stationary/dynamic shared noise | Pairwise-only condition-flipped noise lacking both a multi-parcel factor signature and a measured `variance_confounds` envelope—or severe seed–target smoothing mismatch ($K_S \neq K_T$)—still requires a [shared-error sensitivity curve](medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-sensitivity) and matched Step 2–3 demixing. |
+| **[Latent Connectivity](medusa_connectivity_inference/medusa_connectivity_inference.qmd)**, **[Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)**, & Validation Studies 10, 15 | Per-trial M-MOMS + multi-lag partialed directed EIV (`multilag_control = TRUE`) + Adaptive-POET & dynamic covariance regression ([Step 4 §4.4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)) + `crosstrial_se = TRUE` ($N=1$ Satterthwaite SEs & cohort HKSJ $t$-intervals) remove predictor attenuation, cross-lag blur, and stationary/dynamic shared noise | Pairwise-only condition-flipped noise lacking both a multi-parcel factor signature and a measured `variance_confounds` envelope—or severe seed–target smoothing mismatch ($K_S \neq K_T$)—still requires a [shared-error sensitivity curve](medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-sensitivity) and matched Step 2–3 demixing. |
 
-: Synthesis of validation benchmarks across Part IV and the 14-study validation suite, paired with empirical scope conditions. {#tbl-evidence-map}
+: Synthesis of validation benchmarks across Part IV and the 15-study validation suite, paired with empirical scope conditions. {#tbl-evidence-map}
 
 ---
 
@@ -113,7 +113,7 @@ Looping `sim_one_subject()` across your cohort's `sub01..subN` schedules and fee
 <details>
 <summary>Companion Validation Archives</summary>
 
-- **Full 14-Study End-to-End Validation Suite:** [Rendered HTML report](library/medusa_validation_suite.html) · [Quarto source](library/medusa_validation_suite.qmd)
+- **Full 15-Study End-to-End Validation Suite:** [Rendered HTML report](library/medusa_validation_suite.html) · [Quarto source](library/medusa_validation_suite.qmd)
 - **Complete Book Reproduction Commands:** See [Package Architecture, Source Reports, and Reproduction](reference.qmd) for one-line `Rscript` commands regenerating every simulation and figure across Parts I–IV.
 
 </details>
