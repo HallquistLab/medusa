@@ -131,6 +131,10 @@ S_{\text{clean},\tau}\widehat{a}_r
 = \theta_T - (I - K_{\text{clean},\tau})\theta_T + S_{\text{clean},\tau} D_r \varepsilon_{r,o}.
 $$
 
+For a two-trial illustration, suppose the cleaned mixing matrix is
+$\left(\begin{smallmatrix}0.6&0.2\\0.2&0.6\end{smallmatrix}\right)$.
+A unit response on trial 1 alone produces noiseless readouts $(0.6,0.2)^\top$. The first column thus gives both self-gain and leakage. A contrast between the two trials is attenuated by a factor of $0.4$, so exact inversion would also multiply noise in that contrast by $2.5$. This is the reason to regularize trial demixing even after regularizing the continuous inverse.
+
 Without inverting $K_{\text{clean},\tau}$, diagonal shrinkage ($[K_{\text{clean},\tau}]_{ii} < 1$) and neighbor overlap attenuate the true `0.70` feedback slope in `Target` down to `beta_raw = 0.088` (@tbl-step3-policies). Enabling `demix_target_trials = TRUE` applies a ridge-stabilized inverse $W_\tau$ on run-centered trials (Tikhonov regularization with penalty $\lambda_{\text{demix}}$) followed by diagonal gain restoration $\tilde{G}_\tau$ to form the composite de-mixed trial operator $B_{r,\tau}$:
 
 $$
@@ -170,10 +174,10 @@ When multiple peri-event lags are requested, adjacent lags within the same trial
 
 ### 3.4 Propagate observation-noise covariance and construct trial precision weights
 
-Because every operation from centered run BOLD to `decon_demixed` is captured in the composite linear map $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, the run-centered conditional sampling covariance of the de-mixed trial vector follows analytically from the linear covariance law:
+Because every operation from centered run BOLD to `decon_demixed` is captured in the composite linear map $B_{r,\tau} = \tilde{G}_\tau W_\tau S_{\text{clean},\tau} D_r$, MEDuSA can propagate the fitted noise covariance and apply its run-centering adjustment. Absorbing input centering into the readout operator, the reported variance scale is
 
 $$
-\widehat{\Omega}_{r,\tau} = \operatorname{Cov}(e_{r,\tau} \mid B_{r,\tau})
+\widehat{\Omega}_{r,\tau}
 = \frac{\sigma_{\text{eff}}^2}{1 - 1/m}\, Q_m B_{r,\tau} \Sigma_{\text{cor}}[I_r, I_r] B_{r,\tau}^\top Q_m,
 \qquad
 s_{ri} = \texttt{se\_demixed}_{ri} = \sqrt{[\widehat{\Omega}_{r,\tau}]_{ii}},
@@ -197,19 +201,19 @@ $$
 
 exported both normalized to mean 1 within each unit (`precision_weight`) and unnormalized for cross-run and cross-participant comparability (`precision_weight_cohort`), downweighting high-SE trials smoothly without letting a single low-SE trial dominate (@fig-step3-weights).
 
-When requested (`whiten_panel = TRUE`), Step 3 also removes off-diagonal within-run trial error correlations from $\Sigma_{\text{tot}} = \widehat{\tau}_{\text{eff}}^2 I_m + \widehat{\Omega}_{r,\tau}$ using **regularized zero-phase component analysis (ZCA) whitening**:
+**When do diagonal weights suffice?** Two neighboring trials can borrow information from the same BOLD frames. Weighting their rows by inverse variance adjusts their relative precision, but a model that treats them as independent still ignores the shared fluctuation. The optional `whiten_panel = TRUE` reduces this dependence. It applies the same transformation to the run-centered outcome and its resolution-matched predictors.
+
+Let $\Sigma_{\mathrm{tot}}$ combine propagated observation error with biological trial variation on the resolved scale. After stabilizing the run-mean direction, let $D$ be the diagonal matrix of marginal trial SDs and $R=D^{-1}\Sigma_{\mathrm{tot}}D^{-1}$ the corresponding correlation matrix. The transform has the form
 
 $$
-T_{\text{ZCA}} = \Sigma_{\text{tot}}^{-1/2} = U \Lambda^{-1/2} U^\top,
-\qquad
-\text{where } \Sigma_{\text{tot}} = U \Lambda U^\top,
+\Phi\ \propto\ D\,R_{\mathrm{reg}}^{-1/2}\,D^{-1}.
 $$
 
-with $U$ and $\Lambda$ the eigenvectors and (regularized) eigenvalues of $\Sigma_{\text{tot}}$. Why ZCA rather than Cholesky or PCA whitening? Among all matrices satisfying $T \Sigma_{\text{tot}} T^\top = I$, the symmetric inverse square root $T_{\text{ZCA}}$ is the unique transform minimizing $\mathbb{E}\|Tz - z\|_2^2$—so row $i$ of `decon_demixed_whitened` remains maximally aligned with original trial $i$ while decorrelating neighboring overlapping trials (@fig-step3-zca).
+Here $R_{\mathrm{reg}}^{-1/2}$ denotes a regularized inverse square root. MEDuSA shrinks off-diagonal correlations toward zero, limits the amplification of small eigenvalues, and normalizes $\Phi$ to have mean diagonal one. The right panel of @fig-step3-zca shows how much correlation remains. In Step 5 use the paired whitened outcome and predictor columns together. For seed–target regression, Step 6 uses unwhitened readouts so the two parcels share trial coordinates.
 
 ![Pure measurement-only inverse-variance weights (`precision_weight_op`) versus biological-variance-stabilized Empirical-Bayes weights (`precision_weight`).](figures/08-weights.png){#fig-step3-weights width="90%" fig-alt="Scatter plot of normalized precision weights against trial measurement SE."}
 
-![Within-run total trial correlation matrix $\Sigma_{\text{tot}}$ before and after symmetric trial decorrelation (`whiten_panel = TRUE`, regularized ZCA).](figures/09-decorrelation.png){#fig-step3-zca width="92%" fig-alt="20x20 correlation heatmaps before and after regularized ZCA whitening."}
+![Within-run total trial correlation before and after symmetric trial decorrelation (`whiten_panel = TRUE`, regularized ZCA).](figures/09-decorrelation.png){#fig-step3-zca width="92%" fig-alt="20x20 correlation heatmaps before and after regularized ZCA whitening."}
 
 **Choice point — Variance shrinkage (`tau2_shrinkage`), physical units (`restore_scale`), and trial decorrelation (`whiten_panel`):**
 

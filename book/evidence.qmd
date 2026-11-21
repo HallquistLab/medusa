@@ -36,7 +36,7 @@ Keeping three levels of validation distinct prevents both over-claiming and unne
 | **[Propagating BOLD Noise into Trial SEs](medusa_standard_errors_mmom.qmd)** & Validation Studies 1–4 | Operator-propagated `se_demixed`, `(1 - 1/m)^{-1}` run-centering calibration, and `precision_weight_cohort` improve group slope RMSE and maintain nominal mixed-model Type I error | Treats first-stage `se_demixed^2` as fixed plug-in variances; requires centering within-person covariates (`x_within`) and specifying participant random slopes in `mixed_by()`. |
 | **[Step 1–3](medusa_step2_deconvolution/medusa_step2_deconvolution.qmd)** & Validation Studies 5–9, 13–14 | 3D physiological HRF library (`preset = "medusa"`, `normalize = "positive_lobe"`), modulator-aware & fractional-ridge HRF scoring (`amplitude_model = "auto"`), `GLMdenoise`-style cross-validated `noise_pcs = "auto"` & `< 1/128 Hz` DCT drift pre-projection (`nuisance_mode = "preproject"`), monotone SNR-stratified `lambda_mode = "auto"`, `rwls = "auto"` glitch protection, and `other_event_model = "auto"` `(T, O)` epoch demixing | Sub-second fixed ISIs without inter-phase jitter remain fundamentally collinear under hemodynamic low-pass filtering (audit via [Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd) and `diagnose_crossrun_recovery()`). |
 | **[Simultaneous Bands Across Lags](medusa_multilag_calibration/medusa_multilag_calibration.qmd)** & Validation Study 11 | Studentized Wishart draws + conditioned spectral deblurring + available-case lag pooling hold `Max-|T|`, `1D TFCE`, `omnibus_p`, and `"unsmoothed"` window contrasts near nominal 5% / 95% targets under serial dependence and missing participant edge lags | `p_maxT` and `p_tfce` control FWER across lags of *one* `(parcel, term)` curve; apply `"holm"` or `"BY"` across `omnibus_p` when testing multiple parcels. |
-| **[Latent Connectivity](medusa_connectivity_inference/medusa_connectivity_inference.qmd)**, **[Step 6](medusa_step6_connectivity/medusa_step6_connectivity.qmd)**, & Validation Studies 10, 15 | Per-trial M-MOMS + multi-lag partialed directed EIV (`multilag_control = TRUE`) + Adaptive-POET & dynamic covariance regression ([Step 4 §4.4](medusa_step4_parcel_panels/medusa_step4_parcel_panels.qmd#sec-step4-poet)) + `crosstrial_se = TRUE` ($N=1$ Satterthwaite SEs & cohort HKSJ $t$-intervals) remove predictor attenuation, cross-lag blur, and stationary/dynamic shared noise | Pairwise-only condition-flipped noise lacking both a multi-parcel factor signature and a measured `variance_confounds` envelope—or severe seed–target smoothing mismatch ($K_S \neq K_T$)—still requires a [shared-error sensitivity curve](medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-sensitivity) and matched Step 2–3 demixing. |
+| [Latent connectivity](medusa_connectivity_inference/medusa_connectivity_inference.qmd) and validation studies 10 and 15 | With a measured respiratory envelope, the [Step 6 benchmark](medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-poet-step6) finds a smaller mean seed-slope bias after subtracting dynamic shared noise. | Check the PPI term separately. A condition-dependent artifact confined to one pair can escape the fitted noise model. Examine a [shared-error sensitivity curve](medusa_step6_connectivity/medusa_step6_connectivity.qmd#fig-sensitivity). |
 
 : Synthesis of validation benchmarks across Part IV and the 15-study validation suite, paired with empirical scope conditions. {#tbl-evidence-map}
 
@@ -44,7 +44,7 @@ Keeping three levels of validation distinct prevents both over-claiming and unne
 
 ## 3. Building a Study-Specific Calibration on Your Own Schedule
 
-Whenever an empirical study uses a novel multi-phase trial timing, heavy motion scrubbing, or small cohort size, the most informative validation you can run is a **synthetic twin of your exact task geometry**. Because `read_fmriprep_subject()` ([Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd)) already extracts each participant's real `events` table, run lengths, `TR`, and framewise-displacement `valid_rows` masks, you can simulate synthetic BOLD directly on top of your actual empirical design in ~35 lines of R—*without* peeking at real neural associations:
+Whenever an empirical study uses a novel multi-phase trial timing, heavy motion scrubbing, or small cohort size, the most informative validation you can run is a **synthetic twin of your exact task geometry**. Because `read_fmriprep_subject()` ([Step 0](medusa_step0_design_bids/medusa_step0_design_bids.qmd)) already extracts each participant's real `events` table, run lengths, `TR`, and framewise-displacement `valid_rows` masks, you can simulate synthetic BOLD directly on top of your actual empirical design in R—*without* peeking at real neural associations:
 
 1. **Lock the estimand and multiplicity rule upfront:** Prespecify the target condition, peri-event lag(s), covariates, window contrasts, and parcel-family adjustment (`"holm"` or `"BY"`).
 2. **Keep real onset times, durations, and censor masks intact:** Use your cohort's actual `events` timestamps, reaction-time durations, and `valid_rows` scrubbing vectors so collinearity between adjacent task phases and run-end/motion truncation match your study verbatim.
@@ -59,21 +59,22 @@ library(medusa)
 
 # Template: Synthetic twin check on one participant's real empirical schedule & scrub mask
 # Assumes `sub01` was loaded via read_fmriprep_subject() in Step 0
-tr   <- sub01$tr
-cand <- hrf_library(tr = tr, preset = "medusa")
-evs  <- split(sub01$events, sub01$events$run)
-vrows <- lapply(sub01$confounds$runs, `[[`, "valid_rows")
+sim_one_subject <- function(subject, beta_true = 0.40, noise_sd = 0.35, rho = 0.50) {
+  tr <- subject$tr
+  cand <- hrf_library(tr = tr, preset = "medusa")
+  evs <- split(subject$events, subject$events$run)
+  vrows <- subject$valid_rows
 
-sim_one_subject <- function(beta_true = 0.40, noise_sd = 0.35, rho = 0.50) {
   parcels <- setNames(rep(c("Active_ROI", "Null_ROI"), each = 6L), paste0("v", 1:12))
   h_act   <- cand[, sample(ncol(cand), 1L)]   # random physiological HRF draw
   h_null  <- cand[, sample(ncol(cand), 1L)]
   bold_sim <- cov_sim <- list()
 
   for (r in names(evs)) {
-    n_t <- nrow(sub01$bold[[r]])
+    n_t <- nrow(subject$bold[[r]])
     ev  <- evs[[r]]
     t_idx <- which(ev$condition == "feedback")
+    stopifnot(length(t_idx) >= 2L)
     x_mod <- as.numeric(scale(rnorm(length(t_idx))))
 
     # Forward neural impulse series on the real empirical timestamps
@@ -108,7 +109,9 @@ sim_one_subject <- function(beta_true = 0.40, noise_sd = 0.35, rho = 0.50) {
 }
 ```
 
-Looping `sim_one_subject()` across your cohort's `sub01..subN` schedules and feeding the resulting panels into `mixed_by()` (or `decon_connectivity_repair()`) gives an exact, pre-data answer to whether your task jitter, run count, and motion censoring support unbiased slope recovery and nominal 5% false-positive control in `Null_ROI`.
+Run `sim_one_subject(sub01)` once per participant in each simulated cohort, using that participant's event table and censor mask. This example generates brief feedback responses at the observed onsets, assumes at least two feedback events per run and gives the two parcels independent noise. To assess cue spillover, generate cue responses as well. To assess connectivity or PPI, add a known seed–target association or shared-noise process that matches the question.
+
+Refit the planned group model in each replicate. Record the slope error in `Active_ROI`, the fraction of intervals covering its generating slope, and the rejection count in `Null_ROI`. Report counts with the number of simulated cohorts. For example, 5 rejections in 100 replicates give a rate of 5% with Monte Carlo standard error of about 2.2 percentage points. These quantities describe performance under the generating assumptions and actual schedule.
 
 <details>
 <summary>Companion Validation Archives</summary>

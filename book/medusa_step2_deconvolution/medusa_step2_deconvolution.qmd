@@ -88,24 +88,24 @@ Because $H_r$ acts as a low-pass filter, high-frequency oscillations in $a_r$ le
 
 ![Effect of varying `lambda` (`0.0001`, `0.03`, `3`) on the same noisy BOLD series under the `sobolev` penalty.](figures/02-lambda.png){#fig-step2-lambda width="95%" fig-alt="Three-panel comparison of weak, moderate, and strong lambda regularization."}
 
-Step 2 estimates $\widehat{a}_r$ by minimizing a penalized prewhitened generalized least squares (GLS) objective across the full $T_r$-sample acquisition grid:
+For the recommended `nuisance_mode = "preproject"`, first regress nuisance time courses out of the observed BOLD vector. Write $C_r$ for the operator that returns those residuals and $M_{r,o}$ for the matrix that selects the usable frames. In acquisition-grid notation, omitting pre-run history, optional tail padding and the numerical ridge floor, the solve is
 
 $$
-\widehat{a}_r = \arg\min_{a \in \mathbb{R}^{T_r}} \left\| \tilde{W}_r \bigl(\tilde{y}_{r,o} - M_{r,o} H_r a\bigr) \right\|_2^2 + \lambda \, a^\top P a
-\quad\Longrightarrow\quad
-\widehat{a}_r = D_r \tilde{y}_{r,o},
-\qquad
-D_r = \bigl(A_r^\top A_r + \lambda P\bigr)^{-1} A_r^\top \tilde{W}_r,
+\widehat a_r = \arg\min_a
+\left\|W_r \big(C_r\tilde y_{r,o} - M_{r,o} H_r a\big)\right\|_2^2
++ \lambda a^\top P a .
 $$
 
-where:
+Here $\tilde y_{r,o}$ contains the $m_r$ usable observations, $H_r$ convolves the $T_r$ latent samples with the fitted HRF, and $W_r$ whitens the retained frames and incorporates any fitted frame weights. $P$ penalizes candidate waveforms, with strength set by $\lambda$. Nuisance pre-projection acts on the **data** before this solve. The forward design entering the solve is $A_r=W_r M_{r,o}H_r$.
 
-- $\tilde{y}_{r,o} \in \mathbb{R}^{m_r}$ is the centered, standardized BOLD vector restricted to the $m_r$ unmasked acquisition frames $I_r$ (`valid_rows[[r]] == TRUE`),
-- $M_{r,o} \in \mathbb{R}^{m_r \times T_r}$ selects those $m_r$ observed rows from the full $T_r$-sample clock,
-- $H_r \in \mathbb{R}^{T_r \times T_r}$ is the causal Toeplitz convolution matrix for Step 1's cross-fitted HRF,
-- $\tilde{W}_r$ combines exact $\text{AR}(p)$ prewhitening $W_r$ on the retained timestamps $I_r$ with nuisance orthogonalization (described below), and $A_r = \tilde{W}_r M_{r,o} H_r$ is the prewhitened forward operator,
-- $P \in \mathbb{R}^{T_r \times T_r}$ is a symmetric positive semi-definite roughness penalty matrix, and $\lambda > 0$ tunes the bias–variance trade-off between high-frequency noise suppression and phasic sharpness, and
-- $D_r \in \mathbb{R}^{T_r \times m_r}$ is the resulting **exact linear inverse operator**, carried forward into Steps 3–4 so downstream uncertainty propagation requires no resampling.
+For fixed HRF, weights and tuning parameters, the solution is linear in the observations:
+
+$$
+\widehat a_r=D_r\tilde y_{r,o},\qquad
+D_r=(A_r^\top A_r+\lambda P)^{-1}A_r^\top W_r C_r .
+$$
+
+Each column of $D_r$ describes how changing one observed BOLD frame changes the reconstructed time course. Step 3 reuses those columns to trace observation error into each trial.
 
 Notice that **no event timestamps appear inside $P$ or restrict $a$**: spontaneous inter-trial fluctuations, sustained deliberation plateaus, and brief phasic bursts can occur anywhere on the acquisition clock.
 
@@ -120,14 +120,12 @@ knitr::kable(d2$metrics, digits = 3, row.names = FALSE,
 
 **Choice point — Roughness penalty (`penalty`) and nuisance projection (`nuisance_mode`):**
 
-- **Penalty geometry (`penalty = "sobolev"`):** MEDuSA's recommended discrete Sobolev penalty combines a mild first-difference slope penalty ($D_1 a$, penalizing changes $a_{t+1} - a_t$) with a dominant second-difference curvature penalty ($D_2 a$, penalizing acceleration $a_{t+1} - 2a_t + a_{t-1}$):
+- **Choosing a penalty.** The book examples use `penalty = "sobolev"`. If $D_1 a$ contains successive differences and $D_2 a$ contains second differences, the implemented matrix is
   $$
-  P_{\text{sobolev}} = 0.10\, D_1^\top D_1 + 0.90\, D_2^\top D_2.
+  P_{\text{sobolev}} = 0.05 I + 0.45 D_1^\top D_1 + 0.50 D_2^\top D_2 .
   $$
-  Why combine both terms? Pure second-difference smoothing (`"diff2"`) leaves constant shifts *and* global linear ramps completely unpenalized ($D_2 a = 0$ for any line $a_t = c_0 + c_1 t$), allowing slow baseline tilts to drift through the inverse, whereas pure `"ridge"` ($P = I$) shrinks every timepoint toward zero independently without sharing smoothness across neighboring TRs. Combining $0.10 D_1^\top D_1 + 0.90 D_2^\top D_2$ gently anchors slow ramps while preserving crisp phasic event peaks (@fig-step2-penalties, @tbl-step2-penalties).
-- **Clock-aligned drift, confound, and noise-pool pre-projection (`nuisance_mode = "preproject"` & `noise_pcs = "auto"`):** Because the Sobolev penalty vanishes on constant/ultra-slow modes while $H(0) = 1$, leaving `< 1/128 Hz` scanner drift or motion confounds unprojected (`nuisance_mode = "ignore"` on raw BOLD) lets slow drift pass directly into $\widehat{a}_r(t)$ even though Step 1's `noise_sd` excluded drift variance—inflating trial variance without matching `se_demixed`. Conversely, solving for nuisance coefficients *jointly* inside $(A_r^\top A_r + \lambda P)^{-1}$ (`nuisance_mode = "joint"`) can amplify collinear slow neural modes.
-  - **`nuisance_mode = "preproject"`** (automatic default whenever `nuisance`, `highpass = 128`, or `noise_pcs` are active) removes the full nuisance basis $Z_{r,o} = [1,\, \text{linear trend},\, \text{DCT}(< 1/128\text{ Hz}),\, \text{nuisance},\, \text{noise\_pcs}]$ on `valid_rows` *before* continuous deconvolution via the orthogonal projector $Q_{Z}^\perp = I - Q_Z Q_Z^\top$, and carries that exact projection into Step 3 (`decon_epoch_regression()`), `diagnose_crossrun_recovery()`, and Step 4's POET + covariance-regression engine.
-  - Simultaneously, `noise_pcs = "auto"` removes cross-validated background physiological PCs ([Step 1 §1.5](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-noise-pool-pcs)) *before* $|H(f)|^{-1}$ can amplify `0.14–0.30 Hz` respiratory and aliased cardiac harmonics. Use `"ignore"` only when BOLD and events were already matched-projected upstream.
+  A constant waveform incurs only the small amplitude penalty ($I$). A linear ramp also incurs a slope penalty ($D_1$). Rapid reversals incur a curvature penalty ($D_2$). The package default, `"diff2"`, uses only the last type of penalty and leaves a linear baseline unpenalized. Compare the reconstructed peaks and baselines in @fig-step2-penalties.
+- **Handling nuisance signals.** Smooth scanner drift can resemble slow neural activity. With `"preproject"`, $C_r$ removes the fitted drift basis, supplied confounds and selected background PCs on retained frames. For equal frame weights, $C_r=I-Q_ZQ_Z^\top$, where the columns of $Q_Z$ form an orthonormal basis for the nuisance regressors. Other modes have different meanings: `"joint"` fits nuisance and neural coefficients together, and `"ignore"` omits nuisance regression. The same fitted operator carries forward into epoch readout and uncertainty propagation. [Background PC example](../medusa_step1_hrf_noise/medusa_step1_hrf_noise.qmd#sec-noise-pool-pcs)
 
 ![Joint vs. ignored nuisance handling when drift remains in `bold` (top) and bridging a masked `valid_rows = FALSE` artifact window `70–80 s` under `observation_mask = "fit"` (bottom).](figures/07-mask-nuisance.png){#fig-step2-mask-nuisance width="95%" fig-alt="Two-panel plot showing drift removal under nuisance_mode = joint and artifact containment under observation_mask = fit."}
 
@@ -179,7 +177,7 @@ Under `rwls = "auto"`, Step 2 separates non-task glitches from real neural burst
 
 Choosing $\lambda$ by ordinary observation-space generalized cross-validation (GCV) alone—which minimizes
 $$
-\operatorname{GCV}(\lambda) = \frac{\frac{1}{m_r}\bigl\|(I - S_\lambda)\tilde{W}_r \tilde{y}_{r,o}\bigr\|_2^2}{\bigl(1 - \frac{1}{m_r}\operatorname{tr}(S_\lambda)\bigr)^2},
+\operatorname{GCV}(\lambda) = \frac{\frac{1}{m_r}\bigl\|(I - S_\lambda)W_r C_r \tilde{y}_{r,o}\bigr\|_2^2}{\bigl(1 - \frac{1}{m_r}\operatorname{tr}(S_\lambda)\bigr)^2},
 \qquad
 S_\lambda = A_r (A_r^\top A_r + \lambda P)^{-1} A_r^\top,
 $$

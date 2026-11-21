@@ -73,7 +73,7 @@ where $\widetilde{B}_{r,\tau}$ absorbs input run-centering and whitened nuisance
 
 ### Why run-centering introduces $(1 - 1/m)^{-1}$
 
-Because BOLD runs lack an absolute baseline unit across scanner acquisitions, within-run trial regressions center trial vectors within each run using $Q_m = I_m - \frac{1}{m}\mathbf{1}_m\mathbf{1}_m^\top$. Centering $m$ noisy trial estimates subtracts the sample mean error $\bar{e}_r = \frac{1}{m}\sum_{j=1}^m e_{rj}$ from every trial. Even if uncentered errors had variance $\sigma^2$, the expected squared centered error is $\mathbb{E}[(e_{ri} - \bar{e}_r)^2] = \sigma^2(1 - 1/m)$, so sample inner products over centered trials lose one degree of freedom per run (just like Bessel's $n/(n-1)$ sample-variance correction). Dividing by $1 - 1/m$ calibrates the centered covariance matrix so $\sum_{i=1}^m [\widehat{\Omega}_{r,\tau}]_{ii}$ is an unbiased estimator of expected centered error sum of squares $\mathbb{E}[\|Q_m e_r\|_2^2]$ in Step 6 normal equations:
+Subtracting the run mean from $m>1$ trial estimates applies $Q_m$ to their error vector. Its covariance is exactly $Q_m\Omega_{r,\tau,\text{raw}}Q_m$. For independent errors of common variance $\sigma^2$, each diagonal is now $\sigma^2(1-1/m)$. MEDuSA divides by $1-1/m$ when reporting per-trial variance on a degrees-of-freedom-adjusted scale. In the general correlated case, the matrix multiplication accounts for how centering changes each diagonal.
 
 $$
 Q_m = I_m - \frac{\mathbf{1}_m\mathbf{1}_m^\top}{m},
@@ -159,7 +159,7 @@ fit <- medusa_fit_mmom(
 fit$coefficients
 ```
 
-Across multiple participants, pool each participant's `fit$coefficients` slope and SE via `medusa_between_subject_repair()` so cohort $p$-values and confidence intervals reflect participant-level replication (HKSJ $t$-intervals).
+For this neural-to-behavior model, fit the trial regression within each participant and treat participants as the replication units for a population slope. For a seed parcel predicting a target parcel, `decon_connectivity_repair()` performs both the within-participant correction and cohort pooling. A different question is whether *participant-level random effects* covary across fitted mixed models. Use `medusa_between_subject_repair()` with those fitted models as inputs. [Trial connectivity and group pooling](medusa_step6_connectivity/medusa_step6_connectivity.qmd)
 
 ---
 

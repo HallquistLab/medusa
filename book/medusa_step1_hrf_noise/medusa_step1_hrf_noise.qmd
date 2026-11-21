@@ -98,8 +98,8 @@ $$
 
 where:
 
-- $g(t;\, a, b)$ is a gamma density evaluated on the discrete TR grid ($0, \text{TR}, 2\,\text{TR}, \dots, 32\text{ s}$), with $(a_1, b_1)$ governing the positive hemodynamic peak and $(a_2, b_2)$ governing the delayed venous undershoot,
-- $c \in \{3, 6, 12, \infty\}$ sets the peak-to-undershoot ratio ($c = \infty$ omits the undershoot entirely for subcortical nuclei), with the standard canonical shape ($6\text{ s}$ peak, dispersion $1.0$, $c = 6$) always placed in column 1 (`fallback_kernel = 1L`), and
+- $g(t;\, a, b)$ is a gamma density evaluated on the discrete TR grid ($0, \text{TR}, 2\,\text{TR}, \dots, 32\text{ s}$), with shape $a/b$ and scale $b$. The package sets $a_2=16$ and $b_2=1$, with $(a_1, b_1)$ governing the positive hemodynamic peak and $(a_2, b_2)$ governing the delayed venous undershoot,
+- $c \in \{3, 6, 12, \infty\}$ sets the relative weight of the undershoot component ($c = \infty$ omits the undershoot entirely for subcortical nuclei), with the standard canonical shape ($6\text{ s}$ delay parameter, dispersion $1.0$, $c = 6$) always placed in column 1 (`fallback_kernel = 1L`), and
 - the denominator enforces **positive-lobe normalization** ($\sum_{t: h(t) > 0} h(t) = 1$).
 
 ![Three physiological dimensions spanned by `hrf_library(..., preset = "medusa")` under positive-lobe normalization: peak delay (left), width/dispersion (middle), and post-stimulus undershoot depth including zero-undershoot subcortical shapes (right).](figures/01-library.png){#fig-step1-library width="100%" fig-alt="Three-panel plot of positive-lobe-normalized HRF candidates varying peak delay, dispersion, and undershoot ratio."}
@@ -128,7 +128,7 @@ R^2_{\text{adj},\, s,m} = 1 - \bigl(1 - R^2_{s,m}\bigr)\,\frac{m_s - p_Z}{m_s - 
 R^2_{s,m} = \frac{\|\widehat{y}_{s,m,\perp}\|_2^2}{\|y_{s,\perp}\|_2^2},
 $$
 
-paired with an effective-DF $F$-test (`selected_task_p`; @fig-step1-evidence). When a dataset contains only a single scan ($R = 1$), `hrf_single_run_subblocks()` replaces cross-run folds with **guard-buffered leave-one-subblock-out cross-validation**, separating interior sub-blocks by a $\ge 16\text{ s}$ hemodynamic and $\text{AR}(p)$ guard zone so held-out sub-blocks never share event tails or autocorrelation with training sub-blocks.
+paired with an effective-DF $F$-test (`selected_task_p`; @fig-step1-evidence). With one scan, the package assesses candidate shapes across temporal sub-blocks and returns one HRF for the run. The single-run section below describes the limits of this check.
 
 ![Out-of-sample adjusted partial $R^2$ surfaces for target Run 1 across the 27-candidate cortical slice (`Fast` truth: $4.5\text{ s}, 0.9$; `Slow` truth: $7.5\text{ s}, 1.1$; `Null`: pure $\text{AR}(3)$ noise). Crosses mark generating parameters.](figures/04-evidence.png){#fig-step1-evidence width="100%" fig-alt="Heatmaps of out-of-sample adjusted partial R-squared across Fast, Slow, and Null parcels."}
 
@@ -251,28 +251,29 @@ knitr::kable(
 
 ### 1.5 Suppress narrowband physiological and global vascular noise via cross-validated background PCs (`noise_pcs = "auto"`) {#sec-noise-pool-pcs}
 
-In multiband and whole-cortex acquisitions without external pulse-oximeter or respiratory-belt recordings (`RETROICOR`), aliased cardiac (`~0.25–0.35 Hz`) and respiratory (`~0.14–0.25 Hz`) oscillations plus slow systemic vascular waves span dozens of parcels simultaneously. Why must these waves be removed *before* Step 2 deconvolution rather than left for downstream parcel covariance modeling?
+A respiration-related fluctuation can appear in many voxels at once. If it remains in BOLD, the inverse filter can turn it into oscillations in the reconstructed activity between events. A background principal component (PC) supplies a time course that can be regressed out before deconvolution. Step 4 addresses a different question later: how much of the *remaining* noise do two parcel estimates share?
 
-View Step 2's penalized deconvolution operator in the frequency domain. For a sinusoidal component at frequency $f$, the forward HRF attenuates amplitude by $|H(f)|$, so regularized Sobolev deconvolution multiplies that component by the damped inverse gain:
+To see which fluctuations can grow, consider an uncensored, regularly sampled run with white noise, away from the run boundaries. For frequency $f$ in Hz and repetition time $\mathrm{TR}$ in seconds, the amplitude gain of the regularized inverse in this approximation is
 
 $$
-|D(f)| = \frac{|H(f)|}{|H(f)|^2 + \lambda\, P(f)},
+|D(f)|=\frac{|H(f)|}{|H(f)|^2+\lambda P(f)},\qquad
+P(f)=0.05+0.45\,d(f)+0.50\,d(f)^2,\qquad
+d(f)=4\sin^2(\pi f\,\mathrm{TR}).
 $$
 
-where $|H(f)|$ is the magnitude Fourier transform of the HRF and $P(f) = 0.10 \cdot 4\sin^2(\pi f\,\text{TR}) + 0.90 \cdot 16\sin^4(\pi f\,\text{TR})$ is the Sobolev frequency penalty. Because $|H(f)|$ decays steeply across $0.14\text{--}0.30\text{ Hz}$ before $P(f)$ fully damps the inverse, **any residual respiratory or aliased cardiac oscillation left in BOLD is amplified by up to `r sprintf("%.1f", np_demo$max_gain_001)`$\times$ during deconvolution** (@fig-step1-noise-pcs, Panel A).
+$|H(f)|$ is the amplitude gain of the sampled HRF. $P(f)$ is the frequency response of the [Sobolev penalty](../medusa_step2_deconvolution/medusa_step2_deconvolution.qmd), and $\lambda$ controls its strength. An inverse gain above one amplifies a sinusoid at that frequency. In panel A the peak gain in the shaded $0.14$–$0.30$ Hz band is `r sprintf("%.1f", np_demo$max_gain_001)` at $\lambda=0.01$. The gain depends on the HRF and penalty, and the frequencies at which physiology appears depend on the acquisition.
 
-![Why background noise-pool PCs (`noise_pcs = "auto"`) operate before deconvolution (`make_noise_pcs_fig.R`). **(A)** Forward HRF attenuation $|H(f)|$ versus Sobolev inverse deconvolution gain $|D(f)|$ at $\text{TR} = 0.8\text{ s}$: physiological oscillations in the `0.14–0.30 Hz` band sit directly under a $3\text{--}6.5\times$ inverse-filter amplification peak. **(B)** Live `medusa` demonstration on a 14-parcel fast-TR run contaminated by respiratory (`0.17 Hz`) and aliased cardiac (`0.24 Hz`) waves: `noise_pcs = "auto"` recovers both background modes ($K^* = 2$), cutting off-event ringing from `0.098` to `0.035` and lifting waveform correlation with latent truth from `0.38` to `0.60`, while selecting $K^* = 0$ (zero degrees of freedom lost) on a matched pure-$\text{AR}(1)$ control run.](figures/12-noise-pool-pcs.png){#fig-step1-noise-pcs width="100%" fig-alt="Two-panel plot showing inverse HRF frequency gain peaking at 6.5x over the 0.14-0.30 Hz physiological band on the left, and live medusa deconvolved Parcel 1 traces comparing noise_pcs=0 against noise_pcs=auto on the right."}
+![A. Forward HRF and inverse-filter gain for two smoothing strengths at TR = 0.8 s. B. Reconstructed activity in one active parcel of a 14-parcel simulation with two shared oscillations. Dotted lines mark events. Compare the oscillations between events with and without background PCs.](figures/12-noise-pool-pcs.png){#fig-step1-noise-pcs width="100%" fig-alt="The weaker penalty has higher peak gain. Including background PCs reduces oscillations between events in the example trace."}
 
-Adapting the `GLMdenoise` principle (Kay et al., 2013) to MEDuSA's cross-run operator framework, `noise_pcs = "auto"` constructs run-specific nuisance principal components from **task-silent background cortex** under four strict anti-leakage and anti-overfitting safeguards:
+In the three-run simulation, `noise_pcs = "auto"` retained `r np_demo$k_phys` PCs. For run 1, the standard deviation more than three seconds from an event fell from `r sprintf("%.3f", np_demo$sd_bg_zero)` to `r sprintf("%.3f", np_demo$sd_bg_auto)`, and correlation with the generating waveform rose from `r sprintf("%.2f", np_demo$cor_zero)` to `r sprintf("%.2f", np_demo$cor_auto)`. On matched data with the same neural events and independent AR(1) noise across voxels, it retained `r np_demo$k_clean` PCs.
 
-1. **Task-silent noise pool with spatial buffer (`hrf_identify_noise_pool()`):** When `noise_pool = NULL`, the pool includes only task-uninformative cortex (`status == "fallback_prespecified"`), excluding any parcel containing a supported voxel (including zero-mean modulated parcels rescued by `amplitude_model = "auto"`), excluding immediate spatial-graph neighbors of active voxels to block point-spread bleed, and requiring at least `24` background voxels across `8` parcels so small ROI cohorts never incur Global Signal Regression (GSR) anti-correlations (Murphy et al., 2009). Users may also supply an explicit `noise_pool` mask (e.g., eroded WM/CSF).
-2. **Broadband `AR(1)` prewhitening prior to SVD:** Background series are prewhitened by scalar `AR(1)` (`rho` clamped to `[-0.80, 0.80]`) rather than resonant higher-order `AR(4)` filters, keeping narrowband respiratory and cardiac harmonics prominent in the singular spectrum.
-3. **Four-gate selection of $K^* \in \{0, \dots, \text{max\_noise\_pcs}\}$:** Each candidate temporal PC must pass:
-   - *(i) Spectral signal threshold:* singular value exceeds the **Gavish–Donoho (2014)** aspect-ratio optimal cutoff;
-   - *(ii) Out-of-sample variance reduction:* **Owen–Perry (2009) 2-fold spatial bi-cross-validation** reduces residual MSE on held-out background parcels;
-   - *(iii) Task-orthogonality guard:* squared correlation with convolved task designs stays below the 99th percentile of a null Beta distribution ($R^2_{\text{task}} \le q_{\text{Beta}}(0.99)$); and
-   - *(iv) Division-of-labor gates:* component must be temporally delocalized (`top3_share <= 0.22`, leaving transient spikes to Step 2's `rwls = "auto"`) and spectrally/temporally coherent (`max_acf >= 0.28` or periodogram crest factor `>= 11.0`, leaving temporally white spatial covariance to Step 4's Adaptive-POET). On pure spatially independent `AR(1)` noise, $K^* = 0$ is selected cleanly (@fig-step1-noise-pcs, Panel B).
-4. **Target-run isolation:** During Step 1 HRF scoring, noise PCs are extracted strictly within each run $r$ and scored via 2-fold spatial cross-fitting across disjoint halves of the noise pool so no background voxel ever sees a PC containing its own noise; in Step 2, cross-run `hrf_fit$selections` refines the noise pool before pre-projecting the selected PCs alongside `< 1/128 Hz` DCT drift.
+**How automatic selection protects task signal.** Following the noise-pool principle of GLMdenoise (Kay et al., 2013), MEDuSA looks for reproducible time courses in voxels with little evidence of task response. A weak response can go undetected, so pool membership alone is insufficient.
+
+1. Exclude task-supported voxels, their parcels when labels are supplied, and immediate neighbors when spatial information is available. The automatic pool requires sufficient breadth (at least 24 voxels and, with parcel labels, eight parcels). An explicit `noise_pool` can identify background tissue such as eroded white matter.
+2. Prewhiten background series with a first-order autoregressive filter and screen their singular values for components larger than expected from noise. Screen candidate time courses for alignment with the convolved task design. When held-out background data are available, compare residual prediction error across component counts, including zero.
+3. Reject components concentrated in a few frames. For an automatically defined pool, look for temporal autocorrelation or spectral concentration as well. Step 1 forms its HRF-scoring PCs within each run. Step 2 can reuse the nuisance PCs stored with the HRF fit.
+
+Inspect `hrf_fit$settings$noise_pcs_used` alongside the pool size. Zero can mean that the pool was too small or that no component passed selection.
 
 ---
 
@@ -341,7 +342,7 @@ hrf_fit <- estimate_crossrun_hrf(
 
 ### Single-run sessions and resting/baseline runs
 
-When a participant has only a **single task run** (`length(bold) == 1L`), `estimate_crossrun_hrf()` automatically partitions usable observations into temporal sub-blocks separated by a $\ge 16\text{ s}$ hemodynamic/AR guard buffer (`hrf_single_run_subblocks()`, 3 blocks when $n_{\text{valid}} \ge 150$, 2 halves otherwise, isolating pre-block guard-zone event tails into carryover nuisance columns), scores candidate shapes strictly out-of-sample via Leave-One-Subblock-Out (LOBO) cross-validation with Bartlett-calibrated sub-block compatibility checks, and returns a single continuous HRF for the intact run. Runs with zero task events (such as resting-state scans) are also accepted and receive the canonical reference HRF alongside pure-nuisance $\text{AR}(p)$ noise estimates.
+With one task run, MEDuSA scores candidates in two or three blocks of usable observations. For condition designs it can estimate amplitudes in training blocks and score predictions in a held-out block. The guard gap shrinks when retaining enough data in each block requires it. Carryover columns model responses to events that precede a block, and the noise fit uses information from the run. Treat the resulting HRF as a within-run estimate. With multiple task runs, a whole acquisition can be held out from HRF selection. Runs without task events contribute no task evidence for choosing an HRF.
 
 ### Respiratory motion filtering for fast-TR censoring {#sec-respiratory-fd-filter}
 
@@ -387,6 +388,6 @@ Before passing `hrf_fit` to `deconvolve_crossrun_hrf()` ([Step 2](../medusa_step
 - **Exact gapped covariance:** When `valid_rows[[r]]` masks interior frames, AR estimation restricts lag products strictly within contiguous unmasked runs of frames, while Step 2's whitener $W_r$ inverts the exact stationary Toeplitz submatrix $\Sigma_{\text{AR}}[I_r, I_r]$ on retained timestamps $I_r$ so multi-TR scrub gaps decay correlation by $\gamma(|t_a - t_b|)$.
 - **Zero-phase respiratory IIR filtering:** For sampling rate $f_s = 1/\text{TR}$ and stopband $[f_1, f_2] = \text{BPM}/60$ ($f_0 = (f_1 + f_2)/2$, $\Delta f = f_2 - f_1$, $Q = f_0/\Delta f$, $\omega_0 = 2\pi f_0/f_s$, $\alpha = \sin\omega_0/(2Q)$), `read_fmriprep_confounds()` designs the RBJ biquad notch transfer function $H(z) = \frac{1 - 2\cos\omega_0 z^{-1} + z^{-2}}{(1 + \alpha) - 2\cos\omega_0 z^{-1} + (1 - \alpha)z^{-2}}$ (or bilinear-warped Butterworth poles for `motion_lowpass_hz`) and applies forward-backward Direct Form II Transposed filtering (`filtfilt`) with steady-state initial conditions and reflection padding to all 6 realignment parameters before computing Power (2012) FD.
 
-[Step 1 simulation script](simulate_step1.R) · [Figure script](figures_step1.R) · [Selection table](selections.csv) · [Noise table](noise.csv) · [Respiratory FD table](respiratory_fd_metrics.csv)
+[Step 1 simulation script](simulate_step1.R) · [Figure script](figures_step1.R) · [Noise-PC figure script](make_noise_pcs_fig.R) · [Selection table](selections.csv) · [Noise table](noise.csv) · [Respiratory FD table](respiratory_fd_metrics.csv)
 
 </details>

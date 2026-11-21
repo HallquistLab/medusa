@@ -18,8 +18,13 @@ ord <- c(
   "POET + CovReg (Operator)"
 )
 dyn$method <- factor(dyn$method, levels = ord)
-dyn$ci_lo  <- dyn$mean - 1.96 * dyn$mean_se / sqrt(dyn$n)
-dyn$ci_hi  <- dyn$mean + 1.96 * dyn$mean_se / sqrt(dyn$n)
+# Each cohort contributes one rejection indicator for each estimator.
+dyn$rejections <- round(dyn$reject * dyn$n)
+intervals <- t(vapply(seq_len(nrow(dyn)), function(i) {
+  stats::binom.test(dyn$rejections[i], dyn$n[i])$conf.int
+}, numeric(2)))
+dyn$lo <- 100 * intervals[, 1L]
+dyn$hi <- 100 * intervals[, 2L]
 
 cols <- c(
   "Zero Shared Error"        = orange,
@@ -48,26 +53,24 @@ p_bias <- ggplot(dyn, aes(x = mean, y = method, color = method)) +
   scale_x_continuous(limits = c(-0.06, 0.215), breaks = seq(-0.05, 0.20, by = 0.05)) +
   labs(
     title    = "A. Null connectivity bias (truth = 0)",
-    subtitle = "Dynamic RVT-modulated shared noise (S = 16 cohorts)",
+    subtitle = "24 simulated cohorts of 16 participants each",
     x        = "Mean estimated seed-target slope",
     y        = NULL
   ) +
   theme_s6
 
-p_fpr <- ggplot(dyn, aes(x = 100 * reject, y = method, fill = method)) +
-  geom_vline(xintercept = 5, linetype = "dashed", color = ink, linewidth = 0.75) +
-  geom_col(width = 0.56, alpha = 0.90) +
-  geom_text(aes(label = sprintf("%.1f%%", 100 * reject)),
-            hjust = -0.18, size = 3.3, fontface = "bold", color = ink) +
-  annotate("text", x = 7.2, y = 4.38, label = "5% nominal", hjust = 0,
-           size = 2.9, color = ink, fontface = "italic") +
-  scale_fill_manual(values = cols) +
-  scale_x_continuous(limits = c(0, 90), breaks = c(0, 5, 25, 50, 75)) +
+p_fpr <- ggplot(dyn, aes(y = method, color = method)) +
+  geom_vline(xintercept = 5, linetype = "dashed", color = ink) +
+  geom_segment(aes(x = lo, xend = hi, yend = method)) +
+  geom_point(aes(x = 100 * reject), size = 3) +
+  geom_text(aes(x = hi, label = sprintf("%d/%d", rejections, n)),
+            hjust = -0.15, size = 3.2, color = ink) +
+  scale_color_manual(values = cols) +
+  scale_x_continuous(limits = c(0, 110), breaks = seq(0, 100, 25)) +
   labs(
-    title    = "B. Null false-positive rate (p <= .05)",
-    subtitle = "Operator & CSV panel modes match identically (4.2%)",
-    x        = "False-positive rate (%)",
-    y        = NULL
+    title = "B. Cohorts rejecting the null",
+    subtitle = "Exact 95% binomial intervals. Dashed line marks 5%.",
+    x = "False-positive rate (%)", y = NULL
   ) +
   theme_s6 +
   theme(axis.text.y = element_blank())

@@ -30,10 +30,9 @@ h_pad <- c(h_can, rep(0, N_fft - length(h_can)))
 H_fft <- Mod(fft(h_pad))
 freqs <- (0:(N_fft / 2L)) / (N_fft * tr)
 H_mag <- H_fft[seq_along(freqs)]
-H_mag <- H_mag / max(H_mag)
 
 s2 <- 4 * sin(pi * freqs * tr)^2
-P_sob <- 0.10 * s2 + 0.90 * (s2^2)
+P_sob <- 0.05 + 0.45 * s2 + 0.50 * s2^2
 
 gain_lam001 <- H_mag / (H_mag^2 + 0.01 * P_sob)
 gain_lam010 <- H_mag / (H_mag^2 + 0.10 * P_sob)
@@ -63,10 +62,10 @@ p_freq <- ggplot(freq_df, aes(x = freq, y = gain, color = curve, linetype = curv
   guides(color = guide_legend(nrow = 2, byrow = TRUE),
          linetype = guide_legend(nrow = 2, byrow = TRUE)) +
   labs(
-    title    = "A. Inverse HRF gain amplifies physiological bands",
-    subtitle = "Sobolev deconvolution amplifies 0.14-0.30 Hz waves up to 6-7x if left in BOLD",
+    title    = "A. Smoothing limits inverse-filter gain",
+    subtitle = "Frequency response for the simulated HRF on a regular grid",
     x        = "Frequency (Hz; TR = 0.8 s)",
-    y        = "Amplitude gain (relative to DC)",
+    y        = "Amplitude gain",
     color    = NULL, linetype = NULL
   ) +
   theme_step1 +
@@ -186,14 +185,14 @@ p_trace <- ggplot(trace_df, aes(x = time, y = val, color = method)) +
   geom_hline(yintercept = 0, color = "#B8C4CC", linewidth = 0.35) +
   geom_line(linewidth = 0.95) +
   annotate("label", x = 73, y = ymax_b * 1.13,
-           label = sprintf("Clean AR(1) control: K* = %d (zero DF lost)", k_clean),
+           label = sprintf("AR(1) control: %d PCs selected", k_clean),
            size = 2.85, color = ink, fill = "#F4F7F9", linewidth = 0.25) +
   scale_color_manual(values = c(orange, teal)) +
   scale_y_continuous(limits = c(min(trace_df$val) * 1.08, ymax_b * 1.24)) +
   guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
   labs(
     title    = "B. Live medusa deconvolution (Parcel 1, Run 1)",
-    subtitle = "Pre-projecting noise-pool PCs strips physio ringing without touching task peaks",
+    subtitle = "Compare the two traces between event onsets",
     x        = "Run time (s; dotted lines = task events)",
     y        = "Restored activity (BOLD units)",
     color    = NULL

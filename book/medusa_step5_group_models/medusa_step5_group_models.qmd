@@ -152,13 +152,16 @@ where:
 - $a_{sr}$ is a participant-nested run random intercept (`(1 | id:run)`) absorbing run-level mean shifts, and
 - $\varepsilon_{sri}$ is the composite trial residual combining biological trial variance and Step 3–4 measurement error, $\operatorname{Var}(\varepsilon_{sri}) = \tau_{\text{latent}}^2 + s_{sri}^2$.
 
-In a balanced design with $S$ participants, $m$ trials per participant, random-slope variance $\sigma_b^2 = \operatorname{Var}(b_{Ws})$, and trial residual variance $\sigma_\varepsilon^2$, the sampling variance of the population slope is
+For a simple balanced case, suppose the $S$ participants have independent random slopes of variance $\sigma_b^2$. Each has $m$ trials, with the same within-person predictor sum of squares $S_{xx}=\sum_i(x_i-\bar x)^2$ and independent trial residuals of variance $\sigma_\varepsilon^2$. The sampling variance of the mean participant slope is
 
 $$
-\operatorname{Var}(\widehat{\beta}_W) = \frac{\sigma_b^2}{S} + \frac{\sigma_\varepsilon^2}{Sm}.
+\operatorname{Var}(\widehat{\beta}_W)=
+\frac{\sigma_b^2}{S}+\frac{\sigma_\varepsilon^2}{S\,S_{xx}} .
 $$
 
-Adding more trials $m$ sharpens each participant's slope ($\sigma_\varepsilon^2 / Sm \to 0$) while leaving between-participant heterogeneity $\sigma_b^2 / S$ unchanged. Including the random slope $b_{Ws}$ reflects that structure: in @fig-null (12 participants, $\beta_W = 0$, $\sigma_b > 0$), random-slope/participant-slope inference holds nominal Type I error at **`r pct(long_null$rejection[long_null$method == "Participant slopes"])`** at 192 trials per person, whereas trial-row OLS without random slopes reaches **`r pct(long_null$rejection[long_null$method == "Trial-row OLS"])`**.
+If the centered predictor has mean square one, $S_{xx}=m$. More trials then reduce the second term. Recruiting more independent participants reduces both terms.
+
+Including the random slope $b_{Ws}$ reflects that structure: in @fig-null (12 participants, $\beta_W = 0$, $\sigma_b > 0$), random-slope/participant-slope inference holds nominal Type I error at **`r pct(long_null$rejection[long_null$method == "Participant slopes"])`** at 192 trials per person, whereas trial-row OLS without random slopes reaches **`r pct(long_null$rejection[long_null$method == "Trial-row OLS"])`**.
 
 ![Two tests of the same zero population slope across 3,000 replications per trial count (12 participants, nonzero slope heterogeneity). Participant-slope inference stays near 5%, whereas trial-row OLS inflates with trial count.](figures/02-null.png){#fig-null fig-alt="With 12 people, the trial-row test rejects about 80 percent of the time at 192 trials per person. The participant-slope test remains around 5 percent."}
 

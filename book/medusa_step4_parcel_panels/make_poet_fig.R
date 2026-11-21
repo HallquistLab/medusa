@@ -111,12 +111,9 @@ p_scree <- ggplot(eig_df, aes(x = idx, y = val, color = class)) +
 # -------------------------------------------------------------------------
 set.seed(20261125L)
 n_tr <- 40L
-tr_idx <- seq_len(n_tr)
 env_fn <- function(x) 0.10 + 1.45 * exp(-0.5 * ((x - 12) / 2.2)^2) +
                              1.65 * exp(-0.5 * ((x - 30) / 2.4)^2)
-w_rvt_raw <- env_fn(tr_idx)
-w_rvt_c   <- as.numeric(scale(w_rvt_raw))
-w_null_c  <- as.numeric(scale(rnorm(n_tr)))
+
 
 load_g   <- seq(0.65, 0.85, length.out = P)
 m_frames <- 300L
@@ -138,30 +135,29 @@ gate_rvt  <- medusa:::.ltz_from_cor_quad(z_rvt,  R_dyn_est, p_lo = 0.25, p_hi = 
 gate_null <- medusa:::.ltz_from_cor_quad(z_null, R_dyn_est, p_lo = 0.25, p_hi = 0.01)
 
 seed_i <- 1L; targ_i <- 2L
-c_true <- (0.20 + 0.55 * (w_rvt_raw - min(w_rvt_raw)) / diff(range(w_rvt_raw))) *
-          load_g[seed_i] * load_g[targ_i]
+c_true <- env_amp * load_g[seed_i] * load_g[targ_i]
 xy_fr  <- E_dyn[, seed_i] * E_dyn[, targ_i]
 fit_cov <- lm(xy_fr ~ w_fr_rvt + w_fr_null)
 b0     <- coef(fit_cov)[1]
 b_rvt  <- coef(fit_cov)[2]
 b_null <- coef(fit_cov)[3]
 
-c_stat   <- rep(mean(xy_fr), n_tr)
-c_covreg <- pmax(0, b0 + gate_rvt * b_rvt * w_rvt_c + gate_null * b_null * w_null_c)
+c_stat   <- rep(mean(xy_fr), m_frames)
+c_covreg <- b0 + gate_rvt * b_rvt * w_fr_rvt + gate_null * b_null * w_fr_null
 
 dyn_df <- rbind(
-  data.frame(trial = tr_idx, cov = c_true,   method = "True dynamic c_i"),
-  data.frame(trial = tr_idx, cov = c_covreg, method = "POET + LTZ-gated CovReg"),
-  data.frame(trial = tr_idx, cov = c_stat,   method = "Stationary-only average")
+  data.frame(frame = seq_len(m_frames), cov = c_true,   method = "Generating covariance"),
+  data.frame(frame = seq_len(m_frames), cov = c_covreg, method = "Gated pair regression"),
+  data.frame(frame = seq_len(m_frames), cov = c_stat,   method = "Stationary-only average")
 )
 dyn_df$method <- factor(dyn_df$method, levels = c(
-  "True dynamic c_i", "POET + LTZ-gated CovReg", "Stationary-only average"
+  "Generating covariance", "Gated pair regression", "Stationary-only average"
 ))
 
 ymax_dyn <- max(c_true, c_covreg)
-p_dyn <- ggplot(dyn_df, aes(x = trial, y = cov, color = method, linetype = method)) +
+p_dyn <- ggplot(dyn_df, aes(x = frame, y = cov, color = method, linetype = method)) +
   geom_line(linewidth = 1.05) +
-  annotate("label", x = 21, y = ymax_dyn * 0.96,
+  annotate("label", x = 155, y = ymax_dyn * 0.96,
            label = sprintf("LTZ spatial gate:\nRVT burst = %.2f\nNull decoy = %.2f", gate_rvt, gate_null),
            size = 2.9, color = ink, fill = "#F4F7F9", linewidth = 0.25, lineheight = 1.12) +
   scale_color_manual(values = c(ink, teal, gray)) +
@@ -170,10 +166,10 @@ p_dyn <- ggplot(dyn_df, aes(x = trial, y = cov, color = method, linetype = metho
   guides(color = guide_legend(nrow = 2, byrow = TRUE),
          linetype = guide_legend(nrow = 2, byrow = TRUE)) +
   labs(
-    title    = "B. Dynamic covariance regression & LTZ gating",
-    subtitle = "Tracks respiratory/motion bursts while gating pure-null confounds to zero",
-    x        = "Trial index",
-    y        = expression("Shared error covariance " * c[i] == Cov(u[i], v[i])),
+    title    = "B. When shared noise varies over a run",
+    subtitle = "One parcel pair with a measured variance envelope",
+    x        = "Acquisition frame",
+    y        = "Framewise noise covariance",
     color    = NULL, linetype = NULL
   ) +
   theme_poet +
@@ -196,7 +192,7 @@ mat_to_df <- function(M, label, hide_diag = TRUE) {
 heat_df <- rbind(
   mat_to_df(R_true, "1. Ground truth\nR_true"),
   mat_to_df(R_raw,  "2. Sample corr\nR_hat (noisy)"),
-  mat_to_df(LL_hat, "3. Global factors\nL L' (K = 2)"),
+  mat_to_df(LL_hat, sprintf("3. Global factors\nK = %d", poet_fit$K)),
   mat_to_df(S_hat,  "4. Sparse local\nS_loc (thresholded)"),
   mat_to_df(R_poet, "5. Adaptive-POET\nProj(L L' + S_loc)")
 )
@@ -217,7 +213,7 @@ p_heat <- ggplot(heat_df, aes(x = col, y = row, fill = val)) +
   ) +
   labs(
     title    = "C. Step-by-step Adaptive-POET decomposition of cross-parcel noise correlation (diagonals omitted)",
-    subtitle = "Separates pervasive global physiology (L L') from firm-thresholded local vascular pairs (S_loc), suppressing random bulk clutter",
+    subtitle = "Each square represents one parcel pair. All five panels use the same color scale.",
     x        = "Parcel index",
     y        = "Parcel index",
     fill     = "Off-diagonal correlation"
