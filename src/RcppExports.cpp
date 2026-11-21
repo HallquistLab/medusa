@@ -374,8 +374,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // poet_build_pair_X_factored_cpp
-arma::mat poet_build_pair_X_factored_cpp(const Rcpp::List& fac_A_r, const Rcpp::List& fac_B_r, const Rcpp::IntegerVector& adj_idx1, const Rcpp::List& lag_pairs, const arma::mat& f_dyn_inn, const arma::mat& f_dyn_obs, int L_max_in);
-RcppExport SEXP _medusa_poet_build_pair_X_factored_cpp(SEXP fac_A_rSEXP, SEXP fac_B_rSEXP, SEXP adj_idx1SEXP, SEXP lag_pairsSEXP, SEXP f_dyn_innSEXP, SEXP f_dyn_obsSEXP, SEXP L_max_inSEXP) {
+arma::mat poet_build_pair_X_factored_cpp(const Rcpp::List& fac_A_r, const Rcpp::List& fac_B_r, const Rcpp::IntegerVector& adj_idx1, const Rcpp::List& lag_pairs, const arma::mat& f_dyn_inn, const arma::mat& f_dyn_obs, int L_max_in, bool include_mlag);
+RcppExport SEXP _medusa_poet_build_pair_X_factored_cpp(SEXP fac_A_rSEXP, SEXP fac_B_rSEXP, SEXP adj_idx1SEXP, SEXP lag_pairsSEXP, SEXP f_dyn_innSEXP, SEXP f_dyn_obsSEXP, SEXP L_max_inSEXP, SEXP include_mlagSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -386,7 +386,27 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type f_dyn_inn(f_dyn_innSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type f_dyn_obs(f_dyn_obsSEXP);
     Rcpp::traits::input_parameter< int >::type L_max_in(L_max_inSEXP);
-    rcpp_result_gen = Rcpp::wrap(poet_build_pair_X_factored_cpp(fac_A_r, fac_B_r, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in));
+    Rcpp::traits::input_parameter< bool >::type include_mlag(include_mlagSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_build_pair_X_factored_cpp(fac_A_r, fac_B_r, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in, include_mlag));
+    return rcpp_result_gen;
+END_RCPP
+}
+// poet_build_pair_designs_batch_cpp
+Rcpp::List poet_build_pair_designs_batch_cpp(const Rcpp::List& op_fac_strata, const Rcpp::IntegerVector& adj_idx1, const Rcpp::List& lag_pairs, const arma::mat& f_dyn_inn, const arma::mat& f_dyn_obs, int L_max_in, const Rcpp::IntegerVector& sa_idx1, const Rcpp::IntegerVector& sb_idx1, bool include_mlag);
+RcppExport SEXP _medusa_poet_build_pair_designs_batch_cpp(SEXP op_fac_strataSEXP, SEXP adj_idx1SEXP, SEXP lag_pairsSEXP, SEXP f_dyn_innSEXP, SEXP f_dyn_obsSEXP, SEXP L_max_inSEXP, SEXP sa_idx1SEXP, SEXP sb_idx1SEXP, SEXP include_mlagSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type op_fac_strata(op_fac_strataSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type adj_idx1(adj_idx1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type lag_pairs(lag_pairsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type f_dyn_inn(f_dyn_innSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type f_dyn_obs(f_dyn_obsSEXP);
+    Rcpp::traits::input_parameter< int >::type L_max_in(L_max_inSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type sa_idx1(sa_idx1SEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type sb_idx1(sb_idx1SEXP);
+    Rcpp::traits::input_parameter< bool >::type include_mlag(include_mlagSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_build_pair_designs_batch_cpp(op_fac_strata, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in, sa_idx1, sb_idx1, include_mlag));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -433,6 +453,36 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Rcpp::LogicalVector& >::type pair_has_rhs(pair_has_rhsSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type rhs_override(rhs_overrideSEXP);
     rcpp_result_gen = Rcpp::wrap(poet_fit_pair_batch_cpp(E_runs, adj_idx1_runs, lag_pairs_runs, slot_XtX_list, slot_X_runs_list, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, pair_slot, pair_do_hac, pair_has_rhs, rhs_override));
+    return rcpp_result_gen;
+END_RCPP
+}
+// poet_fit_exact_nonhac_cpp
+Rcpp::List poet_fit_exact_nonhac_cpp(const Rcpp::List& op_fac_runs, const Rcpp::List& E_runs, const Rcpp::List& adj_idx1_runs, const Rcpp::List& lag_pairs_runs, const Rcpp::List& f_inn_runs, const Rcpp::List& f_obs_runs, const Rcpp::IntegerMatrix& slot_sa_runs, const Rcpp::IntegerMatrix& slot_sb_runs, const Rcpp::IntegerVector& pair_slot, const arma::mat& A_tie_use, int L_max_in, int L_act_in, int M_dyn_in, int M_core_in, const Rcpp::IntegerVector& vc_col_idx, const arma::vec& sig0_sd, const arma::mat& R_poet, const Rcpp::IntegerVector& pair_g, const Rcpp::IntegerVector& pair_h, bool include_mlag);
+RcppExport SEXP _medusa_poet_fit_exact_nonhac_cpp(SEXP op_fac_runsSEXP, SEXP E_runsSEXP, SEXP adj_idx1_runsSEXP, SEXP lag_pairs_runsSEXP, SEXP f_inn_runsSEXP, SEXP f_obs_runsSEXP, SEXP slot_sa_runsSEXP, SEXP slot_sb_runsSEXP, SEXP pair_slotSEXP, SEXP A_tie_useSEXP, SEXP L_max_inSEXP, SEXP L_act_inSEXP, SEXP M_dyn_inSEXP, SEXP M_core_inSEXP, SEXP vc_col_idxSEXP, SEXP sig0_sdSEXP, SEXP R_poetSEXP, SEXP pair_gSEXP, SEXP pair_hSEXP, SEXP include_mlagSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type op_fac_runs(op_fac_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type E_runs(E_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type adj_idx1_runs(adj_idx1_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type lag_pairs_runs(lag_pairs_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type f_inn_runs(f_inn_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type f_obs_runs(f_obs_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type slot_sa_runs(slot_sa_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type slot_sb_runs(slot_sb_runsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_slot(pair_slotSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type A_tie_use(A_tie_useSEXP);
+    Rcpp::traits::input_parameter< int >::type L_max_in(L_max_inSEXP);
+    Rcpp::traits::input_parameter< int >::type L_act_in(L_act_inSEXP);
+    Rcpp::traits::input_parameter< int >::type M_dyn_in(M_dyn_inSEXP);
+    Rcpp::traits::input_parameter< int >::type M_core_in(M_core_inSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type vc_col_idx(vc_col_idxSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type sig0_sd(sig0_sdSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type R_poet(R_poetSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_g(pair_gSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type pair_h(pair_hSEXP);
+    Rcpp::traits::input_parameter< bool >::type include_mlag(include_mlagSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_fit_exact_nonhac_cpp(op_fac_runs, E_runs, adj_idx1_runs, lag_pairs_runs, f_inn_runs, f_obs_runs, slot_sa_runs, slot_sb_runs, pair_slot, A_tie_use, L_max_in, L_act_in, M_dyn_in, M_core_in, vc_col_idx, sig0_sd, R_poet, pair_g, pair_h, include_mlag));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -494,8 +544,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // poet_stage_e_stratum_moments_cpp
-Rcpp::List poet_stage_e_stratum_moments_cpp(const Rcpp::List& U_si, const Rcpp::List& V_si, const Rcpp::List& ok_si, const Rcpp::List& lag_pairs, const arma::mat& f_dyn_r, const arma::vec& gm_vec, const arma::mat& Gamma_stat_cols, const arma::mat& B_dyn_cols, const arma::vec& sig0_rob_cols, const arma::vec& rsc2_cols, int L_max_in, int K_tcor_in, int D_lag_in, bool return_panel);
-RcppExport SEXP _medusa_poet_stage_e_stratum_moments_cpp(SEXP U_siSEXP, SEXP V_siSEXP, SEXP ok_siSEXP, SEXP lag_pairsSEXP, SEXP f_dyn_rSEXP, SEXP gm_vecSEXP, SEXP Gamma_stat_colsSEXP, SEXP B_dyn_colsSEXP, SEXP sig0_rob_colsSEXP, SEXP rsc2_colsSEXP, SEXP L_max_inSEXP, SEXP K_tcor_inSEXP, SEXP D_lag_inSEXP, SEXP return_panelSEXP) {
+Rcpp::List poet_stage_e_stratum_moments_cpp(const Rcpp::List& U_si, const Rcpp::List& V_si, const Rcpp::List& ok_si, const Rcpp::List& lag_pairs, const arma::mat& f_dyn_r, const arma::vec& gm_vec, const arma::mat& Gamma_stat_cols, const arma::mat& B_dyn_cols, const arma::vec& sig0_rob_cols, const arma::vec& rsc2_cols, int L_max_in, int K_tcor_in, int D_lag_in, bool return_panel, Rcpp::Nullable<Rcpp::List> vsp_si_r);
+RcppExport SEXP _medusa_poet_stage_e_stratum_moments_cpp(SEXP U_siSEXP, SEXP V_siSEXP, SEXP ok_siSEXP, SEXP lag_pairsSEXP, SEXP f_dyn_rSEXP, SEXP gm_vecSEXP, SEXP Gamma_stat_colsSEXP, SEXP B_dyn_colsSEXP, SEXP sig0_rob_colsSEXP, SEXP rsc2_colsSEXP, SEXP L_max_inSEXP, SEXP K_tcor_inSEXP, SEXP D_lag_inSEXP, SEXP return_panelSEXP, SEXP vsp_si_rSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -513,7 +563,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type K_tcor_in(K_tcor_inSEXP);
     Rcpp::traits::input_parameter< int >::type D_lag_in(D_lag_inSEXP);
     Rcpp::traits::input_parameter< bool >::type return_panel(return_panelSEXP);
-    rcpp_result_gen = Rcpp::wrap(poet_stage_e_stratum_moments_cpp(U_si, V_si, ok_si, lag_pairs, f_dyn_r, gm_vec, Gamma_stat_cols, B_dyn_cols, sig0_rob_cols, rsc2_cols, L_max_in, K_tcor_in, D_lag_in, return_panel));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::List> >::type vsp_si_r(vsp_si_rSEXP);
+    rcpp_result_gen = Rcpp::wrap(poet_stage_e_stratum_moments_cpp(U_si, V_si, ok_si, lag_pairs, f_dyn_r, gm_vec, Gamma_stat_cols, B_dyn_cols, sig0_rob_cols, rsc2_cols, L_max_in, K_tcor_in, D_lag_in, return_panel, vsp_si_r));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -788,13 +839,15 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_poet_csr_transpose_mult_cpp", (DL_FUNC) &_medusa_poet_csr_transpose_mult_cpp, 6},
     {"_medusa_poet_tr_MM_factored_cpp", (DL_FUNC) &_medusa_poet_tr_MM_factored_cpp, 2},
     {"_medusa_poet_build_pair_X_cpp", (DL_FUNC) &_medusa_poet_build_pair_X_cpp, 10},
-    {"_medusa_poet_build_pair_X_factored_cpp", (DL_FUNC) &_medusa_poet_build_pair_X_factored_cpp, 7},
+    {"_medusa_poet_build_pair_X_factored_cpp", (DL_FUNC) &_medusa_poet_build_pair_X_factored_cpp, 8},
+    {"_medusa_poet_build_pair_designs_batch_cpp", (DL_FUNC) &_medusa_poet_build_pair_designs_batch_cpp, 9},
     {"_medusa_poet_extract_Xty_diag_cpp", (DL_FUNC) &_medusa_poet_extract_Xty_diag_cpp, 7},
     {"_medusa_poet_fit_pair_batch_cpp", (DL_FUNC) &_medusa_poet_fit_pair_batch_cpp, 19},
+    {"_medusa_poet_fit_exact_nonhac_cpp", (DL_FUNC) &_medusa_poet_fit_exact_nonhac_cpp, 20},
     {"_medusa_poet_build_trial_Ci_cpp", (DL_FUNC) &_medusa_poet_build_trial_Ci_cpp, 13},
     {"_medusa_poet_build_Xty_bulk_cpp", (DL_FUNC) &_medusa_poet_build_Xty_bulk_cpp, 9},
     {"_medusa_poet_extract_psd_factors_cpp", (DL_FUNC) &_medusa_poet_extract_psd_factors_cpp, 5},
-    {"_medusa_poet_stage_e_stratum_moments_cpp", (DL_FUNC) &_medusa_poet_stage_e_stratum_moments_cpp, 14},
+    {"_medusa_poet_stage_e_stratum_moments_cpp", (DL_FUNC) &_medusa_poet_stage_e_stratum_moments_cpp, 15},
     {"_medusa_poet_stage_e_component_svec_cpp", (DL_FUNC) &_medusa_poet_stage_e_component_svec_cpp, 16},
     {"_medusa_poet_cols_to_list_cpp", (DL_FUNC) &_medusa_poet_cols_to_list_cpp, 1},
     {"_medusa_sigmoid", (DL_FUNC) &_medusa_sigmoid, 2},

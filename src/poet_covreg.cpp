@@ -35,12 +35,12 @@ inline CsrMat parse_csr_components(
   return out;
 }
 
-inline arma::mat csr_mult_dense(const CsrMat& W, const arma::mat& X) {
-  arma::mat out(W.n_rows, X.n_cols, arma::fill::zeros);
-  if (W.n_rows == 0 || X.n_cols == 0 || W.val.empty()) return out;
+inline void csr_mult_dense_into(const CsrMat& W, const arma::mat& X, arma::mat& out) {
+  out.zeros(W.n_rows, X.n_cols);
+  if (W.n_rows == 0 || X.n_cols == 0 || W.val.empty()) return;
   for (arma::uword c = 0; c < X.n_cols; ++c) {
-    const double* xc = X.colptr(c);
-    double* yc = out.colptr(c);
+    const double* __restrict__ xc = X.colptr(c);
+    double* __restrict__ yc = out.colptr(c);
     for (arma::uword i = 0; i < W.n_rows; ++i) {
       double acc = 0.0;
       const int p_end = W.row_ptr[i + 1];
@@ -50,7 +50,6 @@ inline arma::mat csr_mult_dense(const CsrMat& W, const arma::mat& X) {
       yc[i] = acc;
     }
   }
-  return out;
 }
 
 inline arma::mat csr_trans_mult_dense(const CsrMat& W, const arma::mat& X) {
@@ -115,6 +114,27 @@ inline void accum_csr_f_csr_entry(
   }
 }
 
+inline arma::mat mat_from_raw(const double* ptr, arma::uword nr, arma::uword nc) {
+  if (ptr == nullptr || nr == 0 || nc == 0) {
+    return arma::mat(nr, nc, arma::fill::zeros);
+  }
+  return arma::mat(ptr, nr, nc);
+}
+
+struct CompactStratumFac {
+  arma::uword m = 0;
+  const double* q_ptr = nullptr;
+  arma::uword r_q = 0;
+  CsrMat W_b;
+  arma::mat VH_Q;
+  bool has_woodbury = false;
+  const double* u_we_ptr = nullptr;
+  const double* mu_we_ptr = nullptr;
+  const double* p_we_ptr = nullptr;
+  arma::uword k_w = 0;
+  arma::vec fac_we;
+};
+
 struct StratumFactors {
   arma::uword m = 0;
   arma::mat Q;
@@ -126,120 +146,211 @@ struct StratumFactors {
   bool has_woodbury = false;
 };
 
-inline StratumFactors parse_stratum_factors(const Rcpp::List& fac_r) {
-  StratumFactors sf;
-  sf.m = static_cast<arma::uword>(Rcpp::as<int>(fac_r["m"]));
+inline CompactStratumFac parse_compact_stratum_factors(const Rcpp::List& fac_r) {
+  CompactStratumFac cf;
+  cf.m = static_cast<arma::uword>(std::max(0, Rcpp::as<int>(fac_r["m"])));
   Rcpp::NumericMatrix q_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["Q"]);
-  sf.Q = arma::mat(q_nm.begin(), static_cast<arma::uword>(q_nm.nrow()),
-                   static_cast<arma::uword>(q_nm.ncol()), false, true);
+  cf.r_q = static_cast<arma::uword>(std::max(0, q_nm.ncol()));
+  cf.q_ptr = (cf.m > 0 && cf.r_q > 0) ? q_nm.begin() : nullptr;
 
-  sf.W_b = parse_csr_components(
+  cf.W_b = parse_csr_components(
     Rcpp::as<Rcpp::IntegerVector>(fac_r["W_row_ptr"]),
     Rcpp::as<Rcpp::IntegerVector>(fac_r["W_col_idx"]),
     Rcpp::as<Rcpp::NumericVector>(fac_r["W_val"]),
-    sf.m, sf.m
+    cf.m, cf.m
   );
 
-  arma::mat VH_Q;
   if (fac_r.containsElementNamed("VH_Q") && !Rf_isNull(fac_r["VH_Q"])) {
     Rcpp::NumericMatrix vh_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["VH_Q"]);
-    VH_Q = arma::mat(vh_nm.begin(), static_cast<arma::uword>(vh_nm.nrow()),
-                     static_cast<arma::uword>(vh_nm.ncol()), false, true);
-  } else if (sf.Q.n_cols > 0) {
-    VH_Q = csr_trans_mult_dense(sf.W_b, sf.Q);
+    cf.VH_Q = mat_from_raw(vh_nm.begin(),
+                           static_cast<arma::uword>(std::max(0, vh_nm.nrow())),
+                           static_cast<arma::uword>(std::max(0, vh_nm.ncol())));
+  } else if (cf.r_q > 0 && cf.q_ptr != nullptr) {
+    const arma::mat Q_view(const_cast<double*>(cf.q_ptr), cf.m, cf.r_q, false, true);
+    cf.VH_Q = csr_trans_mult_dense(cf.W_b, Q_view);
   } else {
-    VH_Q.zeros(sf.m, 0);
+    cf.VH_Q.zeros(cf.m, 0);
   }
 
-  sf.has_woodbury = fac_r.containsElementNamed("has_woodbury") &&
+  cf.has_woodbury = fac_r.containsElementNamed("has_woodbury") &&
                     Rcpp::as<bool>(fac_r["has_woodbury"]);
-  if (sf.has_woodbury) {
-    const arma::mat u_we = Rcpp::as<arma::mat>(fac_r["u_we"]);
-    const arma::mat MU_we = Rcpp::as<arma::mat>(fac_r["MU_we"]);
-    const arma::vec fac_we = Rcpp::as<arma::vec>(fac_r["fac_we"]);
-    const arma::mat P_we = Rcpp::as<arma::mat>(fac_r["P_we"]);
-    const arma::uword r_q = sf.Q.n_cols;
-    const arma::uword k_w = u_we.n_cols;
+  if (cf.has_woodbury) {
+    Rcpp::NumericMatrix u_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["u_we"]);
+    Rcpp::NumericMatrix mu_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["MU_we"]);
+    Rcpp::NumericMatrix p_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["P_we"]);
+    cf.k_w = static_cast<arma::uword>(std::max(0, u_nm.ncol()));
+    if (cf.m > 0 && cf.k_w > 0) {
+      cf.u_we_ptr = u_nm.begin();
+      cf.mu_we_ptr = mu_nm.begin();
+      cf.p_we_ptr = p_nm.begin();
+    }
+    cf.fac_we = Rcpp::as<arma::vec>(fac_r["fac_we"]);
+  }
+  return cf;
+}
 
-    arma::mat neg_MU_scaled = -MU_we;
-    neg_MU_scaled.each_row() %= fac_we.t();
+inline StratumFactors expand_stratum_factors(const CompactStratumFac& cf) {
+  StratumFactors sf;
+  sf.m = cf.m;
+  sf.Q = mat_from_raw(cf.q_ptr, cf.m, cf.r_q);
+  sf.W_b = cf.W_b;
+  sf.has_woodbury = cf.has_woodbury;
+  if (cf.has_woodbury) {
+    const arma::uword r_q = cf.r_q;
+    const arma::uword k_w = cf.k_w;
 
-    sf.UG.set_size(sf.m, r_q + k_w);
-    sf.VG.set_size(sf.m, r_q + k_w);
-    sf.UH.set_size(sf.m, r_q + k_w);
-    sf.VH.set_size(sf.m, r_q + k_w);
+    sf.UG.zeros(cf.m, r_q + k_w);
+    sf.VG.zeros(cf.m, r_q + k_w);
+    sf.UH.zeros(cf.m, r_q + k_w);
+    sf.VH.zeros(cf.m, r_q + k_w);
     if (r_q > 0) {
       sf.UG.cols(0, r_q - 1) = sf.Q;
       sf.VG.cols(0, r_q - 1) = sf.Q;
       sf.UH.cols(0, r_q - 1) = sf.Q;
-      sf.VH.cols(0, r_q - 1) = VH_Q;
+      sf.VH.cols(0, r_q - 1) = cf.VH_Q;
     }
-    if (k_w > 0) {
+    if (k_w > 0 && cf.u_we_ptr != nullptr && cf.mu_we_ptr != nullptr && cf.p_we_ptr != nullptr) {
+      const arma::mat u_we_v(const_cast<double*>(cf.u_we_ptr), cf.m, k_w, false, true);
+      const arma::mat mu_we_v(const_cast<double*>(cf.mu_we_ptr), cf.m, k_w, false, true);
+      const arma::mat p_we_v(const_cast<double*>(cf.p_we_ptr), cf.m, k_w, false, true);
+      arma::mat neg_MU_scaled = -mu_we_v;
+      neg_MU_scaled.each_row() %= cf.fac_we.t();
       sf.UG.cols(r_q, r_q + k_w - 1) = neg_MU_scaled;
-      sf.VG.cols(r_q, r_q + k_w - 1) = u_we;
-      sf.UH.cols(r_q, r_q + k_w - 1) = -MU_we;
-      sf.VH.cols(r_q, r_q + k_w - 1) = P_we;
+      sf.VG.cols(r_q, r_q + k_w - 1) = u_we_v;
+      sf.UH.cols(r_q, r_q + k_w - 1) = -mu_we_v;
+      sf.VH.cols(r_q, r_q + k_w - 1) = p_we_v;
     }
   } else {
-    sf.VH = VH_Q;
+    sf.VH = cf.VH_Q;
   }
   return sf;
 }
 
-inline std::vector<arma::mat> build_Jt_U_list(
-    const arma::mat& U,
+inline StratumFactors parse_stratum_factors(const Rcpp::List& fac_r) {
+  const CompactStratumFac cf = parse_compact_stratum_factors(fac_r);
+  return expand_stratum_factors(cf);
+}
+
+struct LagSpan {
+  arma::uword s0;
+  arma::uword s1;
+  arma::uword len;
+};
+
+inline std::vector<std::vector<LagSpan>> build_lag_spans(
     const std::vector<arma::umat>& lag_pairs0,
     arma::uword m,
-    arma::uword L_max,
-    bool skip_diag
+    bool skip_diag = false
 ) {
-  std::vector<arma::mat> out(L_max);
-  for (arma::uword d = 1; d <= L_max; ++d) {
-    const arma::umat& pd = lag_pairs0[d - 1];
-    arma::mat Jt_U(m, U.n_cols, arma::fill::zeros);
-    if (U.n_cols > 0 && pd.n_rows > 0) {
-      for (arma::uword r = 0; r < pd.n_rows; ++r) {
-        const arma::uword i1 = pd(r, 0);
-        const arma::uword i2 = pd(r, 1);
-        if (i1 < m && i2 < m && (!skip_diag || i1 != i2)) {
-          Jt_U.row(i2) += U.row(i1);
-        }
+  std::vector<std::vector<LagSpan>> out(lag_pairs0.size());
+  for (std::size_t d = 0; d < lag_pairs0.size(); ++d) {
+    const arma::umat& pd = lag_pairs0[d];
+    const arma::uword n_p = pd.n_rows;
+    if (n_p == 0) continue;
+    const arma::uword* p0 = pd.colptr(0);
+    const arma::uword* p1 = pd.colptr(1);
+    std::vector<LagSpan>& sp = out[d];
+    bool active = false;
+    LagSpan cur{0, 0, 0};
+    for (arma::uword r = 0; r < n_p; ++r) {
+      const arma::uword i0 = p0[r];
+      const arma::uword i1 = p1[r];
+      if (i0 >= m || i1 >= m || (skip_diag && i0 == i1)) continue;
+      if (active && i0 == cur.s0 + cur.len && i1 == cur.s1 + cur.len) {
+        ++cur.len;
+      } else {
+        if (active) sp.push_back(cur);
+        cur = LagSpan{i0, i1, 1};
+        active = true;
       }
     }
-    out[d - 1] = std::move(Jt_U);
+    if (active) sp.push_back(cur);
   }
   return out;
 }
 
-inline std::vector<arma::mat> build_J_V_list(
+inline arma::mat build_Jt_U_single_spans(
+    const arma::mat& U,
+    const std::vector<LagSpan>& spans_d,
+    arma::uword m
+) {
+  arma::mat Jt_U(m, U.n_cols, arma::fill::zeros);
+  if (U.n_cols == 0 || spans_d.empty()) return Jt_U;
+  for (arma::uword c = 0; c < U.n_cols; ++c) {
+    const double* src = U.colptr(c);
+    double* dst = Jt_U.colptr(c);
+    for (std::size_t s = 0; s < spans_d.size(); ++s) {
+      const double* sp_src = src + spans_d[s].s0;
+      double* sp_dst = dst + spans_d[s].s1;
+      const arma::uword len = spans_d[s].len;
+      for (arma::uword k = 0; k < len; ++k) {
+        sp_dst[k] += sp_src[k];
+      }
+    }
+  }
+  return Jt_U;
+}
+
+inline void fill_J_V_single_spans_into(
     const arma::mat& V,
-    const std::vector<arma::umat>& lag_pairs0,
+    const std::vector<LagSpan>& spans_d,
     arma::uword m,
-    arma::uword L_max,
-    bool skip_diag
+    arma::mat& J_V
+) {
+  J_V.zeros(m, V.n_cols);
+  if (V.n_cols == 0 || spans_d.empty()) return;
+  for (arma::uword c = 0; c < V.n_cols; ++c) {
+    const double* __restrict__ src = V.colptr(c);
+    double* __restrict__ dst = J_V.colptr(c);
+    for (std::size_t s = 0; s < spans_d.size(); ++s) {
+      const double* __restrict__ sp_src = src + spans_d[s].s1;
+      double* __restrict__ sp_dst = dst + spans_d[s].s0;
+      const arma::uword len = spans_d[s].len;
+      for (arma::uword k = 0; k < len; ++k) {
+        sp_dst[k] += sp_src[k];
+      }
+    }
+  }
+}
+
+inline std::vector<arma::mat> build_Jt_U_list_spans(
+    const arma::mat& U,
+    const std::vector<std::vector<LagSpan>>& lag_spans,
+    arma::uword m,
+    arma::uword L_max
 ) {
   std::vector<arma::mat> out(L_max);
   for (arma::uword d = 1; d <= L_max; ++d) {
-    const arma::umat& pd = lag_pairs0[d - 1];
-    arma::mat J_V(m, V.n_cols, arma::fill::zeros);
-    if (V.n_cols > 0 && pd.n_rows > 0) {
-      for (arma::uword r = 0; r < pd.n_rows; ++r) {
-        const arma::uword i1 = pd(r, 0);
-        const arma::uword i2 = pd(r, 1);
-        if (i1 < m && i2 < m && (!skip_diag || i1 != i2)) {
-          J_V.row(i1) += V.row(i2);
-        }
-      }
+    if ((d - 1) < lag_spans.size()) {
+      out[d - 1] = build_Jt_U_single_spans(U, lag_spans[d - 1], m);
+    } else {
+      out[d - 1].zeros(m, U.n_cols);
     }
-    out[d - 1] = std::move(J_V);
   }
   return out;
+}
+
+inline void fill_J_V_list_spans_into(
+    const arma::mat& V,
+    const std::vector<std::vector<LagSpan>>& lag_spans,
+    arma::uword m,
+    arma::uword L_max,
+    std::vector<arma::mat>& out
+) {
+  if (out.size() != L_max) out.resize(L_max);
+  for (arma::uword d = 1; d <= L_max; ++d) {
+    if ((d - 1) < lag_spans.size()) {
+      fill_J_V_single_spans_into(V, lag_spans[d - 1], m, out[d - 1]);
+    } else {
+      out[d - 1].zeros(m, V.n_cols);
+    }
+  }
 }
 
 // Subtracts extract_obs_vec(X * Y^T) into col_ptr using precomputed J_{d'}^T X (when mode_JtX = true)
 // or J_{d'} Y (when mode_JtX = false) for d' = 2..L_max.
 inline void subtract_uv_obs(
-    double* col_ptr,
+    double* __restrict__ col_ptr,
     const arma::mat& X,
     const arma::mat& Y,
     const std::vector<arma::mat>& J_cache,
@@ -247,7 +358,8 @@ inline void subtract_uv_obs(
     const arma::uvec& adj_idx0,
     const std::vector<arma::umat>& lag_pairs0,
     arma::uword m,
-    arma::uword L_max
+    arma::uword L_max,
+    bool adj_is_contig = false
 ) {
   const arma::uword k = X.n_cols;
   if (k == 0 || Y.n_cols != k || m == 0) return;
@@ -255,16 +367,30 @@ inline void subtract_uv_obs(
   const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
   const arma::uword n_adj = adj_idx0.n_elem;
 
-  for (arma::uword c = 0; c < k; ++c) {
-    const double* xc = X.colptr(c);
-    const double* yc = Y.colptr(c);
-    for (arma::uword i = 0; i < m; ++i) {
-      col_ptr[i] -= xc[i] * yc[i];
+  if (adj_is_contig) {
+    double* __restrict__ c_adj = col_ptr + m;
+    for (arma::uword c = 0; c < k; ++c) {
+      const double* __restrict__ xc = X.colptr(c);
+      const double* __restrict__ yc = Y.colptr(c);
+      for (arma::uword i = 0; i < m; ++i) {
+        col_ptr[i] -= xc[i] * yc[i];
+      }
+      for (arma::uword i = 0; i + 1 < m; ++i) {
+        c_adj[i] -= (xc[i + 1] * yc[i] + xc[i] * yc[i + 1]) * inv_sqrt2;
+      }
     }
-    for (arma::uword idx = 0; idx < n_adj; ++idx) {
-      const arma::uword i0 = adj_idx0(idx);
-      if (i0 + 1 < m) {
-        col_ptr[m + i0] -= (xc[i0 + 1] * yc[i0] + xc[i0] * yc[i0 + 1]) * inv_sqrt2;
+  } else {
+    for (arma::uword c = 0; c < k; ++c) {
+      const double* __restrict__ xc = X.colptr(c);
+      const double* __restrict__ yc = Y.colptr(c);
+      for (arma::uword i = 0; i < m; ++i) {
+        col_ptr[i] -= xc[i] * yc[i];
+      }
+      for (arma::uword idx = 0; idx < n_adj; ++idx) {
+        const arma::uword i0 = adj_idx0(idx);
+        if (i0 + 1 < m) {
+          col_ptr[m + i0] -= (xc[i0 + 1] * yc[i0] + xc[i0] * yc[i0 + 1]) * inv_sqrt2;
+        }
       }
     }
   }
@@ -674,193 +800,367 @@ arma::mat poet_build_pair_X_cpp(
   return X_out;
 }
 
-// [[Rcpp::export]]
-arma::mat poet_build_pair_X_factored_cpp(
-    const Rcpp::List& fac_A_r,
-    const Rcpp::List& fac_B_r,
+namespace {
+
+struct RunPairDesignCtx {
+  arma::uword m = 0;
+  arma::uword L_max = 1;
+  arma::uword L1 = 2;
+  arma::uword M_dyn = 0;
+  arma::uword B_tot = 2;
+  arma::uword n_obs = 0;
+  bool include_mlag = true;
+  bool any_pd_diag = false;
+  bool adj_is_contig = false;
+  bool all_pd_sym = true;
+
+  arma::uvec adj_idx0;
+  std::vector<arma::umat> lag_pairs0;
+  std::vector<std::vector<LagSpan>> spans_obs;
+  std::vector<std::vector<LagSpan>> spans_nodiag;
+  std::vector<bool> pd_has_diag;
+
+  arma::mat f_dyn_inn;
+  arma::mat f_dyn_obs;
+  std::vector<arma::uword> act_j_inn;
+  std::vector<arma::uword> act_j_obs;
+
+  arma::vec c0_base;
+  arma::mat cd_base;
+  arma::mat ci_base;
+};
+
+inline RunPairDesignCtx init_run_pair_design_ctx(
+    arma::uword m,
     const Rcpp::IntegerVector& adj_idx1,
     const Rcpp::List& lag_pairs,
-    const arma::mat& f_dyn_inn,
-    const arma::mat& f_dyn_obs,
-    int L_max_in
+    const arma::mat& f_dyn_inn_in,
+    const arma::mat& f_dyn_obs_in,
+    int L_max_in,
+    bool include_mlag
 ) {
-  const StratumFactors A = parse_stratum_factors(fac_A_r);
-  const StratumFactors B = parse_stratum_factors(fac_B_r);
-  const arma::uword m = A.m;
-  const arma::uword L_max = static_cast<arma::uword>(std::max(1, L_max_in));
-  const arma::uword L1 = L_max + 1;
-  const arma::uword M_dyn = f_dyn_obs.n_cols;
-  const arma::uword B_tot = L1 + 2 * M_dyn;
-  if (m == 0) return arma::mat(0, B_tot);
-  const arma::uword n_hi = (L_max >= 2) ? (L_max - 1) : 0;
-  const arma::uword n_obs = 2 * m - 1 + n_hi;
+  RunPairDesignCtx ctx;
+  ctx.m = m;
+  ctx.L_max = static_cast<arma::uword>(std::max(1, L_max_in));
+  ctx.L1 = ctx.L_max + 1;
+  ctx.M_dyn = f_dyn_obs_in.n_cols;
+  ctx.B_tot = ctx.L1 + 2 * ctx.M_dyn;
+  ctx.include_mlag = include_mlag;
+  if (m == 0) return ctx;
 
-  const arma::uvec adj_idx0 = to_zero_based_uvec(adj_idx1);
-  const std::vector<arma::umat> lag_pairs0 = to_zero_based_lag_pairs(lag_pairs, L_max);
-  const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
-
-  arma::mat X_out(n_obs, B_tot, arma::fill::zeros);
-
-  // J_{d'}^T Q_A and J_{d'} Q_B: Note stationary J_d skips diagonal (i1 != i2), while
-  // extract_obs_vec sums all valid (i1, i2) in pd_{d'}. Build un-skipped caches for extract_obs_vec,
-  // and skip_diag = true vectors W_d, Z_d for stationary operator J_d (identical whenever lag_pairs has i1 != i2).
-  const std::vector<arma::mat> Jt_QA_obs = build_Jt_U_list(A.Q, lag_pairs0, m, L_max, false);
-  const std::vector<arma::mat> J_QB_obs = build_J_V_list(B.Q, lag_pairs0, m, L_max, false);
-
-  // Column 0: C0 = M_A * M_B = I_m - Q_A Q_A^T - (Q_B - Q_A (Q_A^T Q_B)) Q_B^T
-  {
-    double* c0 = X_out.colptr(0);
-    for (arma::uword i = 0; i < m; ++i) c0[i] = 1.0;
-    if (L_max >= 2) {
-      for (arma::uword dp = 2; dp <= L_max; ++dp) {
-        const arma::umat& pd = lag_pairs0[dp - 1];
-        const double N_d = 0.5 * static_cast<double>(pd.n_rows);
-        if (N_d > 0.0) {
-          double diag_cnt = 0.0;
-          for (arma::uword r = 0; r < pd.n_rows; ++r) {
-            if (pd(r, 0) == pd(r, 1) && pd(r, 0) < m) diag_cnt += 1.0;
-          }
-          if (diag_cnt > 0.0) c0[2 * m - 1 + (dp - 2)] += diag_cnt / std::sqrt(2.0 * N_d);
-        }
+  const arma::uword n_hi = (ctx.L_max >= 2) ? (ctx.L_max - 1) : 0;
+  ctx.n_obs = 2 * m - 1 + n_hi;
+  ctx.adj_idx0 = to_zero_based_uvec(adj_idx1);
+  if (m >= 2 && ctx.adj_idx0.n_elem == m - 1) {
+    ctx.adj_is_contig = true;
+    for (arma::uword k = 0; k < m - 1; ++k) {
+      if (ctx.adj_idx0(k) != k) {
+        ctx.adj_is_contig = false;
+        break;
       }
     }
-    subtract_uv_obs(c0, A.Q, A.Q, Jt_QA_obs, true, adj_idx0, lag_pairs0, m, L_max);
-    arma::mat X2_0 = B.Q;
-    if (A.Q.n_cols > 0 && B.Q.n_cols > 0) {
-      X2_0 -= A.Q * (A.Q.t() * B.Q);
-    }
-    subtract_uv_obs(c0, X2_0, B.Q, J_QB_obs, false, adj_idx0, lag_pairs0, m, L_max);
   }
-
-  // Columns 1..L_max: Cd = M_A * (J_d * M_B) = J_d - Q_A W_d^T - (Z_d - Q_A (Q_A^T Z_d)) Q_B^T
-  std::vector<std::vector<uint64_t>> obs_keys(L_max);
-  if (L_max >= 2) {
-    for (arma::uword dp = 2; dp <= L_max; ++dp) {
-      obs_keys[dp - 1] = encode_sorted_pair_keys(lag_pairs0[dp - 1], m, false);
-    }
-  }
-  arma::vec jd_adj(m);
-  for (arma::uword d = 1; d <= L_max; ++d) {
-    const arma::umat& pd = lag_pairs0[d - 1];
-    double* cd = X_out.colptr(d);
-    jd_adj.zeros();
-    arma::mat W_d(m, A.Q.n_cols, arma::fill::zeros);
-    arma::mat Z_d(m, B.Q.n_cols, arma::fill::zeros);
-
+  ctx.lag_pairs0 = to_zero_based_lag_pairs(lag_pairs, ctx.L_max);
+  ctx.spans_obs = build_lag_spans(ctx.lag_pairs0, m, false);
+  ctx.pd_has_diag.assign(ctx.L_max, false);
+  for (arma::uword d = 1; d <= ctx.L_max; ++d) {
+    const arma::umat& pd = ctx.lag_pairs0[d - 1];
+    std::vector<uint64_t> fwd_k, rev_k;
+    fwd_k.reserve(pd.n_rows);
+    rev_k.reserve(pd.n_rows);
     for (arma::uword r = 0; r < pd.n_rows; ++r) {
       const arma::uword i1 = pd(r, 0);
       const arma::uword i2 = pd(r, 1);
-      if (i1 != i2 && i1 < m && i2 < m) {
-        if (i1 == i2 + 1) jd_adj(i2) += 1.0;
-        if (i2 == i1 + 1) jd_adj(i1) += 1.0;
-        if (A.Q.n_cols > 0) W_d.row(i2) += A.Q.row(i1);
-        if (B.Q.n_cols > 0) Z_d.row(i1) += B.Q.row(i2);
+      if (i1 < m && i2 < m) {
+        if (i1 == i2) {
+          ctx.pd_has_diag[d - 1] = true;
+          ctx.any_pd_diag = true;
+        }
+        fwd_k.push_back((static_cast<uint64_t>(i1) << 32) | static_cast<uint64_t>(i2));
+        rev_k.push_back((static_cast<uint64_t>(i2) << 32) | static_cast<uint64_t>(i1));
       }
     }
+    if (ctx.all_pd_sym) {
+      std::sort(fwd_k.begin(), fwd_k.end());
+      std::sort(rev_k.begin(), rev_k.end());
+      if (fwd_k != rev_k) ctx.all_pd_sym = false;
+    }
+  }
+  if (ctx.include_mlag && ctx.any_pd_diag) {
+    ctx.spans_nodiag = build_lag_spans(ctx.lag_pairs0, m, true);
+  }
 
-    for (arma::uword k = 0; k < adj_idx0.n_elem; ++k) {
-      const arma::uword i0 = adj_idx0(k);
-      if (i0 + 1 < m && jd_adj(i0) != 0.0) {
-        cd[m + i0] += jd_adj(i0) * inv_sqrt2;
+  ctx.f_dyn_inn = mat_from_raw(f_dyn_inn_in.memptr(), f_dyn_inn_in.n_rows, f_dyn_inn_in.n_cols);
+  ctx.f_dyn_obs = mat_from_raw(f_dyn_obs_in.memptr(), f_dyn_obs_in.n_rows, f_dyn_obs_in.n_cols);
+  if (ctx.M_dyn > 0) {
+    ctx.act_j_inn.reserve(ctx.M_dyn);
+    ctx.act_j_obs.reserve(ctx.M_dyn);
+    for (arma::uword j = 0; j < ctx.M_dyn; ++j) {
+      if (j < ctx.f_dyn_inn.n_cols && !arma::all(ctx.f_dyn_inn.col(j) == 0.0)) ctx.act_j_inn.push_back(j);
+      if (!arma::all(ctx.f_dyn_obs.col(j) == 0.0)) ctx.act_j_obs.push_back(j);
+    }
+  }
+
+  // Precompute run-invariant base column 0
+  ctx.c0_base.zeros(ctx.n_obs);
+  for (arma::uword i = 0; i < m; ++i) ctx.c0_base(i) = 1.0;
+  if (ctx.L_max >= 2) {
+    for (arma::uword dp = 2; dp <= ctx.L_max; ++dp) {
+      const arma::umat& pd = ctx.lag_pairs0[dp - 1];
+      const double N_d = 0.5 * static_cast<double>(pd.n_rows);
+      if (N_d > 0.0 && ctx.pd_has_diag[dp - 1]) {
+        double diag_cnt = 0.0;
+        for (arma::uword r = 0; r < pd.n_rows; ++r) {
+          if (pd(r, 0) == pd(r, 1) && pd(r, 0) < m) diag_cnt += 1.0;
+        }
+        if (diag_cnt > 0.0) ctx.c0_base(2 * m - 1 + (dp - 2)) += diag_cnt / std::sqrt(2.0 * N_d);
       }
     }
-    if (L_max >= 2 && pd.n_rows > 0) {
-      const std::vector<uint64_t> jd_keys = encode_sorted_pair_keys(pd, m, true);
-      for (arma::uword dp = 2; dp <= L_max; ++dp) {
-        const double N_dp = 0.5 * static_cast<double>(lag_pairs0[dp - 1].n_rows);
-        if (N_dp > 0.0) {
-          const double ov = count_sorted_key_overlap(jd_keys, obs_keys[dp - 1]);
-          if (ov > 0.0) cd[2 * m - 1 + (dp - 2)] += ov / std::sqrt(2.0 * N_dp);
+  }
+
+  // Precompute run-invariant stationary lag columns 1..L_max once per run (zero sorting per pair!)
+  if (ctx.include_mlag) {
+    const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
+    ctx.cd_base.zeros(ctx.n_obs, ctx.L_max);
+    std::vector<std::vector<uint64_t>> obs_keys(ctx.L_max);
+    if (ctx.L_max >= 2) {
+      for (arma::uword dp = 2; dp <= ctx.L_max; ++dp) {
+        obs_keys[dp - 1] = encode_sorted_pair_keys(ctx.lag_pairs0[dp - 1], m, false);
+      }
+    }
+    arma::vec jd_adj(m);
+    for (arma::uword d = 1; d <= ctx.L_max; ++d) {
+      const arma::umat& pd = ctx.lag_pairs0[d - 1];
+      double* cd = ctx.cd_base.colptr(d - 1);
+      jd_adj.zeros();
+      for (arma::uword r = 0; r < pd.n_rows; ++r) {
+        const arma::uword i1 = pd(r, 0);
+        const arma::uword i2 = pd(r, 1);
+        if (i1 != i2 && i1 < m && i2 < m) {
+          if (i1 == i2 + 1) jd_adj(i2) += 1.0;
+          if (i2 == i1 + 1) jd_adj(i1) += 1.0;
+        }
+      }
+      for (arma::uword k = 0; k < ctx.adj_idx0.n_elem; ++k) {
+        const arma::uword i0 = ctx.adj_idx0(k);
+        if (i0 + 1 < m && jd_adj(i0) != 0.0) {
+          cd[m + i0] += jd_adj(i0) * inv_sqrt2;
+        }
+      }
+      if (ctx.L_max >= 2 && pd.n_rows > 0) {
+        const std::vector<uint64_t> jd_keys = encode_sorted_pair_keys(pd, m, true);
+        for (arma::uword dp = 2; dp <= ctx.L_max; ++dp) {
+          const double N_dp = 0.5 * static_cast<double>(ctx.lag_pairs0[dp - 1].n_rows);
+          if (N_dp > 0.0) {
+            const double ov = count_sorted_key_overlap(jd_keys, obs_keys[dp - 1]);
+            if (ov > 0.0) cd[2 * m - 1 + (dp - 2)] += ov / std::sqrt(2.0 * N_dp);
+          }
         }
       }
     }
-
-    subtract_uv_obs(cd, A.Q, W_d, Jt_QA_obs, true, adj_idx0, lag_pairs0, m, L_max);
-    if (A.Q.n_cols > 0 && Z_d.n_cols > 0) {
-      Z_d -= A.Q * (A.Q.t() * Z_d);
-    }
-    subtract_uv_obs(cd, Z_d, B.Q, J_QB_obs, false, adj_idx0, lag_pairs0, m, L_max);
   }
 
-  // Dynamic columns: innovation (L1..L1+M_dyn-1) and observation (L1+M_dyn..B_tot-1)
-  if (M_dyn > 0) {
-    std::vector<arma::uword> act_j_inn;
-    std::vector<arma::uword> act_j_obs;
-    act_j_inn.reserve(M_dyn);
-    act_j_obs.reserve(M_dyn);
-    for (arma::uword j = 0; j < M_dyn; ++j) {
-      if (j < f_dyn_inn.n_cols && !arma::all(f_dyn_inn.col(j) == 0.0)) act_j_inn.push_back(j);
-      if (!arma::all(f_dyn_obs.col(j) == 0.0)) act_j_obs.push_back(j);
+  // Precompute run-invariant innovation base columns once per run
+  if (!ctx.act_j_inn.empty()) {
+    ctx.ci_base.zeros(ctx.n_obs, ctx.act_j_inn.size());
+    for (arma::uword jj = 0; jj < ctx.act_j_inn.size(); ++jj) {
+      const arma::uword j = ctx.act_j_inn[jj];
+      const arma::vec fk = ctx.f_dyn_inn.col(j);
+      double* ci = ctx.ci_base.colptr(jj);
+      for (arma::uword i = 0; i < m; ++i) ci[i] = fk(i);
+      if (ctx.L_max >= 2) {
+        for (arma::uword dp = 2; dp <= ctx.L_max; ++dp) {
+          const arma::umat& pd = ctx.lag_pairs0[dp - 1];
+          const double N_d = 0.5 * static_cast<double>(pd.n_rows);
+          if (N_d > 0.0 && ctx.pd_has_diag[dp - 1]) {
+            double acc_d = 0.0;
+            for (arma::uword r = 0; r < pd.n_rows; ++r) {
+              if (pd(r, 0) == pd(r, 1) && pd(r, 0) < m) acc_d += fk(pd(r, 0));
+            }
+            if (acc_d != 0.0) ci[2 * m - 1 + (dp - 2)] += acc_d / std::sqrt(2.0 * N_d);
+          }
+        }
+      }
     }
+  }
 
+  return ctx;
+}
+
+struct LeftStratumCache {
+  arma::uword s_idx = std::numeric_limits<arma::uword>::max();
+  StratumFactors sf;
+  std::vector<arma::mat> Jt_QA_obs;
+  std::vector<arma::mat> Jt_QA_nodiag;
+  std::vector<arma::mat> Jt_UGA;
+  std::vector<arma::mat> Jt_UHA;
+};
+
+inline void populate_left_stratum_cache(
+    LeftStratumCache& lc,
+    arma::uword s_idx,
+    StratumFactors&& sf_in,
+    const RunPairDesignCtx& ctx
+) {
+  lc.s_idx = s_idx;
+  lc.sf = std::move(sf_in);
+  lc.Jt_QA_obs = build_Jt_U_list_spans(lc.sf.Q, ctx.spans_obs, ctx.m, ctx.L_max);
+  if (ctx.include_mlag && ctx.any_pd_diag) {
+    lc.Jt_QA_nodiag = build_Jt_U_list_spans(lc.sf.Q, ctx.spans_nodiag, ctx.m, ctx.L_max);
+  } else {
+    lc.Jt_QA_nodiag.clear();
+  }
+  if (lc.sf.has_woodbury && !ctx.act_j_inn.empty()) {
+    lc.Jt_UGA = build_Jt_U_list_spans(lc.sf.UG, ctx.spans_obs, ctx.m, ctx.L_max);
+  } else {
+    lc.Jt_UGA.clear();
+  }
+  if (lc.sf.has_woodbury && !ctx.act_j_obs.empty()) {
+    lc.Jt_UHA = build_Jt_U_list_spans(lc.sf.UH, ctx.spans_obs, ctx.m, ctx.L_max);
+  } else {
+    lc.Jt_UHA.clear();
+  }
+}
+
+struct PairDesignScratch {
+  std::vector<arma::mat> J_QB_obs;
+  std::vector<arma::mat> J_UGB;
+  std::vector<arma::mat> J_UHB;
+  arma::mat X2_0;
+  arma::mat Z_d;
+  arma::mat FA;
+  arma::mat FB;
+  arma::mat EA;
+  arma::mat WB_EA;
+  arma::mat EB;
+  arma::mat X2_obs;
+  arma::mat M_small;
+};
+
+inline void copy_scale_cols_into(const arma::mat& src, const arma::vec& fk, arma::mat& dst) {
+  const arma::uword nr = src.n_rows;
+  const arma::uword nc = src.n_cols;
+  dst.set_size(nr, nc);
+  if (nr == 0 || nc == 0) return;
+  const double* __restrict__ fp = fk.memptr();
+  for (arma::uword c = 0; c < nc; ++c) {
+    const double* __restrict__ sp = src.colptr(c);
+    double* __restrict__ dp = dst.colptr(c);
+    for (arma::uword r = 0; r < nr; ++r) {
+      dp[r] = sp[r] * fp[r];
+    }
+  }
+}
+
+inline void fill_pair_X_from_ctx(
+    const RunPairDesignCtx& ctx,
+    const LeftStratumCache& lc,
+    const StratumFactors& B,
+    arma::mat& X_out,
+    PairDesignScratch& ws
+) {
+  const arma::uword m = ctx.m;
+  const arma::uword L_max = ctx.L_max;
+  const arma::uword L1 = ctx.L1;
+  const arma::uword M_dyn = ctx.M_dyn;
+  X_out.zeros(ctx.n_obs, ctx.B_tot);
+  if (m == 0) return;
+
+  const StratumFactors& A = lc.sf;
+  const bool same_ab = (&A == &B);
+  const bool reuse_sym_J = same_ab && ctx.all_pd_sym;
+  const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
+  const std::vector<arma::mat>& Jt_QA_obs = lc.Jt_QA_obs;
+  if (!reuse_sym_J) {
+    fill_J_V_list_spans_into(B.Q, ctx.spans_obs, m, L_max, ws.J_QB_obs);
+  }
+  const std::vector<arma::mat>& J_QB_obs = reuse_sym_J ? Jt_QA_obs : ws.J_QB_obs;
+
+  // Column 0: C0 = M_A * M_B = I_m - Q_A Q_A^T - (Q_B - Q_A (Q_A^T Q_B)) Q_B^T
+  {
+    X_out.col(0) = ctx.c0_base;
+    double* c0 = X_out.colptr(0);
+    subtract_uv_obs(c0, A.Q, A.Q, Jt_QA_obs, true, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
+    ws.X2_0 = B.Q;
+    if (A.Q.n_cols > 0 && B.Q.n_cols > 0) {
+      ws.M_small = A.Q.t() * B.Q;
+      ws.X2_0 -= A.Q * ws.M_small;
+    }
+    subtract_uv_obs(c0, ws.X2_0, B.Q, J_QB_obs, false, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
+  }
+
+  // Columns 1..L_max: Cd = M_A * (J_d * M_B) = J_d - Q_A W_d^T - (Z_d - Q_A (Q_A^T Z_d)) Q_B^T
+  if (ctx.include_mlag) {
+    X_out.cols(1, L_max) = ctx.cd_base;
+    for (arma::uword d = 1; d <= L_max; ++d) {
+      double* cd = X_out.colptr(d);
+      const arma::mat& W_d = ctx.pd_has_diag[d - 1] ? lc.Jt_QA_nodiag[d - 1] : Jt_QA_obs[d - 1];
+      if (ctx.pd_has_diag[d - 1]) {
+        fill_J_V_single_spans_into(B.Q, ctx.spans_nodiag[d - 1], m, ws.Z_d);
+      } else {
+        ws.Z_d = J_QB_obs[d - 1];
+      }
+
+      subtract_uv_obs(cd, A.Q, W_d, Jt_QA_obs, true, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
+      if (A.Q.n_cols > 0 && ws.Z_d.n_cols > 0) {
+        ws.M_small = A.Q.t() * ws.Z_d;
+        ws.Z_d -= A.Q * ws.M_small;
+      }
+      subtract_uv_obs(cd, ws.Z_d, B.Q, J_QB_obs, false, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
+    }
+  }
+
+  if (M_dyn > 0) {
     // 1. Innovation: C_inn = G_A * diag(f_inn) * G_B^T
-    if (!act_j_inn.empty()) {
+    if (!ctx.act_j_inn.empty()) {
       const arma::mat& UGA = A.has_woodbury ? A.UG : A.Q;
       const arma::mat& VGA = A.has_woodbury ? A.VG : A.Q;
       const arma::mat& UGB = B.has_woodbury ? B.UG : B.Q;
       const arma::mat& VGB = B.has_woodbury ? B.VG : B.Q;
 
-      const std::vector<arma::mat> Jt_UGA_local = A.has_woodbury
-        ? build_Jt_U_list(UGA, lag_pairs0, m, L_max, false)
-        : std::vector<arma::mat>();
-      const std::vector<arma::mat> J_UGB_local = B.has_woodbury
-        ? build_J_V_list(UGB, lag_pairs0, m, L_max, false)
-        : std::vector<arma::mat>();
-      const std::vector<arma::mat>& Jt_UGA = A.has_woodbury ? Jt_UGA_local : Jt_QA_obs;
-      const std::vector<arma::mat>& J_UGB = B.has_woodbury ? J_UGB_local : J_QB_obs;
+      const std::vector<arma::mat>& Jt_UGA = A.has_woodbury ? lc.Jt_UGA : Jt_QA_obs;
+      if (B.has_woodbury && !reuse_sym_J) {
+        fill_J_V_list_spans_into(UGB, ctx.spans_obs, m, L_max, ws.J_UGB);
+      }
+      const std::vector<arma::mat>& J_UGB = B.has_woodbury
+        ? (reuse_sym_J ? Jt_UGA : ws.J_UGB)
+        : J_QB_obs;
 
-      for (arma::uword jj = 0; jj < act_j_inn.size(); ++jj) {
-        const arma::uword j = act_j_inn[jj];
-        const arma::vec fk = f_dyn_inn.col(j);
+      for (arma::uword jj = 0; jj < ctx.act_j_inn.size(); ++jj) {
+        const arma::uword j = ctx.act_j_inn[jj];
+        const arma::vec fk = ctx.f_dyn_inn.col(j);
+        X_out.col(L1 + j) = ctx.ci_base.col(jj);
         double* ci = X_out.colptr(L1 + j);
-        for (arma::uword i = 0; i < m; ++i) ci[i] = fk(i);
-        if (L_max >= 2) {
-          for (arma::uword dp = 2; dp <= L_max; ++dp) {
-            const arma::umat& pd = lag_pairs0[dp - 1];
-            const double N_d = 0.5 * static_cast<double>(pd.n_rows);
-            if (N_d > 0.0) {
-              double acc_d = 0.0;
-              for (arma::uword r = 0; r < pd.n_rows; ++r) {
-                if (pd(r, 0) == pd(r, 1) && pd(r, 0) < m) acc_d += fk(pd(r, 0));
-              }
-              if (acc_d != 0.0) ci[2 * m - 1 + (dp - 2)] += acc_d / std::sqrt(2.0 * N_d);
-            }
-          }
-        }
 
-        arma::mat FA = VGA;
-        if (FA.n_cols > 0) FA.each_col() %= fk;
-        subtract_uv_obs(ci, UGA, FA, Jt_UGA, true, adj_idx0, lag_pairs0, m, L_max);
+        copy_scale_cols_into(VGA, fk, ws.FA);
+        subtract_uv_obs(ci, UGA, ws.FA, Jt_UGA, true, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
 
-        arma::mat FB = VGB;
-        if (FB.n_cols > 0) {
-          FB.each_col() %= fk;
-          if (UGA.n_cols > 0) {
-            FB -= UGA * (VGA.t() * FB);
-          }
+        copy_scale_cols_into(VGB, fk, ws.FB);
+        if (ws.FB.n_cols > 0 && UGA.n_cols > 0) {
+          ws.M_small = VGA.t() * ws.FB;
+          ws.FB -= UGA * ws.M_small;
         }
-        subtract_uv_obs(ci, FB, UGB, J_UGB, false, adj_idx0, lag_pairs0, m, L_max);
+        subtract_uv_obs(ci, ws.FB, UGB, J_UGB, false, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
       }
     }
 
     // 2. Observation: C_obs = H_A * diag(f_obs) * H_B^T, where H_s = W_b_s - U_H_s * V_H_s^T
-    if (!act_j_obs.empty()) {
+    if (!ctx.act_j_obs.empty()) {
       const arma::uword col_obs_base = L1 + M_dyn;
 
-      // Sparse base term W_A * diag(f_obs) * W_B^T evaluated across all active j simultaneously
       for (arma::uword i = 0; i < m; ++i) {
-        accum_csr_f_csr_entry(A.W_b, B.W_b, i, i, 1.0, i, col_obs_base, act_j_obs, f_dyn_obs, X_out);
+        accum_csr_f_csr_entry(A.W_b, B.W_b, i, i, 1.0, i, col_obs_base, ctx.act_j_obs, ctx.f_dyn_obs, X_out);
       }
-      for (arma::uword k = 0; k < adj_idx0.n_elem; ++k) {
-        const arma::uword i0 = adj_idx0(k);
+      for (arma::uword k = 0; k < ctx.adj_idx0.n_elem; ++k) {
+        const arma::uword i0 = ctx.adj_idx0(k);
         if (i0 + 1 < m) {
-          accum_csr_f_csr_entry(A.W_b, B.W_b, i0 + 1, i0, inv_sqrt2, m + i0, col_obs_base, act_j_obs, f_dyn_obs, X_out);
-          accum_csr_f_csr_entry(A.W_b, B.W_b, i0, i0 + 1, inv_sqrt2, m + i0, col_obs_base, act_j_obs, f_dyn_obs, X_out);
+          accum_csr_f_csr_entry(A.W_b, B.W_b, i0 + 1, i0, inv_sqrt2, m + i0, col_obs_base, ctx.act_j_obs, ctx.f_dyn_obs, X_out);
+          accum_csr_f_csr_entry(A.W_b, B.W_b, i0, i0 + 1, inv_sqrt2, m + i0, col_obs_base, ctx.act_j_obs, ctx.f_dyn_obs, X_out);
         }
       }
       if (L_max >= 2) {
         for (arma::uword dp = 2; dp <= L_max; ++dp) {
-          const arma::umat& pd = lag_pairs0[dp - 1];
+          const arma::umat& pd = ctx.lag_pairs0[dp - 1];
           const double N_d = 0.5 * static_cast<double>(pd.n_rows);
           if (N_d > 0.0) {
             const double wt_d = 1.0 / std::sqrt(2.0 * N_d);
@@ -869,7 +1169,7 @@ arma::mat poet_build_pair_X_factored_cpp(
               const arma::uword i1 = pd(r, 0);
               const arma::uword i2 = pd(r, 1);
               if (i1 < m && i2 < m) {
-                accum_csr_f_csr_entry(A.W_b, B.W_b, i1, i2, wt_d, obs_r, col_obs_base, act_j_obs, f_dyn_obs, X_out);
+                accum_csr_f_csr_entry(A.W_b, B.W_b, i1, i2, wt_d, obs_r, col_obs_base, ctx.act_j_obs, ctx.f_dyn_obs, X_out);
               }
             }
           }
@@ -881,41 +1181,170 @@ arma::mat poet_build_pair_X_factored_cpp(
       const arma::mat& UHB = B.has_woodbury ? B.UH : B.Q;
       const arma::mat& VHB = B.VH;
 
-      const std::vector<arma::mat> Jt_UHA_local = A.has_woodbury
-        ? build_Jt_U_list(UHA, lag_pairs0, m, L_max, false)
-        : std::vector<arma::mat>();
-      const std::vector<arma::mat> J_UHB_local = B.has_woodbury
-        ? build_J_V_list(UHB, lag_pairs0, m, L_max, false)
-        : std::vector<arma::mat>();
-      const std::vector<arma::mat>& Jt_UHA = A.has_woodbury ? Jt_UHA_local : Jt_QA_obs;
-      const std::vector<arma::mat>& J_UHB = B.has_woodbury ? J_UHB_local : J_QB_obs;
+      const std::vector<arma::mat>& Jt_UHA = A.has_woodbury ? lc.Jt_UHA : Jt_QA_obs;
+      if (B.has_woodbury && !reuse_sym_J) {
+        fill_J_V_list_spans_into(UHB, ctx.spans_obs, m, L_max, ws.J_UHB);
+      }
+      const std::vector<arma::mat>& J_UHB = B.has_woodbury
+        ? (reuse_sym_J ? Jt_UHA : ws.J_UHB)
+        : J_QB_obs;
 
-      for (arma::uword jj = 0; jj < act_j_obs.size(); ++jj) {
-        const arma::uword j = act_j_obs[jj];
-        const arma::vec fk = f_dyn_obs.col(j);
+      for (arma::uword jj = 0; jj < ctx.act_j_obs.size(); ++jj) {
+        const arma::uword j = ctx.act_j_obs[jj];
+        const arma::vec fk = ctx.f_dyn_obs.col(j);
         double* co = X_out.colptr(col_obs_base + j);
 
         if (UHA.n_cols > 0) {
-          arma::mat EA = VHA;
-          EA.each_col() %= fk;
-          const arma::mat WB_EA = csr_mult_dense(B.W_b, EA);
-          subtract_uv_obs(co, UHA, WB_EA, Jt_UHA, true, adj_idx0, lag_pairs0, m, L_max);
+          copy_scale_cols_into(VHA, fk, ws.EA);
+          csr_mult_dense_into(B.W_b, ws.EA, ws.WB_EA);
+          subtract_uv_obs(co, UHA, ws.WB_EA, Jt_UHA, true, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
         }
 
         if (UHB.n_cols > 0) {
-          arma::mat EB = VHB;
-          EB.each_col() %= fk;
-          arma::mat X2_obs = csr_mult_dense(A.W_b, EB);
+          copy_scale_cols_into(VHB, fk, ws.EB);
+          csr_mult_dense_into(A.W_b, ws.EB, ws.X2_obs);
           if (UHA.n_cols > 0) {
-            X2_obs -= UHA * (VHA.t() * EB);
+            ws.M_small = VHA.t() * ws.EB;
+            ws.X2_obs -= UHA * ws.M_small;
           }
-          subtract_uv_obs(co, X2_obs, UHB, J_UHB, false, adj_idx0, lag_pairs0, m, L_max);
+          subtract_uv_obs(co, ws.X2_obs, UHB, J_UHB, false, ctx.adj_idx0, ctx.lag_pairs0, m, L_max, ctx.adj_is_contig);
         }
       }
     }
   }
+}
 
+} // namespace
+
+// [[Rcpp::export]]
+arma::mat poet_build_pair_X_factored_cpp(
+    const Rcpp::List& fac_A_r,
+    const Rcpp::List& fac_B_r,
+    const Rcpp::IntegerVector& adj_idx1,
+    const Rcpp::List& lag_pairs,
+    const arma::mat& f_dyn_inn,
+    const arma::mat& f_dyn_obs,
+    int L_max_in,
+    bool include_mlag = true
+) {
+  StratumFactors A = parse_stratum_factors(fac_A_r);
+  const StratumFactors B = parse_stratum_factors(fac_B_r);
+  const RunPairDesignCtx ctx = init_run_pair_design_ctx(
+    A.m, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in, include_mlag
+  );
+  if (ctx.m == 0) return arma::mat(0, ctx.B_tot);
+  LeftStratumCache lc;
+  populate_left_stratum_cache(lc, 0, std::move(A), ctx);
+  PairDesignScratch ws;
+  arma::mat X_out;
+  fill_pair_X_from_ctx(ctx, lc, B, X_out, ws);
   return X_out;
+}
+
+// [[Rcpp::export]]
+Rcpp::List poet_build_pair_designs_batch_cpp(
+    const Rcpp::List& op_fac_strata,
+    const Rcpp::IntegerVector& adj_idx1,
+    const Rcpp::List& lag_pairs,
+    const arma::mat& f_dyn_inn,
+    const arma::mat& f_dyn_obs,
+    int L_max_in,
+    const Rcpp::IntegerVector& sa_idx1,
+    const Rcpp::IntegerVector& sb_idx1,
+    bool include_mlag = true
+) {
+  const arma::uword S_cnt = static_cast<arma::uword>(op_fac_strata.size());
+  const arma::uword n_req = static_cast<arma::uword>(sa_idx1.size());
+  Rcpp::List out(n_req);
+  if (n_req == 0) return out;
+
+  const arma::uword L_max = static_cast<arma::uword>(std::max(1, L_max_in));
+  const arma::uword B_tot_empty = (L_max + 1) + 2 * f_dyn_obs.n_cols;
+  if (S_cnt == 0) {
+    for (arma::uword k = 0; k < n_req; ++k) {
+      out[k] = Rcpp::NumericMatrix(0, static_cast<int>(B_tot_empty));
+    }
+    return out;
+  }
+
+  Rcpp::List fac0 = Rcpp::as<Rcpp::List>(op_fac_strata[0]);
+  const arma::uword m = static_cast<arma::uword>(std::max(0, Rcpp::as<int>(fac0["m"])));
+  const RunPairDesignCtx ctx = init_run_pair_design_ctx(
+    m, adj_idx1, lag_pairs, f_dyn_inn, f_dyn_obs, L_max_in, include_mlag
+  );
+  if (m == 0) {
+    for (arma::uword k = 0; k < n_req; ++k) {
+      out[k] = Rcpp::NumericMatrix(0, static_cast<int>(ctx.B_tot));
+    }
+    return out;
+  }
+
+  std::vector<bool> needed(S_cnt, false);
+  std::vector<arma::uword> sa0_vec(n_req), sb0_vec(n_req);
+  for (arma::uword k = 0; k < n_req; ++k) {
+    const arma::uword sa0 = std::min(S_cnt - 1, static_cast<arma::uword>(std::max(1, sa_idx1[k]) - 1));
+    const arma::uword sb0 = std::min(S_cnt - 1, static_cast<arma::uword>(std::max(1, sb_idx1[k]) - 1));
+    sa0_vec[k] = sa0;
+    sb0_vec[k] = sb0;
+    needed[sa0] = true;
+    needed[sb0] = true;
+  }
+
+  std::vector<CompactStratumFac> cf_vec(S_cnt);
+  for (arma::uword s = 0; s < S_cnt; ++s) {
+    if (needed[s]) {
+      cf_vec[s] = parse_compact_stratum_factors(Rcpp::as<Rcpp::List>(op_fac_strata[s]));
+    }
+  }
+
+  std::vector<arma::uword> ord(n_req);
+  for (arma::uword k = 0; k < n_req; ++k) ord[k] = k;
+  std::sort(ord.begin(), ord.end(), [&](arma::uword i, arma::uword j) {
+    if (sa0_vec[i] != sa0_vec[j]) return sa0_vec[i] < sa0_vec[j];
+    if (sb0_vec[i] != sb0_vec[j]) return sb0_vec[i] < sb0_vec[j];
+    return i < j;
+  });
+
+  LeftStratumCache lc;
+  PairDesignScratch ws;
+  arma::uword last_sa = std::numeric_limits<arma::uword>::max();
+  arma::uword last_sb = std::numeric_limits<arma::uword>::max();
+  StratumFactors sf_b;
+  arma::mat X_buf;
+  Rcpp::NumericMatrix last_mat;
+
+  for (arma::uword idx = 0; idx < n_req; ++idx) {
+    const arma::uword k = ord[idx];
+    const arma::uword sa0 = sa0_vec[k];
+    const arma::uword sb0 = sb0_vec[k];
+    if (sa0 == last_sa && sb0 == last_sb) {
+      out[k] = last_mat;
+      continue;
+    }
+    if (sa0 != lc.s_idx) {
+      populate_left_stratum_cache(lc, sa0, expand_stratum_factors(cf_vec[sa0]), ctx);
+    }
+    const StratumFactors* b_ptr = nullptr;
+    if (sb0 == sa0) {
+      b_ptr = &lc.sf;
+    } else {
+      sf_b = expand_stratum_factors(cf_vec[sb0]);
+      b_ptr = &sf_b;
+    }
+    fill_pair_X_from_ctx(ctx, lc, *b_ptr, X_buf, ws);
+    Rcpp::NumericMatrix xm = Rcpp::no_init_matrix(
+      static_cast<int>(ctx.n_obs), static_cast<int>(ctx.B_tot)
+    );
+    if (X_buf.n_elem > 0) {
+      std::memcpy(REAL(xm), X_buf.memptr(), static_cast<std::size_t>(X_buf.n_elem) * sizeof(double));
+    }
+    last_sa = sa0;
+    last_sb = sb0;
+    last_mat = xm;
+    out[k] = xm;
+  }
+
+  return out;
 }
 
 // [[Rcpp::export]]
@@ -1202,6 +1631,259 @@ Rcpp::List poet_fit_pair_batch_cpp(
       }
     } else {
       v_core_al_mat.col(p) = v_dyn_mat.col(p).head(M_core);
+    }
+  }
+
+  return Rcpp::List::create(
+    Rcpp::Named("b_dyn") = b_dyn_mat,
+    Rcpp::Named("v_dyn") = v_dyn_mat,
+    Rcpp::Named("v_gauss") = v_gauss_mat,
+    Rcpp::Named("gam_unc") = gam_unc_mat,
+    Rcpp::Named("R_sd_flat") = R_sd_flat,
+    Rcpp::Named("R_cv_flat") = R_cv_flat,
+    Rcpp::Named("b_core_alone") = b_core_al_mat,
+    Rcpp::Named("v_core_alone") = v_core_al_mat
+  );
+}
+
+// [[Rcpp::export]]
+Rcpp::List poet_fit_exact_nonhac_cpp(
+    const Rcpp::List& op_fac_runs,
+    const Rcpp::List& E_runs,
+    const Rcpp::List& adj_idx1_runs,
+    const Rcpp::List& lag_pairs_runs,
+    const Rcpp::List& f_inn_runs,
+    const Rcpp::List& f_obs_runs,
+    const Rcpp::IntegerMatrix& slot_sa_runs,
+    const Rcpp::IntegerMatrix& slot_sb_runs,
+    const Rcpp::IntegerVector& pair_slot,
+    const arma::mat& A_tie_use,
+    int L_max_in,
+    int L_act_in,
+    int M_dyn_in,
+    int M_core_in,
+    const Rcpp::IntegerVector& vc_col_idx,
+    const arma::vec& sig0_sd,
+    const arma::mat& R_poet,
+    const Rcpp::IntegerVector& pair_g,
+    const Rcpp::IntegerVector& pair_h,
+    bool include_mlag
+) {
+  const arma::uword n_runs = static_cast<arma::uword>(E_runs.size());
+  const arma::uword L_max = static_cast<arma::uword>(std::max(1, L_max_in));
+  const arma::uword L_act = static_cast<arma::uword>(L_act_in);
+  const arma::uword M_dyn = static_cast<arma::uword>(M_dyn_in);
+  const arma::uword M_core = static_cast<arma::uword>(M_core_in);
+  const arma::uword n_p = L_act + M_dyn;
+  const arma::uword B_tot = A_tie_use.n_rows;
+  const arma::uword n_vc = static_cast<arma::uword>(vc_col_idx.size());
+  const arma::uword n_slots = static_cast<arma::uword>(slot_sa_runs.nrow());
+  const arma::uword n_pairs = static_cast<arma::uword>(pair_g.size());
+
+  arma::mat b_dyn_mat(M_dyn, n_pairs, arma::fill::zeros);
+  arma::mat v_dyn_mat(M_dyn, n_pairs, arma::fill::zeros);
+  arma::mat v_gauss_mat(M_dyn, n_pairs, arma::fill::zeros);
+  arma::mat gam_unc_mat(L_act, n_pairs, arma::fill::zeros);
+  arma::mat R_sd_flat(L_act * M_dyn, n_pairs, arma::fill::zeros);
+  arma::mat R_cv_flat(M_core * n_vc, n_pairs, arma::fill::zeros);
+  arma::mat b_core_al_mat(M_core, n_pairs, arma::fill::zeros);
+  arma::mat v_core_al_mat(M_core, n_pairs, arma::fill::zeros);
+
+  if (n_runs == 0 || n_slots == 0 || n_pairs == 0) {
+    return Rcpp::List::create(
+      Rcpp::Named("b_dyn") = b_dyn_mat,
+      Rcpp::Named("v_dyn") = v_dyn_mat,
+      Rcpp::Named("v_gauss") = v_gauss_mat,
+      Rcpp::Named("gam_unc") = gam_unc_mat,
+      Rcpp::Named("R_sd_flat") = R_sd_flat,
+      Rcpp::Named("R_cv_flat") = R_cv_flat,
+      Rcpp::Named("b_core_alone") = b_core_al_mat,
+      Rcpp::Named("v_core_alone") = v_core_al_mat
+    );
+  }
+
+  std::vector<std::vector<arma::uword>> slot_pairs(n_slots);
+  for (arma::uword p = 0; p < n_pairs; ++p) {
+    const arma::uword s = static_cast<arma::uword>(std::max(1, pair_slot[p]) - 1);
+    if (s < n_slots) slot_pairs[s].push_back(p);
+  }
+
+  std::vector<arma::mat> XtX_slots(n_slots, arma::mat(B_tot, B_tot, arma::fill::zeros));
+  arma::mat rhs_mat(B_tot, n_pairs, arma::fill::zeros);
+
+  // Stream run-by-run so only ONE run's compact stratum factors and ONE n_obs x B_tot
+  // design matrix X_r exist in memory at a time, while grouping by (sa_r, sb_r) within each run!
+  for (arma::uword r = 0; r < n_runs; ++r) {
+    Rcpp::NumericMatrix E_nm = Rcpp::as<Rcpp::NumericMatrix>(E_runs[r]);
+    const arma::mat E_r(E_nm.begin(), static_cast<arma::uword>(E_nm.nrow()),
+                        static_cast<arma::uword>(E_nm.ncol()), false, true);
+    const arma::uword m = E_r.n_rows;
+    const Rcpp::List op_fac_r = Rcpp::as<Rcpp::List>(op_fac_runs[r]);
+    const arma::uword S_cnt_r = static_cast<arma::uword>(op_fac_r.size());
+    if (m == 0 || S_cnt_r == 0) continue;
+
+    const arma::mat f_inn_r = Rcpp::as<arma::mat>(f_inn_runs[r]);
+    const arma::mat f_obs_r = Rcpp::as<arma::mat>(f_obs_runs[r]);
+    const RunPairDesignCtx ctx_r = init_run_pair_design_ctx(
+      m,
+      Rcpp::as<Rcpp::IntegerVector>(adj_idx1_runs[r]),
+      Rcpp::as<Rcpp::List>(lag_pairs_runs[r]),
+      f_inn_r, f_obs_r, L_max_in, include_mlag
+    );
+
+    std::vector<bool> needed_r(S_cnt_r, false);
+    std::vector<arma::uword> sa0_r(n_slots), sb0_r(n_slots);
+    for (arma::uword s = 0; s < n_slots; ++s) {
+      const arma::uword sa0 = std::min(S_cnt_r - 1, static_cast<arma::uword>(std::max(1, slot_sa_runs(s, r)) - 1));
+      const arma::uword sb0 = std::min(S_cnt_r - 1, static_cast<arma::uword>(std::max(1, slot_sb_runs(s, r)) - 1));
+      sa0_r[s] = sa0;
+      sb0_r[s] = sb0;
+      needed_r[sa0] = true;
+      needed_r[sb0] = true;
+    }
+
+    std::vector<CompactStratumFac> cf_vec(S_cnt_r);
+    for (arma::uword st = 0; st < S_cnt_r; ++st) {
+      if (needed_r[st]) {
+        cf_vec[st] = parse_compact_stratum_factors(Rcpp::as<Rcpp::List>(op_fac_r[st]));
+      }
+    }
+
+    std::vector<arma::uword> s_ord(n_slots);
+    for (arma::uword s = 0; s < n_slots; ++s) s_ord[s] = s;
+    std::sort(s_ord.begin(), s_ord.end(), [&](arma::uword i, arma::uword j) {
+      if (sa0_r[i] != sa0_r[j]) return sa0_r[i] < sa0_r[j];
+      if (sb0_r[i] != sb0_r[j]) return sb0_r[i] < sb0_r[j];
+      return i < j;
+    });
+
+    LeftStratumCache lc_r;
+    PairDesignScratch ws_r;
+    StratumFactors sf_b;
+    arma::mat X_r;
+    arma::mat XtX_r;
+
+    arma::uword idx = 0;
+    while (idx < n_slots) {
+      const arma::uword s0 = s_ord[idx];
+      const arma::uword sa0 = sa0_r[s0];
+      const arma::uword sb0 = sb0_r[s0];
+      arma::uword idx_end = idx + 1;
+      while (idx_end < n_slots && sa0_r[s_ord[idx_end]] == sa0 && sb0_r[s_ord[idx_end]] == sb0) {
+        ++idx_end;
+      }
+
+      if (sa0 != lc_r.s_idx) {
+        populate_left_stratum_cache(lc_r, sa0, expand_stratum_factors(cf_vec[sa0]), ctx_r);
+      }
+      const StratumFactors* b_ptr = nullptr;
+      if (sb0 == sa0) {
+        b_ptr = &lc_r.sf;
+      } else {
+        sf_b = expand_stratum_factors(cf_vec[sb0]);
+        b_ptr = &sf_b;
+      }
+
+      fill_pair_X_from_ctx(ctx_r, lc_r, *b_ptr, X_r, ws_r);
+      XtX_r = X_r.t() * X_r;
+
+      for (arma::uword u = idx; u < idx_end; ++u) {
+        const arma::uword s = s_ord[u];
+        XtX_slots[s] += XtX_r;
+        const std::vector<arma::uword>& p_list = slot_pairs[s];
+        for (std::size_t pi = 0; pi < p_list.size(); ++pi) {
+          const arma::uword p = p_list[pi];
+          const arma::uword g = static_cast<arma::uword>(std::max(1, pair_g[p]) - 1);
+          const arma::uword h = static_cast<arma::uword>(std::max(1, pair_h[p]) - 1);
+          if (g >= E_r.n_cols || h >= E_r.n_cols) continue;
+          const arma::vec yr = extract_y_vec_impl(
+            E_r.colptr(g), E_r.colptr(h), m, ctx_r.adj_idx0, ctx_r.lag_pairs0, L_max
+          );
+          rhs_mat.col(p) += X_r.t() * yr;
+        }
+      }
+
+      idx = idx_end;
+    }
+  }
+
+  arma::uvec idx_sc(L_act + M_core);
+  for (arma::uword i = 0; i < L_act + M_core; ++i) idx_sc(i) = i;
+  arma::uvec idx_vc(n_vc);
+  for (arma::uword j = 0; j < n_vc; ++j) {
+    idx_vc(j) = L_act + static_cast<arma::uword>(std::max(1, vc_col_idx[j]) - 1);
+  }
+  const arma::mat A_tie_t = A_tie_use.t();
+
+  for (arma::uword s = 0; s < n_slots; ++s) {
+    const std::vector<arma::uword>& p_list = slot_pairs[s];
+    if (p_list.empty()) continue;
+
+    const arma::mat& XtX = XtX_slots[s];
+    const arma::mat XtX_t = A_tie_t * XtX * A_tie_use;
+    const arma::mat XtX_stat_inv = damped_sym_inv(XtX.submat(0, 0, L_act - 1, L_act - 1), 1e-8);
+
+    const arma::uvec act_k = arma::find(XtX_t.diag() > 1e-8);
+    const arma::uword n_act = act_k.n_elem;
+    const bool has_act = (n_act > 0);
+    arma::mat XtX_t_inv(n_p, n_p, arma::fill::zeros);
+    arma::mat R_sd(L_act, M_dyn, arma::fill::zeros);
+    arma::mat inv_sc;
+    arma::mat R_cv(M_core, n_vc, arma::fill::zeros);
+
+    if (has_act) {
+      XtX_t_inv.submat(act_k, act_k) = damped_sym_inv(XtX_t.submat(act_k, act_k), 1e-8);
+      if (M_dyn > 0) {
+        const arma::mat XtX_ss_inv = damped_sym_inv(XtX_t.submat(0, 0, L_act - 1, L_act - 1), 1e-8);
+        R_sd = XtX_ss_inv * XtX_t.submat(0, L_act, L_act - 1, n_p - 1);
+      }
+      if (n_vc >= 1 && M_core > 0) {
+        inv_sc = damped_sym_inv(XtX_t.submat(idx_sc, idx_sc), 1e-8);
+        const arma::mat R_sc_vc = inv_sc * XtX_t.submat(idx_sc, idx_vc);
+        R_cv = R_sc_vc.rows(L_act, L_act + M_core - 1);
+      }
+    }
+
+    const arma::vec r_sd_vec = arma::vectorise(R_sd);
+    const arma::vec r_cv_vec = arma::vectorise(R_cv);
+
+    for (std::size_t pi = 0; pi < p_list.size(); ++pi) {
+      const arma::uword p = p_list[pi];
+      const arma::uword g = static_cast<arma::uword>(std::max(1, pair_g[p]) - 1);
+      const arma::uword h = static_cast<arma::uword>(std::max(1, pair_h[p]) - 1);
+      const arma::subview_col<double> rhs_full = rhs_mat.col(p);
+
+      gam_unc_mat.col(p) = XtX_stat_inv * rhs_full.head(L_act);
+      if (!has_act || M_dyn == 0) continue;
+
+      const arma::vec rhs_t = A_tie_t * rhs_full;
+      const arma::vec b_t = XtX_t_inv * rhs_t;
+      b_dyn_mat.col(p) = b_t.subvec(L_act, n_p - 1);
+      R_sd_flat.col(p) = r_sd_vec;
+
+      if (M_core > 0) {
+        arma::vec b_core_al = b_t.subvec(L_act, L_act + M_core - 1);
+        if (n_vc >= 1) {
+          R_cv_flat.col(p) = r_cv_vec;
+          const arma::vec b_sc = inv_sc * rhs_t.head(L_act + M_core);
+          b_core_al = b_sc.subvec(L_act, L_act + M_core - 1);
+        }
+        b_core_al_mat.col(p) = b_core_al;
+      }
+
+      const double r_gh = R_poet(g, h);
+      const double v_scale = (1.0 + r_gh * r_gh) * (sig0_sd(g) * sig0_sd(g)) * (sig0_sd(h) * sig0_sd(h));
+      for (arma::uword j = 0; j < M_dyn; ++j) {
+        v_gauss_mat(j, p) = v_scale * XtX_t_inv(L_act + j, L_act + j);
+      }
+      v_dyn_mat.col(p) = v_gauss_mat.col(p);
+      if (n_vc >= 1) {
+        for (arma::uword jc = 0; jc < M_core; ++jc) {
+          v_core_al_mat(jc, p) = v_scale * inv_sc(L_act + jc, L_act + jc);
+        }
+      } else {
+        v_core_al_mat.col(p) = v_gauss_mat.col(p).head(M_core);
+      }
     }
   }
 
@@ -1659,43 +2341,6 @@ inline arma::mat extract_psd_factors_inplace(
   return F_out;
 }
 
-struct LagSpan {
-  arma::uword s0;
-  arma::uword s1;
-  arma::uword len;
-};
-
-inline std::vector<std::vector<LagSpan>> build_lag_spans(
-    const std::vector<arma::umat>& lag_pairs0,
-    arma::uword m
-) {
-  std::vector<std::vector<LagSpan>> out(lag_pairs0.size());
-  for (std::size_t d = 0; d < lag_pairs0.size(); ++d) {
-    const arma::umat& pd = lag_pairs0[d];
-    const arma::uword n_p = pd.n_rows;
-    if (n_p == 0) continue;
-    const arma::uword* p0 = pd.colptr(0);
-    const arma::uword* p1 = pd.colptr(1);
-    std::vector<LagSpan>& sp = out[d];
-    bool active = false;
-    LagSpan cur{0, 0, 0};
-    for (arma::uword r = 0; r < n_p; ++r) {
-      const arma::uword i0 = p0[r];
-      const arma::uword i1 = p1[r];
-      if (i0 >= m || i1 >= m) continue;
-      if (active && i0 == cur.s0 + cur.len && i1 == cur.s1 + cur.len) {
-        ++cur.len;
-      } else {
-        if (active) sp.push_back(cur);
-        cur = LagSpan{i0, i1, 1};
-        active = true;
-      }
-    }
-    if (active) sp.push_back(cur);
-  }
-  return out;
-}
-
 inline void eval_sem_basis_profiles(
     const arma::mat& UL,
     const arma::mat& UR,
@@ -1867,6 +2512,7 @@ arma::cube poet_build_Xty_bulk_cpp(
 
         arma::mat Z_ell(m, cb.n_elem);
         for (arma::uword ell = 0; ell < B_tot; ++ell) {
+          if (arma::all(Xr.col(ell) == 0.0)) continue;
           const double* x_col = Xr.colptr(ell);
           Z_ell = EB;
           for (arma::uword c = 0; c < cb.n_elem; ++c) {
@@ -1947,6 +2593,86 @@ arma::mat poet_extract_psd_factors_cpp(
   );
 }
 
+namespace {
+
+struct VspInfo {
+  bool has_rwls = false;
+  int mode = 0; // 0 = none, 1 = scale, 2 = woodbury
+  arma::vec sqrt_w;
+  arma::mat ua;
+  arma::vec inv_fac;
+  bool has_udiff = false;
+  arma::vec u_diff;
+  std::vector<arma::vec> b_row_sums;
+  CsrMat W_obs;
+};
+
+inline VspInfo parse_vsp_info(const Rcpp::List& vl, arma::uword m, arma::uword n_lags) {
+  VspInfo info;
+  Rcpp::List w_csr = Rcpp::as<Rcpp::List>(vl["W_obs_csr"]);
+  info.W_obs = parse_csr_components(
+    Rcpp::as<Rcpp::IntegerVector>(w_csr["row_ptr"]),
+    Rcpp::as<Rcpp::IntegerVector>(w_csr["col_idx"]),
+    Rcpp::as<Rcpp::NumericVector>(w_csr["val"]),
+    m, m
+  );
+  info.has_rwls = vl.containsElementNamed("has_rwls") && Rcpp::as<bool>(vl["has_rwls"]);
+  if (info.has_rwls) {
+    const std::string rmode = Rcpp::as<std::string>(vl["rwls_mode"]);
+    if (rmode == "scale" && !Rf_isNull(vl["sqrt_w_use"])) {
+      info.mode = 1;
+      info.sqrt_w = Rcpp::as<arma::vec>(vl["sqrt_w_use"]);
+    } else if (rmode == "woodbury" && !Rf_isNull(vl["ua"])) {
+      info.mode = 2;
+      info.ua = Rcpp::as<arma::mat>(vl["ua"]);
+      info.inv_fac = Rcpp::as<arma::vec>(vl["inv_fac_a"]);
+    }
+    if (!Rf_isNull(vl["u_diff"]) && !Rf_isNull(vl["b_row_sums"])) {
+      info.has_udiff = true;
+      info.u_diff = Rcpp::as<arma::vec>(vl["u_diff"]);
+      Rcpp::List brs = Rcpp::as<Rcpp::List>(vl["b_row_sums"]);
+      info.b_row_sums.resize(n_lags);
+      for (arma::uword la = 0; la < n_lags; ++la) {
+        if (static_cast<R_xlen_t>(la) < brs.size() && !Rf_isNull(brs[la])) {
+          info.b_row_sums[la] = Rcpp::as<arma::vec>(brs[la]);
+        }
+      }
+    }
+  }
+  return info;
+}
+
+inline arma::mat reconstruct_V_obs_from_vsp(
+    const arma::mat& Uu,
+    const arma::uvec& ok_idx,
+    const VspInfo& info,
+    arma::uword li
+) {
+  const arma::uword m = Uu.n_rows;
+  const arma::uword m_t = Uu.n_cols;
+  arma::mat V_out(m, m_t, arma::fill::zeros);
+  if (ok_idx.n_elem == 0 || m == 0) return V_out;
+
+  arma::mat U0_ok = Uu.cols(ok_idx);
+  if (info.has_rwls) {
+    if (info.mode == 1 && info.sqrt_w.n_elem == m) {
+      U0_ok.each_col() %= info.sqrt_w;
+    } else if (info.mode == 2 && info.ua.n_cols > 0) {
+      arma::mat Ut = info.ua.t() * U0_ok;
+      Ut.each_col() %= info.inv_fac;
+      U0_ok += info.ua * Ut;
+    }
+    if (info.has_udiff && li < info.b_row_sums.size() && info.b_row_sums[li].n_elem >= m_t) {
+      const arma::vec s_ok = info.b_row_sums[li].elem(ok_idx);
+      U0_ok -= info.u_diff * s_ok.t();
+    }
+  }
+  V_out.cols(ok_idx) = csr_trans_mult_dense(info.W_obs, U0_ok);
+  return V_out;
+}
+
+} // namespace
+
 // [[Rcpp::export]]
 Rcpp::List poet_stage_e_stratum_moments_cpp(
     const Rcpp::List& U_si,
@@ -1962,7 +2688,8 @@ Rcpp::List poet_stage_e_stratum_moments_cpp(
     int L_max_in,
     int K_tcor_in,
     int D_lag_in,
-    bool return_panel
+    bool return_panel,
+    Rcpp::Nullable<Rcpp::List> vsp_si_r = R_NilValue
 ) {
   const arma::uword n_lags = static_cast<arma::uword>(U_si.size());
   const arma::uword n_u = Gamma_stat_cols.n_cols;
@@ -2037,17 +2764,20 @@ Rcpp::List poet_stage_e_stratum_moments_cpp(
     }
   }
 
+  const bool has_vsp = vsp_si_r.isNotNull();
+  VspInfo vsp_info;
+  if (has_vsp) {
+    vsp_info = parse_vsp_info(Rcpp::List(vsp_si_r), m_rows, n_lags);
+  }
+
   std::vector<arma::mat> U_cent_l(n_lags);
   std::vector<arma::mat> V_cent_l(n_lags);
   arma::mat W_prod, T_stat, T_dyn;
 
   for (arma::uword li = 0; li < n_lags; ++li) {
     Rcpp::NumericMatrix u_nm = Rcpp::as<Rcpp::NumericMatrix>(U_si[li]);
-    Rcpp::NumericMatrix v_nm = Rcpp::as<Rcpp::NumericMatrix>(V_si[li]);
     const arma::mat Uu(u_nm.begin(), static_cast<arma::uword>(u_nm.nrow()),
                        static_cast<arma::uword>(u_nm.ncol()), false, true);
-    const arma::mat Vu(v_nm.begin(), static_cast<arma::uword>(v_nm.nrow()),
-                       static_cast<arma::uword>(v_nm.ncol()), false, true);
 
     std::vector<arma::uword> ok_vec;
     if (!Rf_isNull(ok_si[li])) {
@@ -2055,8 +2785,26 @@ Rcpp::List poet_stage_e_stratum_moments_cpp(
       for (int c = 0; c < okl.size(); ++c) {
         if (okl[c] == TRUE) ok_vec.push_back(static_cast<arma::uword>(c));
       }
+    } else {
+      ok_vec.resize(m_t);
+      for (arma::uword c = 0; c < m_t; ++c) ok_vec[c] = c;
     }
     const arma::uvec ok_idx(ok_vec);
+
+    arma::mat Vu_built;
+    arma::mat Vu_view;
+    const bool use_v_list = (static_cast<R_xlen_t>(li) < V_si.size()) && !Rf_isNull(V_si[li]);
+    if (use_v_list) {
+      Rcpp::NumericMatrix v_nm = Rcpp::as<Rcpp::NumericMatrix>(V_si[li]);
+      Vu_view = arma::mat(v_nm.begin(), static_cast<arma::uword>(v_nm.nrow()),
+                          static_cast<arma::uword>(v_nm.ncol()), false, true);
+    } else if (has_vsp) {
+      Vu_built = reconstruct_V_obs_from_vsp(Uu, ok_idx, vsp_info, li);
+    } else {
+      Vu_built.zeros(m_rows, m_t);
+    }
+    const arma::mat& Vu = use_v_list ? Vu_view : Vu_built;
+
     U_cent_l[li] = center_trial_op_cols(Uu, ok_idx);
     V_cent_l[li] = center_trial_op_cols(Vu, ok_idx);
 
@@ -2223,52 +2971,9 @@ Rcpp::NumericVector poet_stage_e_component_svec_cpp(
   const arma::uword m = static_cast<arma::uword>(u00.nrow());
   if (m == 0) return svec_out;
 
-  struct VspInfo {
-    bool has_rwls = false;
-    int mode = 0; // 0 = none, 1 = scale, 2 = woodbury
-    arma::vec sqrt_w;
-    arma::mat ua;
-    arma::vec inv_fac;
-    bool has_udiff = false;
-    arma::vec u_diff;
-    std::vector<arma::vec> b_row_sums;
-    CsrMat W_obs;
-  };
-
   std::vector<VspInfo> vsp(n_sC);
   for (arma::uword isi = 0; isi < n_sC; ++isi) {
-    Rcpp::List vl = Rcpp::as<Rcpp::List>(vsp_sub_strata[isi]);
-    VspInfo& info = vsp[isi];
-    Rcpp::List w_csr = Rcpp::as<Rcpp::List>(vl["W_obs_csr"]);
-    info.W_obs = parse_csr_components(
-      Rcpp::as<Rcpp::IntegerVector>(w_csr["row_ptr"]),
-      Rcpp::as<Rcpp::IntegerVector>(w_csr["col_idx"]),
-      Rcpp::as<Rcpp::NumericVector>(w_csr["val"]),
-      m, m
-    );
-    info.has_rwls = vl.containsElementNamed("has_rwls") && Rcpp::as<bool>(vl["has_rwls"]);
-    if (info.has_rwls) {
-      const std::string rmode = Rcpp::as<std::string>(vl["rwls_mode"]);
-      if (rmode == "scale" && !Rf_isNull(vl["sqrt_w_use"])) {
-        info.mode = 1;
-        info.sqrt_w = Rcpp::as<arma::vec>(vl["sqrt_w_use"]);
-      } else if (rmode == "woodbury" && !Rf_isNull(vl["ua"])) {
-        info.mode = 2;
-        info.ua = Rcpp::as<arma::mat>(vl["ua"]);
-        info.inv_fac = Rcpp::as<arma::vec>(vl["inv_fac_a"]);
-      }
-      if (!Rf_isNull(vl["u_diff"]) && !Rf_isNull(vl["b_row_sums"])) {
-        info.has_udiff = true;
-        info.u_diff = Rcpp::as<arma::vec>(vl["u_diff"]);
-        Rcpp::List brs = Rcpp::as<Rcpp::List>(vl["b_row_sums"]);
-        info.b_row_sums.resize(n_lags);
-        for (arma::uword la = 0; la < n_lags; ++la) {
-          if (static_cast<R_xlen_t>(la) < brs.size() && !Rf_isNull(brs[la])) {
-            info.b_row_sums[la] = Rcpp::as<arma::vec>(brs[la]);
-          }
-        }
-      }
-    }
+    vsp[isi] = parse_vsp_info(Rcpp::as<Rcpp::List>(vsp_sub_strata[isi]), m, n_lags);
   }
 
   // Bind zero-copy views to U_sub_strata and precompute per-(la, isi) centering means & scales

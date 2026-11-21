@@ -907,6 +907,47 @@ test_that("factored operators, bounded pair batching, compact V_obs_spec, and Kr
     }))
     expect_identical(b_cat, fit_one$b_dyn)
     expect_identical(v_cat, fit_one$v_dyn)
+
+    # 3b. poet_build_pair_designs_batch_cpp & poet_fit_exact_nonhac_cpp match exact reference for both mlag=TRUE and mlag=FALSE
+    X_batch_t <- poet_build_pair_designs_batch_cpp(
+      fac_ops, adj_idx1, lag_pairs, f_inn, f_obs, L_max,
+      c(1L, 1L, 1L, 2L), c(1L, 2L, 1L, 2L), TRUE
+    )
+    expect_lt(max(abs(X_batch_t[[1L]] - X11)), 1e-14)
+    expect_lt(max(abs(X_batch_t[[2L]] - X12)), 1e-14)
+    expect_identical(data.table::address(X_batch_t[[1L]]), data.table::address(X_batch_t[[3L]]))
+
+    for (mlag_flag in c(TRUE, FALSE)) {
+      L_act_m <- if (mlag_flag) L1 else 1L
+      A_tie_m <- matrix(0.0, B_tot, L_act_m + M_dyn)
+      A_tie_m[1:L_act_m, 1:L_act_m] <- diag(L_act_m)
+      for (j in seq_len(M_dyn)) {
+        A_tie_m[L1 + j, L_act_m + j] <- 0.25
+        A_tie_m[L1 + M_dyn + j, L_act_m + j] <- 0.75
+      }
+      nh_ix <- which(!p_hac)
+      fit_ref_nh <- poet_fit_pair_batch_cpp(
+        E_r, list(adj_idx1, adj_idx1), list(lag_pairs, lag_pairs),
+        slot_XtX, slot_X_runs, A_tie_m, L_max, L_act_m, M_dyn, 2L, 3L, s0, R_p,
+        off_ij[nh_ix, 1L], off_ij[nh_ix, 2L], p_slot[nh_ix], rep(FALSE, length(nh_ix)),
+        rep(FALSE, length(nh_ix)), rhs_z[, nh_ix, drop = FALSE]
+      )
+      slot_sa_m <- matrix(c(1L, 1L), nrow = 2L, ncol = 2L)
+      slot_sb_m <- matrix(c(1L, 2L), nrow = 2L, ncol = 2L)
+      fit_en_nh <- poet_fit_exact_nonhac_cpp(
+        list(fac_ops, fac_ops), E_r, list(adj_idx1, adj_idx1), list(lag_pairs, lag_pairs),
+        list(f_inn, f_inn), list(f_obs, f_obs),
+        slot_sa_m, slot_sb_m, p_slot[nh_ix], A_tie_m, L_max, L_act_m, M_dyn, 2L, 3L,
+        s0, R_p, off_ij[nh_ix, 1L], off_ij[nh_ix, 2L], mlag_flag
+      )
+      expect_lt(max(abs(fit_en_nh$b_dyn - fit_ref_nh$b_dyn)), 1e-13)
+      expect_lt(max(abs(fit_en_nh$v_dyn - fit_ref_nh$v_dyn)), 1e-13)
+      expect_lt(max(abs(fit_en_nh$gam_unc - fit_ref_nh$gam_unc)), 1e-13)
+      expect_lt(max(abs(fit_en_nh$R_sd_flat - fit_ref_nh$R_sd_flat)), 1e-13)
+      expect_lt(max(abs(fit_en_nh$R_cv_flat - fit_ref_nh$R_cv_flat)), 1e-13)
+      expect_lt(max(abs(fit_en_nh$b_core_alone - fit_ref_nh$b_core_alone)), 1e-13)
+      expect_lt(max(abs(fit_en_nh$v_core_alone - fit_ref_nh$v_core_alone)), 1e-13)
+    }
   }
 
   # 4. poet_build_trial_Ci_cpp matches explicit Kronecker trial covariance construction to < 1e-13
@@ -1024,4 +1065,44 @@ test_that("factored operators, bounded pair batching, compact V_obs_spec, and Kr
   expect_equal(c_panel_attr$group$estimate, c_spec$group$estimate, tolerance = 1e-13)
   expect_equal(c_panel_attr$group$std.error, c_spec$group$std.error, tolerance = 1e-13)
   expect_identical(names(rg_m$panel), orig_names)
+
+  # 9. Covariate-free panel with <= 32 exact-mix AND > 32 fallback parcels, demix_ridge='auto',
+  #    negative lags, restore_scale=TRUE, and whiten_panel=TRUE preserves activity matrix & outputs
+  n_v9 <- 50L
+  v9_ids <- sprintf("vx%02d", seq_len(n_v9))
+  # P_fb has 36 distinct voxel strata (> 32 fallback), P_mx1 & P_mx2 share sub-strata (<= 32 exact mix)
+  p9_grp <- stats::setNames(c(rep("P_fb", 36L), rep("P_mx1", 7L), rep("P_mx2", 7L)), v9_ids)
+  b9 <- e9 <- val9 <- list()
+  for (r in 1:2) {
+    rn <- paste0("run", r)
+    tev <- cumsum(c(8.0, stats::runif(15L, 4.2, 5.8)))
+    ym <- matrix(100 + stats::rnorm(130L * n_v9, sd = 0.3), 130L, n_v9, dimnames = list(NULL, v9_ids))
+    kl <- rep(TRUE, 130L); kl[c(22L, 85L)] <- FALSE
+    b9[[rn]] <- ym; val9[[rn]] <- kl
+    e9[[rn]] <- data.frame(onset = tev, duration = 0.0, condition = rep(c("dec", "fb"), 8L))
+  }
+  fh9 <- estimate_crossrun_hrf(b9, e9, 1.0, lib, valid_rows = val9, pooling = "voxel", noise_model = "ar1")
+  dc9 <- deconvolve_crossrun_hrf(b9, fh9, lambda = seq(0.2, 1.2, length.out = n_v9), scaling = "noise_sd", penalty = "sobolev", rwls = "auto")
+  act1_orig <- copy(dc9$activity[[1L]][1:5, 1:5])
+  rg9 <- withr::with_options(list(medusa.profile_memory = TRUE), suppressMessages(
+    decon_epoch_regression(
+      dc9, covariates = NULL, events = e9, target_condition = "fb",
+      lags = -1:2, demix_ridge = "auto", restore_scale = TRUE,
+      aggregate_by_parcel = TRUE, parcel_groups = p9_grp,
+      whiten_panel = TRUE, return_panel = TRUE
+    )
+  ))
+  expect_identical(dc9$activity[[1L]][1:5, 1:5], act1_orig)
+  expect_true(all(c("decon_demixed_whitened", "se_whitened", "shared_noise_vec") %in% names(rg9$panel)))
+  expect_equal(nrow(rg9$panel), 2L * 8L * 3L * 4L)
+  # Zero-copy panel attribute sharing + intact data.table over-allocation (.internal.selfref)
+  expect_identical(
+    data.table::address(rg9$shared_error_model),
+    data.table::address(attr(rg9$panel, "shared_error_model"))
+  )
+  expect_identical(
+    data.table::address(rg9$run_trial_operators),
+    data.table::address(attr(rg9$panel, "run_trial_operators"))
+  )
+  expect_no_warning(rg9$panel[, .chk_selfref := 1L])
 })
