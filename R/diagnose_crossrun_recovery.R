@@ -623,7 +623,7 @@ prepare_ar1_rwls_spec <- function(rows, rho, obs_weights = NULL,
           es
         }
         A_mat <- hrf_apply_whitening(E_s, rows_use, rho, unit_marginal = TRUE)
-        sv_a <- svd(A_mat, nv = 0)
+        sv_a <- hrf_safe_svd(A_mat, nv = 0L)
         pos_a <- sv_a$d > 1e-12
         if (any(pos_a)) {
           rwls_mode <- "woodbury"
@@ -742,7 +742,7 @@ compute_ar1_operator_factor <- function(B, rows, rho, center_obs = TRUE,
   E_s <- matrix(0.0, m, length(idx_s))
   E_s[cbind(idx_s, seq_along(idx_s))] <- delta_s
   A_mat <- hrf_apply_whitening(E_s, rows_use, rho, unit_marginal = TRUE)
-  sv_a <- svd(A_mat, nv = 0)
+  sv_a <- hrf_safe_svd(A_mat, nv = 0L)
   pos_a <- sv_a$d > 1e-12
   if (any(pos_a)) {
     ua <- sv_a$u[, pos_a, drop = FALSE]
@@ -2149,7 +2149,7 @@ decon_epoch_regression <- function(
         )[[1L]][rows, , drop = FALSE]
         G_fb_all <- cbind(1.0, seq(-1.0, 1.0, length.out = length(rows)), G_fb_act)
         nrm_fb <- sqrt(colSums(G_fb_all^2)); nrm_fb[nrm_fb == 0] <- 1.0
-        sv_fb <- svd(sweep(G_fb_all, 2L, nrm_fb, "/"), nv = 0)
+        sv_fb <- hrf_safe_svd(sweep(G_fb_all, 2L, nrm_fb, "/"), nv = 0L)
         rk_max_fb <- max(0L, length(rows) - 10L)
         rk_fb <- if (length(sv_fb$d) && sv_fb$d[1L] > 0 && rk_max_fb > 0L) {
           min(rk_max_fb, sum(sv_fb$d > 0.05 * sv_fb$d[1L]))
@@ -6567,7 +6567,7 @@ decon_connectivity_repair <- function(
         if (all(is.finite(eg_hss$values)) && min(eg_hss$values) > 1e-6) {
           R_1p <- tryCatch(solve(H_SS_1p, H_ST_1p), error = function(e) NULL)
           if (!is.null(R_1p) && all(is.finite(R_1p))) {
-            sv_r <- svd(R_1p)
+            sv_r <- hrf_safe_svd(R_1p)
             if (all(is.finite(sv_r$d)) && min(sv_r$d) > 0.20) {
               d_cl <- pmin(2.50, pmax(0.35, sv_r$d))
               R_1p <- sv_r$u %*% (d_cl * t(sv_r$v))

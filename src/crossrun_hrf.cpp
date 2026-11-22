@@ -1,46 +1,91 @@
 #include "medusa.h"
 
 namespace {
-bool hrf_safe_svd_full(arma::mat& U, arma::vec& s, arma::mat& V, const arma::mat& X) {
-  if (arma::svd(U, s, V, X, "dc")) return true;
-  return arma::svd(U, s, V, X, "std");
-}
-
+// NOTE: Always use LAPACK QR-iteration ("std" -> dgesvd / dsyev) rather than
+// divide-and-conquer ("dc" -> dgesdd / dsyevd). Unpatched OpenBLAS / Reference-LAPACK
+// (< 3.12.1, LAPACK #672 / #1138) can write out-of-bounds on the C heap inside
+// DLASD2/DLASD3 and DLAED2 before returning when singular/eigenvalues cluster tightly.
 bool hrf_safe_svd_econ(arma::mat& U, arma::vec& s, arma::mat& V, const arma::mat& X,
                        const char* mode = "both") {
-  if (arma::svd_econ(U, s, V, X, mode, "dc")) return true;
-  if (arma::svd_econ(U, s, V, X, mode, "std")) return true;
-  // Symmetric eigendecomposition fallback if both dgesdd and dgesvd fail
+  if (!X.is_finite()) return false;
   const arma::uword nr = X.n_rows, nc = X.n_cols;
+  const char m_ch = (mode != nullptr) ? mode[0] : 'b';
+  if (nr == 0 || nc == 0) {
+    s.reset();
+    if (m_ch == 'l' || m_ch == 'b') U.zeros(nr, 0);
+    if (m_ch == 'r' || m_ch == 'b') V.zeros(nc, 0);
+    return true;
+  }
+  if (arma::svd_econ(U, s, V, X, mode, "std")) return true;
+  // Symmetric QR eigendecomposition (dsyev) fallback with polar re-orthogonalization
   if (nr >= nc) {
     arma::vec eigval;
     arma::mat eigvec;
-    if (!arma::eig_sym(eigval, eigvec, X.t() * X)) return false;
+    arma::mat G = X.t() * X;
+    G = 0.5 * (G + G.t());
+    if (!arma::eig_sym(eigval, eigvec, G, "std") || eigval.n_elem != nc) return false;
     eigvec = arma::fliplr(eigvec);
     s = arma::sqrt(arma::clamp(arma::flipud(eigval), 0.0, arma::datum::inf));
-    V = eigvec;
-    U.set_size(nr, nc);
-    U.zeros();
-    const double smax = s.n_elem > 0 ? std::max(s(0), 1e-16) : 1.0;
-    for (arma::uword j = 0; j < nc; ++j) {
-      if (s(j) > 1e-12 * smax) U.col(j) = (X * V.col(j)) / s(j);
+    if (m_ch == 'r' || m_ch == 'b') V = eigvec;
+    if (m_ch == 'l' || m_ch == 'b') {
+      U.zeros(nr, nc);
+      const double smax = s.n_elem > 0 ? std::max(s(0), 1e-16) : 1.0;
+      arma::uword k_p = arma::accu(s > 1e-12 * smax);
+      if (k_p > 0) {
+        arma::mat U_raw = X * eigvec.cols(0, k_p - 1);
+        U_raw.each_row() /= s.subvec(0, k_p - 1).t();
+        arma::mat Gu = U_raw.t() * U_raw;
+        Gu = 0.5 * (Gu + Gu.t());
+        arma::vec ev_u;
+        arma::mat evec_u;
+        if (arma::eig_sym(ev_u, evec_u, Gu, "std") && ev_u.n_elem == k_p) {
+          arma::mat V_sc = evec_u;
+          V_sc.each_row() %= (1.0 / arma::sqrt(arma::clamp(ev_u, 1e-14, arma::datum::inf))).t();
+          U.cols(0, k_p - 1) = U_raw * (V_sc * evec_u.t());
+        } else {
+          U.cols(0, k_p - 1) = U_raw;
+        }
+      }
     }
     return true;
   } else {
     arma::vec eigval;
     arma::mat eigvec;
-    if (!arma::eig_sym(eigval, eigvec, X * X.t())) return false;
+    arma::mat G = X * X.t();
+    G = 0.5 * (G + G.t());
+    if (!arma::eig_sym(eigval, eigvec, G, "std") || eigval.n_elem != nr) return false;
     eigvec = arma::fliplr(eigvec);
     s = arma::sqrt(arma::clamp(arma::flipud(eigval), 0.0, arma::datum::inf));
-    U = eigvec;
-    V.set_size(nc, nr);
-    V.zeros();
-    const double smax = s.n_elem > 0 ? std::max(s(0), 1e-16) : 1.0;
-    for (arma::uword j = 0; j < nr; ++j) {
-      if (s(j) > 1e-12 * smax) V.col(j) = (X.t() * U.col(j)) / s(j);
+    if (m_ch == 'l' || m_ch == 'b') U = eigvec;
+    if (m_ch == 'r' || m_ch == 'b') {
+      V.zeros(nc, nr);
+      const double smax = s.n_elem > 0 ? std::max(s(0), 1e-16) : 1.0;
+      arma::uword k_p = arma::accu(s > 1e-12 * smax);
+      if (k_p > 0) {
+        arma::mat V_raw = X.t() * eigvec.cols(0, k_p - 1);
+        V_raw.each_row() /= s.subvec(0, k_p - 1).t();
+        arma::mat Gv = V_raw.t() * V_raw;
+        Gv = 0.5 * (Gv + Gv.t());
+        arma::vec ev_v;
+        arma::mat evec_v;
+        if (arma::eig_sym(ev_v, evec_v, Gv, "std") && ev_v.n_elem == k_p) {
+          arma::mat V_sc = evec_v;
+          V_sc.each_row() %= (1.0 / arma::sqrt(arma::clamp(ev_v, 1e-14, arma::datum::inf))).t();
+          V.cols(0, k_p - 1) = V_raw * (V_sc * evec_v.t());
+        } else {
+          V.cols(0, k_p - 1) = V_raw;
+        }
+      }
     }
     return true;
   }
+}
+
+bool hrf_safe_svd_full(arma::mat& U, arma::vec& s, arma::mat& V, const arma::mat& X) {
+  if (!X.is_finite()) return false;
+  if (arma::svd(U, s, V, X, "std")) return true;
+  if (X.n_rows == X.n_cols) return hrf_safe_svd_econ(U, s, V, X, "both");
+  return false;
 }
 
 arma::mat hrf_basis(const arma::mat& x, double tol) {
@@ -196,7 +241,7 @@ struct ArWhitener {
         }
         arma::vec e_last(s, arma::fill::zeros);
         e_last(s - 1) = 1.0;
-        if (!arma::solve(br.w_unit, arma::trimatu(l_loc.t()), e_last) ||
+        if (!arma::solve(br.w_unit, arma::trimatu(l_loc.t()), e_last, arma::solve_opts::no_approx) ||
             !br.w_unit.is_finite() || br.w_unit(s - 1) <= 0.0) {
           markov_ok = false;
           break;
@@ -237,7 +282,8 @@ struct ArWhitener {
     }
     const double head_scale = unit_marginal ? 1.0 : sig_u;
     if (use_dense_fallback) {
-      x = head_scale * arma::solve(arma::trimatl(l_sub), x, arma::solve_opts::fast);
+      x = head_scale * arma::solve(arma::trimatl(l_sub), x,
+                                   arma::solve_opts::fast + arma::solve_opts::no_approx);
       return;
     }
     const arma::uword m = x.n_rows, p = phi.n_elem;
@@ -1262,4 +1308,76 @@ arma::mat hrf_ar_operator_factor_cpp(const arma::mat& bt, const Rcpp::IntegerVec
   whitener.init(keep, rho, ar_phi, ar_acf, sig_u2, true);
   whitener.apply_inv_transpose(out);
   return out;
+}
+
+// Drop-in SVD using LAPACK QR-iteration (dgesvd) with symmetric QR (dsyev) fallback.
+// Avoids base::svd / La.svd (dgesdd), which can corrupt the C heap on unpatched
+// OpenBLAS / Reference-LAPACK (< 3.12.1) when singular values cluster tightly.
+// [[Rcpp::export]]
+Rcpp::List medusa_svd_cpp(const arma::mat& x, int nu, int nv) {
+  if (!x.is_finite()) {
+    Rcpp::stop("infinite or missing values in 'x'");
+  }
+  const arma::uword nr = x.n_rows;
+  const arma::uword nc = x.n_cols;
+  const arma::uword r_min = std::min(nr, nc);
+  if (nu < 0 || static_cast<arma::uword>(nu) > nr) {
+    Rcpp::stop("'nu' must satisfy 0 <= nu <= nrow(x)");
+  }
+  if (nv < 0 || static_cast<arma::uword>(nv) > nc) {
+    Rcpp::stop("'nv' must satisfy 0 <= nv <= ncol(x)");
+  }
+  const arma::uword nu_u = static_cast<arma::uword>(nu);
+  const arma::uword nv_u = static_cast<arma::uword>(nv);
+
+  if (r_min == 0) {
+    Rcpp::NumericVector d_empty(0);
+    if (nu_u > 0 && nv_u > 0) {
+      return Rcpp::List::create(Rcpp::Named("d") = d_empty,
+                                Rcpp::Named("u") = arma::mat(nr, 0),
+                                Rcpp::Named("v") = arma::mat(nc, 0));
+    } else if (nu_u > 0) {
+      return Rcpp::List::create(Rcpp::Named("d") = d_empty,
+                                Rcpp::Named("u") = arma::mat(nr, 0));
+    } else if (nv_u > 0) {
+      return Rcpp::List::create(Rcpp::Named("d") = d_empty,
+                                Rcpp::Named("v") = arma::mat(nc, 0));
+    }
+    return Rcpp::List::create(Rcpp::Named("d") = d_empty);
+  }
+
+  arma::mat U, V;
+  arma::vec s;
+  bool ok = false;
+  if (nu_u > r_min || nv_u > r_min) {
+    ok = hrf_safe_svd_full(U, s, V, x);
+  } else if (nu_u > 0 && nv_u > 0) {
+    ok = hrf_safe_svd_econ(U, s, V, x, "both");
+  } else if (nu_u > 0 && nv_u == 0) {
+    ok = hrf_safe_svd_econ(U, s, V, x, "left");
+  } else if (nu_u == 0 && nv_u > 0) {
+    ok = hrf_safe_svd_econ(U, s, V, x, "right");
+  } else {
+    ok = hrf_safe_svd_econ(U, s, V, x, (nr >= nc) ? "right" : "left");
+  }
+
+  if (!ok || s.n_elem != r_min ||
+      (nu_u > 0 && U.n_cols < nu_u) ||
+      (nv_u > 0 && V.n_cols < nv_u)) {
+    Rcpp::stop("SVD failed to converge in medusa_svd_cpp");
+  }
+
+  Rcpp::NumericVector d_out(s.begin(), s.end());
+  if (nu_u > 0 && nv_u > 0) {
+    return Rcpp::List::create(Rcpp::Named("d") = d_out,
+                              Rcpp::Named("u") = U.cols(0, nu_u - 1),
+                              Rcpp::Named("v") = V.cols(0, nv_u - 1));
+  } else if (nu_u > 0) {
+    return Rcpp::List::create(Rcpp::Named("d") = d_out,
+                              Rcpp::Named("u") = U.cols(0, nu_u - 1));
+  } else if (nv_u > 0) {
+    return Rcpp::List::create(Rcpp::Named("d") = d_out,
+                              Rcpp::Named("v") = V.cols(0, nv_u - 1));
+  }
+  return Rcpp::List::create(Rcpp::Named("d") = d_out);
 }

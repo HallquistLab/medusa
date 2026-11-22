@@ -312,9 +312,24 @@ double trace_band_takahashi(
 
 arma::mat solve_sympd_fallback(const arma::mat& lhs, const arma::mat& rhs) {
   arma::mat out;
-  bool ok = arma::solve(out, lhs, rhs, arma::solve_opts::likely_sympd);
+  bool ok = arma::solve(out, lhs, rhs,
+                        arma::solve_opts::likely_sympd + arma::solve_opts::no_approx);
   if (!ok) {
-    ok = arma::solve(out, lhs, rhs);
+    ok = arma::solve(out, lhs, rhs, arma::solve_opts::no_approx);
+  }
+  if (!ok) {
+    arma::mat U, V;
+    arma::vec s;
+    if (arma::svd_econ(U, s, V, lhs, "both", "std") && s.n_elem > 0 && s(0) > 0.0) {
+      const double tol = 1e-12 * s(0);
+      const arma::uword rk = arma::accu(s > tol);
+      if (rk > 0) {
+        arma::mat UtB = U.cols(0, rk - 1).t() * rhs;
+        UtB.each_col() /= s.subvec(0, rk - 1);
+        out = V.cols(0, rk - 1) * UtB;
+        ok = true;
+      }
+    }
   }
   if (!ok) {
     stop("Regularized deconvolution linear solve failed");

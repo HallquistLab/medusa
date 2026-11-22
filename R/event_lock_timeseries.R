@@ -627,7 +627,7 @@ compress_mts_pca <- function(mts, pexp_target=0.9, scale_columns=TRUE) {
       mts <- apply(mts, 2, function(x) { (x - mean(x)) / sd(x) })
     }
 
-    dd <- svd(mts)
+    dd <- hrf_safe_svd(mts)
     pexp <- cumsum(dd$d^2)/sum(dd$d^2) #proportion of variance explained
 
     compress_ret <- list()

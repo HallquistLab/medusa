@@ -1,15 +1,17 @@
 # Helpers for the cross-run interface. Covariance parameters may use their own
 # run's observations; shape selection and its evidence use OTHER runs only.
 
-# Drop-in SVD wrapper guarding against LAPACK divide-and-conquer `dgesdd`
-# secular-equation non-convergence (`error code 1`) on macOS Accelerate / OpenBLAS
-# when multi-trial convolved design matrices have near-degenerate singular values.
+# Drop-in SVD wrapper using LAPACK QR-iteration (`dgesvd` via `medusa_svd_cpp`)
+# instead of divide-and-conquer `base::svd` (`dgesdd`), which can fail to converge
+# or write out-of-bounds on unpatched OpenBLAS / Reference-LAPACK (< 3.12.1)
+# when convolved designs or Woodbury whitening spikes have clustered singular values.
 hrf_safe_svd <- function(x, nu = min(nrow(x), ncol(x)), nv = min(nrow(x), ncol(x))) {
-  res <- tryCatch(base::svd(x, nu = nu, nv = nv), error = function(e) NULL)
-  if (!is.null(res)) return(res)
-
+  x <- as.matrix(x)
+  storage.mode(x) <- "double"
   nr <- nrow(x)
   nc <- ncol(x)
+  nu <- as.integer(nu)
+  nv <- as.integer(nv)
   r_min <- min(nr, nc)
   if (r_min == 0L) {
     return(list(
@@ -18,6 +20,11 @@ hrf_safe_svd <- function(x, nu = min(nrow(x), ncol(x)), nv = min(nrow(x), ncol(x
       v = if (nv > 0L) matrix(0.0, nc, 0L) else NULL
     ))
   }
+  if (!all(is.finite(x))) {
+    stop("infinite or missing values in 'x'")
+  }
+  res <- tryCatch(medusa_svd_cpp(x, nu, nv), error = function(e) NULL)
+  if (!is.null(res)) return(res)
   if (nr >= nc) {
     eg <- eigen(crossprod(x), symmetric = TRUE)
     d_all <- sqrt(pmax(eg$values, 0.0))

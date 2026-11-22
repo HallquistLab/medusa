@@ -1650,7 +1650,7 @@ medusa_fit_shared_error_covreg <- function(
           rwls_mode <- "scale"
         } else if (!is.null(E_s_w_e)) {
           A_mat <- hrf_apply_whitening(E_s_w_e, rows_use_e, ar_op, unit_marginal = TRUE)
-          sv_a <- svd(A_mat, nv = 0)
+          sv_a <- hrf_safe_svd(A_mat, nv = 0L)
           pos_a <- sv_a$d > 1e-12
           if (any(pos_a)) {
             rwls_mode <- "woodbury"
