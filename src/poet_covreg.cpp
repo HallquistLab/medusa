@@ -123,11 +123,15 @@ inline arma::mat mat_from_raw(const double* ptr, arma::uword nr, arma::uword nc)
 
 struct CompactStratumFac {
   arma::uword m = 0;
+  Rcpp::NumericMatrix q_keep;
   const double* q_ptr = nullptr;
   arma::uword r_q = 0;
   CsrMat W_b;
   arma::mat VH_Q;
   bool has_woodbury = false;
+  Rcpp::NumericMatrix u_we_keep;
+  Rcpp::NumericMatrix mu_we_keep;
+  Rcpp::NumericMatrix p_we_keep;
   const double* u_we_ptr = nullptr;
   const double* mu_we_ptr = nullptr;
   const double* p_we_ptr = nullptr;
@@ -149,9 +153,14 @@ struct StratumFactors {
 inline CompactStratumFac parse_compact_stratum_factors(const Rcpp::List& fac_r) {
   CompactStratumFac cf;
   cf.m = static_cast<arma::uword>(std::max(0, Rcpp::as<int>(fac_r["m"])));
-  Rcpp::NumericMatrix q_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["Q"]);
-  cf.r_q = static_cast<arma::uword>(std::max(0, q_nm.ncol()));
-  cf.q_ptr = (cf.m > 0 && cf.r_q > 0) ? q_nm.begin() : nullptr;
+  cf.q_keep = Rcpp::as<Rcpp::NumericMatrix>(fac_r["Q"]);
+  cf.r_q = static_cast<arma::uword>(std::max(0, cf.q_keep.ncol()));
+  if (cf.m > 0 && cf.r_q > 0) {
+    if (static_cast<arma::uword>(cf.q_keep.nrow()) < cf.m) {
+      Rcpp::stop("CompactStratumFac Q row dimension is smaller than m");
+    }
+    cf.q_ptr = cf.q_keep.begin();
+  }
 
   cf.W_b = parse_csr_components(
     Rcpp::as<Rcpp::IntegerVector>(fac_r["W_row_ptr"]),
@@ -175,14 +184,21 @@ inline CompactStratumFac parse_compact_stratum_factors(const Rcpp::List& fac_r) 
   cf.has_woodbury = fac_r.containsElementNamed("has_woodbury") &&
                     Rcpp::as<bool>(fac_r["has_woodbury"]);
   if (cf.has_woodbury) {
-    Rcpp::NumericMatrix u_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["u_we"]);
-    Rcpp::NumericMatrix mu_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["MU_we"]);
-    Rcpp::NumericMatrix p_nm = Rcpp::as<Rcpp::NumericMatrix>(fac_r["P_we"]);
-    cf.k_w = static_cast<arma::uword>(std::max(0, u_nm.ncol()));
+    cf.u_we_keep = Rcpp::as<Rcpp::NumericMatrix>(fac_r["u_we"]);
+    cf.mu_we_keep = Rcpp::as<Rcpp::NumericMatrix>(fac_r["MU_we"]);
+    cf.p_we_keep = Rcpp::as<Rcpp::NumericMatrix>(fac_r["P_we"]);
+    cf.k_w = static_cast<arma::uword>(std::max(0, cf.u_we_keep.ncol()));
     if (cf.m > 0 && cf.k_w > 0) {
-      cf.u_we_ptr = u_nm.begin();
-      cf.mu_we_ptr = mu_nm.begin();
-      cf.p_we_ptr = p_nm.begin();
+      if (static_cast<arma::uword>(cf.u_we_keep.nrow()) < cf.m ||
+          static_cast<arma::uword>(cf.mu_we_keep.nrow()) < cf.m ||
+          static_cast<arma::uword>(cf.p_we_keep.nrow()) < cf.m ||
+          static_cast<arma::uword>(cf.mu_we_keep.ncol()) < cf.k_w ||
+          static_cast<arma::uword>(cf.p_we_keep.ncol()) < cf.k_w) {
+        Rcpp::stop("CompactStratumFac Woodbury factor dimensions are inconsistent");
+      }
+      cf.u_we_ptr = cf.u_we_keep.begin();
+      cf.mu_we_ptr = cf.mu_we_keep.begin();
+      cf.p_we_ptr = cf.p_we_keep.begin();
     }
     cf.fac_we = Rcpp::as<arma::vec>(fac_r["fac_we"]);
   }
@@ -592,14 +608,73 @@ inline std::vector<arma::umat> to_zero_based_lag_pairs(const Rcpp::List& lag_pai
   return out;
 }
 
+inline void symmetrize_inplace(arma::mat& M) {
+  const arma::uword n = M.n_rows;
+  for (arma::uword j = 0; j < n; ++j) {
+    double* cj = M.colptr(j);
+    if (!std::isfinite(cj[j])) cj[j] = 0.0;
+    for (arma::uword i = j + 1; i < n; ++i) {
+      double a = cj[i];
+      double b = M(j, i);
+      if (!std::isfinite(a)) a = 0.0;
+      if (!std::isfinite(b)) b = 0.0;
+      const double avg = 0.5 * (a + b);
+      cj[i] = avg;
+      M(j, i) = avg;
+    }
+  }
+}
+
+// Symmetric eigendecomposition using LAPACK QR-iteration ("std" -> dsyev) rather
+// than divide-and-conquer ("dc" -> dsyevd / dlaed2), and guaranteeing n x n
+// output dimensions even on pathological inputs so callers never index 0 x 0
+// matrices under ARMA_NO_DEBUG.
+inline bool poet_safe_eig_sym(arma::vec& eigval, arma::mat& eigvec, const arma::mat& X) {
+  const arma::uword n = X.n_rows;
+  if (n == 0 || X.n_cols != n) {
+    eigval.reset();
+    eigvec.reset();
+    return false;
+  }
+  arma::mat X_clean = X;
+  symmetrize_inplace(X_clean);
+  if (arma::eig_sym(eigval, eigvec, X_clean, "std") &&
+      eigval.n_elem == n && eigvec.n_rows == n && eigvec.n_cols == n) {
+    return true;
+  }
+  arma::vec d = X_clean.diag();
+  arma::uvec ord = arma::sort_index(d, "ascend");
+  eigval = d.elem(ord);
+  eigvec.zeros(n, n);
+  for (arma::uword j = 0; j < n; ++j) {
+    eigvec(ord(j), j) = 1.0;
+  }
+  return false;
+}
+
 inline arma::mat damped_sym_inv(const arma::mat& A, double ridge) {
-  arma::mat As = 0.5 * (A + A.t());
-  As.diag() += ridge;
+  if (A.n_rows == 0 || A.n_cols == 0) {
+    return arma::mat(A.n_rows, A.n_cols);
+  }
+  arma::mat As = A;
+  symmetrize_inplace(As);
+  const double r_floor = std::max(ridge, 1e-12);
+  As.diag() += r_floor;
   arma::mat invA;
   if (arma::inv_sympd(invA, As)) {
     return invA;
   }
-  return arma::solve(As, arma::eye<arma::mat>(As.n_rows, As.n_cols), arma::solve_opts::likely_sympd);
+  if (arma::solve(invA, As, arma::eye<arma::mat>(As.n_rows, As.n_cols),
+                  arma::solve_opts::likely_sympd + arma::solve_opts::no_approx)) {
+    return invA;
+  }
+  arma::vec eg_val;
+  arma::mat eg_vec;
+  poet_safe_eig_sym(eg_val, eg_vec, As);
+  arma::vec inv_ev = 1.0 / arma::clamp(eg_val, r_floor, arma::datum::inf);
+  arma::mat V_sc = eg_vec;
+  V_sc.each_row() %= inv_ev.t();
+  return V_sc * eg_vec.t();
 }
 
 inline std::vector<uint64_t> encode_sorted_pair_keys(
@@ -2030,23 +2105,6 @@ inline void csr_trans_mult_vec(const CsrMat& W, const double* x, double* y) {
   }
 }
 
-inline void symmetrize_inplace(arma::mat& M) {
-  const arma::uword n = M.n_rows;
-  for (arma::uword j = 0; j < n; ++j) {
-    double* cj = M.colptr(j);
-    if (!std::isfinite(cj[j])) cj[j] = 0.0;
-    for (arma::uword i = j + 1; i < n; ++i) {
-      double a = cj[i];
-      double b = M(j, i);
-      if (!std::isfinite(a)) a = 0.0;
-      if (!std::isfinite(b)) b = 0.0;
-      const double avg = 0.5 * (a + b);
-      cj[i] = avg;
-      M(j, i) = avg;
-    }
-  }
-}
-
 inline arma::mat project_trial_err_psd_impl(const arma::mat& C_mat, double max_cor = 0.98) {
   const arma::uword k = C_mat.n_rows;
   arma::mat C_sym = C_mat;
@@ -2074,7 +2132,7 @@ inline arma::mat project_trial_err_psd_impl(const arma::mat& C_mat, double max_c
 
   arma::vec eg_val;
   arma::mat eg_vec;
-  arma::eig_sym(eg_val, eg_vec, R_sub);
+  poet_safe_eig_sym(eg_val, eg_vec, R_sub);
   arma::vec ev_cl = arma::clamp(eg_val, 1e-4, arma::datum::inf);
   arma::mat V_sc = eg_vec;
   V_sc.each_row() %= ev_cl.t();
@@ -2141,7 +2199,7 @@ inline arma::mat extract_psd_factors_inplace(
   if (np <= k_rank) {
     arma::vec eg_val;
     arma::mat eg_vec;
-    arma::eig_sym(eg_val, eg_vec, R_work);
+    poet_safe_eig_sym(eg_val, eg_vec, R_work);
     if (eg_val.n_elem > 0 && eg_val(0) < -1e-8) {
       arma::vec ev_p = arma::clamp(eg_val, 0.0, arma::datum::inf);
       arma::mat V_sc = eg_vec;
@@ -2156,7 +2214,7 @@ inline arma::mat extract_psd_factors_inplace(
           R_p(j, i) = v;
         }
       }
-      arma::eig_sym(eg_val, eg_vec, R_p);
+      poet_safe_eig_sym(eg_val, eg_vec, R_p);
     }
     arma::uword k_use = 0;
     for (arma::uword j = 0; j < eg_val.n_elem; ++j) {
@@ -2178,7 +2236,7 @@ inline arma::mat extract_psd_factors_inplace(
   if (!arma::inv_sympd(R_inv, R_inv)) {
     arma::vec eg_val;
     arma::mat eg_vec;
-    arma::eig_sym(eg_val, eg_vec, R_work);
+    poet_safe_eig_sym(eg_val, eg_vec, R_work);
     arma::vec ev_cl = arma::clamp(eg_val, 1e-4, arma::datum::inf);
     arma::mat V_sc = eg_vec;
     V_sc.each_row() %= ev_cl.t();
@@ -2196,7 +2254,7 @@ inline arma::mat extract_psd_factors_inplace(
     arma::mat R_try = R_work;
     R_try.diag() += 1e-4;
     if (!arma::inv_sympd(R_inv, R_try)) {
-      arma::eig_sym(eg_val, eg_vec, R_work);
+      poet_safe_eig_sym(eg_val, eg_vec, R_work);
       arma::vec inv_ev = 1.0 / arma::clamp(eg_val, 1e-4, arma::datum::inf);
       V_sc = eg_vec;
       V_sc.each_row() %= inv_ev.t();
@@ -2265,7 +2323,7 @@ inline arma::mat extract_psd_factors_inplace(
     if (np <= 512) {
       arma::vec eg_val;
       arma::mat eg_vec;
-      arma::eig_sym(eg_val, eg_vec, R_work);
+      poet_safe_eig_sym(eg_val, eg_vec, R_work);
       k_use = 0;
       for (arma::uword j = 0; j < eg_val.n_elem; ++j) {
         if (eg_val(eg_val.n_elem - 1 - j) > 1e-6 && k_use < k_rank) ++k_use;
@@ -2289,7 +2347,7 @@ inline arma::mat extract_psd_factors_inplace(
       B_sm = 0.5 * (B_sm + B_sm.t());
       arma::vec eg_val;
       arma::mat eg_vec;
-      arma::eig_sym(eg_val, eg_vec, B_sm);
+      poet_safe_eig_sym(eg_val, eg_vec, B_sm);
       k_use = 0;
       for (arma::uword j = 0; j < eg_val.n_elem; ++j) {
         const double vu = eg_val(eg_val.n_elem - 1 - j) - 1.0;
@@ -2908,7 +2966,7 @@ Rcpp::List poet_stage_e_stratum_moments_cpp(
     for (arma::uword u = 0; u < n_u; ++u) {
       for (arma::uword ti = 0; ti < m_t; ++ti) {
         const arma::mat Ci = project_trial_err_psd_impl(Cg_u[u].slice(ti), 0.98);
-        arma::eig_sym(eg_val, eg_vec, Ci);
+        poet_safe_eig_sym(eg_val, eg_vec, Ci);
         arma::uword k_l = 0;
         for (arma::uword j = 0; j < eg_val.n_elem; ++j) {
           if (eg_val(eg_val.n_elem - 1 - j) > 1e-12 && k_l < D_lag) ++k_l;

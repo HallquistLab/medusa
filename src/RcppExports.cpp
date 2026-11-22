@@ -124,6 +124,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// medusa_svd_cpp
+Rcpp::List medusa_svd_cpp(const arma::mat& x, int nu, int nv);
+RcppExport SEXP _medusa_medusa_svd_cpp(SEXP xSEXP, SEXP nuSEXP, SEXP nvSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type nu(nuSEXP);
+    Rcpp::traits::input_parameter< int >::type nv(nvSEXP);
+    rcpp_result_gen = Rcpp::wrap(medusa_svd_cpp(x, nu, nv));
+    return rcpp_result_gen;
+END_RCPP
+}
 // deconvolve_nlreg
 arma::mat deconvolve_nlreg(arma::mat BOLDobs, const arma::vec& kernel, double nev_lr, double epsilon, double beta, bool normalize, bool trim_kernel);
 RcppExport SEXP _medusa_deconvolve_nlreg(SEXP BOLDobsSEXP, SEXP kernelSEXP, SEXP nev_lrSEXP, SEXP epsilonSEXP, SEXP betaSEXP, SEXP normalizeSEXP, SEXP trim_kernelSEXP) {
@@ -824,6 +837,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_medusa_hrf_inverse_operator_cpp", (DL_FUNC) &_medusa_hrf_inverse_operator_cpp, 14},
     {"_medusa_hrf_whiten_apply_cpp", (DL_FUNC) &_medusa_hrf_whiten_apply_cpp, 7},
     {"_medusa_hrf_ar_operator_factor_cpp", (DL_FUNC) &_medusa_hrf_ar_operator_factor_cpp, 6},
+    {"_medusa_medusa_svd_cpp", (DL_FUNC) &_medusa_medusa_svd_cpp, 3},
     {"_medusa_deconvolve_nlreg", (DL_FUNC) &_medusa_deconvolve_nlreg, 7},
     {"_medusa_deconvolve_reglin_cpp", (DL_FUNC) &_medusa_deconvolve_reglin_cpp, 13},
     {"_medusa_dsigmoid", (DL_FUNC) &_medusa_dsigmoid, 2},

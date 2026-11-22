@@ -1,8 +1,8 @@
 Package: medusa
 Type: Package
 Title: Multilevel Event-Related Deconvolved Signal Analysis for fMRI
-Version: 0.1.1
-Date: 2026-11-17
+Version: 0.1.2
+Date: 2026-11-22
 Authors@R: c(person("Michael", "Hallquist", role = c("aut", "cre"),
     email = "michael.hallquist@gmail.com"))
 Maintainer: Michael Hallquist <michael.hallquist@gmail.com>

@@ -420,6 +420,10 @@ Rcpp::List csr_bilateral_noise_smooth_cpp(
   const int G = static_cast<int>(profiles.n_rows);
   const int V = static_cast<int>(profiles.n_cols);
   const int nnz = col_idx.size();
+  if (usable.size() < V || ind_rhos.size() < V || raw_lsd.size() < V ||
+      row_ptr.size() < V + 1 || dist.size() < nnz) {
+    Rcpp::stop("Dimension mismatch in csr_bilateral_noise_smooth_cpp");
+  }
   const bool has_groups = (group_ids.size() == V);
   const double inv_s2 = 1.0 / std::max(sigma_sp * sigma_sp, 1e-12);
   const double inv_rho = 1.0 / std::max(rho_scale, 1e-6);
@@ -434,8 +438,8 @@ Rcpp::List csr_bilateral_noise_smooth_cpp(
 
   for (int u = 0; u < V; ++u) {
     if (!usable[u]) continue;
-    const int p_start = row_ptr[u] - 1;
-    const int p_end = row_ptr[u + 1] - 1;
+    const int p_start = std::max(0, row_ptr[u] - 1);
+    const int p_end = std::min(nnz, row_ptr[u + 1] - 1);
     const int deg = p_end - p_start;
     if (deg <= 0) continue;
 
@@ -504,6 +508,10 @@ arma::mat csr_cluster_member_weights_cpp(
     const Rcpp::IntegerVector& col_idx,
     const Rcpp::NumericVector& edge_weights) {
   const int V = usable.size();
+  const int nnz = col_idx.size();
+  if (cluster_id.size() < V || row_ptr.size() < V + 1 || edge_weights.size() < nnz) {
+    Rcpp::stop("Dimension mismatch in csr_cluster_member_weights_cpp");
+  }
   arma::mat out(V, std::max(1, n_clusters), arma::fill::zeros);
   std::vector<int> counts(static_cast<size_t>(std::max(1, n_clusters)), 0);
 
@@ -512,8 +520,8 @@ arma::mat csr_cluster_member_weights_cpp(
     const int cid = cluster_id[u] - 1;
     if (cid < 0 || cid >= n_clusters) continue;
     counts[static_cast<size_t>(cid)] += 1;
-    const int p_start = row_ptr[u] - 1;
-    const int p_end = row_ptr[u + 1] - 1;
+    const int p_start = std::max(0, row_ptr[u] - 1);
+    const int p_end = std::min(nnz, row_ptr[u + 1] - 1);
     for (int p = p_start; p < p_end; ++p) {
       const double w = edge_weights[p];
       if (w <= 0.0) continue;
@@ -552,6 +560,10 @@ Rcpp::NumericVector csr_quad_cor_cpp(
   const int V = static_cast<int>(Z_unit.n_cols);
   Rcpp::NumericVector out(V, 1.0);
   if (m < 4 || d_res <= 2.0 || V == 0) return out;
+  const int nnz = col_idx.size();
+  if (usable_col.size() < V || row_ptr.size() < V + 1 || dist.size() < nnz) {
+    Rcpp::stop("Dimension mismatch in csr_quad_cor_cpp");
+  }
 
   const bool has_groups = (group_ids.size() == V);
   const bool has_noise = (rho_vec.size() == V && lsd_vec.size() == V);
@@ -569,8 +581,8 @@ Rcpp::NumericVector csr_quad_cor_cpp(
       out[u] = 1.0;
       continue;
     }
-    const int p_start = row_ptr[u] - 1;
-    const int p_end = row_ptr[u + 1] - 1;
+    const int p_start = std::max(0, row_ptr[u] - 1);
+    const int p_end = std::min(nnz, row_ptr[u + 1] - 1);
     nbrs.clear();
     w_loc.clear();
     const int gu = has_groups ? group_ids[u] : 0;
@@ -666,6 +678,23 @@ Rcpp::List csr_hrf_graph_pool_cpp(
   const int V = static_cast<int>(scores.n_cols);
   const int fb = fallback_kernel - 1;
   const int S = train_scores_list.size();
+  const int nnz = col_idx.size();
+  if (K <= 0 || fb < 0 || fb >= K || counts.size() < V ||
+      row_ptr.size() < V + 1 || dist.size() < nnz ||
+      dist_fb.size() < K ||
+      static_cast<int>(kernel_cos.n_rows) < K ||
+      static_cast<int>(kernel_cos.n_cols) < K) {
+    Rcpp::stop("Invalid dimensions or fallback_kernel in csr_hrf_graph_pool_cpp");
+  }
+  if (has_gate && (static_cast<int>(task_p_raw.n_rows) < K ||
+                   static_cast<int>(task_p_raw.n_cols) < V ||
+                   static_cast<int>(shape_p_raw.n_rows) < K ||
+                   static_cast<int>(shape_p_raw.n_cols) < V ||
+                   compatible.nrow() < K || compatible.ncol() < V ||
+                   task_supported.nrow() < K || task_supported.ncol() < V ||
+                   supported.nrow() < K || supported.ncol() < V)) {
+    Rcpp::stop("Gate matrix dimension mismatch in csr_hrf_graph_pool_cpp");
+  }
   const bool has_groups = (group_ids.size() == V);
   const bool has_noise = (rho_train.size() == V && lsd_train.size() == V);
   const double inv_s2 = 1.0 / std::max(sigma_sp * sigma_sp, 1e-12);
@@ -696,6 +725,9 @@ Rcpp::List csr_hrf_graph_pool_cpp(
   std::vector<std::vector<uint8_t>> d_valid(static_cast<size_t>(S), std::vector<uint8_t>(static_cast<size_t>(V), 0));
   for (int s = 0; s < S; ++s) {
     arma::mat ms = Rcpp::as<arma::mat>(train_scores_list[s]);
+    if (static_cast<int>(ms.n_rows) < K || static_cast<int>(ms.n_cols) < V) {
+      Rcpp::stop("train_scores_list element dimension mismatch in csr_hrf_graph_pool_cpp");
+    }
     arma::mat ds(K, V, arma::fill::zeros);
     if (K >= 2) {
       for (int v = 0; v < V; ++v) {
@@ -798,8 +830,8 @@ Rcpp::List csr_hrf_graph_pool_cpp(
   for (int u = 0; u < V; ++u) {
     if (!elig_mask[static_cast<size_t>(u)]) continue;
     if (K >= 2 && S >= 2) {
-      const int p_s = row_ptr[u] - 1;
-      const int p_e = row_ptr[u + 1] - 1;
+      const int p_s = std::max(0, row_ptr[u] - 1);
+      const int p_e = std::min(nnz, row_ptr[u + 1] - 1);
       const double ru = has_noise ? rho_train[u] : 0.0;
       const double lu = has_noise ? lsd_train[u] : 0.0;
       const bool ok_nu = has_noise && std::isfinite(ru) && std::isfinite(lu);
@@ -865,8 +897,8 @@ Rcpp::List csr_hrf_graph_pool_cpp(
     nbrs.clear();
     w_base.clear();
     w_bilat.clear();
-    const int p_start = row_ptr[u] - 1;
-    const int p_end = row_ptr[u + 1] - 1;
+    const int p_start = std::max(0, row_ptr[u] - 1);
+    const int p_end = std::min(nnz, row_ptr[u + 1] - 1);
     const int gu = has_groups ? group_ids[u] : 0;
     const double ru = has_noise ? rho_train[u] : 0.0;
     const double lu = has_noise ? lsd_train[u] : 0.0;

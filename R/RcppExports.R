@@ -25,6 +25,10 @@ hrf_ar_operator_factor_cpp <- function(bt, rows, rho = 0.0, ar_phi = NULL, ar_ac
     .Call(`_medusa_hrf_ar_operator_factor_cpp`, bt, rows, rho, ar_phi, ar_acf, sig_u2)
 }
 
+medusa_svd_cpp <- function(x, nu, nv) {
+    .Call(`_medusa_medusa_svd_cpp`, x, nu, nv)
+}
+
 #' C++ port of Bush and Cisler 2013, Magnetic Resonance Imaging
 #' Adapted from the original provided by Keith Bush
 #' as well as C++ code from Jiang Bian
