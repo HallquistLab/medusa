@@ -1,5 +1,55 @@
 # Changelog
 
+## medusa 0.1.2
+
+### Native heap-safety & LAPACK divide-and-conquer (`dgesdd` / `dsyevd`) hardening
+
+- Eliminated native C heap corruption and `SIGABRT`/`SIGSEGV` crashes on
+  Linux HPC systems running unpatched OpenBLAS / Reference-LAPACK
+  (`< 3.12.1`, LAPACK Issues `#672` / `#1138`), where divide-and-conquer
+  SVD (`dgesdd` / `DLASD2` $`\to`$`DLASD3`) and symmetric
+  eigendecomposition (`dsyevd` / `DLAED2`) can write out-of-bounds on
+  the C heap when multi-trial Toeplitz designs or AR(1)-whitened sparse
+  Woodbury outlier-spike matrices have tightly clustered
+  singular/eigenvalues:
+  - Added C++ helper `medusa_svd_cpp()` (`src/crossrun_hrf.cpp`) using
+    LAPACK QR-iteration (`dgesvd`, `"std"`) with a
+    polar-reorthogonalized symmetric QR (`dsyev`) fallback, and routed
+    `hrf_safe_svd()` (`R/hrf_noise_evidence.R`) directly through
+    `medusa_svd_cpp()` so
+    [`base::svd()`](https://rdrr.io/r/base/svd.html) /
+    [`La.svd()`](https://rdrr.io/r/base/svd.html) (`dgesdd`) is never
+    invoked.
+  - Updated `hrf_safe_svd_econ()` and `hrf_safe_svd_full()`
+    (`src/crossrun_hrf.cpp`) to use `"std"` (`dgesvd` / `dsyev`)
+    exclusively and routed all remaining Step-3 Woodbury whitening,
+    fallback task-projection, response-matching, and time-series
+    compression SVDs (`R/diagnose_crossrun_recovery.R`,
+    `R/poet_covreg.R`, `R/event_lock_timeseries.R`) through
+    `hrf_safe_svd()`.
+  - Added `poet_safe_eig_sym()` (`src/poet_covreg.cpp`) using `"std"`
+    (`dsyev`) with input symmetrization/finiteness sanitization and a
+    guaranteed $`n \times n`$ diagonal fallback across all 8 symmetric
+    eigendecompositions in the POET shared-error engine, preventing
+    unchecked `0 x 0` matrix indexing under `ARMA_NO_DEBUG` if a LAPACK
+    decomposition ever fails.
+  - Added `arma::solve_opts::no_approx` (with explicit `"std"` spectral
+    pseudoinverse fallbacks) in `damped_sym_inv()`
+    (`src/poet_covreg.cpp`), `solve_sympd_fallback()`
+    (`src/deconvolve_reglin.cpp`), and Markov boundary triangular solves
+    (`src/crossrun_hrf.cpp`) so near-singular linear systems do not
+    implicitly trigger Armadillo’s `svd_dc_econ` (`dgesdd`) fallback.
+- Hardened C++ SEXP lifetime and CSR bounds safety:
+  - Retained `Rcpp::NumericMatrix` storage handles inside
+    `CompactStratumFac` (`src/poet_covreg.cpp`) with upfront row/column
+    dimension checks so raw factor pointers remain GC-protected across
+    any coerced R inputs.
+  - Added upfront CSR pointer, neighborhood distance, kernel similarity,
+    and evidence-gate dimension checks in
+    `csr_bilateral_noise_smooth_cpp()`,
+    `csr_cluster_member_weights_cpp()`, `csr_quad_cor_cpp()`, and
+    `csr_hrf_graph_pool_cpp()` (`src/spatial_graph.cpp`).
+
 ## medusa 0.1.0
 
 ### Subspace-debiased Adaptive-POET + covariance-regression shared-error engine & connectivity inference

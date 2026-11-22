@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">medusa</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,22 @@
       <small>Source: <a href="https://github.com/HallquistLab/medusa/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.2" id="medusa-012">medusa 0.1.2<a class="anchor" aria-label="anchor" href="#medusa-012"></a></h2>
+<div class="section level3">
+<h3 id="native-heap-safety--lapack-divide-and-conquer-dgesdd--dsyevd-hardening-0-1-2">Native heap-safety &amp; LAPACK divide-and-conquer (<code>dgesdd</code> / <code>dsyevd</code>) hardening<a class="anchor" aria-label="anchor" href="#native-heap-safety--lapack-divide-and-conquer-dgesdd--dsyevd-hardening-0-1-2"></a></h3>
+<ul><li>Eliminated native C heap corruption and <code>SIGABRT</code>/<code>SIGSEGV</code> crashes on Linux HPC systems running unpatched OpenBLAS / Reference-LAPACK (<code>&lt; 3.12.1</code>, LAPACK Issues <code>#672</code> / <code>#1138</code>), where divide-and-conquer SVD (<code>dgesdd</code> / <code>DLASD2</code> <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>→</mo><annotation encoding="application/x-tex">\to</annotation></semantics></math><code>DLASD3</code>) and symmetric eigendecomposition (<code>dsyevd</code> / <code>DLAED2</code>) can write out-of-bounds on the C heap when multi-trial Toeplitz designs or AR(1)-whitened sparse Woodbury outlier-spike matrices have tightly clustered singular/eigenvalues:
+<ul><li>Added C++ helper <code>medusa_svd_cpp()</code> (<code>src/crossrun_hrf.cpp</code>) using LAPACK QR-iteration (<code>dgesvd</code>, <code>"std"</code>) with a polar-reorthogonalized symmetric QR (<code>dsyev</code>) fallback, and routed <code>hrf_safe_svd()</code> (<code>R/hrf_noise_evidence.R</code>) directly through <code>medusa_svd_cpp()</code> so <code><a href="https://rdrr.io/r/base/svd.html" class="external-link">base::svd()</a></code> / <code><a href="https://rdrr.io/r/base/svd.html" class="external-link">La.svd()</a></code> (<code>dgesdd</code>) is never invoked.</li>
+<li>Updated <code>hrf_safe_svd_econ()</code> and <code>hrf_safe_svd_full()</code> (<code>src/crossrun_hrf.cpp</code>) to use <code>"std"</code> (<code>dgesvd</code> / <code>dsyev</code>) exclusively and routed all remaining Step-3 Woodbury whitening, fallback task-projection, response-matching, and time-series compression SVDs (<code>R/diagnose_crossrun_recovery.R</code>, <code>R/poet_covreg.R</code>, <code>R/event_lock_timeseries.R</code>) through <code>hrf_safe_svd()</code>.</li>
+<li>Added <code>poet_safe_eig_sym()</code> (<code>src/poet_covreg.cpp</code>) using <code>"std"</code> (<code>dsyev</code>) with input symmetrization/finiteness sanitization and a guaranteed <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">n \times n</annotation></semantics></math> diagonal fallback across all 8 symmetric eigendecompositions in the POET shared-error engine, preventing unchecked <code>0 x 0</code> matrix indexing under <code>ARMA_NO_DEBUG</code> if a LAPACK decomposition ever fails.</li>
+<li>Added <code>arma::solve_opts::no_approx</code> (with explicit <code>"std"</code> spectral pseudoinverse fallbacks) in <code>damped_sym_inv()</code> (<code>src/poet_covreg.cpp</code>), <code>solve_sympd_fallback()</code> (<code>src/deconvolve_reglin.cpp</code>), and Markov boundary triangular solves (<code>src/crossrun_hrf.cpp</code>) so near-singular linear systems do not implicitly trigger Armadillo’s <code>svd_dc_econ</code> (<code>dgesdd</code>) fallback.</li>
+</ul></li>
+<li>Hardened C++ SEXP lifetime and CSR bounds safety:
+<ul><li>Retained <code>Rcpp::NumericMatrix</code> storage handles inside <code>CompactStratumFac</code> (<code>src/poet_covreg.cpp</code>) with upfront row/column dimension checks so raw factor pointers remain GC-protected across any coerced R inputs.</li>
+<li>Added upfront CSR pointer, neighborhood distance, kernel similarity, and evidence-gate dimension checks in <code>csr_bilateral_noise_smooth_cpp()</code>, <code>csr_cluster_member_weights_cpp()</code>, <code>csr_quad_cor_cpp()</code>, and <code>csr_hrf_graph_pool_cpp()</code> (<code>src/spatial_graph.cpp</code>).</li>
+</ul></li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="medusa-010">medusa 0.1.0<a class="anchor" aria-label="anchor" href="#medusa-010"></a></h2>
 <div class="section level3">
